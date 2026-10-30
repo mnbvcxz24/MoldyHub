@@ -971,7 +971,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
             end
             if StatusDot then
-                StatusDot.TextColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+                StatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
             end
         end)
         AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
@@ -983,16 +983,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Size = UDim2.new(1, -30, 0, 27),
             BackgroundTransparency = 1
         })
-        StatusDot = Create("TextLabel", {
+        StatusDot = Create("Frame", {
             Parent = StatusRow,
-            Size = UDim2.fromOffset(14, 24),
-            BackgroundTransparency = 1,
-            Text = "●",
-            TextColor3 = Color3.fromRGB(75, 190, 145),
-            Font = Enum.Font.GothamBold,
-            TextSize = 13,
-            TextXAlignment = Enum.TextXAlignment.Left
+            Position = UDim2.fromOffset(2, 9),
+            Size = UDim2.fromOffset(7, 7),
+            BackgroundColor3 = Color3.fromRGB(75, 190, 145),
+            BorderSizePixel = 0
         })
+        AddCorner(StatusDot, 8)
         local StatusLabel = Create("TextLabel", {
             Parent = StatusRow,
             Position = UDim2.fromOffset(18, 0),
@@ -1026,15 +1024,16 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local function MakeSectionLabel(icon, label, yPosition)
             local Icon = Create("TextLabel", {
                 Parent = AutoCard,
-                Position = UDim2.fromOffset(15, yPosition),
-                Size = UDim2.fromOffset(20, 22),
-                BackgroundTransparency = 1,
+                Position = UDim2.fromOffset(15, yPosition + 1),
+                Size = UDim2.fromOffset(18, 18),
+                BackgroundColor3 = Theme.LightGray,
                 Text = icon,
                 TextColor3 = Theme.Accent,
                 Font = Enum.Font.GothamBold,
-                TextSize = 14,
-                TextXAlignment = Enum.TextXAlignment.Left
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Center
             })
+            AddCorner(Icon, 5)
             local Label = Create("TextLabel", {
                 Parent = AutoCard,
                 Position = UDim2.fromOffset(38, yPosition),
@@ -1046,7 +1045,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 TextSize = 10,
                 TextXAlignment = Enum.TextXAlignment.Left
             })
-            return Label
+            return Label, Icon
         end
 
         local function GetPathFolders()
@@ -1073,7 +1072,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end
             if #paths == 0 then
-                paths = GetPathFolders()
+                return results
             end
             for _, pathObject in ipairs(paths) do
                 local cagesFolder = pathObject:FindFirstChild("Cages")
@@ -1095,16 +1094,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         local function CreateDynamicFilter(label, icon, yPosition, getOptions, selected, onChanged)
-            MakeSectionLabel(icon, label, yPosition)
+            local SectionLabel, SectionIcon = MakeSectionLabel(icon, label, yPosition)
             local Button = Create("TextButton", {
                 Parent = AutoCard,
-                Position = UDim2.fromOffset(15, yPosition + 25),
-                Size = UDim2.new(1, -30, 0, 30),
+                Position = UDim2.fromOffset(15, yPosition + 21),
+                Size = UDim2.new(1, -30, 0, 27),
                 BackgroundColor3 = Theme.SurfaceInput,
                 Text = "",
-                TextColor3 = Theme.Text,
-                Font = Enum.Font.Gotham,
-                TextSize = 10,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
                 ZIndex = 20
@@ -1113,35 +1109,35 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AddStroke(Button, Theme.Border, 1)
             local ButtonText = Create("TextLabel", {
                 Parent = Button,
-                Position = UDim2.fromOffset(12, 0),
-                Size = UDim2.new(1, -38, 1, 0),
+                Position = UDim2.fromOffset(10, 0),
+                Size = UDim2.new(1, -35, 1, 0),
                 BackgroundTransparency = 1,
                 Text = "Select " .. label:lower() .. "...",
                 TextColor3 = Theme.Gray,
                 Font = Enum.Font.Gotham,
-                TextSize = 10,
+                TextSize = 9,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 ZIndex = 21
             })
-            Create("TextLabel", {
+            local Chevron = Create("TextLabel", {
                 Parent = Button,
-                Position = UDim2.new(1, -28, 0, 0),
-                Size = UDim2.fromOffset(20, 30),
+                Position = UDim2.new(1, -25, 0, 0),
+                Size = UDim2.fromOffset(18, 27),
                 BackgroundTransparency = 1,
-                Text = "⌄",
+                Text = "v",
                 TextColor3 = Theme.Accent,
                 Font = Enum.Font.GothamBold,
-                TextSize = 15,
+                TextSize = 10,
                 ZIndex = 21
             })
             local List = Create("ScrollingFrame", {
                 Parent = Button,
                 Position = UDim2.new(0, 0, 1, 4),
-                Size = UDim2.new(1, 0, 0, 104),
-                BackgroundColor3 = Theme.SurfaceInput,
+                Size = UDim2.new(1, 0, 0, 112),
+                BackgroundColor3 = Theme.Card,
                 BorderSizePixel = 0,
                 ScrollBarThickness = 3,
-                ScrollBarImageColor3 = Theme.Gray,
+                ScrollBarImageColor3 = Theme.Accent,
                 CanvasSize = UDim2.new(0, 0, 0, 0),
                 AutomaticCanvasSize = Enum.AutomaticSize.Y,
                 Visible = false,
@@ -1149,15 +1145,22 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             })
             AddCorner(List, 7)
             AddStroke(List, Theme.Border, 1)
+            Create("UIPadding", {
+                Parent = List,
+                PaddingTop = UDim.new(0, 4),
+                PaddingBottom = UDim.new(0, 4),
+                PaddingLeft = UDim.new(0, 4),
+                PaddingRight = UDim.new(0, 4)
+            })
             Create("UIListLayout", {
                 Parent = List,
-                Padding = UDim.new(0, 2),
+                Padding = UDim.new(0, 3),
                 SortOrder = Enum.SortOrder.LayoutOrder
             })
             local function Refresh()
                 local count = 0
                 for _ in pairs(selected) do count += 1 end
-                ButtonText.Text = count > 0 and (label .. " (" .. count .. " selected)") or ("Select " .. label:lower() .. "...")
+                ButtonText.Text = count > 0 and (label .. " - " .. count .. " selected") or ("Select " .. label:lower() .. "...")
                 ButtonText.TextColor3 = count > 0 and Theme.Text or Theme.Gray
             end
             local function Rebuild()
@@ -1168,7 +1171,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 if #options == 0 then
                     Create("TextLabel", {
                         Parent = List,
-                        Size = UDim2.new(1, -8, 0, 26),
+                        Size = UDim2.new(1, -8, 0, 30),
                         BackgroundTransparency = 1,
                         Text = "No " .. label:lower() .. " found",
                         TextColor3 = Theme.Gray,
@@ -1177,19 +1180,50 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         ZIndex = 101
                     })
                 end
-                for _, option in ipairs(options) do
+                for index, option in ipairs(options) do
                     local optionObject = option
+                    local isSelected = selected[optionObject] == true
                     local OptionButton = Create("TextButton", {
+                        Name = "Option_" .. index,
                         Parent = List,
-                        Size = UDim2.new(1, -4, 0, 25),
-                        BackgroundColor3 = selected[optionObject] and Theme.Selected or Theme.SurfaceInput,
-                        Text = (selected[optionObject] and "✓  " or "") .. optionObject.Name,
-                        TextColor3 = Theme.Text,
+                        Size = UDim2.new(1, -2, 0, 27),
+                        BackgroundColor3 = isSelected and Theme.Selected or Theme.SurfaceInput,
+                        Text = "",
+                        BorderSizePixel = 0,
+                        AutoButtonColor = false,
+                        ZIndex = 101
+                    })
+                    AddCorner(OptionButton, 5)
+                    local Check = Create("Frame", {
+                        Parent = OptionButton,
+                        Position = UDim2.fromOffset(8, 7),
+                        Size = UDim2.fromOffset(13, 13),
+                        BackgroundColor3 = isSelected and Theme.Accent or Theme.LightGray,
+                        BorderSizePixel = 0,
+                        ZIndex = 102
+                    })
+                    AddCorner(Check, 4)
+                    if isSelected then
+                        Create("Frame", {
+                            Parent = Check,
+                            Position = UDim2.fromOffset(4, 4),
+                            Size = UDim2.fromOffset(5, 5),
+                            BackgroundColor3 = Theme.AccentText,
+                            BorderSizePixel = 0,
+                            ZIndex = 103
+                        })
+                    end
+                    Create("TextLabel", {
+                        Parent = OptionButton,
+                        Position = UDim2.fromOffset(29, 0),
+                        Size = UDim2.new(1, -36, 1, 0),
+                        BackgroundTransparency = 1,
+                        Text = optionObject.Name,
+                        TextColor3 = isSelected and Theme.Text or Theme.DarkGray,
                         Font = Enum.Font.Gotham,
                         TextSize = 9,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        BorderSizePixel = 0,
-                        ZIndex = 101
+                        ZIndex = 102
                     })
                     OptionButton.MouseButton1Click:Connect(function()
                         selected[optionObject] = not selected[optionObject] and true or nil
@@ -1203,21 +1237,35 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 local opening = not List.Visible
                 if opening then Rebuild() end
                 List.Visible = opening
+                Chevron.Text = opening and "^" or "v"
             end)
             Refresh()
-            return Button
+            return Button, List, SectionLabel, SectionIcon
         end
 
-        CreateDynamicFilter("Path Filter", "▣", 86, GetPathFolders, SelectedPaths, function()
+        local CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon
+        CreateDynamicFilter("Path Filter", "P", 82, GetPathFolders, SelectedPaths, function()
             table.clear(SelectedCages)
+            if CageFilterButton then
+                local hasPath = next(SelectedPaths) ~= nil
+                CageFilterButton.Visible = hasPath
+                CageFilterList.Visible = false
+                CageSectionLabel.Visible = hasPath
+                CageSectionIcon.Visible = hasPath
+            end
         end)
-        CreateDynamicFilter("Cage Filter", "⬡", 151, GetCageModels, SelectedCages)
+        CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon =
+            CreateDynamicFilter("Cage Filter", "C", 142, GetCageModels, SelectedCages)
+        local HasSelectedPath = next(SelectedPaths) ~= nil
+        CageFilterButton.Visible = HasSelectedPath
+        CageSectionLabel.Visible = HasSelectedPath
+        CageSectionIcon.Visible = HasSelectedPath
 
-        MakeSectionLabel("➤", "Movement", 216)
+        MakeSectionLabel("M", "Movement", 202)
         local MovementHolder = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 241),
-            Size = UDim2.new(1, -30, 0, 30),
+            Position = UDim2.fromOffset(15, 223),
+            Size = UDim2.new(1, -30, 0, 27),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0
         })
@@ -1254,11 +1302,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
         Runtime.MovementMode = MovementMode
 
-        MakeSectionLabel("◉", "Glide Speed", 286)
+        MakeSectionLabel("S", "Glide Speed", 260)
         local SpeedHolder = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 311),
-            Size = UDim2.new(1, -30, 0, 65),
+            Position = UDim2.fromOffset(15, 281),
+            Size = UDim2.new(1, -30, 0, 54),
             BackgroundTransparency = 1
         })
         local SpeedValue = Create("TextLabel", {
@@ -1266,7 +1314,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Position = UDim2.new(1, -78, 0, 0),
             Size = UDim2.fromOffset(78, 18),
             BackgroundTransparency = 1,
-            Text = "50 / 100",
+            Text = "50",
             TextColor3 = Theme.Text,
             Font = Enum.Font.GothamMedium,
             TextSize = 10,
@@ -1298,17 +1346,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         AddCorner(SpeedThumb, 10)
         AddStroke(SpeedThumb, Theme.Card, 1)
-        local MaxThumb = Create("Frame", {
-            Parent = SpeedBar,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(13, 13),
-            BackgroundColor3 = Theme.Text,
-            BorderSizePixel = 0,
-            ZIndex = 4
-        })
-        AddCorner(MaxThumb, 10)
-        AddStroke(MaxThumb, Theme.Accent, 1)
         local SpeedMinLabel = Create("TextLabel", {
             Parent = SpeedHolder,
             Position = UDim2.fromOffset(0, 39),
@@ -1333,14 +1370,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local GlideSpeed = 50
         local GlideMaxSpeed = 100
-        local DragTarget
+        local DraggingSpeed = false
         local function RefreshSpeed()
-            local currentPosition = (GlideSpeed - 10) / 90
-            local maxPosition = (GlideMaxSpeed - 10) / 90
+            local currentPosition = (GlideSpeed - 10) / (GlideMaxSpeed - 10)
             SpeedThumb.Position = UDim2.new(currentPosition, 0, 0.5, 0)
-            MaxThumb.Position = UDim2.new(maxPosition, 0, 0.5, 0)
             SpeedFill.Size = UDim2.new(currentPosition, 0, 1, 0)
-            SpeedValue.Text = tostring(GlideSpeed) .. " / " .. tostring(GlideMaxSpeed)
+            SpeedValue.Text = tostring(GlideSpeed)
             SpeedMaxLabel.Text = tostring(GlideMaxSpeed)
             Runtime.GlideSpeed = GlideSpeed
             Runtime.GlideMaxSpeed = GlideMaxSpeed
@@ -1351,43 +1386,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 0,
                 1
             )
-            local value = math.floor(10 + position * 90 + 0.5)
-            if DragTarget == "Max" then
-                GlideMaxSpeed = math.max(10, value)
-                GlideSpeed = math.min(GlideSpeed, GlideMaxSpeed)
-            else
-                GlideSpeed = math.clamp(value, 10, GlideMaxSpeed)
-            end
+            GlideSpeed = math.floor(10 + position * (GlideMaxSpeed - 10) + 0.5)
             RefreshSpeed()
         end
-        local function BeginSpeedDrag(input, forcedTarget)
+        local function BeginSpeedDrag(input)
             if input.UserInputType ~= Enum.UserInputType.MouseButton1
             and input.UserInputType ~= Enum.UserInputType.Touch then return end
-            if forcedTarget then
-                DragTarget = forcedTarget
-            else
-                local pointer = math.clamp(
-                    (input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X,
-                    0,
-                    1
-                )
-                local speedPosition = (GlideSpeed - 10) / 90
-                local maxPosition = (GlideMaxSpeed - 10) / 90
-                DragTarget = math.abs(pointer - maxPosition) < math.abs(pointer - speedPosition) and "Max" or "Speed"
-            end
+            DraggingSpeed = true
             UpdateSpeed(input)
         end
-        SpeedBar.InputBegan:Connect(function(input)
-            BeginSpeedDrag(input)
-        end)
-        SpeedThumb.InputBegan:Connect(function(input)
-            BeginSpeedDrag(input, "Speed")
-        end)
-        MaxThumb.InputBegan:Connect(function(input)
-            BeginSpeedDrag(input, "Max")
-        end)
+        SpeedBar.InputBegan:Connect(BeginSpeedDrag)
+        SpeedThumb.InputBegan:Connect(BeginSpeedDrag)
         UserInputService.InputChanged:Connect(function(input)
-            if DragTarget and (
+            if DraggingSpeed and (
                 input.UserInputType == Enum.UserInputType.MouseMovement
                 or input.UserInputType == Enum.UserInputType.Touch
             ) then
@@ -1397,7 +1408,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
-                DragTarget = nil
+                DraggingSpeed = false
             end
         end)
         RefreshSpeed()
