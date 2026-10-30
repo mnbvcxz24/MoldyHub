@@ -1716,6 +1716,11 @@ end))
             end
 
             local function MoveToCage(root, humanoid, destination, token)
+                if MovementMode == "Walk" then
+                    SetNavigationStatus("Walking to cage")
+                    return MoveToPosition(root, humanoid, destination, token, true)
+                end
+
                 local bossCFrame = GetBossCFrame()
                 if not bossCFrame then
                     SetNavigationStatus("Path1 Boss unavailable")
@@ -1724,11 +1729,6 @@ end))
 
                 if not MoveToPosition(root, humanoid, bossCFrame.Position, token, true) then
                     return false
-                end
-
-                if MovementMode == "Walk" then
-                    SetNavigationStatus("Walking to cage")
-                    return MoveToPosition(root, humanoid, destination, token, true)
                 end
 
                 SetFloating(root, true)
@@ -1751,7 +1751,6 @@ end))
                 return MoveToPosition(root, humanoid, routeWaypoint, token)
                     and MoveToPosition(root, humanoid, destination, token)
             end
-
             while token == navigationToken and not Runtime.Stopped do
                 local selectedCages = GetSelectedCages()
                 if #selectedCages == 0 then
