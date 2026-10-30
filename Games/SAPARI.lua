@@ -1875,43 +1875,7 @@ end))
                     end
 
                     SetFloating(root, false)
-                    SetNavigationStatus("Walking around safe zone")
-
-                    local circleRadius = 10
-                    local circlePoints = 8
-                    local safeZoneReached = true
-
-                    for pointIndex = 1, circlePoints do
-                        if token ~= navigationToken or Runtime.Stopped then
-                            return
-                        end
-
-                        local angle = (pointIndex / circlePoints) * math.pi * 2
-                        local circlePosition = safeSign.Position + Vector3.new(
-                            math.cos(angle) * circleRadius,
-                            0,
-                            math.sin(angle) * circleRadius
-                        )
-
-                        if not MoveToPosition(root, humanoid, circlePosition, token, true) then
-                            safeZoneReached = false
-                            break
-                        end
-                    end
-
-                    if not safeZoneReached then
-                        RestoreFloating()
-                        if token == navigationToken then
-                            SetAutoStealEnabled(false)
-                            SetNavigationStatus("Safe zone walk failed")
-                        end
-                        return
-                    end
-
-                    if token ~= navigationToken or Runtime.Stopped then
-                        RestoreFloating()
-                        return
-                    end
+                    SetNavigationStatus("Safe zone reached")
 
                     SetNavigationStatus("Cooldown 5s")
                     local nextTargetAt = os.clock() + 5
