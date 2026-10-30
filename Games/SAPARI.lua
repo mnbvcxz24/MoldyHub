@@ -1613,12 +1613,14 @@ end))
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             local root = character and character:FindFirstChild("HumanoidRootPart")
             local cageRoot = selectedCage:FindFirstChild("Root")
+            local stealPrompt = cageRoot and cageRoot:FindFirstChild("StealPrompt")
             local hub = workspace:FindFirstChild("Hub")
             local safeSign = hub and hub:FindFirstChild("SafeZoneSign")
 
             if not humanoid or not root or not cageRoot
-            or not cageRoot:IsA("BasePart") or not safeSign
-            or not safeSign:IsA("BasePart") then
+            or not cageRoot:IsA("BasePart")
+            or not stealPrompt or not stealPrompt:IsA("ProximityPrompt")
+            or not safeSign or not safeSign:IsA("BasePart") then
                 SetNavigationStatus("Target unavailable")
                 SetAutoStealEnabled(false)
                 return
@@ -1627,6 +1629,40 @@ end))
             SetNavigationStatus("Moving to cage")
             local reachedCage = MoveToPosition(root, humanoid, cageRoot.Position, token)
             if not reachedCage then
+                if token == navigationToken then
+                    SetAutoStealEnabled(false)
+                    SetNavigationStatus("Navigation stopped")
+                end
+                return
+            end
+
+            if token ~= navigationToken or Runtime.Stopped then return end
+
+            SetNavigationStatus("Holding steal prompt")
+            local holdStarted = false
+            local holdCompleted = false
+            local holdOk = pcall(function()
+                stealPrompt:InputHoldBegin()
+                holdStarted = true
+
+                local holdUntil = os.clock() + 1
+                while os.clock() < holdUntil do
+                    if token ~= navigationToken or Runtime.Stopped then
+                        break
+                    end
+                    task.wait(0.05)
+                end
+
+                holdCompleted = token == navigationToken and not Runtime.Stopped
+            end)
+
+            if holdStarted then
+                pcall(function()
+                    stealPrompt:InputHoldEnd()
+                end)
+            end
+
+            if not holdOk or not holdCompleted then
                 if token == navigationToken then
                     SetAutoStealEnabled(false)
                     SetNavigationStatus("Navigation stopped")
