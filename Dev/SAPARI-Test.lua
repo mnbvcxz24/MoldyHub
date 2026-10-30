@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.20"
+local testver = "v1.21"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1534,7 +1534,7 @@ end))
         end
 
         local function ShouldWalk(root)
-            return MovementMode == "Walk" or IsRidingPet(root)
+            return MovementMode == "Walk"
         end
 
         local function SetNavigationStatus(message)
@@ -1583,7 +1583,7 @@ end))
                 return false
             end
 
-            if forceWalk or ShouldWalk(root) then
+            if forceWalk or MovementMode == "Walk" then
                 local navigationRoot = GetNavigationRoot(root)
                 local ridingOffset = navigationRoot ~= root
                     and (root.Position - navigationRoot.Position)
@@ -1622,53 +1622,40 @@ end))
                     and (navigationRoot.Position - destination).Magnitude <= 7
             end
 
-            local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
-            local glidePosition = destination + Vector3.new(0, glideHeight, 0)
             local speed = math.max(10, Runtime.GlideSpeed or 50)
+            local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
+            local glideDestination = destination + Vector3.new(0, glideHeight, 0)
 
             while token == navigationToken and not Runtime.Stopped do
-                if not root.Parent or not humanoid.Parent then
-                    SetFloating(root, false)
+                local navigationRoot = GetNavigationRoot(root)
+                if not root.Parent or not humanoid.Parent
+                or not navigationRoot or not navigationRoot.Parent then
+                    RestoreFloating()
                     return false
                 end
 
-                SetFloating(root, false)
-                humanoid:MoveTo(destination)
-
-                local walkUntil = os.clock() + 1
-                while os.clock() < walkUntil do
-                    if token ~= navigationToken or Runtime.Stopped then
-                        SetFloating(root, false)
-                        humanoid:MoveTo(root.Position)
-                        return false
-                    end
-
-                    if (root.Position - destination).Magnitude <= 3 then
-                        humanoid:MoveTo(root.Position)
-                        SetFloating(root, false)
-                        return true
-                    end
-
-                    RunService.Heartbeat:Wait()
+                if (navigationRoot.Position - destination).Magnitude <= 7 then
+                    humanoid:MoveTo(root.Position)
+                    SetFloating(navigationRoot, false)
+                    return true
                 end
 
-                humanoid:MoveTo(root.Position)
-
-                local offset = glidePosition - root.Position
+                local offset = glideDestination - navigationRoot.Position
                 local distance = offset.Magnitude
                 if distance <= 3 then
-                    SetFloating(root, false)
+                    humanoid:MoveTo(root.Position)
+                    SetFloating(navigationRoot, false)
                     return true
                 end
 
                 local segmentDistance = math.min(50, distance)
-                local segmentPosition = root.Position + offset.Unit * segmentDistance
+                local segmentPosition = navigationRoot.Position + offset.Unit * segmentDistance
                 local duration = math.max(0.03, segmentDistance / speed)
-                local target = CFrame.new(segmentPosition) * root.CFrame.Rotation
+                local target = CFrame.new(segmentPosition) * navigationRoot.CFrame.Rotation
 
-                SetFloating(root, true)
+                SetFloating(navigationRoot, true)
                 local tween = TweenService:Create(
-                    root,
+                    navigationRoot,
                     TweenInfo.new(duration, Enum.EasingStyle.Linear),
                     {CFrame = target}
                 )
@@ -1681,17 +1668,49 @@ end))
                     activeNavigationTween = nil
                 end
 
+                SetFloating(navigationRoot, false)
+
                 if state ~= Enum.PlaybackState.Completed
                 or token ~= navigationToken or Runtime.Stopped then
-                    SetFloating(root, false)
+                    humanoid:MoveTo(root.Position)
                     return false
                 end
+
+                if (navigationRoot.Position - destination).Magnitude <= 7 then
+                    humanoid:MoveTo(root.Position)
+                    return true
+                end
+
+                local ridingOffset = root.Position - navigationRoot.Position
+                humanoid:MoveTo(destination + ridingOffset)
+
+                local walkUntil = os.clock() + 2
+                while os.clock() < walkUntil do
+                    if token ~= navigationToken or Runtime.Stopped then
+                        humanoid:MoveTo(root.Position)
+                        return false
+                    end
+
+                    if not root.Parent or not humanoid.Parent
+                    or not navigationRoot.Parent then
+                        humanoid:MoveTo(root.Position)
+                        return false
+                    end
+
+                    if (navigationRoot.Position - destination).Magnitude <= 7 then
+                        humanoid:MoveTo(root.Position)
+                        return true
+                    end
+
+                    RunService.Heartbeat:Wait()
+                end
+
+                humanoid:MoveTo(root.Position)
             end
 
-            SetFloating(root, false)
+            SetFloating(GetNavigationRoot(root), false)
             return token == navigationToken and not Runtime.Stopped
         end
-
         Runtime.StopNavigation = function()
             navigationToken += 1
             CancelActiveMovement()
@@ -1804,28 +1823,8 @@ end))
                     return false, "Failed to reach Path1 Boss"
                 end
 
-                SetFloating(root, true)
                 SetNavigationStatus("Gliding to cage")
-
-                local toCage = Vector3.new(
-                    destination.X - bossCFrame.Position.X,
-                    0,
-                    destination.Z - bossCFrame.Position.Z
-                )
-
-                if toCage.Magnitude < 0.001 then
-                    if MoveToPosition(root, humanoid, destination, token) then
-                        return true
-                    end
-                    return false, "Failed to glide to cage"
-                end
-
-                local forward = toCage.Unit
-                local waypointDistance = math.min(50, toCage.Magnitude * 0.5)
-                local routeWaypoint = bossCFrame.Position + forward * waypointDistance
-
-                if not MoveToPosition(root, humanoid, routeWaypoint, token)
-                or not MoveToPosition(root, humanoid, destination, token) then
+                if not MoveToPosition(root, humanoid, destination, token) then
                     return false, "Failed to glide to cage"
                 end
 
@@ -1931,63 +1930,20 @@ end))
                         return
                     end
 
-                    local ridingPet = IsRidingPet(root)
-                    if MovementMode == "Glide" and not ridingPet then
-                        SetFloating(root, true)
+                    local reachedSafeZone
+
+                    if MovementMode == "Glide" then
                         SetNavigationStatus("Gliding back to safe zone")
                     else
-                        SetFloating(root, false)
                         SetNavigationStatus("Walking back to safe zone")
                     end
 
-                    local reachedSafeZone
-
-                    if MovementMode == "Glide" and not ridingPet then
-                        local offset = safeSign.Position - root.Position
-                        local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-
-                        if flatOffset.Magnitude > 10 then
-                            local approachPosition = safeSign.Position - flatOffset.Unit * 10
-                            SetNavigationStatus("Gliding near safe zone")
-                            local reachedApproach = MoveToPosition(
-                                root,
-                                humanoid,
-                                approachPosition,
-                                token
-                            )
-
-                            if reachedApproach and token == navigationToken and not Runtime.Stopped then
-                                SetFloating(root, false)
-                                SetNavigationStatus("Walking to safe zone")
-                                reachedSafeZone = MoveToPosition(
-                                    root,
-                                    humanoid,
-                                    safeSign.Position,
-                                    token,
-                                    true
-                                )
-                            else
-                                reachedSafeZone = false
-                            end
-                        else
-                            SetFloating(root, false)
-                            SetNavigationStatus("Walking to safe zone")
-                            reachedSafeZone = MoveToPosition(
-                                root,
-                                humanoid,
-                                safeSign.Position,
-                                token,
-                                true
-                            )
-                        end
-                    else
-                        reachedSafeZone = MoveToPosition(
-                            root,
-                            humanoid,
-                            safeSign.Position,
-                            token
-                        )
-                    end
+                    reachedSafeZone = MoveToPosition(
+                        root,
+                        humanoid,
+                        safeSign.Position,
+                        token
+                    )
 
                     if not reachedSafeZone then
                         RestoreFloating()
