@@ -945,12 +945,206 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     PagesByName[name] = Page
     if name == "Main" then
-        local WelcomeCard = CreateCard(Page, "Welcome", "Steal A Pet & Ride It UI template. Add your game features here.")
-        CreateButton(WelcomeCard, "Example Button", function()
+        local AutoCard = CreateCard(Page, "Auto Steal", "Choose paths and cages to include, then select your movement mode.")
+        AutoCard.Size = UDim2.new(1, 0, 0, 224)
+
+        local AutoStealToggle = CreateToggle(AutoCard, "Auto steal", false, function(enabled)
+            Runtime.AutoStealEnabled = enabled
         end)
-        local StatusCard = CreateCard(Page, "Template Controls", "Reusable controls with no game logic connected.")
-        CreateToggle(StatusCard, "Example Toggle", false, function(enabled)
+        AutoStealToggle.Position = UDim2.fromOffset(15, 34)
+
+        local SelectedPaths = {}
+        local SelectedCages = {}
+        local MovementMode = "Glide"
+
+        local function GetPathFolders()
+            local pathsFolder = workspace:FindFirstChild("Paths")
+            local results = {}
+            if pathsFolder then
+                for _, child in ipairs(pathsFolder:GetChildren()) do
+                    if child:IsA("Folder") then
+                        table.insert(results, child)
+                    end
+                end
+            end
+            table.sort(results, function(a, b) return a.Name < b.Name end)
+            return results
+        end
+
+        local function GetCageModels()
+            local results = {}
+            local paths = {}
+            for pathObject in pairs(SelectedPaths) do
+                if pathObject and pathObject.Parent then
+                    table.insert(paths, pathObject)
+                end
+            end
+            if #paths == 0 then
+                paths = GetPathFolders()
+            end
+            for _, pathObject in ipairs(paths) do
+                local cagesFolder = pathObject:FindFirstChild("Cages")
+                if cagesFolder then
+                    for _, child in ipairs(cagesFolder:GetChildren()) do
+                        if child:IsA("Model") then
+                            table.insert(results, child)
+                        end
+                    end
+                end
+            end
+            table.sort(results, function(a, b)
+                local ap = a.Parent and a.Parent.Parent and a.Parent.Parent.Name or ""
+                local bp = b.Parent and b.Parent.Parent and b.Parent.Parent.Name or ""
+                return ap .. "/" .. a.Name < bp .. "/" .. b.Name
+            end)
+            return results
+        end
+
+        local function CreateDynamicFilter(label, yPosition, getOptions, selected, onChanged)
+            local Label = Create("TextLabel", {
+                Parent = AutoCard,
+                Position = UDim2.fromOffset(15, yPosition),
+                Size = UDim2.fromOffset(86, 26),
+                BackgroundTransparency = 1,
+                Text = label,
+                TextColor3 = Theme.DarkGray,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            local Button = Create("TextButton", {
+                Parent = AutoCard,
+                Position = UDim2.fromOffset(101, yPosition),
+                Size = UDim2.new(1, -116, 0, 26),
+                BackgroundColor3 = Theme.SurfaceInput,
+                Text = "Select " .. label,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                ZIndex = 20
+            })
+            AddCorner(Button, 6)
+            AddStroke(Button, Theme.Border, 1)
+
+            local List = Create("ScrollingFrame", {
+                Parent = Button,
+                Position = UDim2.new(0, 0, 1, 4),
+                Size = UDim2.new(1, 0, 0, 104),
+                BackgroundColor3 = Theme.SurfaceInput,
+                BorderSizePixel = 0,
+                ScrollBarThickness = 3,
+                ScrollBarImageColor3 = Theme.Gray,
+                CanvasSize = UDim2.new(0, 0, 0, 0),
+                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                Visible = false,
+                ZIndex = 100
+            })
+            AddCorner(List, 6)
+            AddStroke(List, Theme.Border, 1)
+            Create("UIListLayout", {
+                Parent = List,
+                Padding = UDim.new(0, 2),
+                SortOrder = Enum.SortOrder.LayoutOrder
+            })
+
+            local function Refresh()
+                local count = 0
+                for _ in pairs(selected) do count += 1 end
+                Button.Text = count > 0 and (label .. " (" .. count .. " selected)") or ("Select " .. label)
+            end
+
+            local function Rebuild()
+                for _, child in ipairs(List:GetChildren()) do
+                    if child:IsA("TextButton") then child:Destroy() end
+                end
+                local options = getOptions()
+                if #options == 0 then
+                    local Empty = Create("TextLabel", {
+                        Parent = List,
+                        Size = UDim2.new(1, -8, 0, 26),
+                        BackgroundTransparency = 1,
+                        Text = "No " .. label:lower() .. " found",
+                        TextColor3 = Theme.Gray,
+                        Font = Enum.Font.Gotham,
+                        TextSize = 9,
+                        ZIndex = 101
+                    })
+                end
+                for _, option in ipairs(options) do
+                    local optionObject = option
+                    local displayName = option.Name
+                    if label == "Cage Filter" and option.Parent and option.Parent.Parent then
+                        displayName = option.Parent.Parent.Name .. " / " .. option.Name
+                    end
+                    local OptionButton = Create("TextButton", {
+                        Parent = List,
+                        Size = UDim2.new(1, -4, 0, 25),
+                        BackgroundColor3 = selected[optionObject] and Theme.Selected or Theme.SurfaceInput,
+                        Text = (selected[optionObject] and "✓  " or "") .. displayName,
+                        TextColor3 = Theme.Text,
+                        Font = Enum.Font.Gotham,
+                        TextSize = 9,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        BorderSizePixel = 0,
+                        ZIndex = 101
+                    })
+                    OptionButton.MouseButton1Click:Connect(function()
+                        selected[optionObject] = not selected[optionObject] and true or nil
+                        if onChanged then onChanged() end
+                        Rebuild()
+                        Refresh()
+                    end)
+                end
+            end
+
+            Button.MouseButton1Click:Connect(function()
+                local opening = not List.Visible
+                if opening then Rebuild() end
+                List.Visible = opening
+            end)
+            Refresh()
+            return Button
+        end
+
+        CreateDynamicFilter("Path Filter", 65, GetPathFolders, SelectedPaths, function()
+            table.clear(SelectedCages)
         end)
+        CreateDynamicFilter("Cage Filter", 101, GetCageModels, SelectedCages)
+
+        local MovementLabel = Create("TextLabel", {
+            Parent = AutoCard,
+            Position = UDim2.fromOffset(15, 145),
+            Size = UDim2.fromOffset(86, 28),
+            BackgroundTransparency = 1,
+            Text = "Movement",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local MovementButton = Create("TextButton", {
+            Parent = AutoCard,
+            Position = UDim2.fromOffset(101, 145),
+            Size = UDim2.new(1, -116, 0, 28),
+            BackgroundColor3 = Theme.Selected,
+            Text = "Glide",
+            TextColor3 = Theme.SelectedText,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = false
+        })
+        AddCorner(MovementButton, 6)
+        MovementButton.MouseButton1Click:Connect(function()
+            MovementMode = MovementMode == "Glide" and "Walk" or "Glide"
+            MovementButton.Text = MovementMode
+            Runtime.MovementMode = MovementMode
+        end)
+        Runtime.MovementMode = MovementMode
+        Runtime.SelectedPaths = SelectedPaths
+        Runtime.SelectedCages = SelectedCages
     elseif name == "Features" then
         local ControlsCard = CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
         CreateButton(ControlsCard, "Example Action", function()
