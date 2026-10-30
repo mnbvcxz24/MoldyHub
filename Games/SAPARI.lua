@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.2"
+local testver = "Deploy ver 1.3"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1290,20 +1290,20 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         PathFilterButton.Position = UDim2.fromOffset(15, 90)
         PathFilterButton.Size = UDim2.new(FilterColumnWidth, -22, 0, 29)
 
-        CageSectionLabel.Position = UDim2.new(FilterColumnWidth, 30, 0, 69)
+        CageSectionLabel.Position = UDim2.fromOffset(38, 133)
         CageSectionLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
-        CageSectionIcon.Position = UDim2.new(FilterColumnWidth, 7, 0, 70)
-        CageFilterButton.Position = UDim2.new(FilterColumnWidth, 7, 0, 90)
+        CageSectionIcon.Position = UDim2.fromOffset(15, 134)
+        CageFilterButton.Position = UDim2.fromOffset(15, 154)
         CageFilterButton.Size = UDim2.new(FilterColumnWidth, -22, 0, 29)
 
         local MovementLabel, MovementIcon = MakeSectionLabel("M", "Movement", 133)
-        MovementLabel.Position = UDim2.fromOffset(38, 133)
+        MovementLabel.Position = UDim2.fromOffset(38, 197)
         MovementLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
-        MovementIcon.Position = UDim2.fromOffset(15, 134)
+        MovementIcon.Position = UDim2.fromOffset(15, 198)
         local MovementHolder = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 155),
-            Size = UDim2.new(FilterColumnWidth, -22, 0, 29),
+            Position = UDim2.fromOffset(15, 219),
+            Size = UDim2.new(1, -30, 0, 29),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0
         })
@@ -1340,13 +1340,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
         Runtime.MovementMode = MovementMode
 
-        local SpeedLabel, SpeedIcon = MakeSectionLabel("S", "Glide Speed", 133)
-        SpeedLabel.Position = UDim2.new(FilterColumnWidth, 30, 0, 133)
+        local SpeedLabel, SpeedIcon = MakeSectionLabel("J", "Jump Speed", 69)
+        SpeedLabel.Position = UDim2.new(FilterColumnWidth, 30, 0, 69)
         SpeedLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
-        SpeedIcon.Position = UDim2.new(FilterColumnWidth, 7, 0, 134)
+        SpeedIcon.Position = UDim2.new(FilterColumnWidth, 7, 0, 70)
         local SpeedHolder = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.new(FilterColumnWidth, 7, 0, 155),
+            Position = UDim2.new(FilterColumnWidth, 7, 0, 91),
             Size = UDim2.new(FilterColumnWidth, -22, 0, 54),
             BackgroundTransparency = 1
         })
@@ -1455,13 +1455,13 @@ end))
         RefreshSpeed()
 
         local JumpDistanceLabel, JumpDistanceIcon = MakeSectionLabel("J", "Jump Distance", 220)
-        JumpDistanceLabel.Position = UDim2.new(FilterColumnWidth, 30, 0, 220)
+        JumpDistanceLabel.Position = UDim2.new(FilterColumnWidth, 30, 0, 133)
         JumpDistanceLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
-        JumpDistanceIcon.Position = UDim2.new(FilterColumnWidth, 7, 0, 221)
+        JumpDistanceIcon.Position = UDim2.new(FilterColumnWidth, 7, 0, 134)
 
         local JumpDistanceHolder = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.new(FilterColumnWidth, 7, 0, 242),
+            Position = UDim2.new(FilterColumnWidth, 7, 0, 155),
             Size = UDim2.new(FilterColumnWidth, -22, 0, 54),
             BackgroundTransparency = 1
         })
@@ -1755,12 +1755,13 @@ end))
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
             local finalGlideStop = 12
+            local walkDuration = startWithWalk and 1 or 2
 
             if startWithWalk then
                 local ridingOffset = root.Position - navigationRoot.Position
                 humanoid:MoveTo(destination + ridingOffset)
 
-                local initialWalkUntil = os.clock() + 2
+                local initialWalkUntil = os.clock() + walkDuration
                 local nextMoveRefresh = os.clock() + 1
                 while os.clock() < initialWalkUntil do
                     if baseTeleportDetected then
@@ -1862,7 +1863,7 @@ end))
                 local moveDestination = destination + ridingOffset
                 humanoid:MoveTo(moveDestination)
 
-                local walkUntil = os.clock() + 2
+                local walkUntil = os.clock() + walkDuration
                 local nextMoveRefresh = os.clock() + 1
                 while os.clock() < walkUntil do
                     if baseTeleportDetected then
