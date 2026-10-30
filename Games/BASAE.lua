@@ -61,7 +61,7 @@ RuntimeEnv.__BASAECleanup = function()
 end
 -- UI CONFIGURATION
 local UIConfig = {
-    Title = "SKRIPNIBAI",
+    Title = "MoldyHub",
     Subtitle = testver,
     Width = 480,
     Height = 320,
