@@ -1536,10 +1536,12 @@ end))
                 return false
             end
 
-            local distance = (root.Position - destination).Magnitude
+            local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
+            local glidePosition = destination + Vector3.new(0, glideHeight, 0)
+            local distance = (root.Position - glidePosition).Magnitude
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local duration = math.max(0.15, distance / speed)
-            local target = CFrame.new(destination) * root.CFrame.Rotation
+            local target = CFrame.new(glidePosition) * root.CFrame.Rotation
             local tween = TweenService:Create(
                 root,
                 TweenInfo.new(duration, Enum.EasingStyle.Linear),
