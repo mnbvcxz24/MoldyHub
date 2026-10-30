@@ -1572,7 +1572,7 @@ end))
             local distance = (startPosition - glidePosition).Magnitude
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local rotation = root.CFrame.Rotation
-            local segmentCount = math.max(1, math.ceil(distance / 60))
+            local segmentCount = math.max(1, math.ceil(distance / 30))
             local selectedPathCount = 0
 
             for pathObject, selected in pairs(SelectedPaths) do
