@@ -976,7 +976,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local SelectedPaths = {}
         local SelectedRarities = {}
-        local MovementMode = "Glide"
+        local MovementMode = "Walk"
         local AutoStealEnabled = false
         local StatusValue
         local StatusDot
@@ -1308,9 +1308,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 Parent = MovementHolder,
                 Size = UDim2.new(0.5, -2, 1, -4),
                 Position = UDim2.new(mode == "Walk" and 0.5 or 0, 2, 0, 2),
-                BackgroundColor3 = mode == "Glide" and Theme.Accent or Theme.SurfaceInput,
+                BackgroundColor3 = mode == MovementMode and Theme.Accent or Theme.SurfaceInput,
                 Text = mode,
-                TextColor3 = mode == "Glide" and Theme.AccentText or Theme.DarkGray,
+                TextColor3 = mode == MovementMode and Theme.AccentText or Theme.DarkGray,
                 Font = Enum.Font.GothamMedium,
                 TextSize = 10,
                 BorderSizePixel = 0,
@@ -1550,34 +1550,49 @@ end))
 
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
             local glidePosition = destination + Vector3.new(0, glideHeight, 0)
-            local startPosition = root.Position
-            local distance = (startPosition - glidePosition).Magnitude
             local speed = math.max(10, Runtime.GlideSpeed or 50)
-            local rotation = root.CFrame.Rotation
-            local segmentCount = math.max(1, math.ceil(distance / 30))
-            local selectedPathCount = 0
 
-            for pathObject, selected in pairs(SelectedPaths) do
-                if selected and pathObject and pathObject.Parent then
-                    selectedPathCount += 1
-                end
-            end
-
-            local pauseDuration = 0.25 * math.max(selectedPathCount, 1)
-
-            for segment = 1, segmentCount do
-                if token ~= navigationToken or Runtime.Stopped
-                or not root.Parent or not humanoid.Parent then
+            while token == navigationToken and not Runtime.Stopped do
+                if not root.Parent or not humanoid.Parent then
+                    SetFloating(root, false)
                     return false
                 end
 
-                local segmentPosition = startPosition:Lerp(
-                    glidePosition,
-                    segment / segmentCount
-                )
-                local segmentDistance = (root.Position - segmentPosition).Magnitude
+                SetFloating(root, false)
+                humanoid:MoveTo(destination)
+
+                local walkUntil = os.clock() + 1
+                while os.clock() < walkUntil do
+                    if token ~= navigationToken or Runtime.Stopped then
+                        SetFloating(root, false)
+                        humanoid:MoveTo(root.Position)
+                        return false
+                    end
+
+                    if (root.Position - destination).Magnitude <= 3 then
+                        humanoid:MoveTo(root.Position)
+                        SetFloating(root, false)
+                        return true
+                    end
+
+                    RunService.Heartbeat:Wait()
+                end
+
+                humanoid:MoveTo(root.Position)
+
+                local offset = glidePosition - root.Position
+                local distance = offset.Magnitude
+                if distance <= 3 then
+                    SetFloating(root, false)
+                    return true
+                end
+
+                local segmentDistance = math.min(30, distance)
+                local segmentPosition = root.Position + offset.Unit * segmentDistance
                 local duration = math.max(0.03, segmentDistance / speed)
-                local target = CFrame.new(segmentPosition) * rotation
+                local target = CFrame.new(segmentPosition) * root.CFrame.Rotation
+
+                SetFloating(root, true)
                 local tween = TweenService:Create(
                     root,
                     TweenInfo.new(duration, Enum.EasingStyle.Linear),
@@ -1594,20 +1609,12 @@ end))
 
                 if state ~= Enum.PlaybackState.Completed
                 or token ~= navigationToken or Runtime.Stopped then
+                    SetFloating(root, false)
                     return false
-                end
-
-                if segment < segmentCount then
-                    local pauseUntil = os.clock() + pauseDuration
-                    while os.clock() < pauseUntil do
-                        if token ~= navigationToken or Runtime.Stopped then
-                            return false
-                        end
-                        task.wait(math.min(0.05, pauseUntil - os.clock()))
-                    end
                 end
             end
 
+            SetFloating(root, false)
             return token == navigationToken and not Runtime.Stopped
         end
 
