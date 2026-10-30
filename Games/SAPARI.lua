@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.5"
+local testver = "v1.6"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -41,7 +41,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "STEAL A PET & RIDE IT",
-    Subtitle = "v1.2",
+    Subtitle = "v1.6",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
@@ -1751,7 +1751,7 @@ end))
                     if token ~= navigationToken or Runtime.Stopped then return end
 
                     SetNavigationStatus("Waiting before return")
-                    task.wait(0.25)
+                    task.wait(0.5)
                     if token ~= navigationToken or Runtime.Stopped then return end
 
                     SetNavigationStatus("Returning to safe zone")
