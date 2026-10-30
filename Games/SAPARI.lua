@@ -1853,12 +1853,54 @@ end))
                         SetNavigationStatus("Walking back to safe zone")
                     end
 
-                    local reachedSafeZone = MoveToPosition(
-                        root,
-                        humanoid,
-                        safeSign.Position,
-                        token
-                    )
+                    local reachedSafeZone
+
+                    if MovementMode == "Glide" then
+                        local offset = safeSign.Position - root.Position
+                        local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+
+                        if flatOffset.Magnitude > 10 then
+                            local approachPosition = safeSign.Position - flatOffset.Unit * 10
+                            SetNavigationStatus("Gliding near safe zone")
+                            local reachedApproach = MoveToPosition(
+                                root,
+                                humanoid,
+                                approachPosition,
+                                token
+                            )
+
+                            if reachedApproach and token == navigationToken and not Runtime.Stopped then
+                                SetFloating(root, false)
+                                SetNavigationStatus("Walking to safe zone")
+                                reachedSafeZone = MoveToPosition(
+                                    root,
+                                    humanoid,
+                                    safeSign.Position,
+                                    token,
+                                    true
+                                )
+                            else
+                                reachedSafeZone = false
+                            end
+                        else
+                            SetFloating(root, false)
+                            SetNavigationStatus("Walking to safe zone")
+                            reachedSafeZone = MoveToPosition(
+                                root,
+                                humanoid,
+                                safeSign.Position,
+                                token,
+                                true
+                            )
+                        end
+                    else
+                        reachedSafeZone = MoveToPosition(
+                            root,
+                            humanoid,
+                            safeSign.Position,
+                            token
+                        )
+                    end
 
                     if not reachedSafeZone then
                         RestoreFloating()
