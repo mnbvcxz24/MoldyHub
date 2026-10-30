@@ -1004,13 +1004,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local StatusRow = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 42),
-            Size = UDim2.new(1, -30, 0, 27),
+            Position = UDim2.fromOffset(15, 36),
+            Size = UDim2.new(1, -30, 0, 18),
             BackgroundTransparency = 1
         })
         StatusDot = Create("Frame", {
             Parent = StatusRow,
-            Position = UDim2.fromOffset(2, 9),
+            Position = UDim2.fromOffset(2, 6),
             Size = UDim2.fromOffset(7, 7),
             BackgroundColor3 = Color3.fromRGB(75, 190, 145),
             BorderSizePixel = 0
@@ -1019,7 +1019,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local StatusLabel = Create("TextLabel", {
             Parent = StatusRow,
             Position = UDim2.fromOffset(18, 0),
-            Size = UDim2.new(0.5, -18, 1, 0),
+            Size = UDim2.fromOffset(34, 18),
             BackgroundTransparency = 1,
             Text = "Status",
             TextColor3 = Theme.DarkGray,
@@ -1029,18 +1029,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         StatusValue = Create("TextLabel", {
             Parent = StatusRow,
-            Position = UDim2.new(0.5, 0, 0, 0),
-            Size = UDim2.new(0.5, 0, 1, 0),
+            Position = UDim2.fromOffset(54, 0),
+            Size = UDim2.new(1, -54, 1, 0),
             BackgroundTransparency = 1,
             Text = "Disabled",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.GothamMedium,
-            TextSize = 10,
+            TextSize = 9,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Right
         })
         local StatusDivider = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 73),
+            Position = UDim2.fromOffset(15, 60),
             Size = UDim2.new(1, -30, 0, 1),
             BackgroundColor3 = Theme.Border,
             BorderSizePixel = 0
@@ -1280,7 +1281,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         local CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon
-        CreateDynamicFilter("Path Filter", "P", 82, GetPathFolders, SelectedPaths, function()
+        CreateDynamicFilter("Path Filter", "P", 68, GetPathFolders, SelectedPaths, function()
             table.clear(SelectedCages)
             local availableCages = GetCageModels()
             for _, cage in ipairs(availableCages) do
@@ -1298,12 +1299,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
         end)
         CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon =
-            CreateDynamicFilter("Cage Filter", "C", 142, GetCageModels, SelectedCages)
+            CreateDynamicFilter("Cage Filter", "C", 128, GetCageModels, SelectedCages)
 
-        MakeSectionLabel("M", "Movement", 202)
+        MakeSectionLabel("M", "Movement", 188)
         local MovementHolder = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 223),
+            Position = UDim2.fromOffset(15, 209),
             Size = UDim2.new(1, -30, 0, 27),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0
@@ -1341,10 +1342,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
         Runtime.MovementMode = MovementMode
 
-        MakeSectionLabel("S", "Glide Speed", 260)
+        MakeSectionLabel("S", "Glide Speed", 246)
         local SpeedHolder = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 281),
+            Position = UDim2.fromOffset(15, 267),
             Size = UDim2.new(1, -30, 0, 54),
             BackgroundTransparency = 1
         })
@@ -1401,14 +1402,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Position = UDim2.new(1, -35, 0, 39),
             Size = UDim2.fromOffset(35, 16),
             BackgroundTransparency = 1,
-            Text = "100",
+            Text = "500",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Right
         })
         local GlideSpeed = 50
-        local GlideMaxSpeed = 100
+        local GlideMaxSpeed = 500
         local DraggingSpeed = false
         local function RefreshSpeed()
             local currentPosition = (GlideSpeed - 10) / (GlideMaxSpeed - 10)
@@ -1584,128 +1585,140 @@ end))
                 return
             end
 
-            local selectedCages = {}
-            for cage, selected in pairs(SelectedCages) do
-                if selected and cage and cage.Parent then
-                    table.insert(selectedCages, cage)
-                end
-            end
-
-            table.sort(selectedCages, function(a, b)
-                local function getPath(model)
-                    local names = {}
-                    local current = model
-                    while current and current ~= workspace do
-                        table.insert(names, 1, current.Name)
-                        current = current.Parent
-                    end
-                    return table.concat(names, "/")
-                end
-                return getPath(a) < getPath(b)
-            end)
-
-            local selectedCage = selectedCages[1]
-            if not selectedCage then
-                SetNavigationStatus("Select a cage")
-                SetAutoStealEnabled(false)
-                return
-            end
-
-            local character = LocalPlayer.Character
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-            local root = character and character:FindFirstChild("HumanoidRootPart")
-            local cageRoot = selectedCage:FindFirstChild("Root")
-            local stealPrompt = cageRoot and cageRoot:FindFirstChild("StealPrompt")
             local hub = workspace:FindFirstChild("Hub")
             local safeSign = hub and hub:FindFirstChild("SafeZoneSign")
-
-            if not humanoid or not root or not cageRoot
-            or not cageRoot:IsA("BasePart")
-            or not stealPrompt or not stealPrompt:IsA("ProximityPrompt")
-            or not safeSign or not safeSign:IsA("BasePart") then
-                SetNavigationStatus("Target unavailable")
+            if not safeSign or not safeSign:IsA("BasePart") then
+                SetNavigationStatus("Safe zone unavailable")
                 SetAutoStealEnabled(false)
                 return
             end
 
-            SetNavigationStatus("Moving to cage")
-            local reachedCage = MoveToPosition(root, humanoid, cageRoot.Position, token)
-            if not reachedCage then
-                if token == navigationToken then
-                    SetAutoStealEnabled(false)
-                    SetNavigationStatus("Navigation stopped")
-                end
-                return
-            end
-
-            if token ~= navigationToken or Runtime.Stopped then return end
-
-            local cageDistance = (root.Position - cageRoot.Position).Magnitude
-            if cageDistance > 8 then
-                SetAutoStealEnabled(false)
-                SetNavigationStatus("Cage out of reach")
-                return
-            end
-
-            SetNavigationStatus("Holding steal prompt")
-            local holdStarted = false
-            local holdCompleted = false
-            local holdOk = pcall(function()
-                stealPrompt:InputHoldBegin()
-                holdStarted = true
-
-                local holdUntil = os.clock() + 1
-                while os.clock() < holdUntil do
-                    if token ~= navigationToken or Runtime.Stopped then
-                        break
+            local function GetSelectedCages()
+                local cages = {}
+                for cage, selected in pairs(SelectedCages) do
+                    if selected and cage and cage.Parent then
+                        table.insert(cages, cage)
                     end
-                    task.wait(0.05)
                 end
-
-                holdCompleted = token == navigationToken and not Runtime.Stopped
-            end)
-
-            if holdStarted then
-                pcall(function()
-                    stealPrompt:InputHoldEnd()
+                table.sort(cages, function(a, b)
+                    local function getPath(model)
+                        local names = {}
+                        local current = model
+                        while current and current ~= workspace do
+                            table.insert(names, 1, current.Name)
+                            current = current.Parent
+                        end
+                        return table.concat(names, "/")
+                    end
+                    return getPath(a) < getPath(b)
                 end)
+                return cages
             end
 
-            if not holdOk or not holdCompleted then
-                if token == navigationToken then
+            while token == navigationToken and not Runtime.Stopped do
+                local selectedCages = GetSelectedCages()
+                if #selectedCages == 0 then
+                    SetNavigationStatus("Select a cage")
                     SetAutoStealEnabled(false)
-                    SetNavigationStatus("Navigation stopped")
+                    return
                 end
-                return
-            end
 
-            if token ~= navigationToken or Runtime.Stopped then return end
+                for _, selectedCage in ipairs(selectedCages) do
+                    if token ~= navigationToken or Runtime.Stopped then return end
+                    if not selectedCage.Parent then continue end
 
-            SetNavigationStatus("Returning to safe zone")
-            local reachedSafeZone = MoveToPosition(root, humanoid, safeSign.Position, token)
-            if not reachedSafeZone then
-                if token == navigationToken then
-                    SetAutoStealEnabled(false)
-                    SetNavigationStatus("Navigation stopped")
+                    local character = LocalPlayer.Character
+                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    local cageRoot = selectedCage:FindFirstChild("Root")
+                    local stealPrompt = cageRoot and cageRoot:FindFirstChild("StealPrompt")
+
+                    if not humanoid or not root or not cageRoot
+                    or not cageRoot:IsA("BasePart")
+                    or not stealPrompt or not stealPrompt:IsA("ProximityPrompt") then
+                        SetNavigationStatus("Target unavailable")
+                        continue
+                    end
+
+                    SetNavigationStatus("Moving to cage")
+                    local reachedCage = MoveToPosition(root, humanoid, cageRoot.Position, token)
+                    if not reachedCage then
+                        if token == navigationToken then
+                            SetAutoStealEnabled(false)
+                            SetNavigationStatus("Navigation stopped")
+                        end
+                        return
+                    end
+
+                    if token ~= navigationToken or Runtime.Stopped then return end
+
+                    local cageDistance = (root.Position - cageRoot.Position).Magnitude
+                    if cageDistance > 8 then
+                        SetNavigationStatus("Cage out of reach")
+                        continue
+                    end
+
+                    SetNavigationStatus("Holding steal prompt")
+                    local holdStarted = false
+                    local holdCompleted = false
+                    local holdOk = pcall(function()
+                        stealPrompt:InputHoldBegin()
+                        holdStarted = true
+
+                        local holdUntil = os.clock() + 1
+                        while os.clock() < holdUntil do
+                            if token ~= navigationToken or Runtime.Stopped then
+                                break
+                            end
+                            task.wait(0.05)
+                        end
+
+                        holdCompleted = token == navigationToken and not Runtime.Stopped
+                    end)
+
+                    if holdStarted then
+                        pcall(function()
+                            stealPrompt:InputHoldEnd()
+                        end)
+                    end
+
+                    if not holdOk or not holdCompleted then
+                        if token == navigationToken then
+                            SetAutoStealEnabled(false)
+                            SetNavigationStatus("Navigation stopped")
+                        end
+                        return
+                    end
+
+                    if token ~= navigationToken or Runtime.Stopped then return end
+
+                    SetNavigationStatus("Returning to safe zone")
+                    local reachedSafeZone = MoveToPosition(root, humanoid, safeSign.Position, token)
+                    if not reachedSafeZone then
+                        if token == navigationToken then
+                            SetAutoStealEnabled(false)
+                            SetNavigationStatus("Navigation stopped")
+                        end
+                        return
+                    end
+
+                    if token ~= navigationToken or Runtime.Stopped then return end
+
+                    local safeZoneDistance = (root.Position - safeSign.Position).Magnitude
+                    if safeZoneDistance > 8 then
+                        SetNavigationStatus("Safe zone not reached")
+                        continue
+                    end
+
+                    SetNavigationStatus("Returned - next cage")
+                    task.wait(0.2)
                 end
-                return
-            end
 
-            if token ~= navigationToken or Runtime.Stopped then return end
-
-            local safeZoneDistance = (root.Position - safeSign.Position).Magnitude
-            if safeZoneDistance > 8 then
-                SetAutoStealEnabled(false)
-                SetNavigationStatus("Safe zone not reached")
-                return
+                if token == navigationToken and not Runtime.Stopped then
+                    task.wait(0.25)
+                end
             end
-
-            if token == navigationToken and not Runtime.Stopped then
-                SetNavigationStatus("Returned to safe zone")
-                SetAutoStealEnabled(false)
-            end
-        end
-        elseif name == "Features" then
+        end        elseif name == "Features" then
         local ControlsCard = CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
         CreateButton(ControlsCard, "Example Action", function()
         end)
