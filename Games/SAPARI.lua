@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.8"
+local testver = "v1.9"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -41,7 +41,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "STEAL A PET & RIDE IT",
-    Subtitle = "v1.8",
+    Subtitle = "v1.9",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
@@ -1580,7 +1580,7 @@ end))
             local distance = (startPosition - glidePosition).Magnitude
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local rotation = root.CFrame.Rotation
-            local segmentCount = math.max(1, math.ceil(distance / 50))
+            local segmentCount = math.max(1, math.ceil(distance / 60))
             local selectedPathCount = 0
 
             for pathObject, selected in pairs(SelectedPaths) do
@@ -1856,14 +1856,42 @@ end))
                     end
 
                     SetFloating(root, false)
-                    SetNavigationStatus("Cooldown - 10s")
-                    local cooldownUntil = os.clock() + 10
-                    while os.clock() < cooldownUntil do
+                    SetNavigationStatus("Respawning")
+                    local respawnedCharacter = nil
+                    local respawnConnection = LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+                        respawnedCharacter = newCharacter
+                    end)
+
+                    humanoid.Health = 0
+
+                    local respawnUntil = os.clock() + 15
+                    while not respawnedCharacter and os.clock() < respawnUntil do
                         if token ~= navigationToken or Runtime.Stopped then
-                            RestoreFloating()
+                            respawnConnection:Disconnect()
                             return
                         end
-                        task.wait(math.min(0.1, cooldownUntil - os.clock()))
+                        local currentCharacter = LocalPlayer.Character
+                        if currentCharacter and currentCharacter ~= character then
+                            respawnedCharacter = currentCharacter
+                            break
+                        end
+                        task.wait(0.1)
+                    end
+                    respawnConnection:Disconnect()
+
+                    if not respawnedCharacter then
+                        SetAutoStealEnabled(false)
+                        SetNavigationStatus("Respawn timed out")
+                        return
+                    end
+
+                    SetNavigationStatus("Respawned - waiting 5s")
+                    local nextTargetAt = os.clock() + 5
+                    while os.clock() < nextTargetAt do
+                        if token ~= navigationToken or Runtime.Stopped then
+                            return
+                        end
+                        task.wait(math.min(0.1, nextTargetAt - os.clock()))
                     end
                     SetNavigationStatus("Returned - next cage")
                 end
