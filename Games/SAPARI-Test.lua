@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.18"
+local testver = "v1.19"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -975,7 +975,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         local SelectedPaths = {}
-        local SelectedCages = {}
+        local SelectedRarities = {}
         local MovementMode = "Glide"
         local AutoStealEnabled = false
         local StatusValue
@@ -1198,18 +1198,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     if child:IsA("TextButton") or child:IsA("TextLabel") then child:Destroy() end
                 end
                 local options = getOptions()
-                if label == "Cage Filter" and next(SelectedPaths) == nil then
-                    Create("TextLabel", {
-                        Parent = List,
-                        Size = UDim2.new(1, -8, 0, 30),
-                        BackgroundTransparency = 1,
-                        Text = "Select a path first",
-                        TextColor3 = Theme.Gray,
-                        Font = Enum.Font.GothamMedium,
-                        TextSize = 9,
-                        ZIndex = 101
-                    })
-                elseif #options == 0 then
+                if #options == 0 then
                     Create("TextLabel", {
                         Parent = List,
                         Size = UDim2.new(1, -8, 0, 30),
@@ -1257,7 +1246,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         Position = UDim2.fromOffset(29, 0),
                         Size = UDim2.new(1, -36, 1, 0),
                         BackgroundTransparency = 1,
-                        Text = optionObject.Name,
+                        Text = typeof(optionObject) == "Instance" and optionObject.Name or tostring(optionObject),
                         TextColor3 = isSelected and Theme.Text or Theme.DarkGray,
                         Font = Enum.Font.Gotham,
                         TextSize = 9,
@@ -1282,26 +1271,17 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return Button, List, SectionLabel, SectionIcon
         end
 
+        local RarityOptions = {
+            "Common", "Rare", "Epic", "Legendary", "Mythic", "Cosmic",
+            "Secret", "Eternal", "Divine", "Infinity", "Astral", "Omega"
+        }
+        local function GetRarityOptions()
+            return RarityOptions
+        end
         local CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon
-        CreateDynamicFilter("Path Filter", "P", 68, GetPathFolders, SelectedPaths, function()
-            table.clear(SelectedCages)
-            local availableCages = GetCageModels()
-            for _, cage in ipairs(availableCages) do
-                SelectedCages[cage] = true
-            end
-            if CageFilterList then
-                CageFilterList.Visible = false
-                local buttonText = CageFilterButton:FindFirstChildWhichIsA("TextLabel")
-                if buttonText then
-                    buttonText.Text = #availableCages > 0
-                        and ("Cage Filter - " .. #availableCages .. " selected")
-                        or "Select cage filter..."
-                    buttonText.TextColor3 = #availableCages > 0 and Theme.Text or Theme.Gray
-                end
-            end
-        end)
+        CreateDynamicFilter("Path Filter", "P", 68, GetPathFolders, SelectedPaths)
         CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon =
-            CreateDynamicFilter("Cage Filter", "C", 128, GetCageModels, SelectedCages)
+            CreateDynamicFilter("Cage Filter", "C", 128, GetRarityOptions, SelectedRarities)
 
         MakeSectionLabel("M", "Movement", 188)
         local MovementHolder = Create("Frame", {
@@ -1456,7 +1436,7 @@ end))
         RefreshSpeed()
 
         Runtime.SelectedPaths = SelectedPaths
-        Runtime.SelectedCages = SelectedCages
+        Runtime.SelectedRarities = SelectedRarities
 
         local navigationToken = 0
         local activeNavigationTween
@@ -1684,24 +1664,25 @@ end))
 
             local function GetSelectedCages()
                 local cages = {}
-                local selectedNames = {}
-                for cage, selected in pairs(SelectedCages) do
-                    if selected and cage then
-                        selectedNames[cage.Name] = true
-                    end
-                end
+                local pathsFolder = workspace:FindFirstChild("Paths")
+                if not pathsFolder then return cages end
 
-                for pathObject in pairs(SelectedPaths) do
-                    local cagesFolder = pathObject and pathObject:FindFirstChild("Cages")
+                for _, pathObject in ipairs(pathsFolder:GetChildren()) do
+                    local pathMatches = SelectedPaths[pathObject] == true
+                    local cagesFolder = pathObject:FindFirstChild("Cages")
                     if cagesFolder then
                         for _, cage in ipairs(cagesFolder:GetChildren()) do
-                            if cage:IsA("Model") and selectedNames[cage.Name] then
-                                local cageRoot = cage:FindFirstChild("Root")
-                                local stealPrompt = cageRoot and cageRoot:FindFirstChild("StealPrompt")
-                                if cageRoot and cageRoot:IsA("BasePart")
-                                and stealPrompt and stealPrompt:IsA("ProximityPrompt")
-                                and stealPrompt.Enabled then
-                                    table.insert(cages, cage)
+                            if cage:IsA("Model") then
+                                local rarity = cage:GetAttribute("Rarity")
+                                local rarityMatches = rarity ~= nil and SelectedRarities[tostring(rarity)] == true
+                                if pathMatches or rarityMatches then
+                                    local cageRoot = cage:FindFirstChild("Root")
+                                    local stealPrompt = cageRoot and cageRoot:FindFirstChild("StealPrompt")
+                                    if cageRoot and cageRoot:IsA("BasePart")
+                                    and stealPrompt and stealPrompt:IsA("ProximityPrompt")
+                                    and stealPrompt.Enabled then
+                                        table.insert(cages, cage)
+                                    end
                                 end
                             end
                         end
