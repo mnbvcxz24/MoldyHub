@@ -1576,6 +1576,12 @@ end))
                 return
             end
 
+            if next(SelectedPaths) == nil then
+                SetNavigationStatus("Select a path")
+                SetAutoStealEnabled(false)
+                return
+            end
+
             local selectedCages = {}
             for cage, selected in pairs(SelectedCages) do
                 if selected and cage and cage.Parent then
