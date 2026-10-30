@@ -1454,6 +1454,123 @@ end))
 end))
         RefreshSpeed()
 
+        local JumpDistanceLabel, JumpDistanceIcon = MakeSectionLabel("J", "Jump Distance", 220)
+        JumpDistanceLabel.Position = UDim2.new(FilterColumnWidth, 30, 0, 220)
+        JumpDistanceLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
+        JumpDistanceIcon.Position = UDim2.new(FilterColumnWidth, 7, 0, 221)
+
+        local JumpDistanceHolder = Create("Frame", {
+            Parent = AutoCard,
+            Position = UDim2.new(FilterColumnWidth, 7, 0, 242),
+            Size = UDim2.new(FilterColumnWidth, -22, 0, 54),
+            BackgroundTransparency = 1
+        })
+        local JumpDistanceValue = Create("TextLabel", {
+            Parent = JumpDistanceHolder,
+            Position = UDim2.new(1, -78, 0, 0),
+            Size = UDim2.fromOffset(78, 18),
+            BackgroundTransparency = 1,
+            Text = "50",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+        local JumpDistanceBar = Create("Frame", {
+            Parent = JumpDistanceHolder,
+            Position = UDim2.fromOffset(0, 25),
+            Size = UDim2.new(1, 0, 0, 6),
+            BackgroundColor3 = Theme.LightGray,
+            BorderSizePixel = 0
+        })
+        AddCorner(JumpDistanceBar, 8)
+        local JumpDistanceFill = Create("Frame", {
+            Parent = JumpDistanceBar,
+            Size = UDim2.new((50 - 10) / (150 - 10), 0, 1, 0),
+            BackgroundColor3 = Theme.Accent,
+            BorderSizePixel = 0
+        })
+        AddCorner(JumpDistanceFill, 8)
+        local JumpDistanceThumb = Create("Frame", {
+            Parent = JumpDistanceBar,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new((50 - 10) / (150 - 10), 0, 0.5, 0),
+            Size = UDim2.fromOffset(13, 13),
+            BackgroundColor3 = Theme.Accent,
+            BorderSizePixel = 0,
+            ZIndex = 3
+        })
+        AddCorner(JumpDistanceThumb, 10)
+        AddStroke(JumpDistanceThumb, Theme.Card, 1)
+        local JumpDistanceMinLabel = Create("TextLabel", {
+            Parent = JumpDistanceHolder,
+            Position = UDim2.fromOffset(0, 39),
+            Size = UDim2.fromOffset(35, 16),
+            BackgroundTransparency = 1,
+            Text = "10",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local JumpDistanceMaxLabel = Create("TextLabel", {
+            Parent = JumpDistanceHolder,
+            Position = UDim2.new(1, -35, 0, 39),
+            Size = UDim2.fromOffset(35, 16),
+            BackgroundTransparency = 1,
+            Text = "150",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+
+        local GlideJumpDistance = 50
+        local GlideMaxJumpDistance = 150
+        local DraggingJumpDistance = false
+        local function RefreshJumpDistance()
+            local currentPosition = (GlideJumpDistance - 10) / (GlideMaxJumpDistance - 10)
+            JumpDistanceThumb.Position = UDim2.new(currentPosition, 0, 0.5, 0)
+            JumpDistanceFill.Size = UDim2.new(currentPosition, 0, 1, 0)
+            JumpDistanceValue.Text = tostring(GlideJumpDistance) .. " studs"
+            JumpDistanceMaxLabel.Text = tostring(GlideMaxJumpDistance)
+            Runtime.GlideJumpDistance = GlideJumpDistance
+        end
+        local function UpdateJumpDistance(input)
+            local width = JumpDistanceBar.AbsoluteSize.X
+            if width <= 0 then return end
+            local position = math.clamp(
+                (input.Position.X - JumpDistanceBar.AbsolutePosition.X) / width,
+                0,
+                1
+            )
+            GlideJumpDistance = math.floor(10 + position * (GlideMaxJumpDistance - 10) + 0.5)
+            RefreshJumpDistance()
+        end
+        local function BeginJumpDistanceDrag(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            DraggingJumpDistance = true
+            UpdateJumpDistance(input)
+        end
+        JumpDistanceBar.InputBegan:Connect(BeginJumpDistanceDrag)
+        JumpDistanceThumb.InputBegan:Connect(BeginJumpDistanceDrag)
+        TrackConnection(UserInputService.InputChanged:Connect(function(input)
+            if DraggingJumpDistance and (
+                input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch
+            ) then
+                UpdateJumpDistance(input)
+            end
+        end))
+        TrackConnection(UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+                DraggingJumpDistance = false
+            end
+        end))
+        RefreshJumpDistance()
+
         Runtime.SelectedPaths = SelectedPaths
         Runtime.SelectedRarities = SelectedRarities
 
@@ -1704,7 +1821,8 @@ end))
                 end
 
                 if horizontalDistance > finalGlideStop then
-                    local glideDistance = math.min(50, horizontalDistance - finalGlideStop)
+                    local jumpDistance = math.clamp(Runtime.GlideJumpDistance or 50, 10, 150)
+                    local glideDistance = math.min(jumpDistance, horizontalDistance - finalGlideStop)
                     local direction = horizontal.Unit
                     local segmentPosition = navigationRoot.Position + direction * glideDistance
                     segmentPosition = Vector3.new(
