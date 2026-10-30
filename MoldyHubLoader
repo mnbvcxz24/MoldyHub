@@ -1,18 +1,15 @@
 local GameLinks = {
-    ["Steal-A-Pet-And-Ride-It"] = "loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/Games/SAPARI.lua"))()"
+    [95168737547508] = "loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/Games/SAPARI.lua"))()"
 }
 
-local MarketplaceService = game:GetService("MarketplaceService")
+local placeId = game.PlaceId
+local selectedUrl = GameLinks[placeId]
 
-local info = MarketplaceService:GetProductInfo(game.PlaceId)
-local gameName = string.lower(info.Name)
+warn("[MoldyHub] Current PlaceId: " .. tostring(placeId))
 
-local url = GameLinks[gameName]
-
-if not url then
-    warn("[MoldyHub] Unsupported game: " .. gameName)
+if not selectedUrl then
+    warn("[MoldyHub] Unsupported game")
     return
 end
 
-print("[MoldyHub] Supported game detected: " .. gameName)
-print("[MoldyHub] Approved script: " .. url)
+warn("[MoldyHub] Supported game detected")
