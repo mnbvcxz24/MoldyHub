@@ -1693,7 +1693,7 @@ end))
                     if token ~= navigationToken or Runtime.Stopped then return end
 
                     SetNavigationStatus("Waiting before return")
-                    task.wait(1)
+                    task.wait(0.25)
                     if token ~= navigationToken or Runtime.Stopped then return end
 
                     SetNavigationStatus("Returning to safe zone")
