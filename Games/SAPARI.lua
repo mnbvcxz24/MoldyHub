@@ -1638,6 +1638,13 @@ end))
 
             if token ~= navigationToken or Runtime.Stopped then return end
 
+            local cageDistance = (root.Position - cageRoot.Position).Magnitude
+            if cageDistance > 8 then
+                SetAutoStealEnabled(false)
+                SetNavigationStatus("Cage out of reach")
+                return
+            end
+
             SetNavigationStatus("Holding steal prompt")
             local holdStarted = false
             local holdCompleted = false
@@ -1679,6 +1686,15 @@ end))
                     SetAutoStealEnabled(false)
                     SetNavigationStatus("Navigation stopped")
                 end
+                return
+            end
+
+            if token ~= navigationToken or Runtime.Stopped then return end
+
+            local safeZoneDistance = (root.Position - safeSign.Position).Magnitude
+            if safeZoneDistance > 8 then
+                SetAutoStealEnabled(false)
+                SetNavigationStatus("Safe zone not reached")
                 return
             end
 
