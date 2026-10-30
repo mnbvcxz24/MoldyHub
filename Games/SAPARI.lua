@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.11"
+local testver = "v1.12"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -41,7 +41,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "STEAL A PET & RIDE IT",
-    Subtitle = "v1.11",
+    Subtitle = "v1.12",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
@@ -1838,6 +1838,35 @@ end))
 
                     SetNavigationStatus("Waiting before return")
                     task.wait(0.25)
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
+
+                    if MovementMode == "Glide" then
+                        SetFloating(root, true)
+                        SetNavigationStatus("Gliding back to safe zone")
+                    else
+                        SetFloating(root, false)
+                        SetNavigationStatus("Walking back to safe zone")
+                    end
+
+                    local reachedSafeZone = MoveToPosition(
+                        root,
+                        humanoid,
+                        safeSign.Position,
+                        token
+                    )
+
+                    if not reachedSafeZone then
+                        RestoreFloating()
+                        if token == navigationToken then
+                            SetAutoStealEnabled(false)
+                            SetNavigationStatus("Return to safe zone failed")
+                        end
+                        return
+                    end
+
                     if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
                         return
