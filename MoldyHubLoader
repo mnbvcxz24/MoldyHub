@@ -1,15 +1,13 @@
 local GameLinks = {
-    [95168737547508] = "loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/Games/SAPARI.lua"))()"
+    [95168737547508] = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/SAPARI-Deploy.lua"
 }
 
 local placeId = game.PlaceId
 local selectedUrl = GameLinks[placeId]
 
-warn("[MoldyHub] Current PlaceId: " .. tostring(placeId))
-
 if not selectedUrl then
-    warn("[MoldyHub] Unsupported game")
+    warn("[MoldyHub] Unsupported game PlaceId: " .. tostring(placeId))
     return
 end
 
-warn("[MoldyHub] Supported game detected")
+-- The matched, approved URL is available in selectedUrl.
