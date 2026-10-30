@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.10"
+local testver = "v1.11"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -41,7 +41,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "STEAL A PET & RIDE IT",
-    Subtitle = "v1.10",
+    Subtitle = "v1.11",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
@@ -497,8 +497,7 @@ local Content = Create("Frame", {
     BorderSizePixel = 0
 })
 -- PAGE SYSTEM
-local Pages = {}local SidebarButtons = {}
-local CurrentPage = 1
+local Pages = {}local SidebarButtons = {}local CurrentPage = 1
 -- DEBUG CONSOLE
 local DebugConsoleList
 local DebugConsoleLayout
@@ -997,8 +996,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             elseif not enabled and Runtime.StopNavigation then
                 Runtime.StopNavigation()
             end        end)
-        AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
-        AutoStealToggle.Size = UDim2.fromOffset(40, 24)
+        AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)        AutoStealToggle.Size = UDim2.fromOffset(40, 24)
 
         local StatusRow = Create("Frame", {
             Parent = AutoCard,
@@ -1247,8 +1245,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     })
                     AddCorner(Check, 4)                    if isSelected then
                         Create("Frame", {
-                            Parent = Check,
-                            Position = UDim2.fromOffset(4, 4),
+                            Parent = Check,                            Position = UDim2.fromOffset(4, 4),
                             Size = UDim2.fromOffset(5, 5),
                             BackgroundColor3 = Theme.AccentText,
                             BorderSizePixel = 0,
@@ -1447,8 +1444,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         TrackConnection(UserInputService.InputChanged:Connect(function(input)            if DraggingSpeed and (
                 input.UserInputType == Enum.UserInputType.MouseMovement
                 or input.UserInputType == Enum.UserInputType.Touch
-            ) then
-                UpdateSpeed(input)
+            ) then                UpdateSpeed(input)
             end
 end))
         TrackConnection(UserInputService.InputEnded:Connect(function(input)
@@ -1647,8 +1643,7 @@ end))
 
             if Runtime.Stopped then
                 SetAutoStealEnabled(false)
-                return
-            end
+                return            end
 
             if next(SelectedPaths) == nil then
                 SetNavigationStatus("Select a path")
@@ -1657,8 +1652,15 @@ end))
             end
 
             local hub = workspace:FindFirstChild("Hub")
+            local safeSign = hub and hub:FindFirstChild("SafeZoneSign")
             local pathsFolder = workspace:FindFirstChild("Paths")
             local path1 = pathsFolder and pathsFolder:FindFirstChild("Path1")
+
+            if not safeSign or not safeSign:IsA("BasePart") then
+                SetNavigationStatus("Safe zone unavailable")
+                SetAutoStealEnabled(false)
+                return
+            end
 
             local function GetBossCFrame()
                 local boss = path1 and path1:FindFirstChild("Boss")
@@ -1669,31 +1671,6 @@ end))
                 if boss:IsA("BasePart") then
                     return boss.CFrame
                 end
-                return nil
-            end
-
-            local function GetOwnedPlotPosition()
-                local plots = hub and hub:FindFirstChild("Plots")
-                if not plots then return nil end
-
-                for _, plot in ipairs(plots:GetChildren()) do
-                    local ownerDisplay = plot:FindFirstChild("OwnerDisplay")
-                    local gui = ownerDisplay and ownerDisplay:FindFirstChild("Gui")
-                    local playerName = gui and gui:FindFirstChild("PlayerName")
-
-                    if playerName and playerName:IsA("TextLabel")
-                    and playerName.Text == LocalPlayer.Name then
-                        if ownerDisplay:IsA("BasePart") then
-                            return ownerDisplay.Position
-                        end
-                        if ownerDisplay:IsA("Model") then
-                            return ownerDisplay:GetPivot().Position
-                        end
-                        local displayPart = ownerDisplay:FindFirstChildWhichIsA("BasePart", true)
-                        return displayPart and displayPart.Position or nil
-                    end
-                end
-
                 return nil
             end
 
@@ -1847,8 +1824,7 @@ end))
                     end
 
                     if not holdOk or not holdCompleted then
-                        RestoreFloating()
-                        if token == navigationToken then
+                        RestoreFloating()                        if token == navigationToken then
                             SetAutoStealEnabled(false)
                             SetNavigationStatus("Navigation stopped")
                         end
@@ -1868,21 +1844,35 @@ end))
                     end
 
                     SetFloating(root, false)
-                    SetNavigationStatus("Finding your plot")
-                    local plotPosition = GetOwnedPlotPosition()
-                    if not plotPosition then
-                        SetAutoStealEnabled(false)
-                        SetNavigationStatus("Your plot not found")
-                        return
+                    SetNavigationStatus("Walking around safe zone")
+
+                    local circleRadius = 10
+                    local circlePoints = 8
+                    local safeZoneReached = true
+
+                    for pointIndex = 1, circlePoints do
+                        if token ~= navigationToken or Runtime.Stopped then
+                            return
+                        end
+
+                        local angle = (pointIndex / circlePoints) * math.pi * 2
+                        local circlePosition = safeSign.Position + Vector3.new(
+                            math.cos(angle) * circleRadius,
+                            0,
+                            math.sin(angle) * circleRadius
+                        )
+
+                        if not MoveToPosition(root, humanoid, circlePosition, token, true) then
+                            safeZoneReached = false
+                            break
+                        end
                     end
 
-                    SetNavigationStatus("Walking to your plot")
-                    local reachedPlot = MoveToPosition(root, humanoid, plotPosition, token, true)
-                    if not reachedPlot then
+                    if not safeZoneReached then
                         RestoreFloating()
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
-                            SetNavigationStatus("Return to plot failed")
+                            SetNavigationStatus("Safe zone walk failed")
                         end
                         return
                     end
@@ -1892,8 +1882,7 @@ end))
                         return
                     end
 
-                    SetFloating(root, false)
-                    SetNavigationStatus("Waiting 5s")
+                    SetNavigationStatus("Cooldown 5s")
                     local nextTargetAt = os.clock() + 5
                     while os.clock() < nextTargetAt do
                         if token ~= navigationToken or Runtime.Stopped then
@@ -1901,7 +1890,7 @@ end))
                         end
                         task.wait(math.min(0.1, nextTargetAt - os.clock()))
                     end
-                    SetNavigationStatus("Returned - next cage")
+                    SetNavigationStatus("Cooldown complete - next cage")
                 end
             end
         end        elseif name == "Features" then
