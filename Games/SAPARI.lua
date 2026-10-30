@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.9"
+local testver = "v1.10"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -41,7 +41,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "STEAL A PET & RIDE IT",
-    Subtitle = "v1.9",
+    Subtitle = "v1.10",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
@@ -497,8 +497,7 @@ local Content = Create("Frame", {
     BorderSizePixel = 0
 })
 -- PAGE SYSTEM
-local Pages = {}
-local SidebarButtons = {}
+local Pages = {}local SidebarButtons = {}
 local CurrentPage = 1
 -- DEBUG CONSOLE
 local DebugConsoleList
@@ -997,8 +996,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 task.spawn(Runtime.StartNavigation)
             elseif not enabled and Runtime.StopNavigation then
                 Runtime.StopNavigation()
-            end
-        end)
+            end        end)
         AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
         AutoStealToggle.Size = UDim2.fromOffset(40, 24)
 
@@ -1247,8 +1245,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         BorderSizePixel = 0,
                         ZIndex = 102
                     })
-                    AddCorner(Check, 4)
-                    if isSelected then
+                    AddCorner(Check, 4)                    if isSelected then
                         Create("Frame", {
                             Parent = Check,
                             Position = UDim2.fromOffset(4, 4),
@@ -1447,8 +1444,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
         SpeedBar.InputBegan:Connect(BeginSpeedDrag)
         SpeedThumb.InputBegan:Connect(BeginSpeedDrag)
-        TrackConnection(UserInputService.InputChanged:Connect(function(input)
-            if DraggingSpeed and (
+        TrackConnection(UserInputService.InputChanged:Connect(function(input)            if DraggingSpeed and (
                 input.UserInputType == Enum.UserInputType.MouseMovement
                 or input.UserInputType == Enum.UserInputType.Touch
             ) then
@@ -1539,12 +1535,12 @@ end))
             end
         end
 
-        local function MoveToPosition(root, humanoid, destination, token)
+        local function MoveToPosition(root, humanoid, destination, token, forceWalk)
             if token ~= navigationToken or Runtime.Stopped then
                 return false
             end
 
-            if MovementMode == "Walk" then
+            if forceWalk or MovementMode == "Walk" then
                 local distance = (root.Position - destination).Magnitude
                 local speed = math.max(humanoid.WalkSpeed, 1)
                 local timeout = os.clock() + math.max(5, distance / speed + 3)
@@ -1647,8 +1643,7 @@ end))
 
         Runtime.StartNavigation = function()
             navigationToken += 1
-            local token = navigationToken
-            CancelActiveMovement()
+            local token = navigationToken            CancelActiveMovement()
 
             if Runtime.Stopped then
                 SetAutoStealEnabled(false)
@@ -1662,9 +1657,48 @@ end))
             end
 
             local hub = workspace:FindFirstChild("Hub")
-            local safeSign = hub and hub:FindFirstChild("SafeZoneSign")
-            if not safeSign or not safeSign:IsA("BasePart") then
-                SetNavigationStatus("Safe zone unavailable")
+            local pathsFolder = workspace:FindFirstChild("Paths")
+            local path1 = pathsFolder and pathsFolder:FindFirstChild("Path1")
+
+            local function GetBossCFrame()
+                local boss = path1 and path1:FindFirstChild("Boss")
+                if not boss then return nil end
+                if boss:IsA("Model") then
+                    return boss:GetPivot()
+                end
+                if boss:IsA("BasePart") then
+                    return boss.CFrame
+                end
+                return nil
+            end
+
+            local function GetOwnedPlotPosition()
+                local plots = hub and hub:FindFirstChild("Plots")
+                if not plots then return nil end
+
+                for _, plot in ipairs(plots:GetChildren()) do
+                    local ownerDisplay = plot:FindFirstChild("OwnerDisplay")
+                    local gui = ownerDisplay and ownerDisplay:FindFirstChild("Gui")
+                    local playerName = gui and gui:FindFirstChild("PlayerName")
+
+                    if playerName and playerName:IsA("TextLabel")
+                    and playerName.Text == LocalPlayer.Name then
+                        if ownerDisplay:IsA("BasePart") then
+                            return ownerDisplay.Position
+                        end
+                        if ownerDisplay:IsA("Model") then
+                            return ownerDisplay:GetPivot().Position
+                        end
+                        local displayPart = ownerDisplay:FindFirstChildWhichIsA("BasePart", true)
+                        return displayPart and displayPart.Position or nil
+                    end
+                end
+
+                return nil
+            end
+
+            if not GetBossCFrame() then
+                SetNavigationStatus("Path1 Boss unavailable")
                 SetAutoStealEnabled(false)
                 return
             end
@@ -1703,33 +1737,39 @@ end))
                 return cages
             end
 
-            local forward = Vector3.new(
-                safeSign.CFrame.LookVector.X,
-                0,
-                safeSign.CFrame.LookVector.Z
-            )
-            if forward.Magnitude < 0.001 then
-                forward = Vector3.new(0, 0, -1)
-            else
-                forward = forward.Unit
-            end
-            local routeWaypoint = safeSign.Position + forward * 50
-
             local function MoveToCage(root, humanoid, destination, token)
-                if MovementMode == "Walk" then
-                    return MoveToPosition(root, humanoid, destination, token)
+                local bossCFrame = GetBossCFrame()
+                if not bossCFrame then
+                    SetNavigationStatus("Path1 Boss unavailable")
+                    return false
                 end
-                return MoveToPosition(root, humanoid, safeSign.Position, token)
-                    and MoveToPosition(root, humanoid, routeWaypoint, token)
-                    and MoveToPosition(root, humanoid, destination, token)
-            end
 
-            local function MoveToSafeZone(root, humanoid, token)
-                if MovementMode == "Walk" then
-                    return MoveToPosition(root, humanoid, safeSign.Position, token)
+                if not MoveToPosition(root, humanoid, bossCFrame.Position, token, true) then
+                    return false
                 end
+
+                if MovementMode == "Walk" then
+                    SetNavigationStatus("Walking to cage")
+                    return MoveToPosition(root, humanoid, destination, token, true)
+                end
+
+                SetFloating(root, true)
+                SetNavigationStatus("Gliding to cage")
+
+                local forward = Vector3.new(
+                    bossCFrame.LookVector.X,
+                    0,
+                    bossCFrame.LookVector.Z
+                )
+                if forward.Magnitude < 0.001 then
+                    forward = Vector3.new(0, 0, -1)
+                else
+                    forward = forward.Unit
+                end
+
+                local routeWaypoint = bossCFrame.Position + forward * 50
                 return MoveToPosition(root, humanoid, routeWaypoint, token)
-                    and MoveToPosition(root, humanoid, safeSign.Position, token)
+                    and MoveToPosition(root, humanoid, destination, token)
             end
 
             while token == navigationToken and not Runtime.Stopped do
@@ -1757,10 +1797,8 @@ end))
                         continue
                     end
 
-                    if MovementMode == "Glide" then
-                        SetFloating(root, true)
-                    end
-                    SetNavigationStatus("Moving to safe zone")
+                    SetFloating(root, false)
+                    SetNavigationStatus("Walking to Path1 Boss")
                     local reachedCage = MoveToCage(root, humanoid, cageRoot.Position, token)
                     if not reachedCage then
                         RestoreFloating()
@@ -1829,16 +1867,22 @@ end))
                         return
                     end
 
-                    if MovementMode == "Glide" then
-                        SetFloating(root, true)
+                    SetFloating(root, false)
+                    SetNavigationStatus("Finding your plot")
+                    local plotPosition = GetOwnedPlotPosition()
+                    if not plotPosition then
+                        SetAutoStealEnabled(false)
+                        SetNavigationStatus("Your plot not found")
+                        return
                     end
-                    SetNavigationStatus("Returning to safe zone")
-                    local reachedSafeZone = MoveToSafeZone(root, humanoid, token)
-                    if not reachedSafeZone then
+
+                    SetNavigationStatus("Walking to your plot")
+                    local reachedPlot = MoveToPosition(root, humanoid, plotPosition, token, true)
+                    if not reachedPlot then
                         RestoreFloating()
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
-                            SetNavigationStatus("Navigation stopped")
+                            SetNavigationStatus("Return to plot failed")
                         end
                         return
                     end
@@ -1848,44 +1892,8 @@ end))
                         return
                     end
 
-                    local safeZoneDistance = (root.Position - safeSign.Position).Magnitude
-                    if safeZoneDistance > 8 then
-                        RestoreFloating()
-                        SetNavigationStatus("Safe zone not reached")
-                        continue
-                    end
-
                     SetFloating(root, false)
-                    SetNavigationStatus("Respawning")
-                    local respawnedCharacter = nil
-                    local respawnConnection = LocalPlayer.CharacterAdded:Connect(function(newCharacter)
-                        respawnedCharacter = newCharacter
-                    end)
-
-                    humanoid.Health = 0
-
-                    local respawnUntil = os.clock() + 15
-                    while not respawnedCharacter and os.clock() < respawnUntil do
-                        if token ~= navigationToken or Runtime.Stopped then
-                            respawnConnection:Disconnect()
-                            return
-                        end
-                        local currentCharacter = LocalPlayer.Character
-                        if currentCharacter and currentCharacter ~= character then
-                            respawnedCharacter = currentCharacter
-                            break
-                        end
-                        task.wait(0.1)
-                    end
-                    respawnConnection:Disconnect()
-
-                    if not respawnedCharacter then
-                        SetAutoStealEnabled(false)
-                        SetNavigationStatus("Respawn timed out")
-                        return
-                    end
-
-                    SetNavigationStatus("Respawned - waiting 5s")
+                    SetNavigationStatus("Waiting 5s")
                     local nextTargetAt = os.clock() + 5
                     while os.clock() < nextTargetAt do
                         if token ~= navigationToken or Runtime.Stopped then
