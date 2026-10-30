@@ -967,11 +967,16 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AutoStealEnabled = enabled
             Runtime.AutoStealEnabled = enabled
             if StatusValue then
-                StatusValue.Text = enabled and "Enabled" or "Disabled"
+                StatusValue.Text = enabled and "Navigating" or "Disabled"
                 StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
             end
             if StatusDot then
                 StatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+            end
+            if enabled and Runtime.StartNavigation then
+                task.spawn(Runtime.StartNavigation)
+            elseif not enabled and Runtime.StopNavigation then
+                Runtime.StopNavigation()
             end
         end)
         AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
@@ -1419,6 +1424,93 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         Runtime.SelectedPaths = SelectedPaths
         Runtime.SelectedCages = SelectedCages
+
+        local navigationToken = 0
+        local function SetNavigationStatus(message)
+            if StatusValue then
+                StatusValue.Text = message
+                StatusValue.TextColor3 = Theme.Accent
+            end
+        end
+
+        local function MoveToPosition(root, humanoid, destination, token)
+            if MovementMode == "Walk" then
+                humanoid:MoveTo(destination)
+                local reached = humanoid.MoveToFinished:Wait()
+                return reached and token == navigationToken and not Runtime.Stopped
+            end
+
+            local distance = (root.Position - destination).Magnitude
+            local speed = math.max(10, Runtime.GlideSpeed or 50)
+            local duration = math.max(0.15, distance / speed)
+            local target = CFrame.new(destination) * root.CFrame.Rotation
+            local tween = TweenService:Create(
+                root,
+                TweenInfo.new(duration, Enum.EasingStyle.Linear),
+                {CFrame = target}
+            )
+            tween:Play()
+            local state = tween.Completed:Wait()
+            return state == Enum.PlaybackState.Completed
+                and token == navigationToken
+                and not Runtime.Stopped
+        end
+
+        Runtime.StopNavigation = function()
+            navigationToken += 1
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid:Move(Vector3.zero, false) end
+            SetNavigationStatus("Stopped")
+        end
+
+        Runtime.StartNavigation = function()
+            navigationToken += 1
+            local token = navigationToken
+            local selectedCage
+            for cage in pairs(SelectedCages) do
+                if SelectedCages[cage] and cage and cage.Parent then
+                    selectedCage = cage
+                    break
+                end
+            end
+            if not selectedCage then
+                SetNavigationStatus("Select a cage")
+                AutoStealEnabled = false
+                Runtime.AutoStealEnabled = false
+                return
+            end
+
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            local cageRoot = selectedCage:FindFirstChild("Root")
+            local safeSign = workspace:FindFirstChild("Hub")
+                and workspace.Hub:FindFirstChild("SafeZoneSign")
+
+            if not humanoid or not root or not cageRoot or not cageRoot:IsA("BasePart") or not safeSign or not safeSign:IsA("BasePart") then
+                SetNavigationStatus("Target unavailable")
+                return
+            end
+
+            SetNavigationStatus("Moving to cage")
+            local reachedCage = MoveToPosition(root, humanoid, cageRoot.Position, token)
+            if not reachedCage then return end
+
+            if token ~= navigationToken or Runtime.Stopped then return end
+            SetNavigationStatus("Returning to safe zone")
+            local reachedSafeZone = MoveToPosition(root, humanoid, safeSign.Position, token)
+            if not reachedSafeZone then return end
+
+            if token == navigationToken then
+                SetNavigationStatus("Returned to safe zone")
+                AutoStealEnabled = false
+                Runtime.AutoStealEnabled = false
+                if StatusDot then
+                    StatusDot.BackgroundColor3 = Theme.Gray
+                end
+            end
+        end
         elseif name == "Features" then
         local ControlsCard = CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
         CreateButton(ControlsCard, "Example Action", function()
