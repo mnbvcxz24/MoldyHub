@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.6"
+local testver = "v1.7"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -41,7 +41,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "STEAL A PET & RIDE IT",
-    Subtitle = "v1.6",
+    Subtitle = "v1.7",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
@@ -1468,6 +1468,35 @@ end))
 
         local navigationToken = 0
         local activeNavigationTween
+        local floatingRoot
+        local floatingOriginalAnchored
+
+        local function SetFloating(root, enabled)
+            if enabled then
+                if floatingRoot and floatingRoot ~= root then
+                    floatingRoot.Anchored = floatingOriginalAnchored or false
+                end
+                if floatingRoot ~= root then
+                    floatingRoot = root
+                    floatingOriginalAnchored = root.Anchored
+                end
+                root.Anchored = true
+            elseif floatingRoot == root then
+                root.Anchored = floatingOriginalAnchored or false
+                floatingRoot = nil
+                floatingOriginalAnchored = nil
+            end
+        end
+
+        local function RestoreFloating()
+            if floatingRoot then
+                pcall(function()
+                    floatingRoot.Anchored = floatingOriginalAnchored or false
+                end)
+                floatingRoot = nil
+                floatingOriginalAnchored = nil
+            end
+        end
 
         local function SetNavigationStatus(message)
             if StatusValue then
@@ -1611,6 +1640,7 @@ end))
         Runtime.StopNavigation = function()
             navigationToken += 1
             CancelActiveMovement()
+            RestoreFloating()
             SetAutoStealEnabled(false)
             SetNavigationStatus("Stopped")
         end
@@ -1673,6 +1703,34 @@ end))
                 return cages
             end
 
+            local forward = Vector3.new(
+                safeSign.CFrame.LookVector.X,
+                0,
+                safeSign.CFrame.LookVector.Z
+            )
+            if forward.Magnitude < 0.001 then
+                forward = Vector3.new(0, 0, -1)
+            else
+                forward = forward.Unit
+            end
+            local routeWaypoint = safeSign.Position + forward * 50
+
+            local function MoveToCage(root, humanoid, destination, token)
+                if MovementMode == "Walk" then
+                    return MoveToPosition(root, humanoid, destination, token)
+                end
+                return MoveToPosition(root, humanoid, routeWaypoint, token)
+                    and MoveToPosition(root, humanoid, destination, token)
+            end
+
+            local function MoveToSafeZone(root, humanoid, token)
+                if MovementMode == "Walk" then
+                    return MoveToPosition(root, humanoid, safeSign.Position, token)
+                end
+                return MoveToPosition(root, humanoid, routeWaypoint, token)
+                    and MoveToPosition(root, humanoid, safeSign.Position, token)
+            end
+
             while token == navigationToken and not Runtime.Stopped do
                 local selectedCages = GetSelectedCages()
                 if #selectedCages == 0 then
@@ -1698,8 +1756,9 @@ end))
                         continue
                     end
 
+                    SetFloating(root, true)
                     SetNavigationStatus("Moving to cage")
-                    local reachedCage = MoveToPosition(root, humanoid, cageRoot.Position, token)
+                    local reachedCage = MoveToCage(root, humanoid, cageRoot.Position, token)
                     if not reachedCage then
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
@@ -1755,7 +1814,7 @@ end))
                     if token ~= navigationToken or Runtime.Stopped then return end
 
                     SetNavigationStatus("Returning to safe zone")
-                    local reachedSafeZone = MoveToPosition(root, humanoid, safeSign.Position, token)
+                    local reachedSafeZone = MoveToSafeZone(root, humanoid, token)
                     if not reachedSafeZone then
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
@@ -1772,12 +1831,21 @@ end))
                         continue
                     end
 
+                    SetFloating(root, false)
                     SetNavigationStatus("Returned - next cage")
                     task.wait(0.2)
                 end
 
                 if token == navigationToken and not Runtime.Stopped then
-                    task.wait(0.25)
+                    SetNavigationStatus("Cooldown - 10s")
+                    local cooldownUntil = os.clock() + 10
+                    while os.clock() < cooldownUntil do
+                        if token ~= navigationToken or Runtime.Stopped then
+                            RestoreFloating()
+                            return
+                        end
+                        task.wait(math.min(0.1, cooldownUntil - os.clock()))
+                    end
                 end
             end
         end        elseif name == "Features" then
