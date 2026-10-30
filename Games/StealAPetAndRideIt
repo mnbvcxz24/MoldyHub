@@ -1168,7 +1168,18 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     if child:IsA("TextButton") or child:IsA("TextLabel") then child:Destroy() end
                 end
                 local options = getOptions()
-                if #options == 0 then
+                if label == "Cage Filter" and next(SelectedPaths) == nil then
+                    Create("TextLabel", {
+                        Parent = List,
+                        Size = UDim2.new(1, -8, 0, 30),
+                        BackgroundTransparency = 1,
+                        Text = "Select a path first",
+                        TextColor3 = Theme.Gray,
+                        Font = Enum.Font.GothamMedium,
+                        TextSize = 9,
+                        ZIndex = 101
+                    })
+                elseif #options == 0 then
                     Create("TextLabel", {
                         Parent = List,
                         Size = UDim2.new(1, -8, 0, 30),
@@ -1246,20 +1257,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon
         CreateDynamicFilter("Path Filter", "P", 82, GetPathFolders, SelectedPaths, function()
             table.clear(SelectedCages)
-            if CageFilterButton then
-                local hasPath = next(SelectedPaths) ~= nil
-                CageFilterButton.Visible = hasPath
+            if CageFilterList then
                 CageFilterList.Visible = false
-                CageSectionLabel.Visible = hasPath
-                CageSectionIcon.Visible = hasPath
+                CageFilterButton:FindFirstChildWhichIsA("TextLabel").Text = "Select cage filter..."
             end
         end)
         CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon =
             CreateDynamicFilter("Cage Filter", "C", 142, GetCageModels, SelectedCages)
-        local HasSelectedPath = next(SelectedPaths) ~= nil
-        CageFilterButton.Visible = HasSelectedPath
-        CageSectionLabel.Visible = HasSelectedPath
-        CageSectionIcon.Visible = HasSelectedPath
 
         MakeSectionLabel("M", "Movement", 202)
         local MovementHolder = Create("Frame", {
