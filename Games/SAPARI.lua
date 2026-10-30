@@ -1282,9 +1282,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon
         CreateDynamicFilter("Path Filter", "P", 82, GetPathFolders, SelectedPaths, function()
             table.clear(SelectedCages)
+            local availableCages = GetCageModels()
+            for _, cage in ipairs(availableCages) do
+                SelectedCages[cage] = true
+            end
             if CageFilterList then
                 CageFilterList.Visible = false
-                CageFilterButton:FindFirstChildWhichIsA("TextLabel").Text = "Select cage filter..."
+                local buttonText = CageFilterButton:FindFirstChildWhichIsA("TextLabel")
+                if buttonText then
+                    buttonText.Text = #availableCages > 0
+                        and ("Cage Filter - " .. #availableCages .. " selected")
+                        or "Select cage filter..."
+                    buttonText.TextColor3 = #availableCages > 0 and Theme.Text or Theme.Gray
+                end
             end
         end)
         CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon =
