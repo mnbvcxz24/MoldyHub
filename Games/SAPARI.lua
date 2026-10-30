@@ -298,7 +298,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">STEAL</font> A PET AND RIDE IT'
     end
 end
 -- MAIN WINDOW
@@ -1459,6 +1459,8 @@ end))
 
         local navigationToken = 0
         local activeNavigationTween
+        local baseTeleportConnection
+        local baseTeleportDetected = false
         local floatingRoot
         local floatingOriginalAnchored
 
@@ -1769,6 +1771,10 @@ end))
         end
         Runtime.StopNavigation = function()
             navigationToken += 1
+            if baseTeleportConnection then
+                baseTeleportConnection:Disconnect()
+                baseTeleportConnection = nil
+            end
             CancelActiveMovement()
             RestoreFloating()
             SetAutoStealEnabled(false)
@@ -1798,6 +1804,92 @@ end))
                 SetNavigationStatus("Safe zone unavailable")
                 SetAutoStealEnabled(false)
                 return
+            end
+
+            baseTeleportDetected = false
+            if baseTeleportConnection then
+                baseTeleportConnection:Disconnect()
+                baseTeleportConnection = nil
+            end
+
+            local previousCharacterRoot
+            local previousCharacterPosition
+            local previousNavigationRoot
+            local previousNavigationPosition
+
+            baseTeleportConnection = RunService.Heartbeat:Connect(function()
+                if token ~= navigationToken or Runtime.Stopped then
+                    if baseTeleportConnection then
+                        baseTeleportConnection:Disconnect()
+                        baseTeleportConnection = nil
+                    end
+                    return
+                end
+
+                local character = LocalPlayer.Character
+                local currentRoot = character and character:FindFirstChild("HumanoidRootPart")
+                if not currentRoot or not currentRoot:IsA("BasePart") then
+                    previousCharacterRoot = nil
+                    previousCharacterPosition = nil
+                    previousNavigationRoot = nil
+                    previousNavigationPosition = nil
+                    return
+                end
+
+                local currentNavigationRoot = GetNavigationRoot(currentRoot)
+                if not currentNavigationRoot or not currentNavigationRoot.Parent then
+                    return
+                end
+
+                if previousCharacterRoot ~= currentRoot
+                or previousNavigationRoot ~= currentNavigationRoot
+                or not previousCharacterPosition
+                or not previousNavigationPosition then
+                    previousCharacterRoot = currentRoot
+                    previousCharacterPosition = currentRoot.Position
+                    previousNavigationRoot = currentNavigationRoot
+                    previousNavigationPosition = currentNavigationRoot.Position
+                    return
+                end
+
+                local characterJump = (currentRoot.Position - previousCharacterPosition).Magnitude
+                local navigationJump = (currentNavigationRoot.Position - previousNavigationPosition).Magnitude
+                local characterAtBase = (currentRoot.Position - safeSign.Position).Magnitude <= 65
+                local navigationRootAtBase = (currentNavigationRoot.Position - safeSign.Position).Magnitude <= 65
+
+                previousCharacterPosition = currentRoot.Position
+                previousNavigationPosition = currentNavigationRoot.Position
+
+                if not baseTeleportDetected
+                and ((characterJump >= 70 and characterAtBase)
+                or (navigationJump >= 70 and navigationRootAtBase)) then
+                    baseTeleportDetected = true
+                    CancelActiveMovement()
+                    RestoreFloating()
+                    SetNavigationStatus("Base teleport detected - waiting 12s")
+                end
+            end)
+
+            local function WaitForBaseTeleport()
+                if not baseTeleportDetected then
+                    return false
+                end
+
+                CancelActiveMovement()
+                RestoreFloating()
+                SetNavigationStatus("Base teleport detected - waiting 12s")
+
+                local waitUntil = os.clock() + 12
+                while os.clock() < waitUntil do
+                    if token ~= navigationToken or Runtime.Stopped then
+                        return false
+                    end
+                    task.wait(math.min(0.1, waitUntil - os.clock()))
+                end
+
+                baseTeleportDetected = false
+                SetNavigationStatus("12s wait complete - restarting cage scan")
+                return true
             end
 
             local function GetBossCFrame()
@@ -1907,6 +1999,10 @@ end))
                 return true
             end
             while token == navigationToken and not Runtime.Stopped do
+                if baseTeleportDetected then
+                    if not WaitForBaseTeleport() then return end
+                end
+
                 local selectedCages = GetSelectedCages()
                 if #selectedCages == 0 then
                     if MovementMode == "Walk" then
@@ -1940,6 +2036,10 @@ end))
                     local reachedCage, navigationFailure = MoveToCage(root, humanoid, cageRoot.Position, token)
                     if not reachedCage then
                         RestoreFloating()
+                        if baseTeleportDetected then
+                            if not WaitForBaseTeleport() then return end
+                            break
+                        end
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
                             SetNavigationStatus(navigationFailure or "Navigation stopped")
@@ -1950,6 +2050,11 @@ end))
                     if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
                         return
+                    end
+
+                    if baseTeleportDetected then
+                        if not WaitForBaseTeleport() then return end
+                        break
                     end
 
                     local navigationRoot = GetNavigationRoot(root)
@@ -2009,6 +2114,11 @@ end))
                         end)
                     end
 
+                    if baseTeleportDetected then
+                        if not WaitForBaseTeleport() then return end
+                        break
+                    end
+
                     if not holdOk or not holdCompleted then
                         RestoreFloating()
                         if token == navigationToken then
@@ -2049,6 +2159,10 @@ end))
 
                     if not reachedSafeZone then
                         RestoreFloating()
+                        if baseTeleportDetected then
+                            if not WaitForBaseTeleport() then return end
+                            break
+                        end
                         if ShouldWalk(root) then
                             SetNavigationStatus("Retrying walk to safe zone")
                             task.wait(0.5)
@@ -2078,8 +2192,17 @@ end))
                         if token ~= navigationToken or Runtime.Stopped then
                             return
                         end
+                        if baseTeleportDetected then
+                            break
+                        end
                         task.wait(math.min(0.1, nextTargetAt - os.clock()))
                     end
+
+                    if baseTeleportDetected then
+                        if not WaitForBaseTeleport() then return end
+                        break
+                    end
+
                     SetNavigationStatus("Cooldown complete - rescanning cages")
                     if ShouldWalk(root) then
                         break
