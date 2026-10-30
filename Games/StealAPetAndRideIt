@@ -960,10 +960,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local SelectedCages = {}
         local MovementMode = "Glide"
         local AutoStealEnabled = false
+        local StatusValue
+        local StatusDot
 
         local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
             AutoStealEnabled = enabled
             Runtime.AutoStealEnabled = enabled
+            if StatusValue then
+                StatusValue.Text = enabled and "Enabled" or "Disabled"
+                StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
+            end
+            if StatusDot then
+                StatusDot.TextColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+            end
         end)
         AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
         AutoStealToggle.Size = UDim2.fromOffset(40, 24)
@@ -974,7 +983,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Size = UDim2.new(1, -30, 0, 27),
             BackgroundTransparency = 1
         })
-        local StatusDot = Create("TextLabel", {
+        StatusDot = Create("TextLabel", {
             Parent = StatusRow,
             Size = UDim2.fromOffset(14, 24),
             BackgroundTransparency = 1,
@@ -995,7 +1004,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local StatusValue = Create("TextLabel", {
+        StatusValue = Create("TextLabel", {
             Parent = StatusRow,
             Position = UDim2.new(0.5, 0, 0, 0),
             Size = UDim2.new(0.5, 0, 1, 0),
@@ -1351,29 +1360,31 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
             RefreshSpeed()
         end
-        local function BeginSpeedDrag(input)
+        local function BeginSpeedDrag(input, forcedTarget)
             if input.UserInputType ~= Enum.UserInputType.MouseButton1
             and input.UserInputType ~= Enum.UserInputType.Touch then return end
-            local pointer = math.clamp(
-                (input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X,
-                0,
-                1
-            )
-            local speedPosition = (GlideSpeed - 10) / 90
-            local maxPosition = (GlideMaxSpeed - 10) / 90
-            DragTarget = math.abs(pointer - maxPosition) < math.abs(pointer - speedPosition) and "Max" or "Speed"
+            if forcedTarget then
+                DragTarget = forcedTarget
+            else
+                local pointer = math.clamp(
+                    (input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X,
+                    0,
+                    1
+                )
+                local speedPosition = (GlideSpeed - 10) / 90
+                local maxPosition = (GlideMaxSpeed - 10) / 90
+                DragTarget = math.abs(pointer - maxPosition) < math.abs(pointer - speedPosition) and "Max" or "Speed"
+            end
             UpdateSpeed(input)
         end
         SpeedBar.InputBegan:Connect(function(input)
             BeginSpeedDrag(input)
         end)
         SpeedThumb.InputBegan:Connect(function(input)
-            DragTarget = "Speed"
-            BeginSpeedDrag(input)
+            BeginSpeedDrag(input, "Speed")
         end)
         MaxThumb.InputBegan:Connect(function(input)
-            DragTarget = "Max"
-            BeginSpeedDrag(input)
+            BeginSpeedDrag(input, "Max")
         end)
         UserInputService.InputChanged:Connect(function(input)
             if DragTarget and (
