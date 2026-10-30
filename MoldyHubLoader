@@ -2,12 +2,25 @@ local GameLinks = {
     [95168737547508] = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/SAPARI-Deploy.lua"
 }
 
-local placeId = game.PlaceId
-local selectedUrl = GameLinks[placeId]
+local url = GameLinks[game.PlaceId]
 
-if not selectedUrl then
-    warn("[MoldyHub] Unsupported game PlaceId: " .. tostring(placeId))
+if not url then
+    warn("[MoldyHub] Unsupported Game PlaceId: " .. tostring(game.PlaceId))
     return
 end
 
--- The matched, approved URL is available in selectedUrl.
+local ok, source = pcall(function()
+    return game:HttpGet(url)
+end)
+
+if not ok then
+    warn("[MoldyHub] Download failed: " .. tostring(source))
+    return
+end
+
+if type(source) ~= "string" or #source == 0 then
+    warn("[MoldyHub] Invalid or empty source")
+    return
+end
+
+return source
