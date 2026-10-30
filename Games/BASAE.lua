@@ -374,7 +374,7 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(14, 5),
     Size = UDim2.fromOffset(220, 22),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">SKRIP</font>NIBAI',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
