@@ -946,7 +946,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     PagesByName[name] = Page
     if name == "Main" then
         local AutoCard = CreateCard(Page, "Auto Steal", "")
-        AutoCard.Size = UDim2.new(1, 0, 0, 112)
+        AutoCard.Size = UDim2.new(0.5, -4, 0, 0)
+        AutoCard.AutomaticSize = Enum.AutomaticSize.Y
 
         local AutoStealToggle = CreateToggle(AutoCard, "Auto steal", false, function(enabled)
             Runtime.AutoStealEnabled = enabled
@@ -1110,11 +1111,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         CreateDynamicFilter("Path Filter", 57, GetPathFolders, SelectedPaths, function()
             table.clear(SelectedCages)
         end)
-        CreateDynamicFilter("Cage Filter", 57, GetCageModels, SelectedCages)
+        CreateDynamicFilter("Cage Filter", 85, GetCageModels, SelectedCages)
 
         local MovementLabel = Create("TextLabel", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 85),
+            Position = UDim2.fromOffset(15, 113),
             Size = UDim2.fromOffset(86, 22),
             BackgroundTransparency = 1,
             Text = "Movement",
@@ -1125,7 +1126,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local MovementButton = Create("TextButton", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(101, 85),
+            Position = UDim2.fromOffset(101, 113),
             Size = UDim2.new(1, -116, 0, 22),
             BackgroundColor3 = Theme.Selected,
             Text = "Glide",
