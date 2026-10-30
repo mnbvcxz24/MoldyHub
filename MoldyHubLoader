@@ -1,5 +1,5 @@
 local GameLinks = {
-    [95168737547508] = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/SAPARI-Deploy.lua"
+    [95168737547508] = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/SAPARI.lua"
 }
 
 local url = GameLinks[game.PlaceId]
@@ -9,18 +9,12 @@ if not url then
     return
 end
 
-local ok, source = pcall(function()
-    return game:HttpGet(url)
-end)
+local source = game:HttpGet(url)
 
-if not ok then
-    warn("[MoldyHub] Download failed: " .. tostring(source))
+local fn, err = loadstring(source)
+if not fn then
+    warn("[MoldyHub] Failed to load source: " .. tostring(err))
     return
 end
 
-if type(source) ~= "string" or #source == 0 then
-    warn("[MoldyHub] Invalid or empty source")
-    return
-end
-
-return source
+fn()
