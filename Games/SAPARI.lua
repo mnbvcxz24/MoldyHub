@@ -1601,6 +1601,12 @@ end))
                 local nextMoveRefresh = 0
 
                 while os.clock() < timeout do
+                    if baseTeleportDetected then
+                        humanoid:MoveTo(root.Position)
+                        RestoreFloating()
+                        return false
+                    end
+
                     if token ~= navigationToken or Runtime.Stopped then
                         humanoid:MoveTo(root.Position)
                         return false
@@ -1640,6 +1646,12 @@ end))
                 local initialWalkUntil = os.clock() + 2
                 local nextMoveRefresh = os.clock() + 1
                 while os.clock() < initialWalkUntil do
+                    if baseTeleportDetected then
+                        humanoid:MoveTo(root.Position)
+                        RestoreFloating()
+                        return false
+                    end
+
                     if token ~= navigationToken or Runtime.Stopped then
                         humanoid:MoveTo(root.Position)
                         return false
@@ -1735,6 +1747,12 @@ end))
                 local walkUntil = os.clock() + 2
                 local nextMoveRefresh = os.clock() + 1
                 while os.clock() < walkUntil do
+                    if baseTeleportDetected then
+                        humanoid:MoveTo(root.Position)
+                        RestoreFloating()
+                        return false
+                    end
+
                     if token ~= navigationToken or Runtime.Stopped then
                         humanoid:MoveTo(root.Position)
                         return false
