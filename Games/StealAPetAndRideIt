@@ -945,13 +945,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     PagesByName[name] = Page
     if name == "Main" then
-        local AutoCard = CreateCard(Page, "Auto Steal", "Choose paths and cages to include, then select your movement mode.")
-        AutoCard.Size = UDim2.new(1, 0, 0, 224)
+        local AutoCard = CreateCard(Page, "Auto Steal", "")
+        AutoCard.Size = UDim2.new(1, 0, 0, 112)
 
         local AutoStealToggle = CreateToggle(AutoCard, "Auto steal", false, function(enabled)
             Runtime.AutoStealEnabled = enabled
         end)
-        AutoStealToggle.Position = UDim2.fromOffset(15, 34)
+        AutoStealToggle.Position = UDim2.fromOffset(15, 30)
 
         local SelectedPaths = {}
         local SelectedCages = {}
@@ -973,6 +973,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local function GetCageModels()
             local results = {}
+            local seenNames = {}
             local paths = {}
             for pathObject in pairs(SelectedPaths) do
                 if pathObject and pathObject.Parent then
@@ -986,7 +987,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 local cagesFolder = pathObject:FindFirstChild("Cages")
                 if cagesFolder then
                     for _, child in ipairs(cagesFolder:GetChildren()) do
-                        if child:IsA("Model") then
+                        if child:IsA("Model") and not seenNames[child.Name] then
+                            seenNames[child.Name] = true
                             table.insert(results, child)
                         end
                     end
@@ -1075,9 +1077,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 for _, option in ipairs(options) do
                     local optionObject = option
                     local displayName = option.Name
-                    if label == "Cage Filter" and option.Parent and option.Parent.Parent then
-                        displayName = option.Parent.Parent.Name .. " / " .. option.Name
-                    end
                     local OptionButton = Create("TextButton", {
                         Parent = List,
                         Size = UDim2.new(1, -4, 0, 25),
@@ -1108,15 +1107,15 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return Button
         end
 
-        CreateDynamicFilter("Path Filter", 65, GetPathFolders, SelectedPaths, function()
+        CreateDynamicFilter("Path Filter", 57, GetPathFolders, SelectedPaths, function()
             table.clear(SelectedCages)
         end)
-        CreateDynamicFilter("Cage Filter", 101, GetCageModels, SelectedCages)
+        CreateDynamicFilter("Cage Filter", 57, GetCageModels, SelectedCages)
 
         local MovementLabel = Create("TextLabel", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 145),
-            Size = UDim2.fromOffset(86, 28),
+            Position = UDim2.fromOffset(15, 85),
+            Size = UDim2.fromOffset(86, 22),
             BackgroundTransparency = 1,
             Text = "Movement",
             TextColor3 = Theme.DarkGray,
@@ -1126,8 +1125,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local MovementButton = Create("TextButton", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(101, 145),
-            Size = UDim2.new(1, -116, 0, 28),
+            Position = UDim2.fromOffset(101, 85),
+            Size = UDim2.new(1, -116, 0, 22),
             BackgroundColor3 = Theme.Selected,
             Text = "Glide",
             TextColor3 = Theme.SelectedText,
