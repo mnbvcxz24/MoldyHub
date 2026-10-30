@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.12"
+local testver = "v1.13"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -41,7 +41,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "STEAL A PET & RIDE IT",
-    Subtitle = "v1.12",
+    Subtitle = "v1.13",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
@@ -1733,18 +1733,20 @@ end))
                 SetFloating(root, true)
                 SetNavigationStatus("Gliding to cage")
 
-                local forward = Vector3.new(
-                    bossCFrame.LookVector.X,
+                local toCage = Vector3.new(
+                    destination.X - bossCFrame.Position.X,
                     0,
-                    bossCFrame.LookVector.Z
+                    destination.Z - bossCFrame.Position.Z
                 )
-                if forward.Magnitude < 0.001 then
-                    forward = Vector3.new(0, 0, -1)
-                else
-                    forward = forward.Unit
+
+                if toCage.Magnitude < 0.001 then
+                    return MoveToPosition(root, humanoid, destination, token)
                 end
 
-                local routeWaypoint = bossCFrame.Position + forward * 50
+                local forward = toCage.Unit
+                local waypointDistance = math.min(50, toCage.Magnitude * 0.5)
+                local routeWaypoint = bossCFrame.Position + forward * waypointDistance
+
                 return MoveToPosition(root, humanoid, routeWaypoint, token)
                     and MoveToPosition(root, humanoid, destination, token)
             end
