@@ -1606,7 +1606,7 @@ end))
                     return true
                 end
 
-                local segmentDistance = math.min(30, distance)
+                local segmentDistance = math.min(50, distance)
                 local segmentPosition = root.Position + offset.Unit * segmentDistance
                 local duration = math.max(0.03, segmentDistance / speed)
                 local target = CFrame.new(segmentPosition) * root.CFrame.Rotation
@@ -1961,14 +1961,7 @@ end))
                 end
             end
         end        elseif name == "Features" then
-        local ControlsCard = CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
-        CreateButton(ControlsCard, "Example Action", function()
-        end)
-        local OptionsCard = CreateCard(Page, "Options", "Example dropdown and slider controls.")
-        CreateDropdown(OptionsCard, "Mode", {"Option 1", "Option 2", "Option 3"}, function(selection)
-        end)
-        CreateSlider(OptionsCard, "Example Slider", 0, 100, 50, function(value)
-        end)
+        CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
     elseif name == "Misc. feature" then
         CreateCard(Page, "Miscellaneous", "Empty content area for future game-specific features.")
     elseif name == "Settings" then
