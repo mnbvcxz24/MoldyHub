@@ -279,7 +279,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">STEAL</font> A PET AND RIDE IT'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">PICKUP</font> A PET AND RIDE IT'
     end
 end
 -- MAIN WINDOW
@@ -327,7 +327,7 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(14, 5),
     Size = UDim2.fromOffset(330, 22),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">STEAL</font> A PET AND RIDE IT',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">PICKUP</font> A PET AND RIDE IT',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
@@ -945,7 +945,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     PagesByName[name] = Page
     if name == "Main" then
-        local AutoCard = CreateCard(Page, "Auto Steal", "")
+        local AutoCard = CreateCard(Page, "Pickup Navigation", "")
         AutoCard.Size = UDim2.new(0.5, -4, 0, 0)
         AutoCard.AutomaticSize = Enum.AutomaticSize.Y
 
@@ -975,8 +975,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
             if enabled and Runtime.StartNavigation then
                 task.spawn(Runtime.StartNavigation)
-            elseif not enabled and Runtime.StopNavigation then
-                Runtime.StopNavigation()
+            elseif not enabled and Runtime.ReturnToSafeZone then
+                task.spawn(Runtime.ReturnToSafeZone)
             end
         end)
         AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
@@ -1440,10 +1440,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 return reached and token == navigationToken and not Runtime.Stopped
             end
 
-            local distance = (root.Position - destination).Magnitude
+            local glideX = root.Position.X
+            local glideDestination = Vector3.new(glideX, destination.Y, destination.Z)
+            local distance = (root.Position - glideDestination).Magnitude
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local duration = math.max(0.15, distance / speed)
-            local target = CFrame.new(destination) * root.CFrame.Rotation
+            local target = CFrame.new(glideDestination) * root.CFrame.Rotation
             local tween = TweenService:Create(
                 root,
                 TweenInfo.new(duration, Enum.EasingStyle.Linear),
@@ -1498,6 +1500,23 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if not reachedCage then return end
 
             if token ~= navigationToken or Runtime.Stopped then return end
+            SetNavigationStatus("Ready - interact manually")
+        end
+
+        Runtime.ReturnToSafeZone = function()
+            navigationToken += 1
+            local token = navigationToken
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            local safeSign = workspace:FindFirstChild("Hub")
+                and workspace.Hub:FindFirstChild("SafeZoneSign")
+
+            if not humanoid or not root or not safeSign or not safeSign:IsA("BasePart") then
+                SetNavigationStatus("Safe zone unavailable")
+                return
+            end
+
             SetNavigationStatus("Returning to safe zone")
             local reachedSafeZone = MoveToPosition(root, humanoid, safeSign.Position, token)
             if not reachedSafeZone then return end
@@ -1506,9 +1525,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 SetNavigationStatus("Returned to safe zone")
                 AutoStealEnabled = false
                 Runtime.AutoStealEnabled = false
-                if StatusDot then
-                    StatusDot.BackgroundColor3 = Theme.Gray
-                end
+                if StatusDot then StatusDot.BackgroundColor3 = Theme.Gray end
             end
         end
         elseif name == "Features" then
@@ -1539,7 +1556,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         CreateDropdown(AppearanceCard, "Theme", ThemeOptions, function(themeName)
             ApplyTheme(themeName)
         end)
-        local AboutCard = CreateCard(Page, "About", "Steal A Pet & Ride It • UI only")
+        local AboutCard = CreateCard(Page, "About", "Pickup A Pet & Ride It • UI only")
     end
 end
 -- SHOW FIRST PAGE
