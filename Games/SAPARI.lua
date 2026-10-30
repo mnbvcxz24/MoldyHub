@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.15"
+local testver = "v1.16"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1540,6 +1540,7 @@ end))
                 local distance = (root.Position - destination).Magnitude
                 local speed = math.max(humanoid.WalkSpeed, 1)
                 local timeout = os.clock() + math.max(5, distance / speed + 3)
+                local nextMoveRefresh = 0
 
                 while os.clock() < timeout do
                     if token ~= navigationToken or Runtime.Stopped then
@@ -1550,20 +1551,20 @@ end))
                         return false
                     end
 
-                    local offset = destination - root.Position
-                    local flatDirection = Vector3.new(offset.X, 0, offset.Z)
-
-                    if offset.Magnitude <= 3 then
+                    if (root.Position - destination).Magnitude <= 3 then
+                        humanoid:MoveTo(root.Position)
                         return true
                     end
 
-                    if flatDirection.Magnitude > 0.001 then
-                        humanoid:Move(flatDirection.Unit, false)
+                    if os.clock() >= nextMoveRefresh then
+                        humanoid:MoveTo(destination)
+                        nextMoveRefresh = os.clock() + 6
                     end
 
                     RunService.Heartbeat:Wait()
                 end
 
+                humanoid:MoveTo(root.Position)
                 return false
             end
 
