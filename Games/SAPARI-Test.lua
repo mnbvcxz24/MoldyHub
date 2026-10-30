@@ -1284,20 +1284,20 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             CreateDynamicFilter("Cage Filter", "C", 68, GetRarityOptions, SelectedRarities)
 
         local FilterColumnWidth = 0.5
-        PathSectionLabel.Position = UDim2.fromOffset(15, 69)
+        PathSectionLabel.Position = UDim2.fromOffset(38, 69)
         PathSectionLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
         PathSectionIcon.Position = UDim2.fromOffset(15, 70)
         PathFilterButton.Position = UDim2.fromOffset(15, 90)
         PathFilterButton.Size = UDim2.new(FilterColumnWidth, -22, 0, 29)
 
-        CageSectionLabel.Position = UDim2.new(FilterColumnWidth, 7, 0, 69)
+        CageSectionLabel.Position = UDim2.new(FilterColumnWidth, 30, 0, 69)
         CageSectionLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
         CageSectionIcon.Position = UDim2.new(FilterColumnWidth, 7, 0, 70)
         CageFilterButton.Position = UDim2.new(FilterColumnWidth, 7, 0, 90)
         CageFilterButton.Size = UDim2.new(FilterColumnWidth, -22, 0, 29)
 
         local MovementLabel, MovementIcon = MakeSectionLabel("M", "Movement", 133)
-        MovementLabel.Position = UDim2.fromOffset(15, 133)
+        MovementLabel.Position = UDim2.fromOffset(38, 133)
         MovementLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
         MovementIcon.Position = UDim2.fromOffset(15, 134)
         local MovementHolder = Create("Frame", {
@@ -1341,7 +1341,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         Runtime.MovementMode = MovementMode
 
         local SpeedLabel, SpeedIcon = MakeSectionLabel("S", "Glide Speed", 133)
-        SpeedLabel.Position = UDim2.new(FilterColumnWidth, 7, 0, 133)
+        SpeedLabel.Position = UDim2.new(FilterColumnWidth, 30, 0, 133)
         SpeedLabel.Size = UDim2.new(FilterColumnWidth, -22, 0, 22)
         SpeedIcon.Position = UDim2.new(FilterColumnWidth, 7, 0, 134)
         local SpeedHolder = Create("Frame", {
