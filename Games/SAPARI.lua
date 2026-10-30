@@ -1719,7 +1719,8 @@ end))
                 if MovementMode == "Walk" then
                     return MoveToPosition(root, humanoid, destination, token)
                 end
-                return MoveToPosition(root, humanoid, routeWaypoint, token)
+                return MoveToPosition(root, humanoid, safeSign.Position, token)
+                    and MoveToPosition(root, humanoid, routeWaypoint, token)
                     and MoveToPosition(root, humanoid, destination, token)
             end
 
@@ -1756,10 +1757,13 @@ end))
                         continue
                     end
 
-                    SetFloating(root, true)
-                    SetNavigationStatus("Moving to cage")
+                    if MovementMode == "Glide" then
+                        SetFloating(root, true)
+                    end
+                    SetNavigationStatus("Moving to safe zone")
                     local reachedCage = MoveToCage(root, humanoid, cageRoot.Position, token)
                     if not reachedCage then
+                        RestoreFloating()
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
                             SetNavigationStatus("Navigation stopped")
@@ -1767,14 +1771,19 @@ end))
                         return
                     end
 
-                    if token ~= navigationToken or Runtime.Stopped then return end
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
 
                     local cageDistance = (root.Position - cageRoot.Position).Magnitude
                     if cageDistance > 8 then
+                        RestoreFloating()
                         SetNavigationStatus("Cage out of reach")
                         continue
                     end
 
+                    SetFloating(root, false)
                     SetNavigationStatus("Holding steal prompt")
                     local holdStarted = false
                     local holdCompleted = false
@@ -1782,7 +1791,7 @@ end))
                         stealPrompt:InputHoldBegin()
                         holdStarted = true
 
-                        local holdUntil = os.clock() + 1
+                        local holdUntil = os.clock() + 1.25
                         while os.clock() < holdUntil do
                             if token ~= navigationToken or Runtime.Stopped then
                                 break
@@ -1800,6 +1809,7 @@ end))
                     end
 
                     if not holdOk or not holdCompleted then
+                        RestoreFloating()
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
                             SetNavigationStatus("Navigation stopped")
@@ -1807,15 +1817,25 @@ end))
                         return
                     end
 
-                    if token ~= navigationToken or Runtime.Stopped then return end
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
 
                     SetNavigationStatus("Waiting before return")
                     task.wait(0.5)
-                    if token ~= navigationToken or Runtime.Stopped then return end
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
 
+                    if MovementMode == "Glide" then
+                        SetFloating(root, true)
+                    end
                     SetNavigationStatus("Returning to safe zone")
                     local reachedSafeZone = MoveToSafeZone(root, humanoid, token)
                     if not reachedSafeZone then
+                        RestoreFloating()
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
                             SetNavigationStatus("Navigation stopped")
@@ -1823,10 +1843,14 @@ end))
                         return
                     end
 
-                    if token ~= navigationToken or Runtime.Stopped then return end
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
 
                     local safeZoneDistance = (root.Position - safeSign.Position).Magnitude
                     if safeZoneDistance > 8 then
+                        RestoreFloating()
                         SetNavigationStatus("Safe zone not reached")
                         continue
                     end
