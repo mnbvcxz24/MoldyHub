@@ -949,14 +949,96 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AutoCard.Size = UDim2.new(0.5, -4, 0, 0)
         AutoCard.AutomaticSize = Enum.AutomaticSize.Y
 
-        local AutoStealToggle = CreateToggle(AutoCard, "Auto steal", false, function(enabled)
-            Runtime.AutoStealEnabled = enabled
-        end)
-        AutoStealToggle.Position = UDim2.fromOffset(15, 30)
+        local HeaderTitle = AutoCard:FindFirstChildWhichIsA("TextLabel")
+        if HeaderTitle then
+            HeaderTitle.Position = UDim2.fromOffset(15, 10)
+            HeaderTitle.Size = UDim2.new(1, -70, 0, 22)
+            HeaderTitle.TextSize = 13
+        end
 
         local SelectedPaths = {}
         local SelectedCages = {}
         local MovementMode = "Glide"
+        local AutoStealEnabled = false
+
+        local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
+            AutoStealEnabled = enabled
+            Runtime.AutoStealEnabled = enabled
+        end)
+        AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
+        AutoStealToggle.Size = UDim2.fromOffset(40, 24)
+
+        local StatusRow = Create("Frame", {
+            Parent = AutoCard,
+            Position = UDim2.fromOffset(15, 42),
+            Size = UDim2.new(1, -30, 0, 27),
+            BackgroundTransparency = 1
+        })
+        local StatusDot = Create("TextLabel", {
+            Parent = StatusRow,
+            Size = UDim2.fromOffset(14, 24),
+            BackgroundTransparency = 1,
+            Text = "●",
+            TextColor3 = Color3.fromRGB(75, 190, 145),
+            Font = Enum.Font.GothamBold,
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local StatusLabel = Create("TextLabel", {
+            Parent = StatusRow,
+            Position = UDim2.fromOffset(18, 0),
+            Size = UDim2.new(0.5, -18, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Status",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local StatusValue = Create("TextLabel", {
+            Parent = StatusRow,
+            Position = UDim2.new(0.5, 0, 0, 0),
+            Size = UDim2.new(0.5, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Disabled",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+        local StatusDivider = Create("Frame", {
+            Parent = AutoCard,
+            Position = UDim2.fromOffset(15, 73),
+            Size = UDim2.new(1, -30, 0, 1),
+            BackgroundColor3 = Theme.Border,
+            BorderSizePixel = 0
+        })
+
+        local function MakeSectionLabel(icon, label, yPosition)
+            local Icon = Create("TextLabel", {
+                Parent = AutoCard,
+                Position = UDim2.fromOffset(15, yPosition),
+                Size = UDim2.fromOffset(20, 22),
+                BackgroundTransparency = 1,
+                Text = icon,
+                TextColor3 = Theme.Accent,
+                Font = Enum.Font.GothamBold,
+                TextSize = 14,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            local Label = Create("TextLabel", {
+                Parent = AutoCard,
+                Position = UDim2.fromOffset(38, yPosition),
+                Size = UDim2.new(1, -53, 0, 22),
+                BackgroundTransparency = 1,
+                Text = label,
+                TextColor3 = Theme.DarkGray,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            return Label
+        end
 
         local function GetPathFolders()
             local pathsFolder = workspace:FindFirstChild("Paths")
@@ -1003,34 +1085,46 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return results
         end
 
-        local function CreateDynamicFilter(label, yPosition, getOptions, selected, onChanged)
-            local Label = Create("TextLabel", {
-                Parent = AutoCard,
-                Position = UDim2.fromOffset(15, yPosition),
-                Size = UDim2.fromOffset(86, 26),
-                BackgroundTransparency = 1,
-                Text = label,
-                TextColor3 = Theme.DarkGray,
-                Font = Enum.Font.Gotham,
-                TextSize = 9,
-                TextXAlignment = Enum.TextXAlignment.Left
-            })
+        local function CreateDynamicFilter(label, icon, yPosition, getOptions, selected, onChanged)
+            MakeSectionLabel(icon, label, yPosition)
             local Button = Create("TextButton", {
                 Parent = AutoCard,
-                Position = UDim2.fromOffset(101, yPosition),
-                Size = UDim2.new(1, -116, 0, 26),
+                Position = UDim2.fromOffset(15, yPosition + 25),
+                Size = UDim2.new(1, -30, 0, 30),
                 BackgroundColor3 = Theme.SurfaceInput,
-                Text = "Select " .. label,
+                Text = "",
                 TextColor3 = Theme.Text,
                 Font = Enum.Font.Gotham,
-                TextSize = 9,
+                TextSize = 10,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
                 ZIndex = 20
             })
-            AddCorner(Button, 6)
+            AddCorner(Button, 7)
             AddStroke(Button, Theme.Border, 1)
-
+            local ButtonText = Create("TextLabel", {
+                Parent = Button,
+                Position = UDim2.fromOffset(12, 0),
+                Size = UDim2.new(1, -38, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "Select " .. label:lower() .. "...",
+                TextColor3 = Theme.Gray,
+                Font = Enum.Font.Gotham,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 21
+            })
+            Create("TextLabel", {
+                Parent = Button,
+                Position = UDim2.new(1, -28, 0, 0),
+                Size = UDim2.fromOffset(20, 30),
+                BackgroundTransparency = 1,
+                Text = "⌄",
+                TextColor3 = Theme.Accent,
+                Font = Enum.Font.GothamBold,
+                TextSize = 15,
+                ZIndex = 21
+            })
             local List = Create("ScrollingFrame", {
                 Parent = Button,
                 Position = UDim2.new(0, 0, 1, 4),
@@ -1044,27 +1138,26 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 Visible = false,
                 ZIndex = 100
             })
-            AddCorner(List, 6)
+            AddCorner(List, 7)
             AddStroke(List, Theme.Border, 1)
             Create("UIListLayout", {
                 Parent = List,
                 Padding = UDim.new(0, 2),
                 SortOrder = Enum.SortOrder.LayoutOrder
             })
-
             local function Refresh()
                 local count = 0
                 for _ in pairs(selected) do count += 1 end
-                Button.Text = count > 0 and (label .. " (" .. count .. " selected)") or ("Select " .. label)
+                ButtonText.Text = count > 0 and (label .. " (" .. count .. " selected)") or ("Select " .. label:lower() .. "...")
+                ButtonText.TextColor3 = count > 0 and Theme.Text or Theme.Gray
             end
-
             local function Rebuild()
                 for _, child in ipairs(List:GetChildren()) do
-                    if child:IsA("TextButton") then child:Destroy() end
+                    if child:IsA("TextButton") or child:IsA("TextLabel") then child:Destroy() end
                 end
                 local options = getOptions()
                 if #options == 0 then
-                    local Empty = Create("TextLabel", {
+                    Create("TextLabel", {
                         Parent = List,
                         Size = UDim2.new(1, -8, 0, 26),
                         BackgroundTransparency = 1,
@@ -1077,12 +1170,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 for _, option in ipairs(options) do
                     local optionObject = option
-                    local displayName = option.Name
                     local OptionButton = Create("TextButton", {
                         Parent = List,
                         Size = UDim2.new(1, -4, 0, 25),
                         BackgroundColor3 = selected[optionObject] and Theme.Selected or Theme.SurfaceInput,
-                        Text = (selected[optionObject] and "✓  " or "") .. displayName,
+                        Text = (selected[optionObject] and "✓  " or "") .. optionObject.Name,
                         TextColor3 = Theme.Text,
                         Font = Enum.Font.Gotham,
                         TextSize = 9,
@@ -1098,7 +1190,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     end)
                 end
             end
-
             Button.MouseButton1Click:Connect(function()
                 local opening = not List.Visible
                 if opening then Rebuild() end
@@ -1108,44 +1199,201 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return Button
         end
 
-        CreateDynamicFilter("Path Filter", 57, GetPathFolders, SelectedPaths, function()
+        CreateDynamicFilter("Path Filter", "▣", 86, GetPathFolders, SelectedPaths, function()
             table.clear(SelectedCages)
         end)
-        CreateDynamicFilter("Cage Filter", 85, GetCageModels, SelectedCages)
+        CreateDynamicFilter("Cage Filter", "⬡", 151, GetCageModels, SelectedCages)
 
-        local MovementLabel = Create("TextLabel", {
+        MakeSectionLabel("➤", "Movement", 216)
+        local MovementHolder = Create("Frame", {
             Parent = AutoCard,
-            Position = UDim2.fromOffset(15, 113),
-            Size = UDim2.fromOffset(86, 22),
+            Position = UDim2.fromOffset(15, 241),
+            Size = UDim2.new(1, -30, 0, 30),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0
+        })
+        AddCorner(MovementHolder, 7)
+        AddStroke(MovementHolder, Theme.Border, 1)
+        local MovementButtons = {}
+        local function SetMovement(mode)
+            MovementMode = mode
+            Runtime.MovementMode = mode
+            for name, button in pairs(MovementButtons) do
+                local active = name == mode
+                button.BackgroundColor3 = active and Theme.Accent or Theme.SurfaceInput
+                button.TextColor3 = active and Theme.AccentText or Theme.DarkGray
+            end
+        end
+        for _, mode in ipairs({"Glide", "Walk"}) do
+            local Button = Create("TextButton", {
+                Parent = MovementHolder,
+                Size = UDim2.new(0.5, -2, 1, -4),
+                Position = UDim2.new(mode == "Walk" and 0.5 or 0, 2, 0, 2),
+                BackgroundColor3 = mode == "Glide" and Theme.Accent or Theme.SurfaceInput,
+                Text = mode,
+                TextColor3 = mode == "Glide" and Theme.AccentText or Theme.DarkGray,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 10,
+                BorderSizePixel = 0,
+                AutoButtonColor = false
+            })
+            AddCorner(Button, 6)
+            MovementButtons[mode] = Button
+            Button.MouseButton1Click:Connect(function()
+                SetMovement(mode)
+            end)
+        end
+        Runtime.MovementMode = MovementMode
+
+        MakeSectionLabel("◉", "Glide Speed", 286)
+        local SpeedHolder = Create("Frame", {
+            Parent = AutoCard,
+            Position = UDim2.fromOffset(15, 311),
+            Size = UDim2.new(1, -30, 0, 65),
+            BackgroundTransparency = 1
+        })
+        local SpeedValue = Create("TextLabel", {
+            Parent = SpeedHolder,
+            Position = UDim2.new(1, -78, 0, 0),
+            Size = UDim2.fromOffset(78, 18),
             BackgroundTransparency = 1,
-            Text = "Movement",
-            TextColor3 = Theme.DarkGray,
+            Text = "50 / 100",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+        local SpeedBar = Create("Frame", {
+            Parent = SpeedHolder,
+            Position = UDim2.fromOffset(0, 25),
+            Size = UDim2.new(1, 0, 0, 6),
+            BackgroundColor3 = Theme.LightGray,
+            BorderSizePixel = 0
+        })
+        AddCorner(SpeedBar, 8)
+        local SpeedFill = Create("Frame", {
+            Parent = SpeedBar,
+            Size = UDim2.new(0.5, 0, 1, 0),
+            BackgroundColor3 = Theme.Accent,
+            BorderSizePixel = 0
+        })
+        AddCorner(SpeedFill, 8)
+        local SpeedThumb = Create("Frame", {
+            Parent = SpeedBar,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.fromOffset(13, 13),
+            BackgroundColor3 = Theme.Accent,
+            BorderSizePixel = 0,
+            ZIndex = 3
+        })
+        AddCorner(SpeedThumb, 10)
+        AddStroke(SpeedThumb, Theme.Card, 1)
+        local MaxThumb = Create("Frame", {
+            Parent = SpeedBar,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(1, 0, 0.5, 0),
+            Size = UDim2.fromOffset(13, 13),
+            BackgroundColor3 = Theme.Text,
+            BorderSizePixel = 0,
+            ZIndex = 4
+        })
+        AddCorner(MaxThumb, 10)
+        AddStroke(MaxThumb, Theme.Accent, 1)
+        local SpeedMinLabel = Create("TextLabel", {
+            Parent = SpeedHolder,
+            Position = UDim2.fromOffset(0, 39),
+            Size = UDim2.fromOffset(35, 16),
+            BackgroundTransparency = 1,
+            Text = "10",
+            TextColor3 = Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local MovementButton = Create("TextButton", {
-            Parent = AutoCard,
-            Position = UDim2.fromOffset(101, 113),
-            Size = UDim2.new(1, -116, 0, 22),
-            BackgroundColor3 = Theme.Selected,
-            Text = "Glide",
-            TextColor3 = Theme.SelectedText,
-            Font = Enum.Font.GothamMedium,
+        local SpeedMaxLabel = Create("TextLabel", {
+            Parent = SpeedHolder,
+            Position = UDim2.new(1, -35, 0, 39),
+            Size = UDim2.fromOffset(35, 16),
+            BackgroundTransparency = 1,
+            Text = "100",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
             TextSize = 9,
-            BorderSizePixel = 0,
-            AutoButtonColor = false
+            TextXAlignment = Enum.TextXAlignment.Right
         })
-        AddCorner(MovementButton, 6)
-        MovementButton.MouseButton1Click:Connect(function()
-            MovementMode = MovementMode == "Glide" and "Walk" or "Glide"
-            MovementButton.Text = MovementMode
-            Runtime.MovementMode = MovementMode
+        local GlideSpeed = 50
+        local GlideMaxSpeed = 100
+        local DragTarget
+        local function RefreshSpeed()
+            local currentPosition = (GlideSpeed - 10) / 90
+            local maxPosition = (GlideMaxSpeed - 10) / 90
+            SpeedThumb.Position = UDim2.new(currentPosition, 0, 0.5, 0)
+            MaxThumb.Position = UDim2.new(maxPosition, 0, 0.5, 0)
+            SpeedFill.Size = UDim2.new(currentPosition, 0, 1, 0)
+            SpeedValue.Text = tostring(GlideSpeed) .. " / " .. tostring(GlideMaxSpeed)
+            SpeedMaxLabel.Text = tostring(GlideMaxSpeed)
+            Runtime.GlideSpeed = GlideSpeed
+            Runtime.GlideMaxSpeed = GlideMaxSpeed
+        end
+        local function UpdateSpeed(input)
+            local position = math.clamp(
+                (input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X,
+                0,
+                1
+            )
+            local value = math.floor(10 + position * 90 + 0.5)
+            if DragTarget == "Max" then
+                GlideMaxSpeed = math.max(10, value)
+                GlideSpeed = math.min(GlideSpeed, GlideMaxSpeed)
+            else
+                GlideSpeed = math.clamp(value, 10, GlideMaxSpeed)
+            end
+            RefreshSpeed()
+        end
+        local function BeginSpeedDrag(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            local pointer = math.clamp(
+                (input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X,
+                0,
+                1
+            )
+            local speedPosition = (GlideSpeed - 10) / 90
+            local maxPosition = (GlideMaxSpeed - 10) / 90
+            DragTarget = math.abs(pointer - maxPosition) < math.abs(pointer - speedPosition) and "Max" or "Speed"
+            UpdateSpeed(input)
+        end
+        SpeedBar.InputBegan:Connect(function(input)
+            BeginSpeedDrag(input)
         end)
-        Runtime.MovementMode = MovementMode
+        SpeedThumb.InputBegan:Connect(function(input)
+            DragTarget = "Speed"
+            BeginSpeedDrag(input)
+        end)
+        MaxThumb.InputBegan:Connect(function(input)
+            DragTarget = "Max"
+            BeginSpeedDrag(input)
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if DragTarget and (
+                input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch
+            ) then
+                UpdateSpeed(input)
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+                DragTarget = nil
+            end
+        end)
+        RefreshSpeed()
+
         Runtime.SelectedPaths = SelectedPaths
         Runtime.SelectedCages = SelectedCages
-    elseif name == "Features" then
+        elseif name == "Features" then
         local ControlsCard = CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
         CreateButton(ControlsCard, "Example Action", function()
         end)
