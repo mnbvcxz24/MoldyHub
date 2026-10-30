@@ -1489,6 +1489,45 @@ end))
             end
         end
 
+        local function IsRidingPet(root)
+            local hub = workspace:FindFirstChild("Hub")
+            local plots = hub and hub:FindFirstChild("Plots")
+            if not plots or not root then
+                return false
+            end
+
+            for _, plot in ipairs(plots:GetChildren()) do
+                local ownerDisplay = plot:FindFirstChild("OwnerDisplay")
+                local gui = ownerDisplay and ownerDisplay:FindFirstChild("Gui")
+                local playerName = gui and gui:FindFirstChild("PlayerName")
+
+                if playerName and playerName:IsA("TextLabel")
+                and playerName.Text == LocalPlayer.Name then
+                    local pets = plot:FindFirstChild("Pets")
+                    if not pets then
+                        return false
+                    end
+
+                    for _, pet in ipairs(pets:GetChildren()) do
+                        local petRoot = pet:FindFirstChild("Root")
+                        local riderWeld = petRoot and petRoot:FindFirstChild("RiderWeld")
+
+                        if petRoot and riderWeld and riderWeld:IsA("Weld")
+                        and ((riderWeld.Part0 == root and riderWeld.Part1 == petRoot)
+                        or (riderWeld.Part1 == root and riderWeld.Part0 == petRoot)) then
+                            return true
+                        end
+                    end
+                end
+            end
+
+            return false
+        end
+
+        local function ShouldWalk(root)
+            return MovementMode == "Walk" or IsRidingPet(root)
+        end
+
         local function SetNavigationStatus(message)
             if StatusValue then
                 StatusValue.Text = message
@@ -1535,7 +1574,7 @@ end))
                 return false
             end
 
-            if forceWalk or MovementMode == "Walk" then
+            if forceWalk or ShouldWalk(root) then
                 local distance = (root.Position - destination).Magnitude
                 local speed = math.max(humanoid.WalkSpeed, 1)
                 local timeout = os.clock() + math.max(5, distance / speed + 3)
@@ -1730,7 +1769,7 @@ end))
             end
 
             local function MoveToCage(root, humanoid, destination, token)
-                if MovementMode == "Walk" then
+                if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
                     return MoveToPosition(root, humanoid, destination, token, true)
                 end
@@ -1864,7 +1903,8 @@ end))
                         return
                     end
 
-                    if MovementMode == "Glide" then
+                    local ridingPet = IsRidingPet(root)
+                    if MovementMode == "Glide" and not ridingPet then
                         SetFloating(root, true)
                         SetNavigationStatus("Gliding back to safe zone")
                     else
@@ -1874,7 +1914,7 @@ end))
 
                     local reachedSafeZone
 
-                    if MovementMode == "Glide" then
+                    if MovementMode == "Glide" and not ridingPet then
                         local offset = safeSign.Position - root.Position
                         local flatOffset = Vector3.new(offset.X, 0, offset.Z)
 
@@ -1923,7 +1963,7 @@ end))
 
                     if not reachedSafeZone then
                         RestoreFloating()
-                        if MovementMode == "Walk" then
+                        if ShouldWalk(root) then
                             SetNavigationStatus("Retrying walk to safe zone")
                             task.wait(0.5)
                             if token == navigationToken and not Runtime.Stopped then
@@ -1955,7 +1995,7 @@ end))
                         task.wait(math.min(0.1, nextTargetAt - os.clock()))
                     end
                     SetNavigationStatus("Cooldown complete - rescanning cages")
-                    if MovementMode == "Walk" then
+                    if ShouldWalk(root) then
                         break
                     end
                 end
