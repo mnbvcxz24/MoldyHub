@@ -1692,6 +1692,10 @@ end))
 
                     if token ~= navigationToken or Runtime.Stopped then return end
 
+                    SetNavigationStatus("Waiting before return")
+                    task.wait(1)
+                    if token ~= navigationToken or Runtime.Stopped then return end
+
                     SetNavigationStatus("Returning to safe zone")
                     local reachedSafeZone = MoveToPosition(root, humanoid, safeSign.Position, token)
                     if not reachedSafeZone then
