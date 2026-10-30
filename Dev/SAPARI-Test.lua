@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.21"
+local testver = "v1.22"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1583,19 +1583,24 @@ end))
                 return false
             end
 
+            local navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent then
+                return false
+            end
+
             if forceWalk or MovementMode == "Walk" then
-                local navigationRoot = GetNavigationRoot(root)
                 local ridingOffset = navigationRoot ~= root
                     and (root.Position - navigationRoot.Position)
                     or Vector3.zero
                 local moveDestination = destination + ridingOffset
                 local distance = (navigationRoot.Position - destination).Magnitude
                 local speed = math.max(humanoid.WalkSpeed, 1)
-                local timeout = os.clock() + math.max(5, distance / speed + 3)
+                local timeout = os.clock() + math.max(5, distance / speed + 5)
                 local nextMoveRefresh = 0
 
                 while os.clock() < timeout do
                     if token ~= navigationToken or Runtime.Stopped then
+                        humanoid:MoveTo(root.Position)
                         return false
                     end
 
@@ -1604,14 +1609,14 @@ end))
                         return false
                     end
 
-                    if (navigationRoot.Position - destination).Magnitude <= 7 then
+                    if (navigationRoot.Position - destination).Magnitude <= 4 then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
 
                     if os.clock() >= nextMoveRefresh then
                         humanoid:MoveTo(moveDestination)
-                        nextMoveRefresh = os.clock() + 6
+                        nextMoveRefresh = os.clock() + 1.5
                     end
 
                     RunService.Heartbeat:Wait()
@@ -1619,72 +1624,75 @@ end))
 
                 humanoid:MoveTo(root.Position)
                 return navigationRoot.Parent ~= nil
-                    and (navigationRoot.Position - destination).Magnitude <= 7
+                    and (navigationRoot.Position - destination).Magnitude <= 4
             end
 
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
-            local glideDestination = destination + Vector3.new(0, glideHeight, 0)
+            local finalGlideStop = 12
 
             while token == navigationToken and not Runtime.Stopped do
-                local navigationRoot = GetNavigationRoot(root)
+                navigationRoot = GetNavigationRoot(root)
                 if not root.Parent or not humanoid.Parent
                 or not navigationRoot or not navigationRoot.Parent then
                     RestoreFloating()
                     return false
                 end
 
-                if (navigationRoot.Position - destination).Magnitude <= 7 then
+                local remaining = destination - navigationRoot.Position
+                local horizontal = Vector3.new(remaining.X, 0, remaining.Z)
+                local horizontalDistance = horizontal.Magnitude
+
+                if horizontalDistance <= 4
+                and math.abs(remaining.Y) <= 6 then
                     humanoid:MoveTo(root.Position)
                     SetFloating(navigationRoot, false)
                     return true
                 end
 
-                local offset = glideDestination - navigationRoot.Position
-                local distance = offset.Magnitude
-                if distance <= 3 then
-                    humanoid:MoveTo(root.Position)
+                if horizontalDistance > finalGlideStop then
+                    local glideDistance = math.min(50, horizontalDistance - finalGlideStop)
+                    local direction = horizontal.Unit
+                    local segmentPosition = navigationRoot.Position + direction * glideDistance
+                    segmentPosition = Vector3.new(
+                        segmentPosition.X,
+                        destination.Y + glideHeight,
+                        segmentPosition.Z
+                    )
+
+                    local duration = math.max(0.03, glideDistance / speed)
+                    local target = CFrame.new(segmentPosition) * navigationRoot.CFrame.Rotation
+
+                    SetFloating(navigationRoot, true)
+                    local tween = TweenService:Create(
+                        navigationRoot,
+                        TweenInfo.new(duration, Enum.EasingStyle.Linear),
+                        {CFrame = target}
+                    )
+
+                    activeNavigationTween = tween
+                    tween:Play()
+                    local state = tween.Completed:Wait()
+
+                    if activeNavigationTween == tween then
+                        activeNavigationTween = nil
+                    end
+
                     SetFloating(navigationRoot, false)
-                    return true
-                end
 
-                local segmentDistance = math.min(50, distance)
-                local segmentPosition = navigationRoot.Position + offset.Unit * segmentDistance
-                local duration = math.max(0.03, segmentDistance / speed)
-                local target = CFrame.new(segmentPosition) * navigationRoot.CFrame.Rotation
-
-                SetFloating(navigationRoot, true)
-                local tween = TweenService:Create(
-                    navigationRoot,
-                    TweenInfo.new(duration, Enum.EasingStyle.Linear),
-                    {CFrame = target}
-                )
-
-                activeNavigationTween = tween
-                tween:Play()
-                local state = tween.Completed:Wait()
-
-                if activeNavigationTween == tween then
-                    activeNavigationTween = nil
-                end
-
-                SetFloating(navigationRoot, false)
-
-                if state ~= Enum.PlaybackState.Completed
-                or token ~= navigationToken or Runtime.Stopped then
-                    humanoid:MoveTo(root.Position)
-                    return false
-                end
-
-                if (navigationRoot.Position - destination).Magnitude <= 7 then
-                    humanoid:MoveTo(root.Position)
-                    return true
+                    if state ~= Enum.PlaybackState.Completed
+                    or token ~= navigationToken or Runtime.Stopped then
+                        humanoid:MoveTo(root.Position)
+                        return false
+                    end
                 end
 
                 local ridingOffset = root.Position - navigationRoot.Position
-                humanoid:MoveTo(destination + ridingOffset)
+                local moveDestination = destination + ridingOffset
+                humanoid:MoveTo(moveDestination)
 
                 local walkUntil = os.clock() + 2
+                local nextMoveRefresh = os.clock() + 1
                 while os.clock() < walkUntil do
                     if token ~= navigationToken or Runtime.Stopped then
                         humanoid:MoveTo(root.Position)
@@ -1697,9 +1705,18 @@ end))
                         return false
                     end
 
-                    if (navigationRoot.Position - destination).Magnitude <= 7 then
+                    local currentDelta = destination - navigationRoot.Position
+                    local currentHorizontal = Vector3.new(currentDelta.X, 0, currentDelta.Z)
+                    if currentHorizontal.Magnitude <= 4
+                    and math.abs(currentDelta.Y) <= 6 then
                         humanoid:MoveTo(root.Position)
                         return true
+                    end
+
+                    if os.clock() >= nextMoveRefresh then
+                        ridingOffset = root.Position - navigationRoot.Position
+                        humanoid:MoveTo(destination + ridingOffset)
+                        nextMoveRefresh = os.clock() + 1
                     end
 
                     RunService.Heartbeat:Wait()
@@ -1806,10 +1823,8 @@ end))
             local function MoveToCage(root, humanoid, destination, token)
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
-                    if MoveToPosition(root, humanoid, destination, token, true) then
-                        return true
-                    end
-                    return false, "Failed to reach cage"
+                    return MoveToPosition(root, humanoid, destination, token, true),
+                        "Failed to reach cage"
                 end
 
                 local bossCFrame = GetBossCFrame()
@@ -1823,8 +1838,30 @@ end))
                     return false, "Failed to reach Path1 Boss"
                 end
 
+                local navigationRoot = GetNavigationRoot(root)
+                if not navigationRoot or not navigationRoot.Parent then
+                    return false, "Pet root unavailable"
+                end
+
+                local ridingOffset = root.Position - navigationRoot.Position
+                local approachDirection = Vector3.new(
+                    root.Position.X - destination.X,
+                    0,
+                    root.Position.Z - destination.Z
+                )
+                if approachDirection.Magnitude < 0.01 then
+                    local look = root.CFrame.LookVector
+                    approachDirection = Vector3.new(look.X, 0, look.Z)
+                end
+                if approachDirection.Magnitude < 0.01 then
+                    approachDirection = Vector3.new(0, 0, -1)
+                end
+
+                local approachPosition = destination + approachDirection.Unit * 3.5
+                local petDestination = approachPosition - ridingOffset
+
                 SetNavigationStatus("Gliding to cage")
-                if not MoveToPosition(root, humanoid, destination, token) then
+                if not MoveToPosition(root, humanoid, petDestination, token) then
                     return false, "Failed to glide to cage"
                 end
 
@@ -1877,10 +1914,29 @@ end))
                     end
 
                     local navigationRoot = GetNavigationRoot(root)
-                    local cageDistance = (navigationRoot.Position - cageRoot.Position).Magnitude
-                    if cageDistance > 8 then
+                    if not navigationRoot or not navigationRoot.Parent then
                         RestoreFloating()
-                        SetNavigationStatus("Cage out of reach")
+                        SetNavigationStatus("Pet root unavailable")
+                        continue
+                    end
+
+                    local promptDistance = (root.Position - cageRoot.Position).Magnitude
+                    if promptDistance > stealPrompt.MaxActivationDistance then
+                        local ridingOffset = root.Position - navigationRoot.Position
+                        local closeTarget = cageRoot.Position - ridingOffset
+                        SetNavigationStatus("Closing in on cage")
+                        if not MoveToPosition(root, humanoid, closeTarget, token, true) then
+                            RestoreFloating()
+                            SetNavigationStatus("Cage out of reach")
+                            continue
+                        end
+                        promptDistance = (root.Position - cageRoot.Position).Magnitude
+                    end
+
+                    if not stealPrompt.Enabled
+                    or promptDistance > stealPrompt.MaxActivationDistance then
+                        RestoreFloating()
+                        SetNavigationStatus("Prompt out of range")
                         continue
                     end
 
@@ -1889,10 +1945,15 @@ end))
                     local holdStarted = false
                     local holdCompleted = false
                     local holdOk = pcall(function()
+                        if not stealPrompt.Enabled
+                        or (root.Position - cageRoot.Position).Magnitude > stealPrompt.MaxActivationDistance then
+                            return
+                        end
+
                         stealPrompt:InputHoldBegin()
                         holdStarted = true
 
-                        local holdUntil = os.clock() + 1.25
+                        local holdUntil = os.clock() + math.max(0.15, stealPrompt.HoldDuration + 0.25)
                         while os.clock() < holdUntil do
                             if token ~= navigationToken or Runtime.Stopped then
                                 break
