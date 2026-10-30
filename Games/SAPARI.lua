@@ -1090,7 +1090,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local function GetCageModels()
             local results = {}
-            local seenInstances = {}
+            local seenNames = {}
             local paths = {}
             for pathObject in pairs(SelectedPaths) do
                 if pathObject and pathObject.Parent then
@@ -1104,8 +1104,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 local cagesFolder = pathObject:FindFirstChild("Cages")
                 if cagesFolder then
                     for _, child in ipairs(cagesFolder:GetChildren()) do
-                        if child:IsA("Model") and not seenInstances[child] then
-                            seenInstances[child] = true
+                        if child:IsA("Model") and not seenNames[child.Name] then
+                            seenNames[child.Name] = true
                             table.insert(results, child)
                         end
                     end
@@ -1595,9 +1595,21 @@ end))
 
             local function GetSelectedCages()
                 local cages = {}
+                local selectedNames = {}
                 for cage, selected in pairs(SelectedCages) do
-                    if selected and cage and cage.Parent then
-                        table.insert(cages, cage)
+                    if selected and cage then
+                        selectedNames[cage.Name] = true
+                    end
+                end
+
+                for pathObject in pairs(SelectedPaths) do
+                    local cagesFolder = pathObject and pathObject:FindFirstChild("Cages")
+                    if cagesFolder then
+                        for _, cage in ipairs(cagesFolder:GetChildren()) do
+                            if cage:IsA("Model") and selectedNames[cage.Name] then
+                                table.insert(cages, cage)
+                            end
+                        end
                     end
                 end
                 table.sort(cages, function(a, b)
