@@ -1489,11 +1489,11 @@ end))
             end
         end
 
-        local function IsRidingPet(root)
+        local function GetRidingPetRoot(root)
             local hub = workspace:FindFirstChild("Hub")
             local plots = hub and hub:FindFirstChild("Plots")
             if not plots or not root then
-                return false
+                return nil
             end
 
             for _, plot in ipairs(plots:GetChildren()) do
@@ -1505,23 +1505,32 @@ end))
                 and playerName.Text == LocalPlayer.Name then
                     local pets = plot:FindFirstChild("Pets")
                     if not pets then
-                        return false
+                        return nil
                     end
 
                     for _, pet in ipairs(pets:GetChildren()) do
                         local petRoot = pet:FindFirstChild("Root")
                         local riderWeld = petRoot and petRoot:FindFirstChild("RiderWeld")
 
-                        if petRoot and riderWeld and riderWeld:IsA("Weld")
+                        if petRoot and petRoot:IsA("BasePart")
+                        and riderWeld and riderWeld:IsA("Weld")
                         and ((riderWeld.Part0 == root and riderWeld.Part1 == petRoot)
                         or (riderWeld.Part1 == root and riderWeld.Part0 == petRoot)) then
-                            return true
+                            return petRoot
                         end
                     end
                 end
             end
 
-            return false
+            return nil
+        end
+
+        local function IsRidingPet(root)
+            return GetRidingPetRoot(root) ~= nil
+        end
+
+        local function GetNavigationRoot(root)
+            return GetRidingPetRoot(root) or root
         end
 
         local function ShouldWalk(root)
@@ -1575,7 +1584,12 @@ end))
             end
 
             if forceWalk or ShouldWalk(root) then
-                local distance = (root.Position - destination).Magnitude
+                local navigationRoot = GetNavigationRoot(root)
+                local ridingOffset = navigationRoot ~= root
+                    and (root.Position - navigationRoot.Position)
+                    or Vector3.zero
+                local moveDestination = destination + ridingOffset
+                local distance = (navigationRoot.Position - destination).Magnitude
                 local speed = math.max(humanoid.WalkSpeed, 1)
                 local timeout = os.clock() + math.max(5, distance / speed + 3)
                 local nextMoveRefresh = 0
@@ -1585,17 +1599,18 @@ end))
                         return false
                     end
 
-                    if not root.Parent or not humanoid.Parent then
+                    if not root.Parent or not humanoid.Parent
+                    or not navigationRoot.Parent then
                         return false
                     end
 
-                    if (root.Position - destination).Magnitude <= 3 then
+                    if (navigationRoot.Position - destination).Magnitude <= 7 then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
 
                     if os.clock() >= nextMoveRefresh then
-                        humanoid:MoveTo(destination)
+                        humanoid:MoveTo(moveDestination)
                         nextMoveRefresh = os.clock() + 6
                     end
 
@@ -1603,7 +1618,8 @@ end))
                 end
 
                 humanoid:MoveTo(root.Position)
-                return false
+                return navigationRoot.Parent ~= nil
+                    and (navigationRoot.Position - destination).Magnitude <= 7
             end
 
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
@@ -1861,7 +1877,8 @@ end))
                         return
                     end
 
-                    local cageDistance = (root.Position - cageRoot.Position).Magnitude
+                    local navigationRoot = GetNavigationRoot(root)
+                    local cageDistance = (navigationRoot.Position - cageRoot.Position).Magnitude
                     if cageDistance > 8 then
                         RestoreFloating()
                         SetNavigationStatus("Cage out of reach")
