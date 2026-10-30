@@ -1,5 +1,6 @@
 local GameLinks = {
-    [95168737547508] = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/SAPARI.lua"
+    [95168737547508] = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/SAPARI.lua",
+    [114326934417838] = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/Games/BASAE.lua"
 }
 
 local url = GameLinks[game.PlaceId]
