@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.17"
+local testver = "v1.18"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1916,6 +1916,14 @@ end))
 
                     if not reachedSafeZone then
                         RestoreFloating()
+                        if MovementMode == "Walk" then
+                            SetNavigationStatus("Retrying walk to safe zone")
+                            task.wait(0.5)
+                            if token == navigationToken and not Runtime.Stopped then
+                                continue
+                            end
+                            return
+                        end
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
                             SetNavigationStatus("Return to safe zone failed")
