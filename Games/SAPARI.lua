@@ -1578,7 +1578,7 @@ end))
             end
         end
 
-        local function MoveToPosition(root, humanoid, destination, token, forceWalk)
+        local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk)
             if token ~= navigationToken or Runtime.Stopped then
                 return false
             end
@@ -1630,6 +1630,45 @@ end))
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
             local finalGlideStop = 12
+
+            if startWithWalk then
+                local ridingOffset = root.Position - navigationRoot.Position
+                humanoid:MoveTo(destination + ridingOffset)
+
+                local initialWalkUntil = os.clock() + 2
+                local nextMoveRefresh = os.clock() + 1
+                while os.clock() < initialWalkUntil do
+                    if token ~= navigationToken or Runtime.Stopped then
+                        humanoid:MoveTo(root.Position)
+                        return false
+                    end
+
+                    navigationRoot = GetNavigationRoot(root)
+                    if not root.Parent or not humanoid.Parent
+                    or not navigationRoot or not navigationRoot.Parent then
+                        humanoid:MoveTo(root.Position)
+                        return false
+                    end
+
+                    local currentDelta = destination - navigationRoot.Position
+                    local currentHorizontal = Vector3.new(currentDelta.X, 0, currentDelta.Z)
+                    if currentHorizontal.Magnitude <= 4
+                    and math.abs(currentDelta.Y) <= 6 then
+                        humanoid:MoveTo(root.Position)
+                        return true
+                    end
+
+                    if os.clock() >= nextMoveRefresh then
+                        ridingOffset = root.Position - navigationRoot.Position
+                        humanoid:MoveTo(destination + ridingOffset)
+                        nextMoveRefresh = os.clock() + 1
+                    end
+
+                    RunService.Heartbeat:Wait()
+                end
+
+                humanoid:MoveTo(root.Position)
+            end
 
             while token == navigationToken and not Runtime.Stopped do
                 navigationRoot = GetNavigationRoot(root)
@@ -2003,7 +2042,9 @@ end))
                         root,
                         humanoid,
                         safeSign.Position,
-                        token
+                        token,
+                        false,
+                        MovementMode == "Glide"
                     )
 
                     if not reachedSafeZone then
