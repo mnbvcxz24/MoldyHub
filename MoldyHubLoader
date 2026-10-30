@@ -1,50 +1,18 @@
+local GameLinks = {
+    ["Steal-A-Pet-And-Ride-It"] = "loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/Games/SAPARI.lua"))()"
+}
 
-local url = ""
+local MarketplaceService = game:GetService("MarketplaceService")
 
-if type(loadstring) ~= "function" then
-    warn("[BASAE-Skrip] loadstring is unavailable")
+local info = MarketplaceService:GetProductInfo(game.PlaceId)
+local gameName = string.lower(info.Name)
+
+local url = GameLinks[gameName]
+
+if not url then
+    warn("[MoldyHub] Unsupported game: " .. gameName)
     return
 end
 
-if type(game.HttpGet) ~= "function" then
-    warn("[BASAE-Skrip] HttpGet is unavailable")
-    return
-end
-
-local ok, source = pcall(function()
-    return game:HttpGet(url)
-end)
-
-if not ok then
-    warn("[BASAE-Skrip] Download failed: " .. tostring(source))
-    return
-end
-
-if type(source) ~= "string" then
-    warn("[BASAE-Skrip] Downloaded source is not a string: " .. typeof(source))
-    return
-end
-
-if #source == 0 then
-    warn("[BASAE-Skrip] Downloaded source is empty")
-    return
-end
-
-local compiler = loadstring
-if type(compiler) ~= "function" then
-    warn("[BASAE-Skrip] loadstring is unavailable")
-    return
-end
-
-local scriptFunction, compileError = compiler(source)
-
-if type(scriptFunction) ~= "function" then
-    warn("[BASAE-Skrip] Compile failed: " .. tostring(compileError))
-    return
-end
-
-local runOk, err = pcall(scriptFunction)
-
-if not runOk then
-    warn("[BASAE-Skrip] Runtime error: " .. tostring(err))
-end
+print("[MoldyHub] Supported game detected: " .. gameName)
+print("[MoldyHub] Approved script: " .. url)
