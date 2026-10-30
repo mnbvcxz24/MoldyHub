@@ -12,7 +12,7 @@ if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
 end
 local Runtime = {Stopped = false}
-RuntimeEnv.__BASAESkripCleanup = function()
+RuntimeEnv.__BASAECleanup = function()
     Runtime.Stopped = true
     pcall(function()
         if type(Runtime.Shutdown) == "function" then
@@ -326,7 +326,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">SKRIP</font>NIBAI'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
     end
 end
 -- MAIN WINDOW
