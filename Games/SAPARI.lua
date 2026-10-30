@@ -1074,6 +1074,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return Label, Icon
         end
 
+        local function NaturalSortKey(value)
+            return tostring(value):lower():gsub("%d+", function(number)
+                return string.format("%03d", #number) .. number
+            end)
+        end
+
         local function GetPathFolders()
             local pathsFolder = workspace:FindFirstChild("Paths")
             local results = {}
@@ -1084,7 +1090,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     end
                 end
             end
-            table.sort(results, function(a, b) return a.Name < b.Name end)
+            table.sort(results, function(a, b)
+                return NaturalSortKey(a.Name) < NaturalSortKey(b.Name)
+            end)
             return results
         end
 
@@ -1114,7 +1122,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             table.sort(results, function(a, b)
                 local ap = a.Parent and a.Parent.Parent and a.Parent.Parent.Name or ""
                 local bp = b.Parent and b.Parent.Parent and b.Parent.Parent.Name or ""
-                return ap .. "/" .. a.Name < bp .. "/" .. b.Name
+                return NaturalSortKey(ap .. "/" .. a.Name) < NaturalSortKey(bp .. "/" .. b.Name)
             end)
             return results
         end
@@ -1660,7 +1668,7 @@ end))
                         end
                         return table.concat(names, "/")
                     end
-                    return getPath(a) < getPath(b)
+                    return NaturalSortKey(getPath(a)) < NaturalSortKey(getPath(b))
                 end)
                 return cages
             end
