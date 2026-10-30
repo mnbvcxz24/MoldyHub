@@ -6,14 +6,33 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test v1.239"
+local testver = "Test v1.240"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
 end
-local Runtime = {Stopped = false}
+local Runtime = {
+    Stopped = false,
+    Connections = {}
+}
+local function TrackConnection(connection)
+    table.insert(Runtime.Connections, connection)
+    return connection
+end
 RuntimeEnv.__StealAPetAndRideItCleanup = function()
     Runtime.Stopped = true
+
+    if Runtime.StopNavigation then
+        pcall(Runtime.StopNavigation)
+    end
+
+    for _, connection in ipairs(Runtime.Connections) do
+        if connection.Connected then
+            connection:Disconnect()
+        end
+    end
+    table.clear(Runtime.Connections)
+
     pcall(function()
         local oldUI = game.CoreGui:FindFirstChild("StealAPetAndRideItUI")
         if oldUI then oldUI:Destroy() end
@@ -860,9 +879,10 @@ local function CreateSlider(parent, text, minimum, maximum, default, callback)
     AddCorner(Fill, 10)
     local Dragging = false
     local function Update(input)
+        local width = Bar.AbsoluteSize.X
+        if width <= 0 then return end
         local Position = math.clamp(
-            (input.Position.X - Bar.AbsolutePosition.X)
-                / Bar.AbsoluteSize.X,
+            (input.Position.X - Bar.AbsolutePosition.X) / width,
             0,
             1
         )
@@ -882,20 +902,20 @@ local function CreateSlider(parent, text, minimum, maximum, default, callback)
             Update(input)
         end
     end)
-    UserInputService.InputChanged:Connect(function(input)
+    TrackConnection(UserInputService.InputChanged:Connect(function(input)
         if Dragging then
             if input.UserInputType == Enum.UserInputType.MouseMovement
             or input.UserInputType == Enum.UserInputType.Touch then
                 Update(input)
             end
         end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
+end))
+    TrackConnection(UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = false
         end
-    end)
+end))
     return Holder
 end
 -- CREATE SIDEBAR BUTTONS
@@ -1069,7 +1089,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local function GetCageModels()
             local results = {}
-            local seenNames = {}
+            local seenInstances = {}
             local paths = {}
             for pathObject in pairs(SelectedPaths) do
                 if pathObject and pathObject.Parent then
@@ -1083,8 +1103,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 local cagesFolder = pathObject:FindFirstChild("Cages")
                 if cagesFolder then
                     for _, child in ipairs(cagesFolder:GetChildren()) do
-                        if child:IsA("Model") and not seenNames[child.Name] then
-                            seenNames[child.Name] = true
+                        if child:IsA("Model") and not seenInstances[child] then
+                            seenInstances[child] = true
                             table.insert(results, child)
                         end
                     end
@@ -1390,8 +1410,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Runtime.GlideMaxSpeed = GlideMaxSpeed
         end
         local function UpdateSpeed(input)
+            local width = SpeedBar.AbsoluteSize.X
+            if width <= 0 then return end
             local position = math.clamp(
-                (input.Position.X - SpeedBar.AbsolutePosition.X) / SpeedBar.AbsoluteSize.X,
+                (input.Position.X - SpeedBar.AbsolutePosition.X) / width,
                 0,
                 1
             )
@@ -1406,26 +1428,28 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
         SpeedBar.InputBegan:Connect(BeginSpeedDrag)
         SpeedThumb.InputBegan:Connect(BeginSpeedDrag)
-        UserInputService.InputChanged:Connect(function(input)
+        TrackConnection(UserInputService.InputChanged:Connect(function(input)
             if DraggingSpeed and (
                 input.UserInputType == Enum.UserInputType.MouseMovement
                 or input.UserInputType == Enum.UserInputType.Touch
             ) then
                 UpdateSpeed(input)
             end
-        end)
-        UserInputService.InputEnded:Connect(function(input)
+end))
+        TrackConnection(UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
                 DraggingSpeed = false
             end
-        end)
+end))
         RefreshSpeed()
 
         Runtime.SelectedPaths = SelectedPaths
         Runtime.SelectedCages = SelectedCages
 
         local navigationToken = 0
+        local activeNavigationTween
+
         local function SetNavigationStatus(message)
             if StatusValue then
                 StatusValue.Text = message
@@ -1433,11 +1457,73 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
         end
 
+        local function SetAutoStealEnabled(enabled)
+            AutoStealEnabled = enabled
+            Runtime.AutoStealEnabled = enabled
+
+            local controller = ToggleControllers[AutoStealToggle]
+            if controller then
+                controller.SetEnabled(enabled, false)
+            end
+
+            if StatusDot then
+                StatusDot.BackgroundColor3 = enabled
+                    and Color3.fromRGB(75, 190, 145)
+                    or Theme.Gray
+            end
+        end
+
+        local function CancelActiveMovement()
+            if activeNavigationTween then
+                activeNavigationTween:Cancel()
+                activeNavigationTween = nil
+            end
+
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+
+            if humanoid then
+                if root then
+                    humanoid:MoveTo(root.Position)
+                end
+                humanoid:Move(Vector3.zero, false)
+            end
+        end
+
         local function MoveToPosition(root, humanoid, destination, token)
+            if token ~= navigationToken or Runtime.Stopped then
+                return false
+            end
+
             if MovementMode == "Walk" then
+                local distance = (root.Position - destination).Magnitude
+                local speed = math.max(humanoid.WalkSpeed, 1)
+                local timeout = os.clock() + math.max(5, distance / speed + 3)
+
                 humanoid:MoveTo(destination)
-                local reached = humanoid.MoveToFinished:Wait()
-                return reached and token == navigationToken and not Runtime.Stopped
+
+                while os.clock() < timeout do
+                    if token ~= navigationToken or Runtime.Stopped then
+                        humanoid:MoveTo(root.Position)
+                        humanoid:Move(Vector3.zero, false)
+                        return false
+                    end
+
+                    if not root.Parent or not humanoid.Parent then
+                        return false
+                    end
+
+                    if (root.Position - destination).Magnitude <= 3 then
+                        return true
+                    end
+
+                    RunService.Heartbeat:Wait()
+                end
+
+                humanoid:MoveTo(root.Position)
+                humanoid:Move(Vector3.zero, false)
+                return false
             end
 
             local distance = (root.Position - destination).Magnitude
@@ -1449,8 +1535,15 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 TweenInfo.new(duration, Enum.EasingStyle.Linear),
                 {CFrame = target}
             )
+
+            activeNavigationTween = tween
             tween:Play()
             local state = tween.Completed:Wait()
+
+            if activeNavigationTween == tween then
+                activeNavigationTween = nil
+            end
+
             return state == Enum.PlaybackState.Completed
                 and token == navigationToken
                 and not Runtime.Stopped
@@ -1458,26 +1551,45 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         Runtime.StopNavigation = function()
             navigationToken += 1
-            local character = LocalPlayer.Character
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-            if humanoid then humanoid:Move(Vector3.zero, false) end
+            CancelActiveMovement()
+            SetAutoStealEnabled(false)
             SetNavigationStatus("Stopped")
         end
 
         Runtime.StartNavigation = function()
             navigationToken += 1
             local token = navigationToken
-            local selectedCage
-            for cage in pairs(SelectedCages) do
-                if SelectedCages[cage] and cage and cage.Parent then
-                    selectedCage = cage
-                    break
+            CancelActiveMovement()
+
+            if Runtime.Stopped then
+                SetAutoStealEnabled(false)
+                return
+            end
+
+            local selectedCages = {}
+            for cage, selected in pairs(SelectedCages) do
+                if selected and cage and cage.Parent then
+                    table.insert(selectedCages, cage)
                 end
             end
+
+            table.sort(selectedCages, function(a, b)
+                local function getPath(model)
+                    local names = {}
+                    local current = model
+                    while current and current ~= workspace do
+                        table.insert(names, 1, current.Name)
+                        current = current.Parent
+                    end
+                    return table.concat(names, "/")
+                end
+                return getPath(a) < getPath(b)
+            end)
+
+            local selectedCage = selectedCages[1]
             if not selectedCage then
                 SetNavigationStatus("Select a cage")
-                AutoStealEnabled = false
-                Runtime.AutoStealEnabled = false
+                SetAutoStealEnabled(false)
                 return
             end
 
@@ -1485,30 +1597,42 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             local root = character and character:FindFirstChild("HumanoidRootPart")
             local cageRoot = selectedCage:FindFirstChild("Root")
-            local safeSign = workspace:FindFirstChild("Hub")
-                and workspace.Hub:FindFirstChild("SafeZoneSign")
+            local hub = workspace:FindFirstChild("Hub")
+            local safeSign = hub and hub:FindFirstChild("SafeZoneSign")
 
-            if not humanoid or not root or not cageRoot or not cageRoot:IsA("BasePart") or not safeSign or not safeSign:IsA("BasePart") then
+            if not humanoid or not root or not cageRoot
+            or not cageRoot:IsA("BasePart") or not safeSign
+            or not safeSign:IsA("BasePart") then
                 SetNavigationStatus("Target unavailable")
+                SetAutoStealEnabled(false)
                 return
             end
 
             SetNavigationStatus("Moving to cage")
             local reachedCage = MoveToPosition(root, humanoid, cageRoot.Position, token)
-            if not reachedCage then return end
+            if not reachedCage then
+                if token == navigationToken then
+                    SetAutoStealEnabled(false)
+                    SetNavigationStatus("Navigation stopped")
+                end
+                return
+            end
 
             if token ~= navigationToken or Runtime.Stopped then return end
+
             SetNavigationStatus("Returning to safe zone")
             local reachedSafeZone = MoveToPosition(root, humanoid, safeSign.Position, token)
-            if not reachedSafeZone then return end
-
-            if token == navigationToken then
-                SetNavigationStatus("Returned to safe zone")
-                AutoStealEnabled = false
-                Runtime.AutoStealEnabled = false
-                if StatusDot then
-                    StatusDot.BackgroundColor3 = Theme.Gray
+            if not reachedSafeZone then
+                if token == navigationToken then
+                    SetAutoStealEnabled(false)
+                    SetNavigationStatus("Navigation stopped")
                 end
+                return
+            end
+
+            if token == navigationToken and not Runtime.Stopped then
+                SetNavigationStatus("Returned to safe zone")
+                SetAutoStealEnabled(false)
             end
         end
         elseif name == "Features" then
@@ -1572,10 +1696,13 @@ RestoreButton.MouseButton1Click:Connect(function()
     SetMinimized(false)
 end)
 CloseButton.MouseButton1Click:Connect(function()
-    Runtime.Stopped = true
     if type(RuntimeEnv.__StealAPetAndRideItCleanup) == "function" then
         RuntimeEnv.__StealAPetAndRideItCleanup()
     else
+        Runtime.Stopped = true
+        if Runtime.StopNavigation then
+            Runtime.StopNavigation()
+        end
         ScreenGui:Destroy()
     end
 end)
@@ -1599,7 +1726,7 @@ RestoreButton.InputBegan:Connect(function(input)
         StartPosition = Main.Position
     end
 end)
-UserInputService.InputChanged:Connect(function(input)
+TrackConnection(UserInputService.InputChanged:Connect(function(input)
     if not Dragging then return end
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
     and input.UserInputType ~= Enum.UserInputType.Touch then return end
@@ -1610,10 +1737,10 @@ UserInputService.InputChanged:Connect(function(input)
         StartPosition.Y.Scale,
         StartPosition.Y.Offset + Delta.Y
     )
-end)
-UserInputService.InputEnded:Connect(function(input)
+end))
+TrackConnection(UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
         Dragging = false
     end
-end)
+end))
