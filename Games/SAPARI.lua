@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.1"
+local testver = "v1.2"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -41,7 +41,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "STEAL A PET & RIDE IT",
-    Subtitle = "v1.1",
+    Subtitle = "v1.2",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
