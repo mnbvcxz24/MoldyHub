@@ -1539,27 +1539,65 @@ end))
 
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
             local glidePosition = destination + Vector3.new(0, glideHeight, 0)
-            local distance = (root.Position - glidePosition).Magnitude
+            local startPosition = root.Position
+            local distance = (startPosition - glidePosition).Magnitude
             local speed = math.max(10, Runtime.GlideSpeed or 50)
-            local duration = math.max(0.15, distance / speed)
-            local target = CFrame.new(glidePosition) * root.CFrame.Rotation
-            local tween = TweenService:Create(
-                root,
-                TweenInfo.new(duration, Enum.EasingStyle.Linear),
-                {CFrame = target}
-            )
+            local rotation = root.CFrame.Rotation
+            local segmentCount = math.max(1, math.ceil(distance / 10))
+            local selectedPathCount = 0
 
-            activeNavigationTween = tween
-            tween:Play()
-            local state = tween.Completed:Wait()
-
-            if activeNavigationTween == tween then
-                activeNavigationTween = nil
+            for pathObject, selected in pairs(SelectedPaths) do
+                if selected and pathObject and pathObject.Parent then
+                    selectedPathCount += 1
+                end
             end
 
-            return state == Enum.PlaybackState.Completed
-                and token == navigationToken
-                and not Runtime.Stopped
+            local pauseDuration = 0.25 * math.max(selectedPathCount, 1)
+
+            for segment = 1, segmentCount do
+                if token ~= navigationToken or Runtime.Stopped
+                or not root.Parent or not humanoid.Parent then
+                    return false
+                end
+
+                local segmentPosition = startPosition:Lerp(
+                    glidePosition,
+                    segment / segmentCount
+                )
+                local segmentDistance = (root.Position - segmentPosition).Magnitude
+                local duration = math.max(0.03, segmentDistance / speed)
+                local target = CFrame.new(segmentPosition) * rotation
+                local tween = TweenService:Create(
+                    root,
+                    TweenInfo.new(duration, Enum.EasingStyle.Linear),
+                    {CFrame = target}
+                )
+
+                activeNavigationTween = tween
+                tween:Play()
+                local state = tween.Completed:Wait()
+
+                if activeNavigationTween == tween then
+                    activeNavigationTween = nil
+                end
+
+                if state ~= Enum.PlaybackState.Completed
+                or token ~= navigationToken or Runtime.Stopped then
+                    return false
+                end
+
+                if segment < segmentCount then
+                    local pauseUntil = os.clock() + pauseDuration
+                    while os.clock() < pauseUntil do
+                        if token ~= navigationToken or Runtime.Stopped then
+                            return false
+                        end
+                        task.wait(math.min(0.05, pauseUntil - os.clock()))
+                    end
+                end
+            end
+
+            return token == navigationToken and not Runtime.Stopped
         end
 
         Runtime.StopNavigation = function()
