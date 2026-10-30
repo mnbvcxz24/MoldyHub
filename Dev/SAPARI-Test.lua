@@ -1771,17 +1771,21 @@ end))
             local function MoveToCage(root, humanoid, destination, token)
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
-                    return MoveToPosition(root, humanoid, destination, token, true)
+                    if MoveToPosition(root, humanoid, destination, token, true) then
+                        return true
+                    end
+                    return false, "Failed to reach cage"
                 end
 
                 local bossCFrame = GetBossCFrame()
                 if not bossCFrame then
                     SetNavigationStatus("Path1 Boss unavailable")
-                    return false
+                    return false, "Path1 Boss unavailable"
                 end
 
+                SetNavigationStatus("Walking to Path1 Boss")
                 if not MoveToPosition(root, humanoid, bossCFrame.Position, token, true) then
-                    return false
+                    return false, "Failed to reach Path1 Boss"
                 end
 
                 SetFloating(root, true)
@@ -1794,15 +1798,22 @@ end))
                 )
 
                 if toCage.Magnitude < 0.001 then
-                    return MoveToPosition(root, humanoid, destination, token)
+                    if MoveToPosition(root, humanoid, destination, token) then
+                        return true
+                    end
+                    return false, "Failed to glide to cage"
                 end
 
                 local forward = toCage.Unit
                 local waypointDistance = math.min(50, toCage.Magnitude * 0.5)
                 local routeWaypoint = bossCFrame.Position + forward * waypointDistance
 
-                return MoveToPosition(root, humanoid, routeWaypoint, token)
-                    and MoveToPosition(root, humanoid, destination, token)
+                if not MoveToPosition(root, humanoid, routeWaypoint, token)
+                or not MoveToPosition(root, humanoid, destination, token) then
+                    return false, "Failed to glide to cage"
+                end
+
+                return true
             end
             while token == navigationToken and not Runtime.Stopped do
                 local selectedCages = GetSelectedCages()
@@ -1835,13 +1846,12 @@ end))
                     end
 
                     SetFloating(root, false)
-                    SetNavigationStatus("Walking to Path1 Boss")
-                    local reachedCage = MoveToCage(root, humanoid, cageRoot.Position, token)
+                    local reachedCage, navigationFailure = MoveToCage(root, humanoid, cageRoot.Position, token)
                     if not reachedCage then
                         RestoreFloating()
                         if token == navigationToken then
                             SetAutoStealEnabled(false)
-                            SetNavigationStatus("Navigation stopped")
+                            SetNavigationStatus(navigationFailure or "Navigation stopped")
                         end
                         return
                     end
@@ -1884,9 +1894,10 @@ end))
                     end
 
                     if not holdOk or not holdCompleted then
-                        RestoreFloating()                        if token == navigationToken then
+                        RestoreFloating()
+                        if token == navigationToken then
                             SetAutoStealEnabled(false)
-                            SetNavigationStatus("Navigation stopped")
+                            SetNavigationStatus("Steal prompt failed")
                         end
                         return
                     end
