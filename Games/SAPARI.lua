@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "v1.16"
+local testver = "v1.17"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1696,7 +1696,13 @@ end))
                     if cagesFolder then
                         for _, cage in ipairs(cagesFolder:GetChildren()) do
                             if cage:IsA("Model") and selectedNames[cage.Name] then
-                                table.insert(cages, cage)
+                                local cageRoot = cage:FindFirstChild("Root")
+                                local stealPrompt = cageRoot and cageRoot:FindFirstChild("StealPrompt")
+                                if cageRoot and cageRoot:IsA("BasePart")
+                                and stealPrompt and stealPrompt:IsA("ProximityPrompt")
+                                and stealPrompt.Enabled then
+                                    table.insert(cages, cage)
+                                end
                             end
                         end
                     end
@@ -1755,6 +1761,11 @@ end))
             while token == navigationToken and not Runtime.Stopped do
                 local selectedCages = GetSelectedCages()
                 if #selectedCages == 0 then
+                    if MovementMode == "Walk" then
+                        SetNavigationStatus("Scanning for available cages")
+                        task.wait(0.25)
+                        continue
+                    end
                     SetNavigationStatus("Select a cage")
                     SetAutoStealEnabled(false)
                     return
@@ -1928,7 +1939,10 @@ end))
                         end
                         task.wait(math.min(0.1, nextTargetAt - os.clock()))
                     end
-                    SetNavigationStatus("Cooldown complete - next cage")
+                    SetNavigationStatus("Cooldown complete - rescanning cages")
+                    if MovementMode == "Walk" then
+                        break
+                    end
                 end
             end
         end        elseif name == "Features" then
