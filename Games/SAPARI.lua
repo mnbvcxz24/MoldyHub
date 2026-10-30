@@ -1541,12 +1541,8 @@ end))
                 local speed = math.max(humanoid.WalkSpeed, 1)
                 local timeout = os.clock() + math.max(5, distance / speed + 3)
 
-                humanoid:MoveTo(destination)
-
                 while os.clock() < timeout do
                     if token ~= navigationToken or Runtime.Stopped then
-                        humanoid:MoveTo(root.Position)
-                        humanoid:Move(Vector3.zero, false)
                         return false
                     end
 
@@ -1554,15 +1550,20 @@ end))
                         return false
                     end
 
-                    if (root.Position - destination).Magnitude <= 3 then
+                    local offset = destination - root.Position
+                    local flatDirection = Vector3.new(offset.X, 0, offset.Z)
+
+                    if offset.Magnitude <= 3 then
                         return true
+                    end
+
+                    if flatDirection.Magnitude > 0.001 then
+                        humanoid:Move(flatDirection.Unit, false)
                     end
 
                     RunService.Heartbeat:Wait()
                 end
 
-                humanoid:MoveTo(root.Position)
-                humanoid:Move(Vector3.zero, false)
                 return false
             end
 
