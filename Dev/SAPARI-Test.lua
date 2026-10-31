@@ -2643,9 +2643,6 @@ end))
                     end
 
                     local stealPrompt
-                        SetNavigationStatus("Target unavailable")
-                        continue
-                    end
 
                     SetFloating(root, false)
                     local moveOk, reachedCage, navigationFailure = pcall(function()
