@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.56"
+local testver = "Test ver: 1.57"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2416,6 +2416,7 @@ end))
             local previousCharacterPosition
             local previousNavigationRoot
             local previousNavigationPosition
+            local safeZoneNavigationActive = false
             local nextRootScanAt = 0
 
             baseTeleportConnection = RunService.Heartbeat:Connect(function()
@@ -2473,13 +2474,21 @@ end))
                     or (ownedPlotPosition and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65)
                 local navigationRootAtBase = (currentNavigationRoot.Position - safeSign.Position).Magnitude <= 65
                     or (ownedPlotPosition and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65)
+                local characterEnteredOwnedPlot = ownedPlotPosition
+                    and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65
+                    and (previousCharacterPosition - ownedPlotPosition).Magnitude > 65
+                local navigationEnteredOwnedPlot = ownedPlotPosition
+                    and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65
+                    and (previousNavigationPosition - ownedPlotPosition).Magnitude > 65
 
                 previousCharacterPosition = currentRoot.Position
                 previousNavigationPosition = currentNavigationRoot.Position
 
                 if not baseTeleportDetected
-                and ((characterJump >= 70 and characterAtBase)
-                or (navigationJump >= 70 and navigationRootAtBase)) then
+                and (((characterJump >= 70 and characterAtBase)
+                or (navigationJump >= 70 and navigationRootAtBase))
+                or (not safeZoneNavigationActive
+                    and (characterEnteredOwnedPlot or navigationEnteredOwnedPlot))) then
                     baseTeleportDetected = true
                     CancelActiveMovement()
                     RestoreFloating()
@@ -2771,7 +2780,10 @@ end))
                     else
                         SetNavigationStatus("Walking to safe zone")
                         local safeZoneDestination = safeSign.Position
-                        if MoveToPosition(root, humanoid, safeZoneDestination, token, true) then
+                        safeZoneNavigationActive = true
+                        local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
+                        safeZoneNavigationActive = false
+                        if reachedSafeZone then
                             SetNavigationStatus("Safe zone reached")
                             return true
                         end
@@ -3106,6 +3118,7 @@ end))
                             SetNavigationStatus("Walking back to safe zone")
                         end
 
+                        safeZoneNavigationActive = true
                         reachedSafeZone = MoveToPosition(
                             root,
                             humanoid,
@@ -3114,6 +3127,7 @@ end))
                             false,
                             MovementMode == "Glide"
                         )
+                        safeZoneNavigationActive = false
 
                         if not reachedSafeZone then
                             RestoreFloating()
