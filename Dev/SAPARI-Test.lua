@@ -2409,11 +2409,7 @@ end))
                                     matchesFilters = rarityMatches
                                 end
                                 if matchesFilters then
-                                    local stealPrompt = cage:FindFirstChild("StealPrompt", true)
-                                    if stealPrompt and stealPrompt:IsA("ProximityPrompt")
-                                    and stealPrompt.Enabled then
-                                        table.insert(cages, cage)
-                                    end
+                                    table.insert(cages, cage)
                                 end
                             end
                         end
@@ -2628,26 +2624,25 @@ end))
                     local character = LocalPlayer.Character
                     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                     local root = character and character:FindFirstChild("HumanoidRootPart")
-                    local promptOk, stealPrompt = pcall(function()
-                        return selectedCage:FindFirstChild("StealPrompt", true)
-                    end)
-                    if not promptOk then
-                        SetNavigationStatus("Cage prompt error - skipping")
-                        continue
-                    end
-                    if not stealPrompt or not stealPrompt:IsA("ProximityPrompt") then
+                    if not humanoid or not root then
                         SetNavigationStatus("Target unavailable")
                         continue
                     end
-                    local positionOk, cagePosition = pcall(function()
-                        return GetPromptWorldPosition(stealPrompt)
+
+                    local cagePosition
+                    local positionOk = pcall(function()
+                        cagePosition = selectedCage:GetPivot().Position
                     end)
                     if not positionOk or not cagePosition then
-                        SetNavigationStatus("Invalid prompt position - skipping")
+                        local fallbackPart = selectedCage:FindFirstChildWhichIsA("BasePart", true)
+                        cagePosition = fallbackPart and fallbackPart.Position
+                    end
+                    if not cagePosition then
+                        SetNavigationStatus("Invalid cage position - skipping")
                         continue
                     end
 
-                    if not humanoid or not root then
+                    local stealPrompt
                         SetNavigationStatus("Target unavailable")
                         continue
                     end
@@ -2692,6 +2687,45 @@ end))
                         if not WaitForBaseTeleport() then return end
                         break
                     end
+
+                    SetNavigationStatus("Waiting for cage prompt to stream in")
+                    local promptWaitUntil = os.clock() + 8
+                    while os.clock() < promptWaitUntil do
+                        if token ~= navigationToken or Runtime.Stopped
+                        or not selectedCage:IsDescendantOf(workspace) then
+                            break
+                        end
+                        local promptOk, foundPrompt = pcall(function()
+                            return selectedCage:FindFirstChild("StealPrompt", true)
+                        end)
+                        if promptOk and foundPrompt
+                        and foundPrompt:IsA("ProximityPrompt")
+                        and foundPrompt.Enabled then
+                            stealPrompt = foundPrompt
+                            break
+                        end
+                        task.wait(0.2)
+                    end
+
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
+                    if not stealPrompt or not stealPrompt.Parent or not stealPrompt.Enabled then
+                        RestoreFloating()
+                        SetNavigationStatus("Cage prompt not available - skipping")
+                        continue
+                    end
+
+                    local promptPositionOk, promptPosition = pcall(function()
+                        return GetPromptWorldPosition(stealPrompt)
+                    end)
+                    if not promptPositionOk or not promptPosition then
+                        RestoreFloating()
+                        SetNavigationStatus("Invalid prompt position - skipping")
+                        continue
+                    end
+                    cagePosition = promptPosition
 
                     local navigationRoot = GetNavigationRoot(root)
                     if not navigationRoot or not navigationRoot.Parent then
