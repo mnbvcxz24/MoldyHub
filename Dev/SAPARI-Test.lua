@@ -1798,6 +1798,28 @@ end))
             return destination + (root.Position - navigationRoot.Position)
         end
 
+        local function IsNavigationAtDestination(navigationRoot, destination, horizontalTolerance)
+            if not navigationRoot or not navigationRoot.Parent then
+                return false
+            end
+
+            local delta = destination - navigationRoot.Position
+            local horizontal = Vector3.new(delta.X, 0, delta.Z)
+            local verticalTolerance = 4
+            local petModel = navigationRoot:FindFirstAncestorOfClass("Model")
+            if petModel then
+                local ok, bounds = pcall(function()
+                    return petModel:GetExtentsSize()
+                end)
+                if ok and bounds then
+                    verticalTolerance = math.max(verticalTolerance, bounds.Y * 0.5 + 2)
+                end
+            end
+
+            return horizontal.Magnitude <= (horizontalTolerance or 4)
+                and math.abs(delta.Y) <= verticalTolerance
+        end
+
         local function ShouldWalk(root)
             return MovementMode == "Walk"
         end
@@ -1894,7 +1916,7 @@ end))
                         return false
                     end
 
-                    if (destination - navigationRoot.Position).Magnitude <= 4 then
+                    if IsNavigationAtDestination(navigationRoot, destination) then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
@@ -1909,11 +1931,11 @@ end))
 
                 humanoid:MoveTo(root.Position)
                 if not navigationRoot.Parent then return false end
-                return (destination - navigationRoot.Position).Magnitude <= 4
+                return IsNavigationAtDestination(navigationRoot, destination)
             end
 
             local speed = math.max(10, Runtime.GlideSpeed or 50)
-            local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
+            local glideHeight = humanoid.HipHeight + (navigationRoot.Size.Y * 0.5)
             local finalGlideStop = 12
             local walkDuration = 1
 
@@ -1948,7 +1970,7 @@ end))
                         return false
                     end
 
-                    if (destination - navigationRoot.Position).Magnitude <= 4 then
+                    if IsNavigationAtDestination(navigationRoot, destination) then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
@@ -1977,7 +1999,7 @@ end))
                 local horizontal = Vector3.new(remaining.X, 0, remaining.Z)
                 local horizontalDistance = horizontal.Magnitude
 
-                if remaining.Magnitude <= 4 then
+                if IsNavigationAtDestination(navigationRoot, destination) then
                     humanoid:MoveTo(root.Position)
                     SetFloating(navigationRoot, false)
                     return true
@@ -2051,7 +2073,7 @@ end))
                         return false
                     end
 
-                    if (destination - navigationRoot.Position).Magnitude <= 4 then
+                    if IsNavigationAtDestination(navigationRoot, destination) then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
