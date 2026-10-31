@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.28"
+local testver = "Test ver: 1.29"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1123,7 +1123,30 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return results
         end
 
-        local function CreateDynamicFilter(label, icon, yPosition, getOptions, selected, onChanged)
+        local PathDisplayNames = {
+            Path1 = "Garden",
+            Path2 = "Honey",
+            Path3 = "Jungle",
+            Path4 = "Dino",
+            Path5 = "Snow",
+            Path6 = "Desert",
+            Path7 = "Candy",
+            Path8 = "Volcano",
+            Path9 = "Sky",
+            Path10 = "Space",
+            Path11 = "Moon",
+            Path12 = "Mars",
+            Path13 = "Ocean",
+            Path14 = "Crystal",
+            Path15 = "Sun",
+            Path16 = "Shadow",
+            Path17 = "Toxic",
+            Path18 = "Storm",
+            Path19 = "Ancient",
+            Path20 = "BlackHole"
+        }
+
+        local function CreateDynamicFilter(label, icon, yPosition, getOptions, selected, onChanged, getDisplayName)
             local SectionLabel, SectionIcon = MakeSectionLabel(icon, label, yPosition)
             local Button = Create("TextButton", {
                 Parent = AutoCard,
@@ -1246,7 +1269,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         Position = UDim2.fromOffset(29, 0),
                         Size = UDim2.new(1, -36, 1, 0),
                         BackgroundTransparency = 1,
-                        Text = typeof(optionObject) == "Instance" and optionObject.Name or tostring(optionObject),
+                        Text = getDisplayName and getDisplayName(optionObject)
+                            or (typeof(optionObject) == "Instance" and optionObject.Name or tostring(optionObject)),
                         TextColor3 = isSelected and Theme.Text or Theme.DarkGray,
                         Font = Enum.Font.Gotham,
                         TextSize = 9,
@@ -1279,7 +1303,17 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return RarityOptions
         end
         local PathFilterButton, PathFilterList, PathSectionLabel, PathSectionIcon =
-            CreateDynamicFilter("Path Filter", "P", 68, GetPathFolders, SelectedPaths)
+            CreateDynamicFilter(
+                "Path Filter",
+                "P",
+                68,
+                GetPathFolders,
+                SelectedPaths,
+                nil,
+                function(pathObject)
+                    return PathDisplayNames[pathObject.Name] or pathObject.Name
+                end
+            )
         local CageFilterButton, CageFilterList, CageSectionLabel, CageSectionIcon =
             CreateDynamicFilter("Cage Filter", "C", 68, GetRarityOptions, SelectedRarities)
 
