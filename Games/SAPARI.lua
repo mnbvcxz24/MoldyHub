@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.14"
+local testver = "Deploy ver 1.15"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2571,9 +2571,9 @@ end))
                         task.wait(0.25)
                         continue
                     end
-                    SetNavigationStatus("Select a cage")
-                    SetAutoStealEnabled(false)
-                    return
+                    SetNavigationStatus("Waiting for cages")
+                    task.wait(0.25)
+                    continue
                 end
 
                 for _, selectedCage in ipairs(selectedCages) do
