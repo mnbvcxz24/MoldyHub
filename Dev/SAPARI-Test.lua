@@ -1105,7 +1105,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
-        local CachedPathsFolder = workspace:FindFirstChild("Paths")
+        local CachedPathsFolder
         local CachedPathFolders = {}
         local CachedPathParts = {}
         local PathCacheConnections = {}
@@ -1117,7 +1117,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if CachedPathFolders[pathNumber] == pathObject then return end
 
             CachedPathFolders[pathNumber] = pathObject
-            CachedPathParts[pathNumber] = CachedPathParts[pathNumber] or {}
+            CachedPathParts[pathNumber] = {}
 
             local function CachePart(instance)
                 if instance:IsA("BasePart") then
@@ -1132,12 +1132,22 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             table.insert(PathCacheConnections, pathObject.DescendantAdded:Connect(CachePart))
         end
 
-        if CachedPathsFolder then
-            for _, pathObject in ipairs(CachedPathsFolder:GetChildren()) do
+        local function AttachPathsFolder(pathsFolder)
+            if not pathsFolder or not pathsFolder:IsA("Folder")
+            or CachedPathsFolder == pathsFolder then
+                return
+            end
+
+            CachedPathsFolder = pathsFolder
+            table.clear(CachedPathFolders)
+            table.clear(CachedPathParts)
+
+            for _, pathObject in ipairs(pathsFolder:GetChildren()) do
                 CachePathFolder(pathObject)
             end
-            table.insert(PathCacheConnections, CachedPathsFolder.ChildAdded:Connect(CachePathFolder))
-            table.insert(PathCacheConnections, CachedPathsFolder.ChildRemoved:Connect(function(pathObject)
+
+            table.insert(PathCacheConnections, pathsFolder.ChildAdded:Connect(CachePathFolder))
+            table.insert(PathCacheConnections, pathsFolder.ChildRemoved:Connect(function(pathObject)
                 local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
                 if pathNumber and CachedPathFolders[pathNumber] == pathObject then
                     CachedPathFolders[pathNumber] = nil
@@ -1146,10 +1156,20 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end))
         end
 
+        AttachPathsFolder(workspace:FindFirstChild("Paths"))
+        table.insert(PathCacheConnections, workspace.ChildAdded:Connect(function(child)
+            if child.Name == "Paths" then
+                AttachPathsFolder(child)
+            end
+        end))
+
         local CachedActiveWorldFolder
 
         local function GetActiveWorldPathsFolder()
-            local pathsFolder = CachedPathsFolder or workspace:FindFirstChild("Paths")
+            if not CachedPathsFolder then
+                AttachPathsFolder(workspace:FindFirstChild("Paths"))
+            end
+            local pathsFolder = CachedPathsFolder
             local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
 
             if not CachedActiveWorldFolder then
