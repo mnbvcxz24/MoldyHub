@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.21"
+local testver = "Deploy ver 1.22"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -499,6 +499,8 @@ local Content = Create("Frame", {
 })
 -- PAGE SYSTEM
 local Pages = {}local SidebarButtons = {}local CurrentPage = 1
+-- Deploy build keeps debug logging disabled.
+local function AddDebugLog(message) end
 -- CREATE PAGE
 local function CreatePage(pageNumber, pageName)
     local PageClip = Create("Frame", {
@@ -1064,12 +1066,59 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
-        local function GetPathFolders()
+        local activeWorldPathsFolder
+        local activeWorldFolder
+        local activeSafeZoneSign
+
+        local function GetActiveWorldPathsFolder()
+            if activeWorldFolder and activeWorldPathsFolder and activeSafeZoneSign then
+                return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
+            end
+
+            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
+            if not safeSign then return nil, nil, nil end
+
+            local worldFolder
+            local current = safeSign
+            while current and current ~= workspace do
+                if current.Name == "World2" or current.Name == "Hub" then
+                    worldFolder = current
+                    break
+                end
+                current = current.Parent
+            end
+
             local pathsFolder = workspace:FindFirstChild("Paths")
+            if not worldFolder or not pathsFolder then
+                return nil, nil, nil
+            end
+
+            activeWorldFolder = worldFolder
+            activeWorldPathsFolder = pathsFolder
+            activeSafeZoneSign = safeSign
+            return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
+        end
+        local function IsPathInActiveWorld(pathObject)
+            if not pathObject then return false end
+            local _, worldFolder = GetActiveWorldPathsFolder()
+            if not worldFolder then return false end
+            local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
+            if not pathNumber then return false end
+            if worldFolder.Name == "World2" then
+                return pathNumber >= 11 and pathNumber <= 20
+            end
+            if worldFolder.Name == "Hub" then
+                return pathNumber >= 1 and pathNumber <= 10
+            end
+            return false
+        end
+
+        local function GetPathFolders()
+            local pathsFolder = GetActiveWorldPathsFolder()
             local results = {}
             if pathsFolder then
                 for _, child in ipairs(pathsFolder:GetChildren()) do
-                    if child:IsA("Folder") then
+                    if child:IsA("Folder") and IsPathInActiveWorld(child) then
                         table.insert(results, child)
                     end
                 end
@@ -1780,6 +1829,7 @@ end))
         end
 
         local function SetNavigationStatus(message)
+            AddDebugLog("[Navigation] " .. tostring(message))
             if StatusValue then
                 StatusValue.Text = message
                 StatusValue.TextColor3 = Theme.Accent
@@ -1828,6 +1878,61 @@ end))
             end
         end
 
+        local function BrakeAtDestination(root, humanoid, token)
+            if token ~= navigationToken or Runtime.Stopped
+            or not root or not root.Parent
+            or not humanoid or not humanoid.Parent then
+                return
+            end
+
+            local navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent then
+                return
+            end
+
+            humanoid:MoveTo(root.Position)
+            humanoid:Move(Vector3.zero, false)
+
+            if not navigationRoot.Anchored then
+                local velocity = navigationRoot.AssemblyLinearVelocity
+                local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+                local speed = horizontalVelocity.Magnitude
+
+                if speed >= 2 then
+                    local attachment = Instance.new("Attachment")
+                    attachment.Name = "SAPARIBrakeAttachment"
+                    attachment.Parent = navigationRoot
+
+                    local brake = Instance.new("VectorForce")
+                    brake.Name = "SAPARIMomentumBrake"
+                    brake.Attachment0 = attachment
+                    brake.RelativeTo = Enum.ActuatorRelativeTo.World
+                    brake.ApplyAtCenterOfMass = true
+                    brake.Force = -horizontalVelocity.Unit
+                        * navigationRoot.AssemblyMass
+                        * math.clamp(speed / 0.18, 0, 220)
+                    brake.Parent = navigationRoot
+
+                    local brakeUntil = os.clock() + 0.18
+                    while os.clock() < brakeUntil do
+                        if token ~= navigationToken or Runtime.Stopped
+                        or not root.Parent or not humanoid.Parent
+                        or not navigationRoot.Parent then
+                            break
+                        end
+                        RunService.Heartbeat:Wait()
+                    end
+
+                    brake:Destroy()
+                    attachment:Destroy()
+                end
+            end
+
+            if humanoid.Parent then
+                humanoid:Move(Vector3.zero, false)
+                humanoid:MoveTo(root.Position)
+            end
+        end
         local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk)
             if token ~= navigationToken or Runtime.Stopped then
                 return false
@@ -1872,7 +1977,7 @@ end))
                     end
 
                     if IsNavigationAtDestination(navigationRoot, destination) then
-                        humanoid:MoveTo(root.Position)
+                        BrakeAtDestination(root, humanoid, token)
                         return true
                     end
 
@@ -1926,7 +2031,7 @@ end))
                     end
 
                     if IsNavigationAtDestination(navigationRoot, destination) then
-                        humanoid:MoveTo(root.Position)
+                        BrakeAtDestination(root, humanoid, token)
                         return true
                     end
 
@@ -1955,7 +2060,7 @@ end))
                 local horizontalDistance = horizontal.Magnitude
 
                 if IsNavigationAtDestination(navigationRoot, destination) then
-                    humanoid:MoveTo(root.Position)
+                    BrakeAtDestination(root, humanoid, token)
                     SetFloating(navigationRoot, false)
                     return true
                 end
@@ -2029,7 +2134,7 @@ end))
                     end
 
                     if IsNavigationAtDestination(navigationRoot, destination) then
-                        humanoid:MoveTo(root.Position)
+                        BrakeAtDestination(root, humanoid, token)
                         return true
                     end
 
@@ -2151,17 +2256,16 @@ end))
                 SetAutoStealEnabled(false)
                 return            end
 
-            if not HasSelectedFilter() then
-                SetNavigationStatus("Select at least 1 filter")
+            local pathsFolder, worldFolder, safeSign = GetActiveWorldPathsFolder()
+            if not safeSign or not safeSign:IsA("BasePart")
+            or not worldFolder or not pathsFolder then
+                SetNavigationStatus("World paths unavailable")
                 SetAutoStealEnabled(false)
                 return
             end
 
-            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
-            local pathsFolder = workspace:FindFirstChild("Paths")
-
-            if not safeSign or not safeSign:IsA("BasePart") then
-                SetNavigationStatus("Safe zone unavailable")
+            if not HasSelectedFilter() then
+                SetNavigationStatus("Select at least 1 filter")
                 SetAutoStealEnabled(false)
                 return
             end
@@ -2339,13 +2443,13 @@ end))
                     return cages
                 end
 
-                local pathsFolder = workspace:FindFirstChild("Paths")
+                local pathsFolder = GetActiveWorldPathsFolder()
                 if not pathsFolder then
                     return cages
                 end
 
                 for _, pathObject in ipairs(pathsFolder:GetChildren()) do
-                    local pathMatches = SelectedPaths[pathObject] == true
+                    local pathMatches = IsPathInActiveWorld(pathObject) and SelectedPaths[pathObject] == true
                     local cagesFolder = pathObject:FindFirstChild("Cages")
 
                     if cagesFolder then
@@ -2363,11 +2467,7 @@ end))
                                     matchesFilters = rarityMatches
                                 end
                                 if matchesFilters then
-                                    local stealPrompt = cage:FindFirstChild("StealPrompt", true)
-                                    if stealPrompt and stealPrompt:IsA("ProximityPrompt")
-                                    and stealPrompt.Enabled then
-                                        table.insert(cages, cage)
-                                    end
+                                    table.insert(cages, cage)
                                 end
                             end
                         end
@@ -2471,24 +2571,73 @@ end))
                 end
             end
 
-            local function MoveToCage(root, humanoid, destination, token)
+            local function MoveToCage(root, humanoid, destination, token, cageModel)
+                local navigationRoot = GetNavigationRoot(root)
+                if not navigationRoot or not navigationRoot.Parent then
+                    return false, "Pet root unavailable"
+                end
+
+                local function IsPetAtCage()
+                    navigationRoot = GetNavigationRoot(root)
+                    if not navigationRoot or not navigationRoot.Parent then
+                        return false
+                    end
+
+                    if cageModel and cageModel.Parent then
+                        local ok, boundsCFrame, boundsSize = pcall(function()
+                            return cageModel:GetBoundingBox()
+                        end)
+                        if ok and boundsCFrame and boundsSize then
+                            local localPosition = boundsCFrame:PointToObjectSpace(navigationRoot.Position)
+                            local halfSize = boundsSize * 0.5
+                            local closestPoint = Vector3.new(
+                                math.clamp(localPosition.X, -halfSize.X, halfSize.X),
+                                math.clamp(localPosition.Y, -halfSize.Y, halfSize.Y),
+                                math.clamp(localPosition.Z, -halfSize.Z, halfSize.Z)
+                            )
+                            if (localPosition - closestPoint).Magnitude <= 10 then
+                                return true
+                            end
+                        end
+                    end
+
+                    local delta = destination - navigationRoot.Position
+                    local horizontalDistance = Vector3.new(delta.X, 0, delta.Z).Magnitude
+                    return horizontalDistance <= 12 and math.abs(delta.Y) <= 20
+                end
+
+                if IsPetAtCage() then
+                    SetNavigationStatus("Cage nearby")
+                    return true
+                end
+
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
                     return MoveToPosition(root, humanoid, destination, token, true), "Failed to reach cage"
                 end
-                local navigationRoot = GetNavigationRoot(root)
-                if not navigationRoot or not navigationRoot.Parent then return false, "Pet root unavailable" end
+
                 local ridingOffset = root.Position - navigationRoot.Position
-                local approachDirection = Vector3.new(navigationRoot.Position.X - destination.X, 0, navigationRoot.Position.Z - destination.Z)
+                local approachDirection = Vector3.new(
+                    navigationRoot.Position.X - destination.X,
+                    0,
+                    navigationRoot.Position.Z - destination.Z
+                )
                 if approachDirection.Magnitude < 0.01 then
                     local look = root.CFrame.LookVector
                     approachDirection = Vector3.new(look.X, 0, look.Z)
                 end
-                if approachDirection.Magnitude < 0.01 then approachDirection = Vector3.new(0, 0, -1) end
+                if approachDirection.Magnitude < 0.01 then
+                    approachDirection = Vector3.new(0, 0, -1)
+                end
+
                 local approachPosition = destination + approachDirection.Unit * 3.5
                 local petDestination = approachPosition - ridingOffset
                 SetNavigationStatus("Walking to cage")
                 if not MoveToPosition(root, humanoid, petDestination, token, false, true) then
+                    if IsPetAtCage() then
+                        SetNavigationStatus("Cage nearby")
+                        return true
+                    end
                     return false, "Failed to reach cage"
                 end
                 SetNavigationStatus("Cage reached")
@@ -2582,33 +2731,29 @@ end))
                     local character = LocalPlayer.Character
                     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                     local root = character and character:FindFirstChild("HumanoidRootPart")
-                    local promptOk, stealPrompt = pcall(function()
-                        return selectedCage:FindFirstChild("StealPrompt", true)
-                    end)
-                    if not promptOk then
-                        SetNavigationStatus("Cage prompt error - skipping")
-                        continue
-                    end
-                    if not stealPrompt or not stealPrompt:IsA("ProximityPrompt") then
-                        SetNavigationStatus("Target unavailable")
-                        continue
-                    end
-                    local positionOk, cagePosition = pcall(function()
-                        return GetPromptWorldPosition(stealPrompt)
-                    end)
-                    if not positionOk or not cagePosition then
-                        SetNavigationStatus("Invalid prompt position - skipping")
-                        continue
-                    end
-
                     if not humanoid or not root then
                         SetNavigationStatus("Target unavailable")
                         continue
                     end
 
+                    local cagePosition
+                    local positionOk = pcall(function()
+                        cagePosition = selectedCage:GetPivot().Position
+                    end)
+                    if not positionOk or not cagePosition then
+                        local fallbackPart = selectedCage:FindFirstChildWhichIsA("BasePart", true)
+                        cagePosition = fallbackPart and fallbackPart.Position
+                    end
+                    if not cagePosition then
+                        SetNavigationStatus("Invalid cage position - skipping")
+                        continue
+                    end
+
+                    local stealPrompt
+
                     SetFloating(root, false)
                     local moveOk, reachedCage, navigationFailure = pcall(function()
-                        local reached, failure = MoveToCage(root, humanoid, cagePosition, token)
+                        local reached, failure = MoveToCage(root, humanoid, cagePosition, token, selectedCage)
                         return reached, failure
                     end)
                     if not moveOk then
@@ -2646,6 +2791,45 @@ end))
                         if not WaitForBaseTeleport() then return end
                         break
                     end
+
+                    SetNavigationStatus("Waiting for cage prompt to stream in")
+                    local promptWaitUntil = os.clock() + 8
+                    while os.clock() < promptWaitUntil do
+                        if token ~= navigationToken or Runtime.Stopped
+                        or not selectedCage:IsDescendantOf(workspace) then
+                            break
+                        end
+                        local promptOk, foundPrompt = pcall(function()
+                            return selectedCage:FindFirstChild("StealPrompt", true)
+                        end)
+                        if promptOk and foundPrompt
+                        and foundPrompt:IsA("ProximityPrompt")
+                        and foundPrompt.Enabled then
+                            stealPrompt = foundPrompt
+                            break
+                        end
+                        task.wait(0.2)
+                    end
+
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
+                    if not stealPrompt or not stealPrompt.Parent or not stealPrompt.Enabled then
+                        RestoreFloating()
+                        SetNavigationStatus("Cage prompt not available - skipping")
+                        continue
+                    end
+
+                    local promptPositionOk, promptPosition = pcall(function()
+                        return GetPromptWorldPosition(stealPrompt)
+                    end)
+                    if not promptPositionOk or not promptPosition then
+                        RestoreFloating()
+                        SetNavigationStatus("Invalid prompt position - skipping")
+                        continue
+                    end
+                    cagePosition = promptPosition
 
                     local navigationRoot = GetNavigationRoot(root)
                     if not navigationRoot or not navigationRoot.Parent then
@@ -3024,6 +3208,7 @@ end))
             ApplyTheme(themeName)
         end)
         local AboutCard = CreateCard(Page, "About", "Steal A Pet & Ride It • UI only")
+
     end
 end
 -- SHOW FIRST PAGE
