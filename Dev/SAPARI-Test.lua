@@ -1131,7 +1131,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 current = current.Parent
             end
 
-            local pathsFolder = worldFolder and worldFolder:FindFirstChild("Paths")
+            local pathsFolder = worldFolder and worldFolder:FindFirstChild("Paths", true)
             if not worldFolder or not pathsFolder then
                 return nil, nil, nil
             end
