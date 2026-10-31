@@ -1311,6 +1311,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     })
                     OptionButton.MouseButton1Click:Connect(function()
                         selected[optionObject] = not selected[optionObject] and true or nil
+                        print("[SAPARI DEBUG] Filter:", label, typeof(optionObject) == "Instance" and optionObject:GetFullName() or tostring(optionObject), "Selected:", selected[optionObject] == true)
                         if onChanged then onChanged() end
                         Rebuild()
                         Refresh()
@@ -2319,19 +2320,45 @@ end))
             end
             local function GetSelectedCages()
                 local cages = {}
-                if not HasSelectedFilter() then return cages end
+                local hasFilter = HasSelectedFilter()
+                print("[SAPARI DEBUG] Scan start | HasFilter:", hasFilter)
+
+                for selectedPath, selected in pairs(SelectedPaths) do
+                    if selected then
+                        print("[SAPARI DEBUG] Selected path:", selectedPath and selectedPath:GetFullName() or "nil")
+                    end
+                end
+                for selectedRarity, selected in pairs(SelectedRarities) do
+                    if selected then
+                        print("[SAPARI DEBUG] Selected rarity:", tostring(selectedRarity))
+                    end
+                end
+
+                if not hasFilter then
+                    print("[SAPARI DEBUG] Scan stopped: no selected path/rarity")
+                    return cages
+                end
+
                 local pathsFolder = workspace:FindFirstChild("Paths")
-                if not pathsFolder then return cages end
+                if not pathsFolder then
+                    print("[SAPARI DEBUG] Scan stopped: workspace.Paths missing")
+                    return cages
+                end
 
                 for _, pathObject in ipairs(pathsFolder:GetChildren()) do
                     local pathMatches = SelectedPaths[pathObject] == true
                     local cagesFolder = pathObject:FindFirstChild("Cages")
+                    print("[SAPARI DEBUG] Path:", pathObject.Name, "Class:", pathObject.ClassName, "Selected:", pathMatches, "CagesFolder:", cagesFolder ~= nil)
+
                     if cagesFolder then
+                        local modelCount = 0
                         for _, cage in ipairs(cagesFolder:GetChildren()) do
                             if cage:IsA("Model") then
+                                modelCount += 1
                                 local rarityMatches = MatchesSelectedRarity(cage)
                                 if pathMatches or rarityMatches then
                                     local stealPrompt = cage:FindFirstChild("StealPrompt", true)
+                                    print("[SAPARI DEBUG] Cage:", cage:GetFullName(), "PathMatch:", pathMatches, "RarityMatch:", rarityMatches, "Prompt:", stealPrompt and stealPrompt.ClassName or "missing", "Enabled:", stealPrompt and stealPrompt.Enabled or false)
                                     if stealPrompt and stealPrompt:IsA("ProximityPrompt")
                                     and stealPrompt.Enabled then
                                         table.insert(cages, cage)
@@ -2339,8 +2366,10 @@ end))
                                 end
                             end
                         end
+                        print("[SAPARI DEBUG] Cage models in", pathObject.Name, ":", modelCount)
                     end
                 end
+                print("[SAPARI DEBUG] Scan result | Matching cages:", #cages)
                 table.sort(cages, function(a, b)
                     local function getPath(model)
                         local names = {}
