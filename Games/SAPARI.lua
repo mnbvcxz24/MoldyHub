@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.4"
+local testver = "Deploy ver 1.5"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1389,7 +1389,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AddStroke(SpeedThumb, Theme.Card, 1)
         local SpeedMinLabel = Create("TextLabel", {
             Parent = SpeedHolder,
-            Position = UDim2.fromOffset(0, 39),
+            Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(35, 16),
             BackgroundTransparency = 1,
             Text = "10",
@@ -1403,14 +1403,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Position = UDim2.new(1, -35, 0, 39),
             Size = UDim2.fromOffset(35, 16),
             BackgroundTransparency = 1,
-            Text = "500",
+            Text = "300",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Right
         })
         local GlideSpeed = 50
-        local GlideMaxSpeed = 500
+        local GlideMaxSpeed = 300
         local DraggingSpeed = false
         local function RefreshSpeed()
             local currentPosition = (GlideSpeed - 10) / (GlideMaxSpeed - 10)
@@ -1486,7 +1486,7 @@ end))
         AddCorner(JumpDistanceBar, 8)
         local JumpDistanceFill = Create("Frame", {
             Parent = JumpDistanceBar,
-            Size = UDim2.new((50 - 10) / (150 - 10), 0, 1, 0),
+            Size = UDim2.new((50 - 10) / (100 - 10), 0, 1, 0),
             BackgroundColor3 = Theme.Accent,
             BorderSizePixel = 0
         })
@@ -1494,7 +1494,7 @@ end))
         local JumpDistanceThumb = Create("Frame", {
             Parent = JumpDistanceBar,
             AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new((50 - 10) / (150 - 10), 0, 0.5, 0),
+            Position = UDim2.new((50 - 10) / (100 - 10), 0, 0.5, 0),
             Size = UDim2.fromOffset(13, 13),
             BackgroundColor3 = Theme.Accent,
             BorderSizePixel = 0,
@@ -1504,7 +1504,7 @@ end))
         AddStroke(JumpDistanceThumb, Theme.Card, 1)
         local JumpDistanceMinLabel = Create("TextLabel", {
             Parent = JumpDistanceHolder,
-            Position = UDim2.fromOffset(0, 39),
+            Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(35, 16),
             BackgroundTransparency = 1,
             Text = "10",
@@ -1518,7 +1518,7 @@ end))
             Position = UDim2.new(1, -35, 0, 39),
             Size = UDim2.fromOffset(35, 16),
             BackgroundTransparency = 1,
-            Text = "150",
+            Text = "100",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 9,
@@ -1526,7 +1526,7 @@ end))
         })
 
         local GlideJumpDistance = 50
-        local GlideMaxJumpDistance = 150
+        local GlideMaxJumpDistance = 100
         local DraggingJumpDistance = false
         local function RefreshJumpDistance()
             local currentPosition = (GlideJumpDistance - 10) / (GlideMaxJumpDistance - 10)
