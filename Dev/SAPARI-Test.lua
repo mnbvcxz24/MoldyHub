@@ -2,7 +2,6 @@
 -- SERVICES
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local PathfindingService = game:GetService("PathfindingService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2049,23 +2048,6 @@ end))
             local alternatingWalkDuration = 1
             local walkDuration = alternatingWalkDuration
 
-            local navigationPath = PathfindingService:CreatePath({
-                AgentRadius = 2,
-                AgentHeight = 5,
-                AgentCanJump = true,
-                WaypointSpacing = 8
-            })
-            local pathOk = pcall(function()
-                navigationPath:ComputeAsync(navigationRoot.Position, destination)
-            end)
-            if not pathOk or navigationPath.Status ~= Enum.PathStatus.Success then
-                SetNavigationStatus("No clear path to target")
-                return false
-            end
-
-            local routeWaypoints = navigationPath:GetWaypoints()
-            local routeIndex = math.min(2, #routeWaypoints)
-
             if startWithWalk then
                 local ridingOffset = root.Position - navigationRoot.Position
                 humanoid:MoveTo(destination + ridingOffset)
@@ -2123,16 +2105,6 @@ end))
                 end
 
                 local routeTarget = destination
-                local usingWaypoint = routeIndex <= #routeWaypoints
-                if usingWaypoint then
-                    routeTarget = routeWaypoints[routeIndex].Position
-                    local waypointDelta = routeTarget - navigationRoot.Position
-                    if Vector3.new(waypointDelta.X, 0, waypointDelta.Z).Magnitude <= 3 then
-                        routeIndex += 1
-                        continue
-                    end
-                end
-
                 local remaining = routeTarget - navigationRoot.Position
                 local horizontal = Vector3.new(remaining.X, 0, remaining.Z)
                 local horizontalDistance = horizontal.Magnitude
@@ -2143,15 +2115,14 @@ end))
                     return true
                 end
 
-                local stopDistance = usingWaypoint and 2 or finalGlideStop
-                if horizontalDistance > stopDistance then
+                if horizontalDistance > finalGlideStop then
                     local jumpDistance = math.clamp(Runtime.GlideJumpDistance or 50, 10, 150)
-                    local glideDistance = math.min(jumpDistance, horizontalDistance - stopDistance)
+                    local glideDistance = math.min(jumpDistance, horizontalDistance - finalGlideStop)
                     local direction = horizontal.Unit
                     local segmentPosition = navigationRoot.Position + direction * glideDistance
                     segmentPosition = Vector3.new(
                         segmentPosition.X,
-                        (usingWaypoint and routeTarget.Y or destination.Y) + glideHeight,
+                        destination.Y + glideHeight,
                         segmentPosition.Z
                     )
 
@@ -2183,7 +2154,7 @@ end))
                 end
 
                 local ridingOffset = root.Position - navigationRoot.Position
-                local moveDestination = routeTarget + ridingOffset
+                local moveDestination = destination + ridingOffset
                 humanoid:MoveTo(moveDestination)
 
                 local walkUntil = os.clock() + walkDuration
@@ -2219,7 +2190,7 @@ end))
 
                     if os.clock() >= nextMoveRefresh then
                         ridingOffset = root.Position - navigationRoot.Position
-                        humanoid:MoveTo(routeTarget + ridingOffset)
+                        humanoid:MoveTo(destination + ridingOffset)
                         nextMoveRefresh = os.clock() + 1
                     end
 
