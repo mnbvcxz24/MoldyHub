@@ -983,6 +983,23 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local StatusDot
 
         local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
+            if enabled and next(SelectedPaths) == nil and next(SelectedRarities) == nil then
+                local controller = ToggleControllers[AutoStealToggle]
+                if controller then
+                    controller.SetEnabled(false, false)
+                end
+                AutoStealEnabled = false
+                Runtime.AutoStealEnabled = false
+                if StatusValue then
+                    StatusValue.Text = "Select at least 1 filter"
+                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                end
+                if StatusDot then
+                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                end
+                return
+            end
+
             AutoStealEnabled = enabled
             Runtime.AutoStealEnabled = enabled
             if StatusValue then
@@ -996,8 +1013,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 task.spawn(Runtime.StartNavigation)
             elseif not enabled and Runtime.StopNavigation then
                 Runtime.StopNavigation()
-            end        end)
-        AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)        AutoStealToggle.Size = UDim2.fromOffset(40, 24)
+            end
+        end)
+        AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
+        AutoStealToggle.Size = UDim2.fromOffset(40, 24)
 
         local StatusRow = Create("Frame", {
             Parent = AutoCard,
