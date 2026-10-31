@@ -2349,10 +2349,6 @@ end))
                 and AutoTreadmillEnabled and AutoStealEnabled do
                     if #GetSelectedCages() > 0 then
                         humanoid:MoveTo(root.Position)
-                        humanoid.Jump = true
-                        pcall(function()
-                            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                        end)
                         if AutoTreadmillStatusValue then
                             AutoTreadmillStatusValue.Text = "Waiting"
                             AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
@@ -2639,6 +2635,12 @@ end))
                         if not WaitForBossCaught() then return end
                         break
                     end
+
+                    humanoid.Jump = true
+                    pcall(function()
+                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    end)
+                    task.wait(0.1)
 
                     local reachedSafeZone
 
