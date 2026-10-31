@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.31"
+local testver = "Test ver: 1.32"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1799,7 +1799,7 @@ end))
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
             local finalGlideStop = 12
-            local walkDuration = startWithWalk and 1 or 2
+            local walkDuration = 2
 
             if startWithWalk then
                 local ridingOffset = root.Position - navigationRoot.Position
@@ -1995,7 +1995,6 @@ end))
             local hub = workspace:FindFirstChild("Hub")
             local safeSign = hub and hub:FindFirstChild("SafeZoneSign")
             local pathsFolder = workspace:FindFirstChild("Paths")
-            local path1 = pathsFolder and pathsFolder:FindFirstChild("Path1")
 
             if not safeSign or not safeSign:IsA("BasePart") then
                 SetNavigationStatus("Safe zone unavailable")
@@ -2031,28 +2030,25 @@ end))
             end
 
             local function WaitForBossCaught()
-                if not bossCaughtDetected then
-                    return false
-                end
-
+                if not bossCaughtDetected then return false end
                 CancelActiveMovement()
                 RestoreFloating()
-                SetNavigationStatus("Boss caught - waiting to rescan")
-
+                SetNavigationStatus("Boss caught - waiting to restart")
                 local waitUntil = bossCaughtAt + 2
                 while os.clock() < waitUntil do
-                    if token ~= navigationToken or Runtime.Stopped then
-                        return false
-                    end
+                    if token ~= navigationToken or Runtime.Stopped then return false end
                     waitUntil = math.max(waitUntil, bossCaughtAt + 2)
                     task.wait(math.min(0.1, waitUntil - os.clock()))
                 end
-
+                if token ~= navigationToken or Runtime.Stopped then return false end
                 bossCaughtDetected = false
-                SetNavigationStatus("Recovery complete - rescanning cages")
-                return true
+                baseTeleportDetected = false
+                SetNavigationStatus("Recovery complete - restarting navigation")
+                task.defer(function()
+                    if not Runtime.Stopped and AutoStealEnabled then Runtime.StartNavigation() end
+                end)
+                return false
             end
-
             local previousCharacterRoot
             local previousCharacterPosition
             local previousNavigationRoot
@@ -2133,24 +2129,6 @@ end))
                 return true
             end
 
-            local function GetBossCFrame()
-                local boss = path1 and path1:FindFirstChild("Boss")
-                if not boss then return nil end
-                if boss:IsA("Model") then
-                    return boss:GetPivot()
-                end
-                if boss:IsA("BasePart") then
-                    return boss.CFrame
-                end
-                return nil
-            end
-
-            if not GetBossCFrame() then
-                SetNavigationStatus("Path1 Boss unavailable")
-                SetAutoStealEnabled(false)
-                return
-            end
-
             local function GetSelectedCages()
                 local cages = {}
                 local pathsFolder = workspace:FindFirstChild("Paths")
@@ -2195,50 +2173,64 @@ end))
             local function MoveToCage(root, humanoid, destination, token)
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
-                    return MoveToPosition(root, humanoid, destination, token, true),
-                        "Failed to reach cage"
+                    return MoveToPosition(root, humanoid, destination, token, true), "Failed to reach cage"
                 end
-
-                local bossCFrame = GetBossCFrame()
-                if not bossCFrame then
-                    SetNavigationStatus("Path1 Boss unavailable")
-                    return false, "Path1 Boss unavailable"
-                end
-
-                SetNavigationStatus("Walking to Path1 Boss")
-                if not MoveToPosition(root, humanoid, bossCFrame.Position, token, true) then
-                    return false, "Failed to reach Path1 Boss"
-                end
-
                 local navigationRoot = GetNavigationRoot(root)
-                if not navigationRoot or not navigationRoot.Parent then
-                    return false, "Pet root unavailable"
-                end
-
+                if not navigationRoot or not navigationRoot.Parent then return false, "Pet root unavailable" end
                 local ridingOffset = root.Position - navigationRoot.Position
-                local approachDirection = Vector3.new(
-                    root.Position.X - destination.X,
-                    0,
-                    root.Position.Z - destination.Z
-                )
+                local approachDirection = Vector3.new(root.Position.X - destination.X, 0, root.Position.Z - destination.Z)
                 if approachDirection.Magnitude < 0.01 then
                     local look = root.CFrame.LookVector
                     approachDirection = Vector3.new(look.X, 0, look.Z)
                 end
-                if approachDirection.Magnitude < 0.01 then
-                    approachDirection = Vector3.new(0, 0, -1)
-                end
-
+                if approachDirection.Magnitude < 0.01 then approachDirection = Vector3.new(0, 0, -1) end
                 local approachPosition = destination + approachDirection.Unit * 3.5
                 local petDestination = approachPosition - ridingOffset
-
-                SetNavigationStatus("Gliding to cage")
-                if not MoveToPosition(root, humanoid, petDestination, token) then
-                    return false, "Failed to glide to cage"
+                SetNavigationStatus("Walking to cage")
+                if not MoveToPosition(root, humanoid, petDestination, token, false, true) then
+                    return false, "Failed to reach cage"
                 end
-
                 return true
             end
+            local function WalkToSafeZoneAtStart()
+                while token == navigationToken and not Runtime.Stopped do
+                    if bossCaughtDetected then
+                        WaitForBossCaught()
+                        return false
+                    end
+                    if baseTeleportDetected and not WaitForBaseTeleport() then return false end
+                    local character = LocalPlayer.Character
+                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    if not humanoid or not root then
+                        SetNavigationStatus("Waiting for character")
+                        task.wait(0.25)
+                    else
+                        SetNavigationStatus("Walking to safe zone")
+                        if MoveToPosition(root, humanoid, safeSign.Position, token, true) then
+                            SetNavigationStatus("Safe zone reached")
+                            return true
+                        end
+                        RestoreFloating()
+                        if bossCaughtDetected then
+                            WaitForBossCaught()
+                            return false
+                        end
+                        if baseTeleportDetected then
+                            if not WaitForBaseTeleport() then return false end
+                        else
+                            if token == navigationToken then
+                                SetAutoStealEnabled(false)
+                                SetNavigationStatus("Failed to reach safe zone")
+                            end
+                            return false
+                        end
+                    end
+                end
+                return false
+            end
+            if not WalkToSafeZoneAtStart() then return end
+
             while token == navigationToken and not Runtime.Stopped do
                 if bossCaughtDetected then
                     if not WaitForBossCaught() then return end
