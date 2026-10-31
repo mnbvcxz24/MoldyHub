@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.53"
+local testver = "Test ver: 1.54"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2360,24 +2360,71 @@ end))
 
                     bossCaughtDetected = true
                     bossCaughtAt = os.clock()
-                    CancelActiveMovement()
-                    RestoreFloating()
+
+                    if activeNavigationTween then
+                        activeNavigationTween:Cancel()
+                    end
+
                     SetNavigationStatus("Boss caught - recovering")
                 end)
             end
 
             local function WaitForBossCaught()
                 if not bossCaughtDetected then return false end
-                CancelActiveMovement()
+
                 RestoreFloating()
-                SetNavigationStatus("Boss caught - recovering")
-                local waitUntil = bossCaughtAt + 2
-                while os.clock() < waitUntil do
-                    if token ~= navigationToken or Runtime.Stopped then return false end
-                    waitUntil = math.max(waitUntil, bossCaughtAt + 2)
-                    task.wait(math.min(0.1, waitUntil - os.clock()))
+                SetNavigationStatus("Boss caught - waiting for recovery")
+
+                local recoveryStarted = os.clock()
+                local recoveryTimeout = 12
+                local stableChecks = 0
+
+                while os.clock() - recoveryStarted < recoveryTimeout do
+                    if token ~= navigationToken or Runtime.Stopped then
+                        return false
+                    end
+
+                    local character = LocalPlayer.Character
+                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    local petRoot = root and GetRidingPetRoot(root)
+                    local state = humanoid and humanoid:GetState()
+
+                    local characterRecovered = humanoid
+                        and humanoid.Health > 0
+                        and root and root.Parent
+                        and state ~= Enum.HumanoidStateType.GettingUp
+                        and state ~= Enum.HumanoidStateType.FallingDown
+                        and state ~= Enum.HumanoidStateType.Freefall
+                        and state ~= Enum.HumanoidStateType.Physics
+                        and state ~= Enum.HumanoidStateType.PlatformStanding
+                        and state ~= Enum.HumanoidStateType.Ragdoll
+                        and state ~= Enum.HumanoidStateType.Dead
+
+                    if characterRecovered and petRoot and petRoot.Parent then
+                        stableChecks += 1
+                        if stableChecks >= 3 then
+                            break
+                        end
+                    else
+                        stableChecks = 0
+                    end
+
+                    task.wait(0.2)
                 end
-                if token ~= navigationToken or Runtime.Stopped then return false end
+
+                if token ~= navigationToken or Runtime.Stopped then
+                    return false
+                end
+
+                if stableChecks < 3 then
+                    bossCaughtDetected = false
+                    baseTeleportDetected = false
+                    SetAutoStealEnabled(false)
+                    SetNavigationStatus("Recovery timed out - please ride a pet again")
+                    return false
+                end
+
                 bossCaughtDetected = false
                 baseTeleportDetected = false
                 SetNavigationStatus("Recovery complete - resuming cage scan")
@@ -2395,6 +2442,10 @@ end))
                         baseTeleportConnection:Disconnect()
                         baseTeleportConnection = nil
                     end
+                    return
+                end
+
+                if bossCaughtDetected then
                     return
                 end
 
@@ -2587,6 +2638,11 @@ end))
 
                 while token == navigationToken and not Runtime.Stopped
                 and AutoTreadmillEnabled and AutoStealEnabled do
+                    if bossCaughtDetected or baseTeleportDetected then
+                        humanoid:MoveTo(root.Position)
+                        return
+                    end
+
                     if #GetSelectedCages() > 0 then
                         humanoid:MoveTo(root.Position)
                         if AutoTreadmillStatusValue then
