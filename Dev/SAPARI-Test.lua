@@ -2770,7 +2770,27 @@ end))
                 end)
                 task.wait(0.1)
             end
-            if not WalkToSafeZoneAtStart() then return end
+            local skipInitialSafeZone = false
+            local navigationRoot = root and GetNavigationRoot(root)
+            if navigationRoot and navigationRoot.Parent then
+                local nearbyCages = GetSelectedCages(root)
+                local nearestCage = nearbyCages[1]
+                if nearestCage then
+                    local ok, cagePosition = pcall(function()
+                        return nearestCage:GetPivot().Position
+                    end)
+                    if ok and cagePosition
+                    and (cagePosition - navigationRoot.Position).Magnitude <= 50 then
+                        skipInitialSafeZone = true
+                    end
+                end
+            end
+
+            if skipInitialSafeZone then
+                SetNavigationStatus("Selected cage nearby - skipping safe zone")
+            elseif not WalkToSafeZoneAtStart() then
+                return
+            end
 
             while token == navigationToken and not Runtime.Stopped do
                 if bossCaughtDetected then
