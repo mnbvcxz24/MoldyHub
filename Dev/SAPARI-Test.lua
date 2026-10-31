@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.64"
+local testver = "Test ver: 1.65"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1167,52 +1167,56 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end))
         end
 
-        local function GetActiveWorldPathsFolder()
-            local world2Folder = workspace:FindFirstChild("World2")
-            local hubFolder = workspace:FindFirstChild("Hub")
-            local pathsFolder = CachedPathsFolder or workspace:FindFirstChild("Paths")
-            local character = LocalPlayer.Character
-            local root = character and character:FindFirstChild("HumanoidRootPart")
-            local closestWorld1Distance = math.huge
-            local closestWorld2Distance = math.huge
+        local CachedActiveWorldFolder
 
-            if root then
-                for pathNumber = 1, 20 do
-                    local parts = CachedPathParts[pathNumber]
-                    if parts then
-                        for index = #parts, 1, -1 do
-                            local part = parts[index]
-                            if not part or not part.Parent then
-                                table.remove(parts, index)
-                            else
-                                local distance = (part.Position - root.Position).Magnitude
-                                if pathNumber <= 10 then
-                                    if distance < closestWorld1Distance then
-                                        closestWorld1Distance = distance
+        local function GetActiveWorldPathsFolder()
+            local pathsFolder = CachedPathsFolder or workspace:FindFirstChild("Paths")
+            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
+
+            if not CachedActiveWorldFolder then
+                local world2Folder = workspace:FindFirstChild("World2")
+                local hubFolder = workspace:FindFirstChild("Hub")
+                local character = LocalPlayer.Character
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+
+                if root then
+                    local closestWorld1Distance = math.huge
+                    local closestWorld2Distance = math.huge
+
+                    for pathNumber = 1, 20 do
+                        local parts = CachedPathParts[pathNumber]
+                        if parts then
+                            for index = #parts, 1, -1 do
+                                local part = parts[index]
+                                if not part or not part.Parent then
+                                    table.remove(parts, index)
+                                else
+                                    local distance = (part.Position - root.Position).Magnitude
+                                    if pathNumber <= 10 then
+                                        if distance < closestWorld1Distance then
+                                            closestWorld1Distance = distance
+                                        end
+                                    elseif distance < closestWorld2Distance then
+                                        closestWorld2Distance = distance
                                     end
-                                elseif distance < closestWorld2Distance then
-                                    closestWorld2Distance = distance
                                 end
                             end
                         end
                     end
+
+                    if closestWorld1Distance < math.huge or closestWorld2Distance < math.huge then
+                        CachedActiveWorldFolder = closestWorld1Distance <= closestWorld2Distance
+                            and hubFolder or world2Folder
+                    end
                 end
             end
 
-            local worldFolder
-            if closestWorld1Distance < math.huge or closestWorld2Distance < math.huge then
-                worldFolder = closestWorld1Distance <= closestWorld2Distance and hubFolder or world2Folder
-            else
-                worldFolder = hubFolder or world2Folder
-            end
-
-            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
-            if not worldFolder or not pathsFolder
+            if not CachedActiveWorldFolder or not pathsFolder
             or not safeSign or not safeSign:IsA("BasePart") then
                 return nil, nil, nil
             end
 
-            return pathsFolder, worldFolder, safeSign
+            return pathsFolder, CachedActiveWorldFolder, safeSign
         end
         local function IsPathInActiveWorld(pathObject)
             if not pathObject then return false end
