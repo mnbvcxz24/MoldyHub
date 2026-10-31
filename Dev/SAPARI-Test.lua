@@ -1131,7 +1131,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 current = current.Parent
             end
 
-            local pathsFolder = worldFolder and worldFolder:FindFirstChild("Paths", true)
+            local pathsFolder = workspace:FindFirstChild("Paths")
             if not worldFolder or not pathsFolder then
                 return nil, nil, nil
             end
@@ -1141,12 +1141,27 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             activeSafeZoneSign = safeSign
             return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
         end
+        local function IsPathInActiveWorld(pathObject)
+            if not pathObject then return false end
+            local _, worldFolder = GetActiveWorldPathsFolder()
+            if not worldFolder then return false end
+            local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
+            if not pathNumber then return false end
+            if worldFolder.Name == "World2" then
+                return pathNumber >= 11 and pathNumber <= 20
+            end
+            if worldFolder.Name == "Hub" then
+                return pathNumber >= 1 and pathNumber <= 10
+            end
+            return false
+        end
+
         local function GetPathFolders()
             local pathsFolder = GetActiveWorldPathsFolder()
             local results = {}
             if pathsFolder then
                 for _, child in ipairs(pathsFolder:GetChildren()) do
-                    if child:IsA("Folder") then
+                    if child:IsA("Folder") and IsPathInActiveWorld(child) then
                         table.insert(results, child)
                     end
                 end
@@ -2477,7 +2492,7 @@ end))
                 end
 
                 for _, pathObject in ipairs(pathsFolder:GetChildren()) do
-                    local pathMatches = SelectedPaths[pathObject] == true
+                    local pathMatches = IsPathInActiveWorld(pathObject) and SelectedPaths[pathObject] == true
                     local cagesFolder = pathObject:FindFirstChild("Cages")
 
                     if cagesFolder then
