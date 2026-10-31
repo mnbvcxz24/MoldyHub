@@ -50,7 +50,8 @@ local UIConfig = {
         "Main",
         "Features",
         "Misc. feature",
-        "Settings"
+        "Settings",
+        "Debug Console"
     }
 }
 -- THEME
@@ -1824,6 +1825,7 @@ end))
         end
 
         local function SetNavigationStatus(message)
+            AddDebugLog("[Navigation] " .. tostring(message))
             if StatusValue then
                 StatusValue.Text = message
                 StatusValue.TextColor3 = Theme.Accent
@@ -3068,6 +3070,81 @@ end))
             ApplyTheme(themeName)
         end)
         local AboutCard = CreateCard(Page, "About", "Steal A Pet & Ride It • UI only")
+    elseif name == "Debug Console" then
+        local ConsoleHeader = Create("Frame", {
+            Parent = Page,
+            Size = UDim2.new(1, -4, 0, 30),
+            BackgroundTransparency = 1
+        })
+        Create("TextLabel", {
+            Parent = ConsoleHeader,
+            Position = UDim2.fromOffset(2, 0),
+            Size = UDim2.new(1, -70, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Runtime Logs",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local ClearLogsButton = Create("TextButton", {
+            Parent = ConsoleHeader,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -2, 0.5, 0),
+            Size = UDim2.fromOffset(58, 23),
+            BackgroundColor3 = Theme.Selected,
+            Text = "Clear",
+            TextColor3 = Theme.SelectedText,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = false
+        })
+        AddCorner(ClearLogsButton, 5)
+        ClearLogsButton.MouseButton1Click:Connect(function()
+            if DebugConsoleList then
+                for _, child in ipairs(DebugConsoleList:GetChildren()) do
+                    if child:IsA("TextLabel") then
+                        child:Destroy()
+                    end
+                end
+                DebugLogCount = 0
+                DebugConsoleList.CanvasPosition = Vector2.new(0, 0)
+                DebugConsoleList.CanvasSize = UDim2.new(0, 0, 0, 0)
+            end
+        end)
+
+        DebugConsoleList = Create("ScrollingFrame", {
+            Name = "DebugConsoleList",
+            Parent = Page,
+            Size = UDim2.new(1, -4, 0, 190),
+            BackgroundColor3 = Theme.Card,
+            BorderSizePixel = 0,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Theme.Gray,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.None
+        })
+        AddCorner(DebugConsoleList, 7)
+        AddStroke(DebugConsoleList, Theme.Border, 1)
+        Create("UIPadding", {
+            Parent = DebugConsoleList,
+            PaddingTop = UDim.new(0, 7),
+            PaddingBottom = UDim.new(0, 7),
+            PaddingLeft = UDim.new(0, 8),
+            PaddingRight = UDim.new(0, 8)
+        })
+        DebugConsoleLayout = Create("UIListLayout", {
+            Parent = DebugConsoleList,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        DebugConsoleLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            if DebugConsoleList then
+                DebugConsoleList.CanvasSize = UDim2.new(0, 0, 0, DebugConsoleLayout.AbsoluteContentSize.Y + 14)
+            end
+        end)
+        AddDebugLog("[System] Debug console ready")
     end
 end
 -- SHOW FIRST PAGE
