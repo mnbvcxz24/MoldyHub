@@ -2523,7 +2523,12 @@ local function SetMinimized(state)
         MainCorner.CornerRadius = UDim.new(0, 18)
         Tween(Main, {
             Size = UDim2.fromOffset(36, 36),
-            Position = UDim2.new(1, -46, 0, 10)
+            Position = UDim2.new(
+                ExpandedPosition.X.Scale,
+                ExpandedPosition.X.Offset + UIConfig.Width - 59,
+                ExpandedPosition.Y.Scale,
+                ExpandedPosition.Y.Offset + 11
+            )
         })
     else
         RestoreButton.Visible = false
