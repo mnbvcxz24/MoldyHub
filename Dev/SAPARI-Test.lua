@@ -2263,7 +2263,7 @@ end))
                         if distance <= 4 then
                             humanoid:MoveTo(root.Position)
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Working"
+                                AutoTreadmillStatusValue.Text = "Running"
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
                             end
                             if AutoTreadmillStatusDot then
@@ -2585,7 +2585,7 @@ end))
                             humanoid:MoveTo(root.Position)
                             arrived = true
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Working"
+                                AutoTreadmillStatusValue.Text = "Running"
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
                             end
                             if AutoTreadmillStatusDot then
