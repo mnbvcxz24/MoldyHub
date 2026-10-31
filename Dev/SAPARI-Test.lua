@@ -1110,8 +1110,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         local activeWorldPathsFolder
+        local activeWorldFolder
+        local activeSafeZoneSign
 
         local function GetActiveWorldPathsFolder()
+            if activeWorldFolder and activeWorldPathsFolder and activeSafeZoneSign then
+                return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
+            end
+
             local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
             if not safeSign then return nil, nil, nil end
 
@@ -1126,11 +1132,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
 
             local pathsFolder = worldFolder and worldFolder:FindFirstChild("Paths")
-            if pathsFolder ~= activeWorldPathsFolder then
-                table.clear(SelectedPaths)
-                activeWorldPathsFolder = pathsFolder
+            if not worldFolder or not pathsFolder then
+                return nil, nil, nil
             end
-            return pathsFolder, worldFolder, safeSign
+
+            activeWorldFolder = worldFolder
+            activeWorldPathsFolder = pathsFolder
+            activeSafeZoneSign = safeSign
+            return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
         end
         local function GetPathFolders()
             local pathsFolder = GetActiveWorldPathsFolder()
