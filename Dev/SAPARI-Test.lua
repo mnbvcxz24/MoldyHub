@@ -2412,10 +2412,9 @@ end))
                 SetNavigationStatus("Recovery complete - resuming cage scan")
                 return true
             end
-            local previousCharacterRoot
-            local previousCharacterPosition
             local previousNavigationRoot
             local previousNavigationPosition
+            local ownedPlotPosition = GetOwnedPlotPosition()
             local safeZoneNavigationActive = false
             local nextRootScanAt = 0
 
@@ -2439,56 +2438,29 @@ end))
 
                 local character = LocalPlayer.Character
                 local currentRoot = character and character:FindFirstChild("HumanoidRootPart")
-                if not currentRoot or not currentRoot:IsA("BasePart") then
-                    previousCharacterRoot = nil
-                    previousCharacterPosition = nil
-                    previousNavigationRoot = nil
-                    previousNavigationPosition = nil
-                    return
-                end
+                local currentNavigationRoot = currentRoot and GetRidingPetRoot(currentRoot)
 
-                local currentNavigationRoot = GetRidingPetRoot(currentRoot) or currentRoot
-                local ownedPlotPosition = GetOwnedPlotPosition()
                 if not currentNavigationRoot or not currentNavigationRoot.Parent then
-                    previousCharacterRoot = nil
-                    previousCharacterPosition = nil
                     previousNavigationRoot = nil
                     previousNavigationPosition = nil
                     return
                 end
 
-                if previousCharacterRoot ~= currentRoot
-                or previousNavigationRoot ~= currentNavigationRoot
-                or not previousCharacterPosition
+                if previousNavigationRoot ~= currentNavigationRoot
                 or not previousNavigationPosition then
-                    previousCharacterRoot = currentRoot
-                    previousCharacterPosition = currentRoot.Position
                     previousNavigationRoot = currentNavigationRoot
                     previousNavigationPosition = currentNavigationRoot.Position
                     return
                 end
 
-                local characterJump = (currentRoot.Position - previousCharacterPosition).Magnitude
-                local navigationJump = (currentNavigationRoot.Position - previousNavigationPosition).Magnitude
-                local characterAtBase = (currentRoot.Position - safeSign.Position).Magnitude <= 65
-                    or (ownedPlotPosition and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65)
-                local navigationRootAtBase = (currentNavigationRoot.Position - safeSign.Position).Magnitude <= 65
-                    or (ownedPlotPosition and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65)
-                local characterEnteredOwnedPlot = ownedPlotPosition
-                    and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65
-                    and (previousCharacterPosition - ownedPlotPosition).Magnitude > 65
                 local navigationEnteredOwnedPlot = ownedPlotPosition
                     and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65
                     and (previousNavigationPosition - ownedPlotPosition).Magnitude > 65
 
-                previousCharacterPosition = currentRoot.Position
                 previousNavigationPosition = currentNavigationRoot.Position
 
-                if not baseTeleportDetected
-                and (((characterJump >= 70 and characterAtBase)
-                or (navigationJump >= 70 and navigationRootAtBase))
-                or (not safeZoneNavigationActive
-                    and (characterEnteredOwnedPlot or navigationEnteredOwnedPlot))) then
+                if not baseTeleportDetected and ownedPlotPosition
+                and not safeZoneNavigationActive and navigationEnteredOwnedPlot then
                     baseTeleportDetected = true
                     CancelActiveMovement()
                     RestoreFloating()
