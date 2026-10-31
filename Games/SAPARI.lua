@@ -1896,7 +1896,7 @@ end))
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
             local finalGlideStop = 12
-            local walkDuration = 2
+            local walkDuration = 1
 
             if startWithWalk then
                 local ridingOffset = root.Position - navigationRoot.Position
