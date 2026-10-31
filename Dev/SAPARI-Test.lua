@@ -368,25 +368,6 @@ local Subtitle = Create("TextLabel", {
     TextSize = 10,
     TextXAlignment = Enum.TextXAlignment.Left
 })
--- Search
-local SearchBox = Create("TextBox", {
-    Name = "Search",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(10, 36),
-    Size = UDim2.fromOffset(80, 18),
-    BackgroundColor3 = Theme.SurfaceInput,
-    PlaceholderText = "Search...",
-    PlaceholderColor3 = Theme.Gray,
-    Visible = false,
-    Text = "",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    ClearTextOnFocus = false,
-    BorderSizePixel = 0
-})
-AddCorner(SearchBox, 8)
-AddStroke(SearchBox, Theme.Border, 1)
 -- Minimize
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
@@ -499,7 +480,8 @@ local Content = Create("Frame", {
     BorderSizePixel = 0
 })
 -- PAGE SYSTEM
-local Pages = {}local SidebarButtons = {}local CurrentPage = 1
+local Pages = {}
+local SidebarButtons = {}
 -- DEBUG CONSOLE
 local DebugConsoleList
 local DebugConsoleLayout
@@ -955,15 +937,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local line = sidebarButton:FindFirstChild("ActiveLine")
             if line then line.Visible = active end
         end
-        CurrentPage = index
     end)
 end
 
 -- CREATE TEMPLATE PAGES
-local PagesByName = {}
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
-    PagesByName[name] = Page
     if name == "Main" then
         local AutoCard = CreateCard(Page, "Auto Steal", "")
         AutoCard.Size = UDim2.new(1, -4, 0, 265)
@@ -1248,37 +1227,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
             table.sort(results, function(a, b)
                 return NaturalSortKey(a.Name) < NaturalSortKey(b.Name)
-            end)
-            return results
-        end
-
-        local function GetCageModels()
-            local results = {}
-            local seenNames = {}
-            local paths = {}
-            for pathObject in pairs(SelectedPaths) do
-                if pathObject and pathObject.Parent then
-                    table.insert(paths, pathObject)
-                end
-            end
-            if #paths == 0 then
-                return results
-            end
-            for _, pathObject in ipairs(paths) do
-                local cagesFolder = pathObject:FindFirstChild("Cages")
-                if cagesFolder then
-                    for _, child in ipairs(cagesFolder:GetChildren()) do
-                        if child:IsA("Model") and not seenNames[child.Name] then
-                            seenNames[child.Name] = true
-                            table.insert(results, child)
-                        end
-                    end
-                end
-            end
-            table.sort(results, function(a, b)
-                local ap = a.Parent and a.Parent.Parent and a.Parent.Parent.Name or ""
-                local bp = b.Parent and b.Parent.Parent and b.Parent.Parent.Name or ""
-                return NaturalSortKey(ap .. "/" .. a.Name) < NaturalSortKey(bp .. "/" .. b.Name)
             end)
             return results
         end
@@ -1581,7 +1529,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         AddCorner(SpeedThumb, 10)
         AddStroke(SpeedThumb, Theme.Card, 1)
-        local SpeedMinLabel = Create("TextLabel", {
+        Create("TextLabel", {
             Parent = SpeedHolder,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(35, 16),
@@ -1613,7 +1561,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             SpeedValue.Text = tostring(GlideSpeed)
             SpeedMaxLabel.Text = tostring(GlideMaxSpeed)
             Runtime.GlideSpeed = GlideSpeed
-            Runtime.GlideMaxSpeed = GlideMaxSpeed
         end
         local function UpdateSpeed(input)
             local width = SpeedBar.AbsoluteSize.X
@@ -1696,7 +1643,7 @@ end))
         })
         AddCorner(JumpDistanceThumb, 10)
         AddStroke(JumpDistanceThumb, Theme.Card, 1)
-        local JumpDistanceMinLabel = Create("TextLabel", {
+        Create("TextLabel", {
             Parent = JumpDistanceHolder,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(35, 16),
@@ -1774,7 +1721,6 @@ end))
         local baseTeleportConnection
         local bossCaughtConnection
         local bossCaughtDetected = false
-        local bossCaughtAt = 0
         local baseTeleportDetected = false
         local floatingRoot
         local floatingOriginalAnchored
@@ -2403,7 +2349,6 @@ end))
 
             baseTeleportDetected = false
             bossCaughtDetected = false
-            bossCaughtAt = 0
             if bossCaughtConnection then
                 bossCaughtConnection:Disconnect()
                 bossCaughtConnection = nil
@@ -2424,7 +2369,6 @@ end))
                     if bossCaughtDetected then return end
 
                     bossCaughtDetected = true
-                    bossCaughtAt = os.clock()
 
                     if activeNavigationTween then
                         activeNavigationTween:Cancel()
