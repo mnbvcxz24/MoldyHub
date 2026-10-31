@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.52"
+local testver = "Test ver: 1.53"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2353,8 +2353,11 @@ end))
             local bossCaughtRemote = sharedRemotes and sharedRemotes:FindFirstChild("BossCaught")
 
             if bossCaughtRemote and bossCaughtRemote:IsA("RemoteEvent") then
-                bossCaughtConnection = bossCaughtRemote.OnClientEvent:Connect(function()
+                bossCaughtConnection = bossCaughtRemote.OnClientEvent:Connect(function(playerId, bossName, direction)
                     if token ~= navigationToken or Runtime.Stopped then return end
+                    if tonumber(playerId) ~= LocalPlayer.UserId then return end
+                    if bossCaughtDetected then return end
+
                     bossCaughtDetected = true
                     bossCaughtAt = os.clock()
                     CancelActiveMovement()
