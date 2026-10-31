@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.55"
+local testver = "Test ver: 1.56"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1129,16 +1129,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local function GetActiveWorldPathsFolder()
             local world2Folder = workspace:FindFirstChild("World2")
             local hubFolder = workspace:FindFirstChild("Hub")
-            local worldFolder
-
-            if world2Folder and world2Folder:IsA("Folder") then
-                worldFolder = world2Folder
-            elseif hubFolder and hubFolder:IsA("Folder") then
-                worldFolder = hubFolder
-            end
-
+            local worldFolder = world2Folder or hubFolder
             local pathsFolder = workspace:FindFirstChild("Paths")
-            local safeSign = worldFolder and worldFolder:FindFirstChild("SafeZoneSign", true)
+            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
 
             if not worldFolder or not pathsFolder
             or not safeSign or not safeSign:IsA("BasePart") then
