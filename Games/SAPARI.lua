@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.25"
+local testver = "Deploy ver 1.26"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -299,7 +299,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">STEAL</font> A PET AND RIDE IT'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
     end
 end
 -- MAIN WINDOW
@@ -347,7 +347,7 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(14, 5),
     Size = UDim2.fromOffset(330, 22),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">STEAL</font> A PET AND RIDE IT',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
