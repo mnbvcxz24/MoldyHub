@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.50"
+local testver = "Test ver: 1.51"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -996,6 +996,23 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local StatusDot
 
         local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
+            if enabled and (not Runtime.IsRidingPet or not Runtime.IsRidingPet()) then
+                local controller = ToggleControllers[AutoStealToggle]
+                if controller then
+                    controller.SetEnabled(false, false)
+                end
+                AutoStealEnabled = false
+                Runtime.AutoStealEnabled = false
+                if StatusValue then
+                    StatusValue.Text = "Please ride in a pet first"
+                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                end
+                if StatusDot then
+                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                end
+                return
+            end
+
             if enabled and not HasSelectedFilter() then
                 local controller = ToggleControllers[AutoStealToggle]
                 if controller then
@@ -1769,6 +1786,12 @@ end))
 
         local function IsRidingPet(root)
             return GetRidingPetRoot(root) ~= nil
+        end
+
+        Runtime.IsRidingPet = function()
+            local character = LocalPlayer.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            return root ~= nil and GetRidingPetRoot(root) ~= nil
         end
 
         local function GetOwnedPlotPosition()
