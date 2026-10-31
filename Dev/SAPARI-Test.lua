@@ -2456,6 +2456,15 @@ end))
                 end
                 return false
             end
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.Jump = true
+                pcall(function()
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end)
+                task.wait(0.1)
+            end
             if not WalkToSafeZoneAtStart() then return end
 
             while token == navigationToken and not Runtime.Stopped do
@@ -2635,12 +2644,6 @@ end))
                         if not WaitForBossCaught() then return end
                         break
                     end
-
-                    humanoid.Jump = true
-                    pcall(function()
-                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                    end)
-                    task.wait(0.1)
 
                     local reachedSafeZone
 
