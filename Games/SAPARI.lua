@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.5"
+local testver = "Deploy ver 1.6"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1409,7 +1409,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Right
         })
-        local GlideSpeed = 50
+        local GlideSpeed = 275
         local GlideMaxSpeed = 300
         local DraggingSpeed = false
         local function RefreshSpeed()
@@ -1525,7 +1525,7 @@ end))
             TextXAlignment = Enum.TextXAlignment.Right
         })
 
-        local GlideJumpDistance = 50
+        local GlideJumpDistance = 80
         local GlideMaxJumpDistance = 100
         local DraggingJumpDistance = false
         local function RefreshJumpDistance()
