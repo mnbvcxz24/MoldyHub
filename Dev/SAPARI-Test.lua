@@ -2337,18 +2337,14 @@ end))
                 return true
             end
 
-            local function MatchesSelectedRarity(cage)
-                local cageName = string.lower(cage.Name)
-                local rarity = string.lower(tostring(cage:GetAttribute("Rarity") or ""))
+            local function MatchesSelectedKind(cage)
+                local kind = string.lower(tostring(cage:GetAttribute("Kind") or ""))
 
-                for selectedRarity, selected in pairs(SelectedRarities) do
-                    if selected == true then
-                        local filter = string.lower(tostring(selectedRarity))
-                        if filter ~= ""
-                        and (string.find(cageName, filter, 1, true)
-                        or string.find(rarity, filter, 1, true)) then
-                            return true
-                        end
+                for selectedKind, selected in pairs(SelectedRarities) do
+                    if selected == true
+                    and kind ~= ""
+                    and kind == string.lower(tostring(selectedKind)) then
+                        return true
                     end
                 end
 
@@ -2401,7 +2397,7 @@ end))
                         for _, cage in ipairs(cagesFolder:GetChildren()) do
                             if cage:IsA("Model") then
                                 modelCount += 1
-                                local rarityMatches = MatchesSelectedRarity(cage)
+                                local rarityMatches = MatchesSelectedKind(cage)
                                 local matchesFilters
                                 if hasSelectedPath and hasSelectedRarity then
                                     matchesFilters = pathMatches and rarityMatches
