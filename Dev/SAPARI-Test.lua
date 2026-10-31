@@ -2033,7 +2033,7 @@ end))
                 if not bossCaughtDetected then return false end
                 CancelActiveMovement()
                 RestoreFloating()
-                SetNavigationStatus("Boss caught - waiting to restart")
+                SetNavigationStatus("Boss caught - recovering")
                 local waitUntil = bossCaughtAt + 2
                 while os.clock() < waitUntil do
                     if token ~= navigationToken or Runtime.Stopped then return false end
@@ -2043,11 +2043,8 @@ end))
                 if token ~= navigationToken or Runtime.Stopped then return false end
                 bossCaughtDetected = false
                 baseTeleportDetected = false
-                SetNavigationStatus("Recovery complete - restarting navigation")
-                task.defer(function()
-                    if not Runtime.Stopped and AutoStealEnabled then Runtime.StartNavigation() end
-                end)
-                return false
+                SetNavigationStatus("Recovery complete - resuming cage scan")
+                return true
             end
             local previousCharacterRoot
             local previousCharacterPosition
@@ -2195,8 +2192,7 @@ end))
             local function WalkToSafeZoneAtStart()
                 while token == navigationToken and not Runtime.Stopped do
                     if bossCaughtDetected then
-                        WaitForBossCaught()
-                        return false
+                        return WaitForBossCaught()
                     end
                     if baseTeleportDetected and not WaitForBaseTeleport() then return false end
                     local character = LocalPlayer.Character
@@ -2213,8 +2209,7 @@ end))
                         end
                         RestoreFloating()
                         if bossCaughtDetected then
-                            WaitForBossCaught()
-                            return false
+                            return WaitForBossCaught()
                         end
                         if baseTeleportDetected then
                             if not WaitForBaseTeleport() then return false end
