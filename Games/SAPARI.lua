@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.3"
+local testver = "Deploy ver 1.4"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -964,8 +964,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     PagesByName[name] = Page
     if name == "Main" then
         local AutoCard = CreateCard(Page, "Auto Steal", "")
-        AutoCard.Size = UDim2.new(1, -4, 0, 0)
-        AutoCard.AutomaticSize = Enum.AutomaticSize.Y
+        AutoCard.Size = UDim2.new(1, -4, 0, 265)
+        AutoCard.AutomaticSize = Enum.AutomaticSize.None
 
         local HeaderTitle = AutoCard:FindFirstChildWhichIsA("TextLabel")
         if HeaderTitle then
@@ -1325,7 +1325,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 Size = UDim2.new(0.5, -2, 1, -4),
                 Position = UDim2.new(mode == "Walk" and 0.5 or 0, 2, 0, 2),
                 BackgroundColor3 = mode == MovementMode and Theme.Accent or Theme.SurfaceInput,
-                Text = mode,
+                Text = mode == "Glide" and "Jump" or mode,
                 TextColor3 = mode == MovementMode and Theme.AccentText or Theme.DarkGray,
                 Font = Enum.Font.GothamMedium,
                 TextSize = 10,
