@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.18"
+local testver = "Deploy ver 1.19"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2660,21 +2660,31 @@ end))
                         continue
                     end
 
-                    local promptDistance = (root.Position - cagePosition).Magnitude
-                    if promptDistance > stealPrompt.MaxActivationDistance then
-                        local ridingOffset = root.Position - navigationRoot.Position
-                        local closeTarget = cagePosition - ridingOffset
+                    local promptDelta = cagePosition - navigationRoot.Position
+                    local promptHorizontal = Vector3.new(promptDelta.X, 0, promptDelta.Z)
+                    local promptDistance = promptHorizontal.Magnitude
+                    if promptDistance > stealPrompt.MaxActivationDistance
+                    or math.abs(promptDelta.Y) > 16 then
                         SetNavigationStatus("Closing in on cage")
-                        if not MoveToPosition(root, humanoid, closeTarget, token, true) then
+                        if not MoveToPosition(root, humanoid, cagePosition, token, true) then
                             RestoreFloating()
                             SetNavigationStatus("Cage out of reach")
                             continue
                         end
-                        promptDistance = (root.Position - cagePosition).Magnitude
+                        navigationRoot = GetNavigationRoot(root)
+                        if not navigationRoot or not navigationRoot.Parent then
+                            RestoreFloating()
+                            SetNavigationStatus("Pet root unavailable")
+                            continue
+                        end
+                        promptDelta = cagePosition - navigationRoot.Position
+                        promptHorizontal = Vector3.new(promptDelta.X, 0, promptDelta.Z)
+                        promptDistance = promptHorizontal.Magnitude
                     end
 
                     if not stealPrompt.Enabled
-                    or promptDistance > stealPrompt.MaxActivationDistance then
+                    or promptDistance > stealPrompt.MaxActivationDistance
+                    or math.abs(promptDelta.Y) > 16 then
                         RestoreFloating()
                         SetNavigationStatus("Prompt out of range")
                         continue
@@ -2685,8 +2695,18 @@ end))
                     local holdStarted = false
                     local holdCompleted = false
                     local holdOk = pcall(function()
+                        local currentNavigationRoot = GetNavigationRoot(root)
                         if not stealPrompt.Enabled
-                        or (root.Position - cagePosition).Magnitude > stealPrompt.MaxActivationDistance then
+                        or not currentNavigationRoot
+                        or not currentNavigationRoot.Parent then
+                            return
+                        end
+                        local currentPromptDelta = cagePosition - currentNavigationRoot.Position
+                        local currentPromptHorizontal = Vector3.new(
+                            currentPromptDelta.X, 0, currentPromptDelta.Z
+                        )
+                        if currentPromptHorizontal.Magnitude > stealPrompt.MaxActivationDistance
+                        or math.abs(currentPromptDelta.Y) > 16 then
                             return
                         end
 
