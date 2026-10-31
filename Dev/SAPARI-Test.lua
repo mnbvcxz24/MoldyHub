@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.62"
+local testver = "Test ver: 1.63"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1132,43 +1132,21 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local pathsFolder = workspace:FindFirstChild("Paths")
             local character = LocalPlayer.Character
             local root = character and character:FindFirstChild("HumanoidRootPart")
-            local closestPathNumber
-            local closestDistance = math.huge
+            local closestWorld1Distance = math.huge
+            local closestWorld2Distance = math.huge
 
             if pathsFolder and root then
                 for _, pathObject in ipairs(pathsFolder:GetChildren()) do
                     local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
                     if pathObject:IsA("Folder") and pathNumber
                     and pathNumber >= 1 and pathNumber <= 20 then
-                        local cagesFolder = pathObject:FindFirstChild("Cages")
-                        local checkedPosition = false
-
-                        if cagesFolder then
-                            for _, cage in ipairs(cagesFolder:GetChildren()) do
-                                if cage:IsA("Model") then
-                                    local ok, position = pcall(function()
-                                        return cage:GetPivot().Position
-                                    end)
-                                    if ok and position then
-                                        checkedPosition = true
-                                        local distance = (position - root.Position).Magnitude
-                                        if distance < closestDistance then
-                                            closestDistance = distance
-                                            closestPathNumber = pathNumber
-                                        end
-                                    end
-                                end
-                            end
-                        end
-
-                        if not checkedPosition then
-                            for _, part in ipairs(pathObject:GetDescendants()) do
-                                if part:IsA("BasePart") then
-                                    local distance = (part.Position - root.Position).Magnitude
-                                    if distance < closestDistance then
-                                        closestDistance = distance
-                                        closestPathNumber = pathNumber
-                                    end
+                        for _, part in ipairs(pathObject:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                local distance = (part.Position - root.Position).Magnitude
+                                if pathNumber <= 10 then
+                                    closestWorld1Distance = math.min(closestWorld1Distance, distance)
+                                else
+                                    closestWorld2Distance = math.min(closestWorld2Distance, distance)
                                 end
                             end
                         end
@@ -1177,8 +1155,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
 
             local worldFolder
-            if closestPathNumber then
-                worldFolder = closestPathNumber >= 11 and world2Folder or hubFolder
+            if closestWorld1Distance < math.huge or closestWorld2Distance < math.huge then
+                if closestWorld1Distance <= closestWorld2Distance then
+                    worldFolder = hubFolder
+                else
+                    worldFolder = world2Folder
+                end
             else
                 worldFolder = hubFolder or world2Folder
             end
