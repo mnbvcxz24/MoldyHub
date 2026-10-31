@@ -1611,9 +1611,6 @@ end))
         local navigationToken = 0
         local activeNavigationTween
         local baseTeleportConnection
-        local bossCaughtConnection
-        local bossCaughtDetected = false
-        local bossCaughtAt = 0
         local baseTeleportDetected = false
         local floatingRoot
         local floatingOriginalAnchored
@@ -1755,12 +1752,6 @@ end))
                 local nextMoveRefresh = 0
 
                 while os.clock() < timeout do
-                    if bossCaughtDetected then
-                        humanoid:MoveTo(root.Position)
-                        RestoreFloating()
-                        return false
-                    end
-
                     if baseTeleportDetected then
                         humanoid:MoveTo(root.Position)
                         RestoreFloating()
@@ -1807,12 +1798,6 @@ end))
                 local initialWalkUntil = os.clock() + walkDuration
                 local nextMoveRefresh = os.clock() + 1
                 while os.clock() < initialWalkUntil do
-                    if bossCaughtDetected then
-                        humanoid:MoveTo(root.Position)
-                        RestoreFloating()
-                        return false
-                    end
-
                     if baseTeleportDetected then
                         humanoid:MoveTo(root.Position)
                         RestoreFloating()
@@ -1915,12 +1900,6 @@ end))
                 local walkUntil = os.clock() + walkDuration
                 local nextMoveRefresh = os.clock() + 1
                 while os.clock() < walkUntil do
-                    if bossCaughtDetected then
-                        humanoid:MoveTo(root.Position)
-                        RestoreFloating()
-                        return false
-                    end
-
                     if baseTeleportDetected then
                         humanoid:MoveTo(root.Position)
                         RestoreFloating()
@@ -1963,10 +1942,6 @@ end))
         end
         Runtime.StopNavigation = function()
             navigationToken += 1
-            if bossCaughtConnection then
-                bossCaughtConnection:Disconnect()
-                bossCaughtConnection = nil
-            end
             if baseTeleportConnection then
                 baseTeleportConnection:Disconnect()
                 baseTeleportConnection = nil
@@ -2003,53 +1978,9 @@ end))
             end
 
             baseTeleportDetected = false
-            bossCaughtDetected = false
-            bossCaughtAt = 0
-            if bossCaughtConnection then
-                bossCaughtConnection:Disconnect()
-                bossCaughtConnection = nil
-            end
             if baseTeleportConnection then
                 baseTeleportConnection:Disconnect()
                 baseTeleportConnection = nil
-            end
-
-            local sharedRemotes = ReplicatedStorage:FindFirstChild("Shared")
-                and ReplicatedStorage.Shared:FindFirstChild("Remotes")
-            local bossCaughtRemote = sharedRemotes and sharedRemotes:FindFirstChild("BossCaught")
-
-            if bossCaughtRemote and bossCaughtRemote:IsA("RemoteEvent") then
-                bossCaughtConnection = bossCaughtRemote.OnClientEvent:Connect(function()
-                    if token ~= navigationToken or Runtime.Stopped then return end
-                    bossCaughtDetected = true
-                    bossCaughtAt = os.clock()
-                    CancelActiveMovement()
-                    RestoreFloating()
-                    SetNavigationStatus("Boss caught - recovering")
-                end)
-            end
-
-            local function WaitForBossCaught()
-                if not bossCaughtDetected then
-                    return false
-                end
-
-                CancelActiveMovement()
-                RestoreFloating()
-                SetNavigationStatus("Boss caught - waiting to rescan")
-
-                local waitUntil = bossCaughtAt + 2
-                while os.clock() < waitUntil do
-                    if token ~= navigationToken or Runtime.Stopped then
-                        return false
-                    end
-                    waitUntil = math.max(waitUntil, bossCaughtAt + 2)
-                    task.wait(math.min(0.1, waitUntil - os.clock()))
-                end
-
-                bossCaughtDetected = false
-                SetNavigationStatus("Recovery complete - rescanning cages")
-                return true
             end
 
             local previousCharacterRoot
@@ -2239,10 +2170,6 @@ end))
                 return true
             end
             while token == navigationToken and not Runtime.Stopped do
-                if bossCaughtDetected then
-                    if not WaitForBossCaught() then return end
-                end
-
                 if baseTeleportDetected then
                     if not WaitForBaseTeleport() then return end
                 end
@@ -2280,10 +2207,6 @@ end))
                     local reachedCage, navigationFailure = MoveToCage(root, humanoid, cageRoot.Position, token)
                     if not reachedCage then
                         RestoreFloating()
-                        if bossCaughtDetected then
-                            if not WaitForBossCaught() then return end
-                            break
-                        end
                         if baseTeleportDetected then
                             if not WaitForBaseTeleport() then return end
                             break
@@ -2298,11 +2221,6 @@ end))
                     if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
                         return
-                    end
-
-                    if bossCaughtDetected then
-                        if not WaitForBossCaught() then return end
-                        break
                     end
 
                     if baseTeleportDetected then
@@ -2352,8 +2270,7 @@ end))
 
                         local holdUntil = os.clock() + math.max(0.15, stealPrompt.HoldDuration + 0.25)
                         while os.clock() < holdUntil do
-                            if token ~= navigationToken or Runtime.Stopped
-                            or bossCaughtDetected then
+                            if token ~= navigationToken or Runtime.Stopped then
                                 break
                             end
                             task.wait(0.05)
@@ -2366,11 +2283,6 @@ end))
                         pcall(function()
                             stealPrompt:InputHoldEnd()
                         end)
-                    end
-
-                    if bossCaughtDetected then
-                        if not WaitForBossCaught() then return end
-                        break
                     end
 
                     if baseTeleportDetected then
@@ -2399,11 +2311,6 @@ end))
                         return
                     end
 
-                    if bossCaughtDetected then
-                        if not WaitForBossCaught() then return end
-                        break
-                    end
-
                     local reachedSafeZone
 
                     if MovementMode == "Glide" then
@@ -2423,10 +2330,6 @@ end))
 
                     if not reachedSafeZone then
                         RestoreFloating()
-                        if bossCaughtDetected then
-                            if not WaitForBossCaught() then return end
-                            break
-                        end
                         if baseTeleportDetected then
                             if not WaitForBaseTeleport() then return end
                             break
@@ -2460,15 +2363,10 @@ end))
                         if token ~= navigationToken or Runtime.Stopped then
                             return
                         end
-                        if baseTeleportDetected or bossCaughtDetected then
+                        if baseTeleportDetected then
                             break
                         end
                         task.wait(math.min(0.1, nextTargetAt - os.clock()))
-                    end
-
-                    if bossCaughtDetected then
-                        if not WaitForBossCaught() then return end
-                        break
                     end
 
                     if baseTeleportDetected then
