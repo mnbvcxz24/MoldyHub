@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.38"
+local testver = "Test ver: 1.39"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2300,6 +2300,23 @@ end))
                 return true
             end
 
+            local function MatchesSelectedRarity(cage)
+                local cageName = string.lower(cage.Name)
+                local rarity = string.lower(tostring(cage:GetAttribute("Rarity") or ""))
+
+                for selectedRarity, selected in pairs(SelectedRarities) do
+                    if selected == true then
+                        local filter = string.lower(tostring(selectedRarity))
+                        if filter ~= ""
+                        and (string.find(cageName, filter, 1, true)
+                        or string.find(rarity, filter, 1, true)) then
+                            return true
+                        end
+                    end
+                end
+
+                return false
+            end
             local function GetSelectedCages()
                 local cages = {}
                 if not HasSelectedFilter() then return cages end
@@ -2312,8 +2329,7 @@ end))
                     if cagesFolder then
                         for _, cage in ipairs(cagesFolder:GetChildren()) do
                             if cage:IsA("Model") then
-                                local rarity = cage:GetAttribute("Rarity")
-                                local rarityMatches = rarity ~= nil and SelectedRarities[tostring(rarity)] == true
+                                local rarityMatches = MatchesSelectedRarity(cage)
                                 if pathMatches or rarityMatches then
                                     local stealPrompt = cage:FindFirstChild("StealPrompt", true)
                                     if stealPrompt and stealPrompt:IsA("ProximityPrompt")
