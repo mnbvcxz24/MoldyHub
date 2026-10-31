@@ -2319,7 +2319,23 @@ end))
             end
             local function GetSelectedCages()
                 local cages = {}
-                local hasFilter = HasSelectedFilter()
+                local hasSelectedPath = false
+                local hasSelectedRarity = false
+
+                for _, selected in pairs(SelectedPaths) do
+                    if selected == true then
+                        hasSelectedPath = true
+                        break
+                    end
+                end
+                for _, selected in pairs(SelectedRarities) do
+                    if selected == true then
+                        hasSelectedRarity = true
+                        break
+                    end
+                end
+
+                local hasFilter = hasSelectedPath or hasSelectedRarity
 
                 for selectedPath, selected in pairs(SelectedPaths) do
                     if selected then
@@ -2349,7 +2365,15 @@ end))
                             if cage:IsA("Model") then
                                 modelCount += 1
                                 local rarityMatches = MatchesSelectedRarity(cage)
-                                if pathMatches or rarityMatches then
+                                local matchesFilters
+                                if hasSelectedPath and hasSelectedRarity then
+                                    matchesFilters = pathMatches and rarityMatches
+                                elseif hasSelectedPath then
+                                    matchesFilters = pathMatches
+                                else
+                                    matchesFilters = rarityMatches
+                                end
+                                if matchesFilters then
                                     local stealPrompt = cage:FindFirstChild("StealPrompt", true)
                                     if stealPrompt and stealPrompt:IsA("ProximityPrompt")
                                     and stealPrompt.Enabled then
