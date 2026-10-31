@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.11"
+local testver = "Deploy ver 1.12"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -299,7 +299,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">STEAL</font> A PET AND RIDE IT'
     end
 end
 -- MAIN WINDOW
@@ -347,7 +347,7 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(14, 5),
     Size = UDim2.fromOffset(330, 22),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">STEAL</font> A PET AND RIDE IT',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
@@ -419,7 +419,7 @@ AddStroke(CloseButton, Theme.Border, 1)
 local RestoreButton = Create("TextButton", {
     Name = "Restore",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 0),
+    Position = UDim2.new(1, -36, 0, 11),
     Size = UDim2.fromOffset(36, 36),
     BackgroundColor3 = Theme.Sidebar,
     Text = "S",
@@ -2319,16 +2319,35 @@ end))
             end
             local function GetSelectedCages()
                 local cages = {}
-                if not HasSelectedFilter() then return cages end
+                local hasFilter = HasSelectedFilter()
+
+                for selectedPath, selected in pairs(SelectedPaths) do
+                    if selected then
+                    end
+                end
+                for selectedRarity, selected in pairs(SelectedRarities) do
+                    if selected then
+                    end
+                end
+
+                if not hasFilter then
+                    return cages
+                end
+
                 local pathsFolder = workspace:FindFirstChild("Paths")
-                if not pathsFolder then return cages end
+                if not pathsFolder then
+                    return cages
+                end
 
                 for _, pathObject in ipairs(pathsFolder:GetChildren()) do
                     local pathMatches = SelectedPaths[pathObject] == true
                     local cagesFolder = pathObject:FindFirstChild("Cages")
+
                     if cagesFolder then
+                        local modelCount = 0
                         for _, cage in ipairs(cagesFolder:GetChildren()) do
                             if cage:IsA("Model") then
+                                modelCount += 1
                                 local rarityMatches = MatchesSelectedRarity(cage)
                                 if pathMatches or rarityMatches then
                                     local stealPrompt = cage:FindFirstChild("StealPrompt", true)
