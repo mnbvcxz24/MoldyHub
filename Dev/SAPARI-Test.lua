@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.44"
+local testver = "Test ver: 1.45"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1876,7 +1876,10 @@ end))
                         return false
                     end
 
-                    if (navigationRoot.Position - destination).Magnitude <= 4 then
+                    local arrivalDelta = destination - navigationRoot.Position
+                    local arrivalHorizontal = Vector3.new(arrivalDelta.X, 0, arrivalDelta.Z)
+                    if arrivalHorizontal.Magnitude <= 4
+                    and math.abs(arrivalDelta.Y) <= 16 then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
@@ -1890,8 +1893,11 @@ end))
                 end
 
                 humanoid:MoveTo(root.Position)
-                return navigationRoot.Parent ~= nil
-                    and (navigationRoot.Position - destination).Magnitude <= 4
+                if not navigationRoot.Parent then return false end
+                local finalDelta = destination - navigationRoot.Position
+                local finalHorizontal = Vector3.new(finalDelta.X, 0, finalDelta.Z)
+                return finalHorizontal.Magnitude <= 4
+                    and math.abs(finalDelta.Y) <= 16
             end
 
             local speed = math.max(10, Runtime.GlideSpeed or 50)
@@ -2664,21 +2670,17 @@ end))
                         continue
                     end
 
-                    local promptDistance = (navigationRoot.Position - cagePosition).Magnitude
+                    local promptDistance = (root.Position - cagePosition).Magnitude
                     if promptDistance > stealPrompt.MaxActivationDistance then
+                        local ridingOffset = root.Position - navigationRoot.Position
+                        local closeTarget = cagePosition - ridingOffset
                         SetNavigationStatus("Closing in on cage")
-                        if not MoveToPosition(root, humanoid, cagePosition, token, true) then
+                        if not MoveToPosition(root, humanoid, closeTarget, token, true) then
                             RestoreFloating()
                             SetNavigationStatus("Cage out of reach")
                             continue
                         end
-                        navigationRoot = GetNavigationRoot(root)
-                        if not navigationRoot or not navigationRoot.Parent then
-                            RestoreFloating()
-                            SetNavigationStatus("Pet root unavailable")
-                            continue
-                        end
-                        promptDistance = (navigationRoot.Position - cagePosition).Magnitude
+                        promptDistance = (root.Position - cagePosition).Magnitude
                     end
 
                     if not stealPrompt.Enabled
@@ -2693,11 +2695,8 @@ end))
                     local holdStarted = false
                     local holdCompleted = false
                     local holdOk = pcall(function()
-                        local currentNavigationRoot = GetNavigationRoot(root)
                         if not stealPrompt.Enabled
-                        or not currentNavigationRoot
-                        or not currentNavigationRoot.Parent
-                        or (currentNavigationRoot.Position - cagePosition).Magnitude > stealPrompt.MaxActivationDistance then
+                        or (root.Position - cagePosition).Magnitude > stealPrompt.MaxActivationDistance then
                             return
                         end
 
