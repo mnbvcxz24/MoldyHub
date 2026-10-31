@@ -1009,7 +1009,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Parent = StatusRow,
             Position = UDim2.fromOffset(2, 6),
             Size = UDim2.fromOffset(7, 7),
-            BackgroundColor3 = Color3.fromRGB(75, 190, 145),
+            BackgroundColor3 = Theme.Gray,
             BorderSizePixel = 0
         })
         AddCorner(StatusDot, 8)
@@ -2504,7 +2504,102 @@ end))
                     end
                 end
             end
-        end        elseif name == "Features" then
+        end
+
+        local AutomationRow = Create("Frame", {
+            Name = "AutomationCards",
+            Parent = Page,
+            Size = UDim2.new(1, -4, 0, 82),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0
+        })
+
+        local function CreateAutomationCard(title, position)
+            local Card = Create("Frame", {
+                Name = title:gsub("%s+", ""),
+                Parent = AutomationRow,
+                Position = position,
+                Size = UDim2.new(0.5, -4, 1, 0),
+                BackgroundColor3 = Theme.Card,
+                BorderSizePixel = 0
+            })
+            AddCorner(Card, 8)
+            AddStroke(Card, Theme.Border, 1)
+
+            Create("TextLabel", {
+                Parent = Card,
+                Position = UDim2.fromOffset(11, 8),
+                Size = UDim2.new(1, -48, 0, 18),
+                BackgroundTransparency = 1,
+                Text = title,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.GothamBold,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd
+            })
+
+            local StatusRow = Create("Frame", {
+                Parent = Card,
+                Position = UDim2.fromOffset(11, 35),
+                Size = UDim2.new(1, -22, 0, 18),
+                BackgroundTransparency = 1
+            })
+            local StatusDot = Create("Frame", {
+                Parent = StatusRow,
+                Position = UDim2.fromOffset(2, 6),
+                Size = UDim2.fromOffset(7, 7),
+                BackgroundColor3 = Theme.Gray,
+                BorderSizePixel = 0
+            })
+            AddCorner(StatusDot, 8)
+
+            Create("TextLabel", {
+                Parent = StatusRow,
+                Position = UDim2.fromOffset(18, 0),
+                Size = UDim2.fromOffset(34, 18),
+                BackgroundTransparency = 1,
+                Text = "Status",
+                TextColor3 = Theme.DarkGray,
+                Font = Enum.Font.Gotham,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+
+            local StatusValue = Create("TextLabel", {
+                Parent = StatusRow,
+                Position = UDim2.fromOffset(54, 0),
+                Size = UDim2.new(1, -54, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "Disabled",
+                TextColor3 = Theme.Gray,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 9,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                TextXAlignment = Enum.TextXAlignment.Right
+            })
+
+            Create("Frame", {
+                Parent = Card,
+                Position = UDim2.fromOffset(11, 61),
+                Size = UDim2.new(1, -22, 0, 1),
+                BackgroundColor3 = Theme.Border,
+                BorderSizePixel = 0
+            })
+
+            local Toggle = CreateToggle(Card, "", false, function(enabled)
+                StatusValue.Text = enabled and "Enabled" or "Disabled"
+                StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
+                StatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+            end)
+            Toggle.Position = UDim2.new(1, -49, 0, 6)
+            Toggle.Size = UDim2.fromOffset(38, 24)
+            return Card
+        end
+
+        CreateAutomationCard("Auto Treadmill", UDim2.new(0, 0, 0, 0))
+        CreateAutomationCard("Auto Collect", UDim2.new(0.5, 4, 0, 0))
+    elseif name == "Features" then
         CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
     elseif name == "Misc. feature" then
         CreateCard(Page, "Miscellaneous", "Empty content area for future game-specific features.")
