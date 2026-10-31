@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.32"
+local testver = "Test ver: 1.33"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -419,7 +419,7 @@ AddStroke(CloseButton, Theme.Border, 1)
 local RestoreButton = Create("TextButton", {
     Name = "Restore",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 0),
+    Position = UDim2.new(1, -36, 0, 11),
     Size = UDim2.fromOffset(36, 36),
     BackgroundColor3 = Theme.Sidebar,
     Text = "S",
@@ -2499,34 +2499,77 @@ Pages[1].Visible = true
 SidebarButtons[1].TextColor3 = Theme.Text
 -- WINDOW CONTROLS
 local Minimized = false
+local IsAnimating = false
 local ExpandedPosition = Main.Position
+local MinimizedSize = UDim2.fromOffset(36, 36)
+local MinimizedTopOffset = 11
+local AnimationInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
 local function SetMinimized(state)
-    Minimized = state
-    if Minimized then
+    if IsAnimating or Minimized == state then return end
+    IsAnimating = true
+
+    if state then
         ExpandedPosition = Main.Position
+        Minimized = true
+
+        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
+        RestoreButton.Visible = true
+
+        local minimizedPosition = UDim2.new(
+            ExpandedPosition.X.Scale,
+            ExpandedPosition.X.Offset + UIConfig.Width - MinimizedSize.X.Offset,
+            ExpandedPosition.Y.Scale,
+            ExpandedPosition.Y.Offset + MinimizedTopOffset
+        )
+
+        local mainTween = TweenService:Create(Main, AnimationInfo, {
+            Size = MinimizedSize,
+            Position = minimizedPosition
+        })
+        local restoreTween = TweenService:Create(RestoreButton, AnimationInfo, {
+            Position = UDim2.fromOffset(0, 0)
+        })
+        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
+            CornerRadius = UDim.new(0, 18)
+        })
+
+        mainTween:Play()
+        restoreTween:Play()
+        cornerTween:Play()
+        mainTween.Completed:Wait()
+
         Content.Visible = false
         Sidebar.Visible = false
         TopBar.Visible = false
-        RestoreButton.Visible = true
-        MainCorner.CornerRadius = UDim.new(0, 18)
-        Tween(Main, {
-            Size = UDim2.fromOffset(36, 36),
-            Position = UDim2.new(
-                ExpandedPosition.X.Scale,
-                ExpandedPosition.X.Offset + UIConfig.Width - 59,
-                ExpandedPosition.Y.Scale,
-                ExpandedPosition.Y.Offset + 11
-            )
-        })
     else
-        RestoreButton.Visible = false
-        MainCorner.CornerRadius = UDim.new(0, 12)
-        Main.Position = ExpandedPosition
-        Tween(Main, {Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height)})
-        TopBar.Visible = true
+        Minimized = false
+
         Content.Visible = true
         Sidebar.Visible = true
+        TopBar.Visible = true
+        RestoreButton.Visible = true
+
+        local mainTween = TweenService:Create(Main, AnimationInfo, {
+            Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
+            Position = ExpandedPosition
+        })
+        local restoreTween = TweenService:Create(RestoreButton, AnimationInfo, {
+            Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
+        })
+        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
+            CornerRadius = UDim.new(0, 12)
+        })
+
+        mainTween:Play()
+        restoreTween:Play()
+        cornerTween:Play()
+        mainTween.Completed:Wait()
+
+        RestoreButton.Visible = false
     end
+
+    IsAnimating = false
 end
 MinimizeButton.MouseButton1Click:Connect(function()
     SetMinimized(true)
@@ -2580,6 +2623,14 @@ end))
 TrackConnection(UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
+        if Dragging and Minimized then
+            ExpandedPosition = UDim2.new(
+                Main.Position.X.Scale,
+                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset),
+                Main.Position.Y.Scale,
+                Main.Position.Y.Offset - MinimizedTopOffset
+            )
+        end
         Dragging = false
     end
 end))
