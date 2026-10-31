@@ -2513,15 +2513,42 @@ end))
                 end
             end
 
-            local function MoveToCage(root, humanoid, destination, token)
+            local function MoveToCage(root, humanoid, destination, token, cageModel)
                 local navigationRoot = GetNavigationRoot(root)
                 if not navigationRoot or not navigationRoot.Parent then
                     return false, "Pet root unavailable"
                 end
 
-                local delta = destination - navigationRoot.Position
-                local horizontalDistance = Vector3.new(delta.X, 0, delta.Z).Magnitude
-                if horizontalDistance <= 12 and math.abs(delta.Y) <= 20 then
+                local function IsPetAtCage()
+                    navigationRoot = GetNavigationRoot(root)
+                    if not navigationRoot or not navigationRoot.Parent then
+                        return false
+                    end
+
+                    if cageModel and cageModel.Parent then
+                        local ok, boundsCFrame, boundsSize = pcall(function()
+                            return cageModel:GetBoundingBox()
+                        end)
+                        if ok and boundsCFrame and boundsSize then
+                            local localPosition = boundsCFrame:PointToObjectSpace(navigationRoot.Position)
+                            local halfSize = boundsSize * 0.5
+                            local closestPoint = Vector3.new(
+                                math.clamp(localPosition.X, -halfSize.X, halfSize.X),
+                                math.clamp(localPosition.Y, -halfSize.Y, halfSize.Y),
+                                math.clamp(localPosition.Z, -halfSize.Z, halfSize.Z)
+                            )
+                            if (localPosition - closestPoint).Magnitude <= 10 then
+                                return true
+                            end
+                        end
+                    end
+
+                    local delta = destination - navigationRoot.Position
+                    local horizontalDistance = Vector3.new(delta.X, 0, delta.Z).Magnitude
+                    return horizontalDistance <= 12 and math.abs(delta.Y) <= 20
+                end
+
+                if IsPetAtCage() then
                     SetNavigationStatus("Cage nearby")
                     return true
                 end
@@ -2664,7 +2691,7 @@ end))
 
                     SetFloating(root, false)
                     local moveOk, reachedCage, navigationFailure = pcall(function()
-                        local reached, failure = MoveToCage(root, humanoid, cagePosition, token)
+                        local reached, failure = MoveToCage(root, humanoid, cagePosition, token, selectedCage)
                         return reached, failure
                     end)
                     if not moveOk then
