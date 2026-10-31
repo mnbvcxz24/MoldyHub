@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.36"
+local testver = "Test ver: 1.37"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1632,6 +1632,7 @@ end))
         Runtime.SelectedRarities = SelectedRarities
 
         local navigationToken = 0
+        local treadmillToken = 0
         local activeNavigationTween
         local baseTeleportConnection
         local bossCaughtConnection
@@ -1728,6 +1729,32 @@ end))
                     end
                     local displayPart = ownerDisplay:FindFirstChildWhichIsA("BasePart", true)
                     return displayPart and displayPart.Position or nil
+                end
+            end
+
+            return nil
+        end
+
+        local function GetOwnedTreadmill()
+            local hub = workspace:FindFirstChild("Hub")
+            local plots = hub and hub:FindFirstChild("Plots")
+            if not plots then return nil end
+
+            for _, plot in ipairs(plots:GetChildren()) do
+                local ownerDisplay = plot:FindFirstChild("OwnerDisplay")
+                local gui = ownerDisplay and ownerDisplay:FindFirstChild("Gui")
+                local playerName = gui and gui:FindFirstChild("PlayerName")
+
+                if playerName and playerName:IsA("TextLabel")
+                and playerName.Text == LocalPlayer.Name then
+                    local treadmill = plot:FindFirstChild("Treadmill", true)
+                    if treadmill and treadmill:IsA("BasePart") then
+                        return treadmill
+                    end
+                    if treadmill and treadmill:IsA("Model") then
+                        return treadmill.PrimaryPart or treadmill:FindFirstChildWhichIsA("BasePart", true)
+                    end
+                    return nil
                 end
             end
 
@@ -2024,10 +2051,84 @@ end))
             RestoreFloating()
             SetAutoStealEnabled(false)
             SetNavigationStatus("Stopped")
+            if AutoTreadmillEnabled and not Runtime.Stopped then
+                task.defer(function()
+                    if Runtime.StartTreadmillIdle then
+                        Runtime.StartTreadmillIdle()
+                    end
+                end)
+            end
+        end
+
+        Runtime.StopTreadmillIdle = function()
+            treadmillToken += 1
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if humanoid and root then
+                humanoid:MoveTo(root.Position)
+            end
+        end
+
+        Runtime.StartTreadmillIdle = function()
+            if Runtime.Stopped or not AutoTreadmillEnabled or AutoStealEnabled then
+                return
+            end
+
+            treadmillToken += 1
+            local token = treadmillToken
+            task.spawn(function()
+                while token == treadmillToken and AutoTreadmillEnabled
+                and not AutoStealEnabled and not Runtime.Stopped do
+                    local treadmill = GetOwnedTreadmill()
+                    local character = LocalPlayer.Character
+                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+
+                    if not treadmill then
+                        if AutoTreadmillStatusValue then
+                            AutoTreadmillStatusValue.Text = "Treadmill unavailable"
+                            AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                        end
+                        if AutoTreadmillStatusDot then
+                            AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                        end
+                        task.wait(1)
+                    elseif humanoid and root then
+                        local distance = (root.Position - treadmill.Position).Magnitude
+                        if distance <= 4 then
+                            humanoid:MoveTo(root.Position)
+                            if AutoTreadmillStatusValue then
+                                AutoTreadmillStatusValue.Text = "Working"
+                                AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                            if AutoTreadmillStatusDot then
+                                AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                            task.wait(0.25)
+                        else
+                            if AutoTreadmillStatusValue then
+                                AutoTreadmillStatusValue.Text = "Walking"
+                                AutoTreadmillStatusValue.TextColor3 = Theme.Accent
+                            end
+                            if AutoTreadmillStatusDot then
+                                AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                            humanoid:MoveTo(treadmill.Position)
+                            task.wait(0.75)
+                        end
+                    else
+                        task.wait(0.25)
+                    end
+                end
+            end)
         end
 
         Runtime.StartNavigation = function()
             navigationToken += 1
+            if Runtime.StopTreadmillIdle then
+                Runtime.StopTreadmillIdle()
+            end
             local token = navigationToken            CancelActiveMovement()
 
             if Runtime.Stopped then
@@ -2219,10 +2320,7 @@ end))
             end
 
             local function WaitAtTreadmillUntilCage(root, humanoid, token)
-                local hub = workspace:FindFirstChild("Hub")
-                local plots = hub and hub:FindFirstChild("Plots")
-                local plot = plots and plots:FindFirstChild("Plot3")
-                local treadmill = plot and plot:FindFirstChild("Treadmill")
+                local treadmill = GetOwnedTreadmill()
 
                 if not treadmill or not treadmill:IsA("BasePart") then
                     if AutoTreadmillStatusValue then
@@ -2721,6 +2819,11 @@ end))
                     end
                     AutoTreadmillStatusValue = StatusValue
                     AutoTreadmillStatusDot = StatusDot
+                    if enabled and not AutoStealEnabled and Runtime.StartTreadmillIdle then
+                        Runtime.StartTreadmillIdle()
+                    elseif not enabled and Runtime.StopTreadmillIdle then
+                        Runtime.StopTreadmillIdle()
+                    end
                 else
                     StatusValue.Text = enabled and "Enabled" or "Disabled"
                     StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
