@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.48"
+local testver = "Test ver: 1.49"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2839,13 +2839,20 @@ end))
                         break
                     end
 
-                    SetNavigationStatus("Waiting for cage prompt to stream in")
+                    SetNavigationStatus("Checking cage prompt")
                     local promptWaitUntil = os.clock() + 8
-                    while os.clock() < promptWaitUntil do
+                    repeat
                         if token ~= navigationToken or Runtime.Stopped
                         or not selectedCage:IsDescendantOf(workspace) then
                             break
                         end
+
+                        local petRoot = GetRidingPetRoot(root)
+                        if not petRoot or not petRoot.Parent then
+                            SetNavigationStatus("Riding pet root unavailable")
+                            break
+                        end
+
                         local promptOk, foundPrompt = pcall(function()
                             return selectedCage:FindFirstChild("StealPrompt", true)
                         end)
@@ -2855,8 +2862,12 @@ end))
                             stealPrompt = foundPrompt
                             break
                         end
-                        task.wait(0.2)
-                    end
+
+                        if os.clock() >= promptWaitUntil then
+                            break
+                        end
+                        task.wait(0.1)
+                    until stealPrompt
 
                     if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
