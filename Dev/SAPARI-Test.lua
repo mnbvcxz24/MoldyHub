@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.51"
+local testver = "Test ver: 1.52"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2384,10 +2384,7 @@ end))
             local previousCharacterPosition
             local previousNavigationRoot
             local previousNavigationPosition
-            local cachedCharacterRoot
-            local cachedPetRoot
-            local cachedOwnedPlotPosition
-            local nextRootCacheRefresh = 0
+            local nextRootScanAt = 0
 
             baseTeleportConnection = RunService.Heartbeat:Connect(function()
                 if token ~= navigationToken or Runtime.Stopped then
@@ -2398,6 +2395,11 @@ end))
                     return
                 end
 
+                if os.clock() < nextRootScanAt then
+                    return
+                end
+                nextRootScanAt = os.clock() + 0.5
+
                 local character = LocalPlayer.Character
                 local currentRoot = character and character:FindFirstChild("HumanoidRootPart")
                 if not currentRoot or not currentRoot:IsA("BasePart") then
@@ -2405,23 +2407,16 @@ end))
                     previousCharacterPosition = nil
                     previousNavigationRoot = nil
                     previousNavigationPosition = nil
-                    cachedCharacterRoot = nil
-                    cachedPetRoot = nil
-                    cachedOwnedPlotPosition = nil
-                    nextRootCacheRefresh = 0
                     return
                 end
 
-                if cachedCharacterRoot ~= currentRoot or os.clock() >= nextRootCacheRefresh then
-                    cachedCharacterRoot = currentRoot
-                    cachedPetRoot = GetRidingPetRoot(currentRoot)
-                    cachedOwnedPlotPosition = GetOwnedPlotPosition()
-                    nextRootCacheRefresh = os.clock() + 0.5
-                end
-
-                local currentNavigationRoot = cachedPetRoot
-                    and cachedPetRoot.Parent and cachedPetRoot or currentRoot
+                local currentNavigationRoot = GetRidingPetRoot(currentRoot) or currentRoot
+                local ownedPlotPosition = GetOwnedPlotPosition()
                 if not currentNavigationRoot or not currentNavigationRoot.Parent then
+                    previousCharacterRoot = nil
+                    previousCharacterPosition = nil
+                    previousNavigationRoot = nil
+                    previousNavigationPosition = nil
                     return
                 end
 
@@ -2439,9 +2434,9 @@ end))
                 local characterJump = (currentRoot.Position - previousCharacterPosition).Magnitude
                 local navigationJump = (currentNavigationRoot.Position - previousNavigationPosition).Magnitude
                 local characterAtBase = (currentRoot.Position - safeSign.Position).Magnitude <= 65
-                    or (cachedOwnedPlotPosition and (currentRoot.Position - cachedOwnedPlotPosition).Magnitude <= 65)
+                    or (ownedPlotPosition and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65)
                 local navigationRootAtBase = (currentNavigationRoot.Position - safeSign.Position).Magnitude <= 65
-                    or (cachedOwnedPlotPosition and (currentNavigationRoot.Position - cachedOwnedPlotPosition).Magnitude <= 65)
+                    or (ownedPlotPosition and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65)
 
                 previousCharacterPosition = currentRoot.Position
                 previousNavigationPosition = currentNavigationRoot.Position
