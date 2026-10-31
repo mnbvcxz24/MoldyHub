@@ -2793,7 +2793,7 @@ end))
         local AutomationRow = Create("Frame", {
             Name = "AutomationCards",
             Parent = Page,
-            Size = UDim2.new(1, -4, 0, 82),
+            Size = UDim2.new(1, -4, 0, 96),
             BackgroundTransparency = 1,
             BorderSizePixel = 0
         })
@@ -2905,6 +2905,11 @@ end))
             if title == "Auto Treadmill" then
                 AutoTreadmillStatusValue = StatusValue
                 AutoTreadmillStatusDot = StatusDot
+
+                local TapBoostToggle = CreateToggle(Card, "Auto Tap Boost", false, function(enabled)
+                end)
+                TapBoostToggle.Position = UDim2.fromOffset(11, 66)
+                TapBoostToggle.Size = UDim2.new(1, -22, 0, 22)
             end
             return Card
         end
