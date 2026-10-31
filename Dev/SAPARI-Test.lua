@@ -2202,8 +2202,7 @@ end))
                 return
             end
 
-            local hub = workspace:FindFirstChild("Hub")
-            local safeSign = hub and hub:FindFirstChild("SafeZoneSign")
+            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
             local pathsFolder = workspace:FindFirstChild("Paths")
 
             if not safeSign or not safeSign:IsA("BasePart") then
