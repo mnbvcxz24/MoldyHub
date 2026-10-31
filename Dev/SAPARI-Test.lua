@@ -2183,7 +2183,7 @@ end))
                 end
 
                 local ridingOffset = root.Position - navigationRoot.Position
-                local moveDestination = destination + ridingOffset
+                local moveDestination = routeTarget + ridingOffset
                 humanoid:MoveTo(moveDestination)
 
                 local walkUntil = os.clock() + walkDuration
@@ -2219,7 +2219,7 @@ end))
 
                     if os.clock() >= nextMoveRefresh then
                         ridingOffset = root.Position - navigationRoot.Position
-                        humanoid:MoveTo(destination + ridingOffset)
+                        humanoid:MoveTo(routeTarget + ridingOffset)
                         nextMoveRefresh = os.clock() + 1
                     end
 
