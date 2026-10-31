@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.57"
+local testver = "Test ver: 1.58"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2045,13 +2045,13 @@ end))
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local glideHeight = humanoid.HipHeight + (navigationRoot.Size.Y * 0.5)
             local finalGlideStop = 12
-            local walkDuration = 1
+            local alternatingWalkDuration = 1
 
             if startWithWalk then
                 local ridingOffset = root.Position - navigationRoot.Position
                 humanoid:MoveTo(destination + ridingOffset)
 
-                local initialWalkUntil = os.clock() + walkDuration
+                local initialWalkUntil = os.clock() + alternatingWalkDuration
                 local nextMoveRefresh = os.clock() + 1
                 while os.clock() < initialWalkUntil do
                     if bossCaughtDetected then
