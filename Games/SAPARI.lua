@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.9"
+local testver = "Deploy ver 1.10"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -977,6 +977,15 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local SelectedPaths = {}
         local SelectedRarities = {}
+        local function HasSelectedFilter()
+            for _, selected in pairs(SelectedPaths) do
+                if selected == true then return true end
+            end
+            for _, selected in pairs(SelectedRarities) do
+                if selected == true then return true end
+            end
+            return false
+        end
         local MovementMode = "Walk"
         local AutoStealEnabled = false
         local AutoTreadmillEnabled = false
@@ -986,7 +995,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local StatusDot
 
         local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
-            if enabled and next(SelectedPaths) == nil and next(SelectedRarities) == nil then
+            if enabled and not HasSelectedFilter() then
                 local controller = ToggleControllers[AutoStealToggle]
                 if controller then
                     controller.SetEnabled(false, false)
@@ -1782,6 +1791,14 @@ end))
         end
 
         local function SetAutoStealEnabled(enabled)
+            if enabled and not HasSelectedFilter() then
+                enabled = false
+                if StatusValue then
+                    StatusValue.Text = "Select at least 1 filter"
+                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                end
+            end
+
             AutoStealEnabled = enabled
             Runtime.AutoStealEnabled = enabled
 
@@ -2140,8 +2157,8 @@ end))
                 SetAutoStealEnabled(false)
                 return            end
 
-            if next(SelectedPaths) == nil then
-                SetNavigationStatus("Select a path")
+            if not HasSelectedFilter() then
+                SetNavigationStatus("Select at least 1 filter")
                 SetAutoStealEnabled(false)
                 return
             end
@@ -2285,6 +2302,7 @@ end))
 
             local function GetSelectedCages()
                 local cages = {}
+                if not HasSelectedFilter() then return cages end
                 local pathsFolder = workspace:FindFirstChild("Paths")
                 if not pathsFolder then return cages end
 
