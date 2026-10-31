@@ -2409,18 +2409,24 @@ Pages[1].Visible = true
 SidebarButtons[1].TextColor3 = Theme.Text
 -- WINDOW CONTROLS
 local Minimized = false
+local ExpandedPosition = Main.Position
 local function SetMinimized(state)
     Minimized = state
     if Minimized then
+        ExpandedPosition = Main.Position
         Content.Visible = false
         Sidebar.Visible = false
         TopBar.Visible = false
         RestoreButton.Visible = true
         MainCorner.CornerRadius = UDim.new(0, 18)
-        Tween(Main, {Size = UDim2.fromOffset(36, 36)})
+        Tween(Main, {
+            Size = UDim2.fromOffset(36, 36),
+            Position = UDim2.new(1, -46, 0, 10)
+        })
     else
         RestoreButton.Visible = false
         MainCorner.CornerRadius = UDim.new(0, 12)
+        Main.Position = ExpandedPosition
         Tween(Main, {Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height)})
         TopBar.Visible = true
         Content.Visible = true
