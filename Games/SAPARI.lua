@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.7"
+local testver = "Deploy ver 1.8"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1682,6 +1682,32 @@ end))
             return GetRidingPetRoot(root) ~= nil
         end
 
+        local function GetOwnedPlotPosition()
+            local hub = workspace:FindFirstChild("Hub")
+            local plots = hub and hub:FindFirstChild("Plots")
+            if not plots then return nil end
+
+            for _, plot in ipairs(plots:GetChildren()) do
+                local ownerDisplay = plot:FindFirstChild("OwnerDisplay")
+                local gui = ownerDisplay and ownerDisplay:FindFirstChild("Gui")
+                local playerName = gui and gui:FindFirstChild("PlayerName")
+
+                if playerName and playerName:IsA("TextLabel")
+                and playerName.Text == LocalPlayer.Name then
+                    if ownerDisplay:IsA("BasePart") then
+                        return ownerDisplay.Position
+                    end
+                    if ownerDisplay:IsA("Model") then
+                        return ownerDisplay:GetPivot().Position
+                    end
+                    local displayPart = ownerDisplay:FindFirstChildWhichIsA("BasePart", true)
+                    return displayPart and displayPart.Position or nil
+                end
+            end
+
+            return nil
+        end
+
         local function GetNavigationRoot(root)
             return GetRidingPetRoot(root) or root
         end
@@ -2025,8 +2051,11 @@ end))
 
                 local characterJump = (currentRoot.Position - previousCharacterPosition).Magnitude
                 local navigationJump = (currentNavigationRoot.Position - previousNavigationPosition).Magnitude
+                local ownedPlotPosition = GetOwnedPlotPosition()
                 local characterAtBase = (currentRoot.Position - safeSign.Position).Magnitude <= 65
+                    or (ownedPlotPosition and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65)
                 local navigationRootAtBase = (currentNavigationRoot.Position - safeSign.Position).Magnitude <= 65
+                    or (ownedPlotPosition and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65)
 
                 previousCharacterPosition = currentRoot.Position
                 previousNavigationPosition = currentNavigationRoot.Position
@@ -2319,10 +2348,16 @@ end))
                         SetNavigationStatus("Walking back to safe zone")
                     end
 
+                    local safeZoneDestination = safeSign.Position
+                    local ridingPetRoot = GetRidingPetRoot(root)
+                    if ridingPetRoot then
+                        safeZoneDestination -= root.Position - ridingPetRoot.Position
+                    end
+
                     reachedSafeZone = MoveToPosition(
                         root,
                         humanoid,
-                        safeSign.Position,
+                        safeZoneDestination,
                         token,
                         false,
                         MovementMode == "Glide"
