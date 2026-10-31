@@ -979,6 +979,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local SelectedRarities = {}
         local MovementMode = "Walk"
         local AutoStealEnabled = false
+        local AutoTreadmillEnabled = false
+        local AutoTreadmillStatusValue
+        local AutoTreadmillStatusDot
         local StatusValue
         local StatusDot
 
@@ -2215,6 +2218,81 @@ end))
                 return cages
             end
 
+            local function WaitAtTreadmillUntilCage(root, humanoid, token)
+                local hub = workspace:FindFirstChild("Hub")
+                local plots = hub and hub:FindFirstChild("Plots")
+                local plot = plots and plots:FindFirstChild("Plot3")
+                local treadmill = plot and plot:FindFirstChild("Treadmill")
+
+                if not treadmill or not treadmill:IsA("BasePart") then
+                    if AutoTreadmillStatusValue then
+                        AutoTreadmillStatusValue.Text = "Treadmill unavailable"
+                        AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                    end
+                    if AutoTreadmillStatusDot then
+                        AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                    end
+                    return
+                end
+
+                local destination = treadmill.Position
+                local nextMoveRefresh = 0
+                local arrived = false
+
+                if AutoTreadmillStatusValue then
+                    AutoTreadmillStatusValue.Text = "Walking"
+                    AutoTreadmillStatusValue.TextColor3 = Theme.Accent
+                end
+                if AutoTreadmillStatusDot then
+                    AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                end
+
+                while token == navigationToken and not Runtime.Stopped
+                and AutoTreadmillEnabled and AutoStealEnabled do
+                    if #GetSelectedCages() > 0 then
+                        humanoid:MoveTo(root.Position)
+                        humanoid.Jump = true
+                        pcall(function()
+                            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                        end)
+                        if AutoTreadmillStatusValue then
+                            AutoTreadmillStatusValue.Text = "Waiting"
+                            AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                        end
+                        if AutoTreadmillStatusDot then
+                            AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                        end
+                        return
+                    end
+
+                    if not root.Parent or not humanoid.Parent then
+                        return
+                    end
+
+                    local distance = (root.Position - destination).Magnitude
+                    if distance <= 4 then
+                        if not arrived then
+                            humanoid:MoveTo(root.Position)
+                            arrived = true
+                        end
+                    elseif os.clock() >= nextMoveRefresh then
+                        humanoid:MoveTo(destination)
+                        nextMoveRefresh = os.clock() + 1
+                    end
+
+                    RunService.Heartbeat:Wait()
+                end
+
+                humanoid:MoveTo(root.Position)
+                if not AutoTreadmillEnabled and AutoTreadmillStatusValue then
+                    AutoTreadmillStatusValue.Text = "Disabled"
+                    AutoTreadmillStatusValue.TextColor3 = Theme.Gray
+                    if AutoTreadmillStatusDot then
+                        AutoTreadmillStatusDot.BackgroundColor3 = Theme.Gray
+                    end
+                end
+            end
+
             local function MoveToCage(root, humanoid, destination, token)
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
@@ -2290,6 +2368,18 @@ end))
 
                 local selectedCages = GetSelectedCages()
                 if #selectedCages == 0 then
+                    if AutoTreadmillEnabled and MovementMode == "Walk" then
+                        SetNavigationStatus("Scanning for available cages")
+                        local character = LocalPlayer.Character
+                        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                        local root = character and character:FindFirstChild("HumanoidRootPart")
+                        if humanoid and root then
+                            WaitAtTreadmillUntilCage(root, humanoid, token)
+                        else
+                            task.wait(0.25)
+                        end
+                        continue
+                    end
                     if MovementMode == "Walk" then
                         SetNavigationStatus("Scanning for available cages")
                         task.wait(0.25)
@@ -2607,12 +2697,35 @@ end))
             })
 
             local Toggle = CreateToggle(Card, "", false, function(enabled)
-                StatusValue.Text = enabled and "Enabled" or "Disabled"
-                StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
-                StatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+                if title == "Auto Treadmill" then
+                    AutoTreadmillEnabled = enabled
+                    if not enabled then
+                        StatusValue.Text = "Disabled"
+                        StatusValue.TextColor3 = Theme.Gray
+                        StatusDot.BackgroundColor3 = Theme.Gray
+                    elseif AutoStealEnabled then
+                        StatusValue.Text = "Waiting for scan"
+                        StatusValue.TextColor3 = Theme.Accent
+                        StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                    else
+                        StatusValue.Text = "Enabled"
+                        StatusValue.TextColor3 = Theme.Accent
+                        StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                    end
+                    AutoTreadmillStatusValue = StatusValue
+                    AutoTreadmillStatusDot = StatusDot
+                else
+                    StatusValue.Text = enabled and "Enabled" or "Disabled"
+                    StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
+                    StatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+                end
             end)
             Toggle.Position = UDim2.new(1, -49, 0, 6)
             Toggle.Size = UDim2.fromOffset(38, 24)
+            if title == "Auto Treadmill" then
+                AutoTreadmillStatusValue = StatusValue
+                AutoTreadmillStatusDot = StatusDot
+            end
             return Card
         end
 
