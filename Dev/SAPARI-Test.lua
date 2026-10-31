@@ -2418,6 +2418,7 @@ end))
             local previousNavigationPosition
             local ownedPlotPosition = GetOwnedPlotPosition()
             local safeZoneNavigationActive = false
+            local baseTeleportRecoveryPending = false
             local nextRootScanAt = 0
 
             baseTeleportConnection = RunService.Heartbeat:Connect(function()
@@ -2464,6 +2465,7 @@ end))
                 if not baseTeleportDetected and ownedPlotPosition
                 and not safeZoneNavigationActive and navigationEnteredOwnedPlot then
                     baseTeleportDetected = true
+                    baseTeleportRecoveryPending = true
                     CancelActiveMovement()
                     RestoreFloating()
                     SetNavigationStatus("Base teleport detected - waiting 12s")
@@ -2778,6 +2780,7 @@ end))
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
                         safeZoneNavigationActive = false
                         if reachedSafeZone then
+                            baseTeleportRecoveryPending = false
                             SetNavigationStatus("Safe zone reached")
                             return true
                         end
@@ -2816,6 +2819,12 @@ end))
 
                 if baseTeleportDetected then
                     if not WaitForBaseTeleport() then return end
+                end
+
+                if baseTeleportRecoveryPending then
+                    SetNavigationStatus("Returning to safe zone after base teleport")
+                    if not WalkToSafeZoneAtStart() then return end
+                    continue
                 end
 
                 local selectedCages = GetSelectedCages(LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
