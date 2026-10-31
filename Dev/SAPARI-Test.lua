@@ -2656,7 +2656,22 @@ end))
 
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
-                    return MoveToPosition(root, humanoid, destination, token, true), "Failed to reach cage"
+                    local reached = MoveToPosition(root, humanoid, destination, token, true)
+                    if reached then
+                        return true
+                    end
+
+                    if token ~= navigationToken or Runtime.Stopped then
+                        return false, "Navigation stopped"
+                    end
+
+                    SetNavigationStatus("Rechecking cage position")
+                    if IsPetAtCage() then
+                        SetNavigationStatus("Cage nearby - checking steal prompt")
+                        return true
+                    end
+
+                    return false, "Failed to reach cage"
                 end
 
                 local ridingOffset = root.Position - navigationRoot.Position
