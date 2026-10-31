@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.12"
+local testver = "Deploy ver 1.13"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2587,8 +2587,20 @@ end))
                     local character = LocalPlayer.Character
                     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                     local root = character and character:FindFirstChild("HumanoidRootPart")
-                    local cagePosition = selectedCage:GetPivot().Position
-                    local stealPrompt = selectedCage:FindFirstChild("StealPrompt", true)
+                    local pivotOk, cagePosition = pcall(function()
+                        return selectedCage:GetPivot().Position
+                    end)
+                    if not pivotOk or not cagePosition then
+                        SetNavigationStatus("Invalid cage - skipping")
+                        continue
+                    end
+                    local promptOk, stealPrompt = pcall(function()
+                        return selectedCage:FindFirstChild("StealPrompt", true)
+                    end)
+                    if not promptOk then
+                        SetNavigationStatus("Cage prompt error - skipping")
+                        continue
+                    end
 
                     if not humanoid or not root
                     or not stealPrompt or not stealPrompt:IsA("ProximityPrompt") then
@@ -2597,7 +2609,15 @@ end))
                     end
 
                     SetFloating(root, false)
-                    local reachedCage, navigationFailure = MoveToCage(root, humanoid, cagePosition, token)
+                    local moveOk, reachedCage, navigationFailure = pcall(function()
+                        local reached, failure = MoveToCage(root, humanoid, cagePosition, token)
+                        return reached, failure
+                    end)
+                    if not moveOk then
+                        RestoreFloating()
+                        SetNavigationStatus("Cage navigation error - skipping")
+                        continue
+                    end
                     if not reachedCage then
                         RestoreFloating()
                         if bossCaughtDetected then
@@ -2609,10 +2629,9 @@ end))
                             break
                         end
                         if token == navigationToken then
-                            SetAutoStealEnabled(false)
-                            SetNavigationStatus(navigationFailure or "Navigation stopped")
+                            SetNavigationStatus((navigationFailure or "Cage navigation failed") .. " - skipping cage")
                         end
-                        return
+                        continue
                     end
 
                     if token ~= navigationToken or Runtime.Stopped then
@@ -2701,10 +2720,9 @@ end))
                     if not holdOk or not holdCompleted then
                         RestoreFloating()
                         if token == navigationToken then
-                            SetAutoStealEnabled(false)
-                            SetNavigationStatus("Steal prompt failed")
+                            SetNavigationStatus("Steal prompt failed - skipping cage")
                         end
-                        return
+                        continue
                     end
 
                     if token ~= navigationToken or Runtime.Stopped then
