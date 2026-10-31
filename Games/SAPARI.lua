@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.22"
+local testver = "Deploy ver 1.23"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2220,7 +2220,7 @@ end))
                         if distance <= 4 then
                             humanoid:MoveTo(root.Position)
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Working"
+                                AutoTreadmillStatusValue.Text = "Running"
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
                             end
                             if AutoTreadmillStatusDot then
@@ -2542,7 +2542,7 @@ end))
                             humanoid:MoveTo(root.Position)
                             arrived = true
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Working"
+                                AutoTreadmillStatusValue.Text = "Running"
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
                             end
                             if AutoTreadmillStatusDot then
@@ -3176,7 +3176,35 @@ end))
                 AutoTreadmillStatusValue = StatusValue
                 AutoTreadmillStatusDot = StatusDot
 
+                local tapBoostConnection
+
                 local TapBoostToggle = CreateToggle(Card, "Auto Tap Boost", false, function(enabled)
+                    if tapBoostConnection then
+                        tapBoostConnection:Disconnect()
+                        tapBoostConnection = nil
+                    end
+
+                    if not enabled then
+                        return
+                    end
+
+                    local shared = ReplicatedStorage:FindFirstChild("Shared")
+                    local remotes = shared and shared:FindFirstChild("Remotes")
+                    local tapBoostRemote = remotes and remotes:FindFirstChild("TapBoost")
+
+                    if not tapBoostRemote or not tapBoostRemote:IsA("RemoteEvent") then
+                        return
+                    end
+
+                    tapBoostConnection = TrackConnection(tapBoostRemote.OnClientEvent:Connect(function(action, offerId)
+                        if not enabled or action ~= "Offer" then
+                            return
+                        end
+
+                        if typeof(offerId) == "number" then
+                            tapBoostRemote:FireServer(offerId)
+                        end
+                    end))
                 end)
                 TapBoostToggle.Position = UDim2.fromOffset(11, 66)
                 TapBoostToggle.Size = UDim2.new(1, -22, 0, 22)
