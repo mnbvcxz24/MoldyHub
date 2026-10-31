@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.15"
+local testver = "Deploy ver 1.16"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2554,13 +2554,14 @@ end))
 
                 local selectedCages = GetSelectedCages()
                 if #selectedCages == 0 then
-                    if AutoTreadmillEnabled and MovementMode == "Walk" then
-                        SetNavigationStatus("Scanning for available cages")
+                    if AutoTreadmillEnabled then
+                        SetNavigationStatus("Walking to treadmill")
                         local character = LocalPlayer.Character
                         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                         local root = character and character:FindFirstChild("HumanoidRootPart")
                         if humanoid and root then
                             WaitAtTreadmillUntilCage(root, humanoid, token)
+                            task.wait(0.25)
                         else
                             task.wait(0.25)
                         end
