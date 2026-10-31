@@ -2576,6 +2576,10 @@ end))
                 local petDestination = approachPosition - ridingOffset
                 SetNavigationStatus("Walking to cage")
                 if not MoveToPosition(root, humanoid, petDestination, token, false, true) then
+                    if IsPetAtCage() then
+                        SetNavigationStatus("Cage nearby")
+                        return true
+                    end
                     return false, "Failed to reach cage"
                 end
                 SetNavigationStatus("Cage reached")
