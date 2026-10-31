@@ -1874,6 +1874,40 @@ end))
             end
         end
 
+        local function BrakeAtDestination(root, humanoid, token)
+            if token ~= navigationToken or Runtime.Stopped
+            or not root or not root.Parent
+            or not humanoid or not humanoid.Parent then
+                return
+            end
+
+            local navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent then
+                return
+            end
+
+            local velocity = navigationRoot.AssemblyLinearVelocity
+            local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+            local speed = horizontalVelocity.Magnitude
+
+            humanoid:MoveTo(root.Position)
+            if speed >= 2.5 then
+                humanoid:Move(-horizontalVelocity.Unit, false)
+                local brakeUntil = os.clock() + math.clamp(speed / 100, 0.08, 0.16)
+                while os.clock() < brakeUntil do
+                    if token ~= navigationToken or Runtime.Stopped
+                    or not root.Parent or not humanoid.Parent then
+                        break
+                    end
+                    RunService.Heartbeat:Wait()
+                end
+            end
+
+            if humanoid.Parent then
+                humanoid:Move(Vector3.zero, false)
+                humanoid:MoveTo(root.Position)
+            end
+        end
         local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk)
             if token ~= navigationToken or Runtime.Stopped then
                 return false
@@ -1918,7 +1952,7 @@ end))
                     end
 
                     if IsNavigationAtDestination(navigationRoot, destination) then
-                        humanoid:MoveTo(root.Position)
+                        BrakeAtDestination(root, humanoid, token)
                         return true
                     end
 
@@ -1972,7 +2006,7 @@ end))
                     end
 
                     if IsNavigationAtDestination(navigationRoot, destination) then
-                        humanoid:MoveTo(root.Position)
+                        BrakeAtDestination(root, humanoid, token)
                         return true
                     end
 
@@ -2001,7 +2035,7 @@ end))
                 local horizontalDistance = horizontal.Magnitude
 
                 if IsNavigationAtDestination(navigationRoot, destination) then
-                    humanoid:MoveTo(root.Position)
+                    BrakeAtDestination(root, humanoid, token)
                     SetFloating(navigationRoot, false)
                     return true
                 end
@@ -2075,7 +2109,7 @@ end))
                     end
 
                     if IsNavigationAtDestination(navigationRoot, destination) then
-                        humanoid:MoveTo(root.Position)
+                        BrakeAtDestination(root, humanoid, token)
                         return true
                     end
 
