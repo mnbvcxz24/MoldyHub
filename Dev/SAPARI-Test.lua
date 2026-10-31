@@ -1886,20 +1886,41 @@ end))
                 return
             end
 
-            local velocity = navigationRoot.AssemblyLinearVelocity
-            local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
-            local speed = horizontalVelocity.Magnitude
-
             humanoid:MoveTo(root.Position)
-            if speed >= 2.5 then
-                humanoid:Move(-horizontalVelocity.Unit, false)
-                local brakeUntil = os.clock() + math.clamp(speed / 100, 0.08, 0.16)
-                while os.clock() < brakeUntil do
-                    if token ~= navigationToken or Runtime.Stopped
-                    or not root.Parent or not humanoid.Parent then
-                        break
+            humanoid:Move(Vector3.zero, false)
+
+            if not navigationRoot.Anchored then
+                local velocity = navigationRoot.AssemblyLinearVelocity
+                local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+                local speed = horizontalVelocity.Magnitude
+
+                if speed >= 2 then
+                    local attachment = Instance.new("Attachment")
+                    attachment.Name = "SAPARIBrakeAttachment"
+                    attachment.Parent = navigationRoot
+
+                    local brake = Instance.new("VectorForce")
+                    brake.Name = "SAPARIMomentumBrake"
+                    brake.Attachment0 = attachment
+                    brake.RelativeTo = Enum.ActuatorRelativeTo.World
+                    brake.ApplyAtCenterOfMass = true
+                    brake.Force = -horizontalVelocity.Unit
+                        * navigationRoot.AssemblyMass
+                        * math.clamp(speed / 0.18, 0, 220)
+                    brake.Parent = navigationRoot
+
+                    local brakeUntil = os.clock() + 0.18
+                    while os.clock() < brakeUntil do
+                        if token ~= navigationToken or Runtime.Stopped
+                        or not root.Parent or not humanoid.Parent
+                        or not navigationRoot.Parent then
+                            break
+                        end
+                        RunService.Heartbeat:Wait()
                     end
-                    RunService.Heartbeat:Wait()
+
+                    brake:Destroy()
+                    attachment:Destroy()
                 end
             end
 
