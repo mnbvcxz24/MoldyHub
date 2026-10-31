@@ -2514,19 +2514,37 @@ end))
             end
 
             local function MoveToCage(root, humanoid, destination, token)
+                local navigationRoot = GetNavigationRoot(root)
+                if not navigationRoot or not navigationRoot.Parent then
+                    return false, "Pet root unavailable"
+                end
+
+                local delta = destination - navigationRoot.Position
+                local horizontalDistance = Vector3.new(delta.X, 0, delta.Z).Magnitude
+                if horizontalDistance <= 12 and math.abs(delta.Y) <= 20 then
+                    SetNavigationStatus("Cage nearby")
+                    return true
+                end
+
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
                     return MoveToPosition(root, humanoid, destination, token, true), "Failed to reach cage"
                 end
-                local navigationRoot = GetNavigationRoot(root)
-                if not navigationRoot or not navigationRoot.Parent then return false, "Pet root unavailable" end
+
                 local ridingOffset = root.Position - navigationRoot.Position
-                local approachDirection = Vector3.new(navigationRoot.Position.X - destination.X, 0, navigationRoot.Position.Z - destination.Z)
+                local approachDirection = Vector3.new(
+                    navigationRoot.Position.X - destination.X,
+                    0,
+                    navigationRoot.Position.Z - destination.Z
+                )
                 if approachDirection.Magnitude < 0.01 then
                     local look = root.CFrame.LookVector
                     approachDirection = Vector3.new(look.X, 0, look.Z)
                 end
-                if approachDirection.Magnitude < 0.01 then approachDirection = Vector3.new(0, 0, -1) end
+                if approachDirection.Magnitude < 0.01 then
+                    approachDirection = Vector3.new(0, 0, -1)
+                end
+
                 local approachPosition = destination + approachDirection.Unit * 3.5
                 local petDestination = approachPosition - ridingOffset
                 SetNavigationStatus("Walking to cage")
