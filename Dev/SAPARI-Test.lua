@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.35"
+local testver = "Test ver: 1.36"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2274,6 +2274,13 @@ end))
                         if not arrived then
                             humanoid:MoveTo(root.Position)
                             arrived = true
+                            if AutoTreadmillStatusValue then
+                                AutoTreadmillStatusValue.Text = "Working"
+                                AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                            if AutoTreadmillStatusDot then
+                                AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                            end
                         end
                     elseif os.clock() >= nextMoveRefresh then
                         humanoid:MoveTo(destination)
