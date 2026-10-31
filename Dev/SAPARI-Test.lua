@@ -2297,10 +2297,8 @@ end))
                                 local rarity = cage:GetAttribute("Rarity")
                                 local rarityMatches = rarity ~= nil and SelectedRarities[tostring(rarity)] == true
                                 if pathMatches or rarityMatches then
-                                    local cageRoot = cage:FindFirstChild("Root")
-                                    local stealPrompt = cageRoot and cageRoot:FindFirstChild("StealPrompt")
-                                    if cageRoot and cageRoot:IsA("BasePart")
-                                    and stealPrompt and stealPrompt:IsA("ProximityPrompt")
+                                    local stealPrompt = cage:FindFirstChild("StealPrompt", true)
+                                    if stealPrompt and stealPrompt:IsA("ProximityPrompt")
                                     and stealPrompt.Enabled then
                                         table.insert(cages, cage)
                                     end
@@ -2512,18 +2510,17 @@ end))
                     local character = LocalPlayer.Character
                     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                     local root = character and character:FindFirstChild("HumanoidRootPart")
-                    local cageRoot = selectedCage:FindFirstChild("Root")
-                    local stealPrompt = cageRoot and cageRoot:FindFirstChild("StealPrompt")
+                    local cagePosition = selectedCage:GetPivot().Position
+                    local stealPrompt = selectedCage:FindFirstChild("StealPrompt", true)
 
-                    if not humanoid or not root or not cageRoot
-                    or not cageRoot:IsA("BasePart")
+                    if not humanoid or not root
                     or not stealPrompt or not stealPrompt:IsA("ProximityPrompt") then
                         SetNavigationStatus("Target unavailable")
                         continue
                     end
 
                     SetFloating(root, false)
-                    local reachedCage, navigationFailure = MoveToCage(root, humanoid, cageRoot.Position, token)
+                    local reachedCage, navigationFailure = MoveToCage(root, humanoid, cagePosition, token)
                     if not reachedCage then
                         RestoreFloating()
                         if bossCaughtDetected then
@@ -2563,17 +2560,17 @@ end))
                         continue
                     end
 
-                    local promptDistance = (root.Position - cageRoot.Position).Magnitude
+                    local promptDistance = (root.Position - cagePosition).Magnitude
                     if promptDistance > stealPrompt.MaxActivationDistance then
                         local ridingOffset = root.Position - navigationRoot.Position
-                        local closeTarget = cageRoot.Position - ridingOffset
+                        local closeTarget = cagePosition - ridingOffset
                         SetNavigationStatus("Closing in on cage")
                         if not MoveToPosition(root, humanoid, closeTarget, token, true) then
                             RestoreFloating()
                             SetNavigationStatus("Cage out of reach")
                             continue
                         end
-                        promptDistance = (root.Position - cageRoot.Position).Magnitude
+                        promptDistance = (root.Position - cagePosition).Magnitude
                     end
 
                     if not stealPrompt.Enabled
@@ -2589,7 +2586,7 @@ end))
                     local holdCompleted = false
                     local holdOk = pcall(function()
                         if not stealPrompt.Enabled
-                        or (root.Position - cageRoot.Position).Magnitude > stealPrompt.MaxActivationDistance then
+                        or (root.Position - cagePosition).Magnitude > stealPrompt.MaxActivationDistance then
                             return
                         end
 
