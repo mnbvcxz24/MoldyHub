@@ -1109,8 +1109,31 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
+        local activeWorldPathsFolder
+
+        local function GetActiveWorldPathsFolder()
+            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
+            if not safeSign then return nil, nil, nil end
+
+            local worldFolder
+            local current = safeSign
+            while current and current ~= workspace do
+                if current.Name == "World2" or current.Name == "Hub" then
+                    worldFolder = current
+                    break
+                end
+                current = current.Parent
+            end
+
+            local pathsFolder = worldFolder and worldFolder:FindFirstChild("Paths")
+            if pathsFolder ~= activeWorldPathsFolder then
+                table.clear(SelectedPaths)
+                activeWorldPathsFolder = pathsFolder
+            end
+            return pathsFolder, worldFolder, safeSign
+        end
         local function GetPathFolders()
-            local pathsFolder = workspace:FindFirstChild("Paths")
+            local pathsFolder = GetActiveWorldPathsFolder()
             local results = {}
             if pathsFolder then
                 for _, child in ipairs(pathsFolder:GetChildren()) do
@@ -2252,17 +2275,16 @@ end))
                 SetAutoStealEnabled(false)
                 return            end
 
-            if not HasSelectedFilter() then
-                SetNavigationStatus("Select at least 1 filter")
+            local pathsFolder, worldFolder, safeSign = GetActiveWorldPathsFolder()
+            if not safeSign or not safeSign:IsA("BasePart")
+            or not worldFolder or not pathsFolder then
+                SetNavigationStatus("World paths unavailable")
                 SetAutoStealEnabled(false)
                 return
             end
 
-            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
-            local pathsFolder = workspace:FindFirstChild("Paths")
-
-            if not safeSign or not safeSign:IsA("BasePart") then
-                SetNavigationStatus("Safe zone unavailable")
+            if not HasSelectedFilter() then
+                SetNavigationStatus("Select at least 1 filter")
                 SetAutoStealEnabled(false)
                 return
             end
@@ -2440,7 +2462,7 @@ end))
                     return cages
                 end
 
-                local pathsFolder = workspace:FindFirstChild("Paths")
+                local pathsFolder = GetActiveWorldPathsFolder()
                 if not pathsFolder then
                     return cages
                 end
