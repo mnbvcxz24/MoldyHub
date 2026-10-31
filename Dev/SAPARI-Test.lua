@@ -1105,149 +1105,64 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
-        local CachedPathsFolder
+        local CachedPathsFolder = workspace:FindFirstChild("Paths")
         local CachedPathFolders = {}
-        local CachedPathParts = {}
-        local PathCacheConnections = {}
-
-        local function CachePathFolder(pathObject)
-            if not pathObject or not pathObject:IsA("Folder") then return end
-            local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
-            if not pathNumber or pathNumber < 1 or pathNumber > 20 then return end
-            if CachedPathFolders[pathNumber] == pathObject then return end
-
-            CachedPathFolders[pathNumber] = pathObject
-            CachedPathParts[pathNumber] = {}
-
-            local function CachePart(instance)
-                if instance:IsA("BasePart") then
-                    table.insert(CachedPathParts[pathNumber], instance)
-                end
-            end
-
-            for _, descendant in ipairs(pathObject:GetDescendants()) do
-                CachePart(descendant)
-            end
-
-            table.insert(PathCacheConnections, pathObject.DescendantAdded:Connect(CachePart))
-        end
-
-        local function AttachPathsFolder(pathsFolder)
-            if not pathsFolder or not pathsFolder:IsA("Folder")
-            or CachedPathsFolder == pathsFolder then
-                return
-            end
-
-            CachedPathsFolder = pathsFolder
-            table.clear(CachedPathFolders)
-            table.clear(CachedPathParts)
-
-            for _, pathObject in ipairs(pathsFolder:GetChildren()) do
-                CachePathFolder(pathObject)
-            end
-
-            table.insert(PathCacheConnections, pathsFolder.ChildAdded:Connect(CachePathFolder))
-            table.insert(PathCacheConnections, pathsFolder.ChildRemoved:Connect(function(pathObject)
-                local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
-                if pathNumber and CachedPathFolders[pathNumber] == pathObject then
-                    CachedPathFolders[pathNumber] = nil
-                    CachedPathParts[pathNumber] = nil
-                end
-            end))
-        end
-
-        AttachPathsFolder(workspace:FindFirstChild("Paths"))
-        table.insert(PathCacheConnections, workspace.ChildAdded:Connect(function(child)
-            if child.Name == "Paths" then
-                AttachPathsFolder(child)
-            end
-        end))
-
         local CachedActiveWorldFolder
+        local CachedSafeZoneSign = workspace:FindFirstChild("SafeZoneSign", true)
+
+        if CachedPathsFolder then
+            for _, pathObject in ipairs(CachedPathsFolder:GetChildren()) do
+                if pathObject:IsA("Folder") then
+                    local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
+                    if pathNumber and pathNumber >= 1 and pathNumber <= 20 then
+                        CachedPathFolders[pathNumber] = pathObject
+                    end
+                end
+            end
+        end
+
+        if CachedSafeZoneSign then
+            CachedActiveWorldFolder = CachedSafeZoneSign:FindFirstAncestor("Hub")
+                or CachedSafeZoneSign:FindFirstAncestor("World2")
+        end
 
         local function GetActiveWorldPathsFolder()
-            if not CachedPathsFolder then
-                AttachPathsFolder(workspace:FindFirstChild("Paths"))
-            end
-            local pathsFolder = CachedPathsFolder
-            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
-
-            if not CachedActiveWorldFolder then
-                local world2Folder = workspace:FindFirstChild("World2")
-                local hubFolder = workspace:FindFirstChild("Hub")
-                local character = LocalPlayer.Character
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-
-                if root then
-                    local closestWorld1Distance = math.huge
-                    local closestWorld2Distance = math.huge
-
-                    for pathNumber = 1, 20 do
-                        local parts = CachedPathParts[pathNumber]
-                        if parts then
-                            for index = #parts, 1, -1 do
-                                local part = parts[index]
-                                if not part or not part.Parent then
-                                    table.remove(parts, index)
-                                else
-                                    local distance = (part.Position - root.Position).Magnitude
-                                    if pathNumber <= 10 then
-                                        if distance < closestWorld1Distance then
-                                            closestWorld1Distance = distance
-                                        end
-                                    elseif distance < closestWorld2Distance then
-                                        closestWorld2Distance = distance
-                                    end
-                                end
-                            end
-                        end
-                    end
-
-                    if closestWorld1Distance < math.huge or closestWorld2Distance < math.huge then
-                        CachedActiveWorldFolder = closestWorld1Distance <= closestWorld2Distance
-                            and hubFolder or world2Folder
-                    end
-                end
-            end
-
-            if not CachedActiveWorldFolder or not pathsFolder
-            or not safeSign or not safeSign:IsA("BasePart") then
+            if not CachedPathsFolder or not CachedActiveWorldFolder
+            or not CachedSafeZoneSign then
                 return nil, nil, nil
             end
-
-            return pathsFolder, CachedActiveWorldFolder, safeSign
+            return CachedPathsFolder, CachedActiveWorldFolder, CachedSafeZoneSign
         end
+
         local function IsPathInActiveWorld(pathObject)
-            if not pathObject then return false end
-            local _, worldFolder = GetActiveWorldPathsFolder()
-            if not worldFolder then return false end
+            if not pathObject or not CachedActiveWorldFolder then return false end
             local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
             if not pathNumber then return false end
-            if worldFolder.Name == "World2" then
+            if CachedActiveWorldFolder.Name == "World2" then
                 return pathNumber >= 11 and pathNumber <= 20
             end
-            if worldFolder.Name == "Hub" then
+            if CachedActiveWorldFolder.Name == "Hub" then
                 return pathNumber >= 1 and pathNumber <= 10
             end
             return false
         end
 
         local function GetPathFolders()
-            local _, worldFolder = GetActiveWorldPathsFolder()
             local results = {}
-            if worldFolder then
-                local firstPath = worldFolder.Name == "World2" and 11 or 1
-                local lastPath = worldFolder.Name == "World2" and 20 or 10
-                for pathNumber = firstPath, lastPath do
-                    local pathObject = CachedPathFolders[pathNumber]
-                    if pathObject and pathObject.Parent == CachedPathsFolder then
-                        table.insert(results, pathObject)
-                    end
+            if not CachedPathsFolder or not CachedActiveWorldFolder then
+                return results
+            end
+
+            local firstPath = CachedActiveWorldFolder.Name == "World2" and 11 or 1
+            local lastPath = CachedActiveWorldFolder.Name == "World2" and 20 or 10
+
+            for pathNumber = firstPath, lastPath do
+                local pathObject = CachedPathFolders[pathNumber]
+                if pathObject and pathObject.Parent == CachedPathsFolder then
+                    table.insert(results, pathObject)
                 end
             end
-            table.sort(results, function(a, b)
-                return NaturalSortKey(a.Name) < NaturalSortKey(b.Name)
-            end)
+
             return results
         end
 
