@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.24"
+local testver = "Deploy ver 1.25"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -50,8 +50,8 @@ local UIConfig = {
         "Main",
         "Features",
         "Misc. feature",
-        "Settings",
-        }
+        "Settings"
+    }
 }
 -- THEME
 local Theme = {
@@ -951,6 +951,23 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local StatusDot
 
         local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
+            if enabled and (not Runtime.IsRidingPet or not Runtime.IsRidingPet()) then
+                local controller = ToggleControllers[AutoStealToggle]
+                if controller then
+                    controller.SetEnabled(false, false)
+                end
+                AutoStealEnabled = false
+                Runtime.AutoStealEnabled = false
+                if StatusValue then
+                    StatusValue.Text = "Please ride in a pet first"
+                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                end
+                if StatusDot then
+                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                end
+                return
+            end
+
             if enabled and not HasSelectedFilter() then
                 local controller = ToggleControllers[AutoStealToggle]
                 if controller then
@@ -1726,6 +1743,12 @@ end))
             return GetRidingPetRoot(root) ~= nil
         end
 
+        Runtime.IsRidingPet = function()
+            local character = LocalPlayer.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            return root ~= nil and GetRidingPetRoot(root) ~= nil
+        end
+
         local function GetOwnedPlotPosition()
             local hub = workspace:FindFirstChild("Hub")
             local plots = hub and hub:FindFirstChild("Plots")
@@ -2284,28 +2307,78 @@ end))
             local bossCaughtRemote = sharedRemotes and sharedRemotes:FindFirstChild("BossCaught")
 
             if bossCaughtRemote and bossCaughtRemote:IsA("RemoteEvent") then
-                bossCaughtConnection = bossCaughtRemote.OnClientEvent:Connect(function()
+                bossCaughtConnection = bossCaughtRemote.OnClientEvent:Connect(function(playerId, bossName, direction)
                     if token ~= navigationToken or Runtime.Stopped then return end
+                    if tonumber(playerId) ~= LocalPlayer.UserId then return end
+                    if bossCaughtDetected then return end
+
                     bossCaughtDetected = true
                     bossCaughtAt = os.clock()
-                    CancelActiveMovement()
-                    RestoreFloating()
+
+                    if activeNavigationTween then
+                        activeNavigationTween:Cancel()
+                    end
+
                     SetNavigationStatus("Boss caught - recovering")
                 end)
             end
 
             local function WaitForBossCaught()
                 if not bossCaughtDetected then return false end
-                CancelActiveMovement()
+
                 RestoreFloating()
-                SetNavigationStatus("Boss caught - recovering")
-                local waitUntil = bossCaughtAt + 2
-                while os.clock() < waitUntil do
-                    if token ~= navigationToken or Runtime.Stopped then return false end
-                    waitUntil = math.max(waitUntil, bossCaughtAt + 2)
-                    task.wait(math.min(0.1, waitUntil - os.clock()))
+                SetNavigationStatus("Boss caught - waiting for recovery")
+
+                local recoveryStarted = os.clock()
+                local recoveryTimeout = 12
+                local stableChecks = 0
+
+                while os.clock() - recoveryStarted < recoveryTimeout do
+                    if token ~= navigationToken or Runtime.Stopped then
+                        return false
+                    end
+
+                    local character = LocalPlayer.Character
+                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    local petRoot = root and GetRidingPetRoot(root)
+                    local state = humanoid and humanoid:GetState()
+
+                    local characterRecovered = humanoid
+                        and humanoid.Health > 0
+                        and root and root.Parent
+                        and state ~= Enum.HumanoidStateType.GettingUp
+                        and state ~= Enum.HumanoidStateType.FallingDown
+                        and state ~= Enum.HumanoidStateType.Freefall
+                        and state ~= Enum.HumanoidStateType.Physics
+                        and state ~= Enum.HumanoidStateType.PlatformStanding
+                        and state ~= Enum.HumanoidStateType.Ragdoll
+                        and state ~= Enum.HumanoidStateType.Dead
+
+                    if characterRecovered and petRoot and petRoot.Parent then
+                        stableChecks += 1
+                        if stableChecks >= 3 then
+                            break
+                        end
+                    else
+                        stableChecks = 0
+                    end
+
+                    task.wait(0.2)
                 end
-                if token ~= navigationToken or Runtime.Stopped then return false end
+
+                if token ~= navigationToken or Runtime.Stopped then
+                    return false
+                end
+
+                if stableChecks < 3 then
+                    bossCaughtDetected = false
+                    baseTeleportDetected = false
+                    SetAutoStealEnabled(false)
+                    SetNavigationStatus("Recovery timed out - please ride a pet again")
+                    return false
+                end
+
                 bossCaughtDetected = false
                 baseTeleportDetected = false
                 SetNavigationStatus("Recovery complete - resuming cage scan")
@@ -2315,6 +2388,7 @@ end))
             local previousCharacterPosition
             local previousNavigationRoot
             local previousNavigationPosition
+            local nextRootScanAt = 0
 
             baseTeleportConnection = RunService.Heartbeat:Connect(function()
                 if token ~= navigationToken or Runtime.Stopped then
@@ -2324,6 +2398,15 @@ end))
                     end
                     return
                 end
+
+                if bossCaughtDetected then
+                    return
+                end
+
+                if os.clock() < nextRootScanAt then
+                    return
+                end
+                nextRootScanAt = os.clock() + 0.5
 
                 local character = LocalPlayer.Character
                 local currentRoot = character and character:FindFirstChild("HumanoidRootPart")
@@ -2335,8 +2418,13 @@ end))
                     return
                 end
 
-                local currentNavigationRoot = GetNavigationRoot(currentRoot)
+                local currentNavigationRoot = GetRidingPetRoot(currentRoot) or currentRoot
+                local ownedPlotPosition = GetOwnedPlotPosition()
                 if not currentNavigationRoot or not currentNavigationRoot.Parent then
+                    previousCharacterRoot = nil
+                    previousCharacterPosition = nil
+                    previousNavigationRoot = nil
+                    previousNavigationPosition = nil
                     return
                 end
 
@@ -2353,7 +2441,6 @@ end))
 
                 local characterJump = (currentRoot.Position - previousCharacterPosition).Magnitude
                 local navigationJump = (currentNavigationRoot.Position - previousNavigationPosition).Magnitude
-                local ownedPlotPosition = GetOwnedPlotPosition()
                 local characterAtBase = (currentRoot.Position - safeSign.Position).Magnitude <= 65
                     or (ownedPlotPosition and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65)
                 local navigationRootAtBase = (currentNavigationRoot.Position - safeSign.Position).Magnitude <= 65
@@ -2427,15 +2514,6 @@ end))
 
                 local hasFilter = hasSelectedPath or hasSelectedRarity
 
-                for selectedPath, selected in pairs(SelectedPaths) do
-                    if selected then
-                    end
-                end
-                for selectedRarity, selected in pairs(SelectedRarities) do
-                    if selected then
-                    end
-                end
-
                 if not hasFilter then
                     return cages
                 end
@@ -2470,17 +2548,18 @@ end))
                         end
                     end
                 end
-                table.sort(cages, function(a, b)
-                    local function getPath(model)
-                        local names = {}
-                        local current = model
-                        while current and current ~= workspace do
-                            table.insert(names, 1, current.Name)
-                            current = current.Parent
-                        end
-                        return table.concat(names, "/")
+                local cageSortKeys = {}
+                for _, cage in ipairs(cages) do
+                    local names = {}
+                    local current = cage
+                    while current and current ~= workspace do
+                        table.insert(names, 1, current.Name)
+                        current = current.Parent
                     end
-                    return NaturalSortKey(getPath(a)) < NaturalSortKey(getPath(b))
+                    cageSortKeys[cage] = NaturalSortKey(table.concat(names, "/"))
+                end
+                table.sort(cages, function(a, b)
+                    return cageSortKeys[a] < cageSortKeys[b]
                 end)
                 return cages
             end
@@ -2513,6 +2592,11 @@ end))
 
                 while token == navigationToken and not Runtime.Stopped
                 and AutoTreadmillEnabled and AutoStealEnabled do
+                    if bossCaughtDetected or baseTeleportDetected then
+                        humanoid:MoveTo(root.Position)
+                        return
+                    end
+
                     if #GetSelectedCages() > 0 then
                         humanoid:MoveTo(root.Position)
                         if AutoTreadmillStatusValue then
