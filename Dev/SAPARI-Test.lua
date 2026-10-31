@@ -2320,7 +2320,23 @@ end))
             end
             local function GetSelectedCages()
                 local cages = {}
-                local hasFilter = HasSelectedFilter()
+                local hasSelectedPath = false
+                local hasSelectedRarity = false
+
+                for _, selected in pairs(SelectedPaths) do
+                    if selected == true then
+                        hasSelectedPath = true
+                        break
+                    end
+                end
+                for _, selected in pairs(SelectedRarities) do
+                    if selected == true then
+                        hasSelectedRarity = true
+                        break
+                    end
+                end
+
+                local hasFilter = hasSelectedPath or hasSelectedRarity
                 print("[SAPARI DEBUG] Scan start | HasFilter:", hasFilter)
 
                 for selectedPath, selected in pairs(SelectedPaths) do
@@ -2356,7 +2372,15 @@ end))
                             if cage:IsA("Model") then
                                 modelCount += 1
                                 local rarityMatches = MatchesSelectedRarity(cage)
-                                if pathMatches or rarityMatches then
+                                local matchesFilters
+                                if hasSelectedPath and hasSelectedRarity then
+                                    matchesFilters = pathMatches and rarityMatches
+                                elseif hasSelectedPath then
+                                    matchesFilters = pathMatches
+                                else
+                                    matchesFilters = rarityMatches
+                                end
+                                if matchesFilters then
                                     local stealPrompt = cage:FindFirstChild("StealPrompt", true)
                                     print("[SAPARI DEBUG] Cage:", cage:GetFullName(), "PathMatch:", pathMatches, "RarityMatch:", rarityMatches, "Prompt:", stealPrompt and stealPrompt.ClassName or "missing", "Enabled:", stealPrompt and stealPrompt.Enabled or false)
                                     if stealPrompt and stealPrompt:IsA("ProximityPrompt")
