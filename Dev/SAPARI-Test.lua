@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.47"
+local testver = "Test ver: 1.48"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2615,9 +2615,9 @@ end))
             end
 
             local function MoveToCage(root, humanoid, destination, token, cageModel)
-                local navigationRoot = GetNavigationRoot(root)
+                local navigationRoot = GetRidingPetRoot(root)
                 if not navigationRoot or not navigationRoot.Parent then
-                    return false, "Pet root unavailable"
+                    return false, "Riding pet root unavailable"
                 end
 
                 local function IsPetAtCage()
@@ -2878,10 +2878,10 @@ end))
                     end
                     cagePosition = promptPosition
 
-                    local navigationRoot = GetNavigationRoot(root)
+                    local navigationRoot = GetRidingPetRoot(root)
                     if not navigationRoot or not navigationRoot.Parent then
                         RestoreFloating()
-                        SetNavigationStatus("Pet root unavailable")
+                        SetNavigationStatus("Riding pet root unavailable")
                         continue
                     end
 
@@ -2894,10 +2894,10 @@ end))
                             SetNavigationStatus("Cage out of reach")
                             continue
                         end
-                        navigationRoot = GetNavigationRoot(root)
+                        navigationRoot = GetRidingPetRoot(root)
                         if not navigationRoot or not navigationRoot.Parent then
                             RestoreFloating()
-                            SetNavigationStatus("Pet root unavailable")
+                            SetNavigationStatus("Riding pet root unavailable")
                             continue
                         end
                         cagePosition = GetPromptWorldPosition(stealPrompt) or cagePosition
@@ -2916,7 +2916,7 @@ end))
                     local holdStarted = false
                     local holdCompleted = false
                     local holdOk = pcall(function()
-                        local currentNavigationRoot = GetNavigationRoot(root)
+                        local currentNavigationRoot = GetRidingPetRoot(root)
                         if not stealPrompt.Enabled
                         or not currentNavigationRoot
                         or not currentNavigationRoot.Parent then
