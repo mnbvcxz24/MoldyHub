@@ -1780,6 +1780,24 @@ end))
             return GetRidingPetRoot(root) or root
         end
 
+        local function GetPromptWorldPosition(prompt)
+            local current = prompt and prompt.Parent
+            while current and current ~= workspace do
+                if current:IsA("Attachment") then
+                    return current.WorldPosition
+                end
+                if current:IsA("BasePart") then
+                    return current.Position
+                end
+                current = current.Parent
+            end
+            return nil
+        end
+
+        local function GetHumanoidMoveDestination(root, navigationRoot, destination)
+            return destination + (root.Position - navigationRoot.Position)
+        end
+
         local function ShouldWalk(root)
             return MovementMode == "Walk"
         end
@@ -1876,10 +1894,7 @@ end))
                         return false
                     end
 
-                    local arrivalDelta = destination - navigationRoot.Position
-                    local arrivalHorizontal = Vector3.new(arrivalDelta.X, 0, arrivalDelta.Z)
-                    if arrivalHorizontal.Magnitude <= 4
-                    and math.abs(arrivalDelta.Y) <= 16 then
+                    if (destination - navigationRoot.Position).Magnitude <= 4 then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
@@ -1894,10 +1909,7 @@ end))
 
                 humanoid:MoveTo(root.Position)
                 if not navigationRoot.Parent then return false end
-                local finalDelta = destination - navigationRoot.Position
-                local finalHorizontal = Vector3.new(finalDelta.X, 0, finalDelta.Z)
-                return finalHorizontal.Magnitude <= 4
-                    and math.abs(finalDelta.Y) <= 16
+                return (destination - navigationRoot.Position).Magnitude <= 4
             end
 
             local speed = math.max(10, Runtime.GlideSpeed or 50)
@@ -1936,10 +1948,7 @@ end))
                         return false
                     end
 
-                    local currentDelta = destination - navigationRoot.Position
-                    local currentHorizontal = Vector3.new(currentDelta.X, 0, currentDelta.Z)
-                    if currentHorizontal.Magnitude <= 4
-                    and math.abs(currentDelta.Y) <= 6 then
+                    if (destination - navigationRoot.Position).Magnitude <= 4 then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
@@ -1968,8 +1977,7 @@ end))
                 local horizontal = Vector3.new(remaining.X, 0, remaining.Z)
                 local horizontalDistance = horizontal.Magnitude
 
-                if horizontalDistance <= 4
-                and math.abs(remaining.Y) <= 6 then
+                if remaining.Magnitude <= 4 then
                     humanoid:MoveTo(root.Position)
                     SetFloating(navigationRoot, false)
                     return true
@@ -2043,10 +2051,7 @@ end))
                         return false
                     end
 
-                    local currentDelta = destination - navigationRoot.Position
-                    local currentHorizontal = Vector3.new(currentDelta.X, 0, currentDelta.Z)
-                    if currentHorizontal.Magnitude <= 4
-                    and math.abs(currentDelta.Y) <= 6 then
+                    if (destination - navigationRoot.Position).Magnitude <= 4 then
                         humanoid:MoveTo(root.Position)
                         return true
                     end
@@ -2124,7 +2129,12 @@ end))
                         end
                         task.wait(1)
                     elseif humanoid and root then
-                        local distance = (root.Position - treadmill.Position).Magnitude
+                        local navigationRoot = GetNavigationRoot(root)
+                        if not navigationRoot or not navigationRoot.Parent then
+                            task.wait(0.25)
+                            continue
+                        end
+                        local distance = (navigationRoot.Position - treadmill.Position).Magnitude
                         if distance <= 4 then
                             humanoid:MoveTo(root.Position)
                             if AutoTreadmillStatusValue then
@@ -2143,7 +2153,7 @@ end))
                             if AutoTreadmillStatusDot then
                                 AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
                             end
-                            humanoid:MoveTo(treadmill.Position)
+                            humanoid:MoveTo(GetHumanoidMoveDestination(root, navigationRoot, treadmill.Position))
                             task.wait(0.75)
                         end
                     else
@@ -2459,7 +2469,11 @@ end))
                         return
                     end
 
-                    local distance = (root.Position - destination).Magnitude
+                    local navigationRoot = GetNavigationRoot(root)
+                    if not navigationRoot or not navigationRoot.Parent then
+                        return
+                    end
+                    local distance = (navigationRoot.Position - destination).Magnitude
                     if distance <= 4 then
                         if not arrived then
                             humanoid:MoveTo(root.Position)
@@ -2473,7 +2487,11 @@ end))
                             end
                         end
                     elseif os.clock() >= nextMoveRefresh then
-                        humanoid:MoveTo(destination)
+                        navigationRoot = GetNavigationRoot(root)
+                        if not navigationRoot or not navigationRoot.Parent then
+                            return
+                        end
+                        humanoid:MoveTo(GetHumanoidMoveDestination(root, navigationRoot, destination))
                         nextMoveRefresh = os.clock() + 1
                     end
 
@@ -2601,13 +2619,6 @@ end))
                     local character = LocalPlayer.Character
                     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                     local root = character and character:FindFirstChild("HumanoidRootPart")
-                    local pivotOk, cagePosition = pcall(function()
-                        return selectedCage:GetPivot().Position
-                    end)
-                    if not pivotOk or not cagePosition then
-                        SetNavigationStatus("Invalid cage - skipping")
-                        continue
-                    end
                     local promptOk, stealPrompt = pcall(function()
                         return selectedCage:FindFirstChild("StealPrompt", true)
                     end)
@@ -2615,9 +2626,19 @@ end))
                         SetNavigationStatus("Cage prompt error - skipping")
                         continue
                     end
+                    if not stealPrompt or not stealPrompt:IsA("ProximityPrompt") then
+                        SetNavigationStatus("Target unavailable")
+                        continue
+                    end
+                    local positionOk, cagePosition = pcall(function()
+                        return GetPromptWorldPosition(stealPrompt)
+                    end)
+                    if not positionOk or not cagePosition then
+                        SetNavigationStatus("Invalid prompt position - skipping")
+                        continue
+                    end
 
-                    if not humanoid or not root
-                    or not stealPrompt or not stealPrompt:IsA("ProximityPrompt") then
+                    if not humanoid or not root then
                         SetNavigationStatus("Target unavailable")
                         continue
                     end
@@ -2670,11 +2691,9 @@ end))
                         continue
                     end
 
-                    local promptDelta = cagePosition - navigationRoot.Position
-                    local promptHorizontal = Vector3.new(promptDelta.X, 0, promptDelta.Z)
-                    local promptDistance = promptHorizontal.Magnitude
-                    if promptDistance > stealPrompt.MaxActivationDistance
-                    or math.abs(promptDelta.Y) > 16 then
+                    cagePosition = GetPromptWorldPosition(stealPrompt) or cagePosition
+                    local promptDistance = (cagePosition - navigationRoot.Position).Magnitude
+                    if promptDistance > stealPrompt.MaxActivationDistance then
                         SetNavigationStatus("Closing in on cage")
                         if not MoveToPosition(root, humanoid, cagePosition, token, true) then
                             RestoreFloating()
@@ -2687,14 +2706,12 @@ end))
                             SetNavigationStatus("Pet root unavailable")
                             continue
                         end
-                        promptDelta = cagePosition - navigationRoot.Position
-                        promptHorizontal = Vector3.new(promptDelta.X, 0, promptDelta.Z)
-                        promptDistance = promptHorizontal.Magnitude
+                        cagePosition = GetPromptWorldPosition(stealPrompt) or cagePosition
+                        promptDistance = (cagePosition - navigationRoot.Position).Magnitude
                     end
 
-                    if not stealPrompt.Enabled
-                    or promptDistance > stealPrompt.MaxActivationDistance
-                    or math.abs(promptDelta.Y) > 16 then
+                    if not stealPrompt.Parent or not stealPrompt.Enabled
+                    or promptDistance > stealPrompt.MaxActivationDistance then
                         RestoreFloating()
                         SetNavigationStatus("Prompt out of range")
                         continue
@@ -2711,12 +2728,10 @@ end))
                         or not currentNavigationRoot.Parent then
                             return
                         end
-                        local currentPromptDelta = cagePosition - currentNavigationRoot.Position
-                        local currentPromptHorizontal = Vector3.new(
-                            currentPromptDelta.X, 0, currentPromptDelta.Z
-                        )
-                        if currentPromptHorizontal.Magnitude > stealPrompt.MaxActivationDistance
-                        or math.abs(currentPromptDelta.Y) > 16 then
+                        local currentPromptPosition = GetPromptWorldPosition(stealPrompt)
+                        if not currentPromptPosition
+                        or (currentPromptPosition - currentNavigationRoot.Position).Magnitude
+                            > stealPrompt.MaxActivationDistance then
                             return
                         end
 
@@ -2759,6 +2774,41 @@ end))
                         continue
                     end
 
+                    SetNavigationStatus("Verifying steal")
+                    local stealConfirmed = false
+                    local verifyUntil = os.clock() + 1.25
+                    while os.clock() < verifyUntil do
+                        if token ~= navigationToken or Runtime.Stopped
+                        or bossCaughtDetected or baseTeleportDetected then
+                            break
+                        end
+                        if not selectedCage:IsDescendantOf(workspace)
+                        or not stealPrompt.Parent
+                        or not stealPrompt.Enabled then
+                            stealConfirmed = true
+                            break
+                        end
+                        task.wait(0.1)
+                    end
+
+                    if bossCaughtDetected then
+                        if not WaitForBossCaught() then return end
+                        break
+                    end
+                    if baseTeleportDetected then
+                        if not WaitForBaseTeleport() then return end
+                        break
+                    end
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
+                    if not stealConfirmed then
+                        RestoreFloating()
+                        SetNavigationStatus("Steal not confirmed - skipping cage")
+                        continue
+                    end
+
                     if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
                         return
@@ -2776,46 +2826,53 @@ end))
                         break
                     end
 
-                    local reachedSafeZone
+                    local reachedSafeZone = false
+                    while token == navigationToken and not Runtime.Stopped
+                    and not reachedSafeZone do
+                        if MovementMode == "Glide" then
+                            SetNavigationStatus("Gliding back to safe zone")
+                        else
+                            SetNavigationStatus("Walking back to safe zone")
+                        end
 
-                    if MovementMode == "Glide" then
-                        SetNavigationStatus("Gliding back to safe zone")
-                    else
-                        SetNavigationStatus("Walking back to safe zone")
+                        reachedSafeZone = MoveToPosition(
+                            root,
+                            humanoid,
+                            safeSign.Position,
+                            token,
+                            false,
+                            MovementMode == "Glide"
+                        )
+
+                        if not reachedSafeZone then
+                            RestoreFloating()
+                            if bossCaughtDetected then
+                                if not WaitForBossCaught() then return end
+                                break
+                            end
+                            if baseTeleportDetected then
+                                if not WaitForBaseTeleport() then return end
+                                break
+                            end
+                            if ShouldWalk(root) then
+                                SetNavigationStatus("Retrying walk to safe zone")
+                                task.wait(0.5)
+                            else
+                                if token == navigationToken then
+                                    SetAutoStealEnabled(false)
+                                    SetNavigationStatus("Return to safe zone failed")
+                                end
+                                return
+                            end
+                        end
                     end
 
-                    reachedSafeZone = MoveToPosition(
-                        root,
-                        humanoid,
-                        safeSign.Position,
-                        token,
-                        false,
-                        MovementMode == "Glide"
-                    )
-
-                    if not reachedSafeZone then
+                    if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
-                        if bossCaughtDetected then
-                            if not WaitForBossCaught() then return end
-                            break
-                        end
-                        if baseTeleportDetected then
-                            if not WaitForBaseTeleport() then return end
-                            break
-                        end
-                        if ShouldWalk(root) then
-                            SetNavigationStatus("Retrying walk to safe zone")
-                            task.wait(0.5)
-                            if token == navigationToken and not Runtime.Stopped then
-                                continue
-                            end
-                            return
-                        end
-                        if token == navigationToken then
-                            SetAutoStealEnabled(false)
-                            SetNavigationStatus("Return to safe zone failed")
-                        end
                         return
+                    end
+                    if not reachedSafeZone then
+                        break
                     end
 
                     if token ~= navigationToken or Runtime.Stopped then
