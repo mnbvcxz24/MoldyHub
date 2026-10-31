@@ -2,6 +2,7 @@
 -- SERVICES
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local PathfindingService = game:GetService("PathfindingService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2046,6 +2047,24 @@ end))
             local glideHeight = humanoid.HipHeight + (navigationRoot.Size.Y * 0.5)
             local finalGlideStop = 12
             local alternatingWalkDuration = 1
+            local walkDuration = alternatingWalkDuration
+
+            local navigationPath = PathfindingService:CreatePath({
+                AgentRadius = 2,
+                AgentHeight = 5,
+                AgentCanJump = true,
+                WaypointSpacing = 8
+            })
+            local pathOk = pcall(function()
+                navigationPath:ComputeAsync(navigationRoot.Position, destination)
+            end)
+            if not pathOk or navigationPath.Status ~= Enum.PathStatus.Success then
+                SetNavigationStatus("No clear path to target")
+                return false
+            end
+
+            local routeWaypoints = navigationPath:GetWaypoints()
+            local routeIndex = math.min(2, #routeWaypoints)
 
             if startWithWalk then
                 local ridingOffset = root.Position - navigationRoot.Position
@@ -2103,7 +2122,18 @@ end))
                     return false
                 end
 
-                local remaining = destination - navigationRoot.Position
+                local routeTarget = destination
+                local usingWaypoint = routeIndex <= #routeWaypoints
+                if usingWaypoint then
+                    routeTarget = routeWaypoints[routeIndex].Position
+                    local waypointDelta = routeTarget - navigationRoot.Position
+                    if Vector3.new(waypointDelta.X, 0, waypointDelta.Z).Magnitude <= 3 then
+                        routeIndex += 1
+                        continue
+                    end
+                end
+
+                local remaining = routeTarget - navigationRoot.Position
                 local horizontal = Vector3.new(remaining.X, 0, remaining.Z)
                 local horizontalDistance = horizontal.Magnitude
 
@@ -2113,14 +2143,15 @@ end))
                     return true
                 end
 
-                if horizontalDistance > finalGlideStop then
+                local stopDistance = usingWaypoint and 2 or finalGlideStop
+                if horizontalDistance > stopDistance then
                     local jumpDistance = math.clamp(Runtime.GlideJumpDistance or 50, 10, 150)
-                    local glideDistance = math.min(jumpDistance, horizontalDistance - finalGlideStop)
+                    local glideDistance = math.min(jumpDistance, horizontalDistance - stopDistance)
                     local direction = horizontal.Unit
                     local segmentPosition = navigationRoot.Position + direction * glideDistance
                     segmentPosition = Vector3.new(
                         segmentPosition.X,
-                        destination.Y + glideHeight,
+                        (usingWaypoint and routeTarget.Y or destination.Y) + glideHeight,
                         segmentPosition.Z
                     )
 
@@ -2503,7 +2534,7 @@ end))
 
                 return false
             end
-            local function GetSelectedCages()
+            local function GetSelectedCages(characterRoot)
                 local cages = {}
                 local hasSelectedPath = false
                 local hasSelectedRarity = false
@@ -2557,19 +2588,39 @@ end))
                         end
                     end
                 end
-                local cageSortKeys = {}
-                for _, cage in ipairs(cages) do
-                    local names = {}
-                    local current = cage
-                    while current and current ~= workspace do
-                        table.insert(names, 1, current.Name)
-                        current = current.Parent
+                local navigationRoot = characterRoot and GetNavigationRoot(characterRoot)
+                if navigationRoot and navigationRoot.Parent then
+                    local cageDistances = {}
+                    for _, cage in ipairs(cages) do
+                        local ok, position = pcall(function()
+                            return cage:GetPivot().Position
+                        end)
+                        if not ok then
+                            local part = cage:FindFirstChildWhichIsA("BasePart", true)
+                            position = part and part.Position
+                        end
+                        cageDistances[cage] = position
+                            and (position - navigationRoot.Position).Magnitude
+                            or math.huge
                     end
-                    cageSortKeys[cage] = NaturalSortKey(table.concat(names, "/"))
+                    table.sort(cages, function(a, b)
+                        return cageDistances[a] < cageDistances[b]
+                    end)
+                else
+                    local cageSortKeys = {}
+                    for _, cage in ipairs(cages) do
+                        local names = {}
+                        local current = cage
+                        while current and current ~= workspace do
+                            table.insert(names, 1, current.Name)
+                            current = current.Parent
+                        end
+                        cageSortKeys[cage] = NaturalSortKey(table.concat(names, "/"))
+                    end
+                    table.sort(cages, function(a, b)
+                        return cageSortKeys[a] < cageSortKeys[b]
+                    end)
                 end
-                table.sort(cages, function(a, b)
-                    return cageSortKeys[a] < cageSortKeys[b]
-                end)
                 return cages
             end
 
@@ -2796,7 +2847,7 @@ end))
                     if not WaitForBaseTeleport() then return end
                 end
 
-                local selectedCages = GetSelectedCages()
+                local selectedCages = GetSelectedCages(LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
                 if #selectedCages == 0 then
                     if AutoTreadmillEnabled then
                         SetNavigationStatus("Walking to treadmill")
