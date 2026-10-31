@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.54"
+local testver = "Test ver: 1.55"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1126,37 +1126,26 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
-        local activeWorldPathsFolder
-        local activeWorldFolder
-        local activeSafeZoneSign
-
         local function GetActiveWorldPathsFolder()
-            if activeWorldFolder and activeWorldPathsFolder and activeSafeZoneSign then
-                return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
-            end
-
-            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
-            if not safeSign then return nil, nil, nil end
-
+            local world2Folder = workspace:FindFirstChild("World2")
+            local hubFolder = workspace:FindFirstChild("Hub")
             local worldFolder
-            local current = safeSign
-            while current and current ~= workspace do
-                if current.Name == "World2" or current.Name == "Hub" then
-                    worldFolder = current
-                    break
-                end
-                current = current.Parent
+
+            if world2Folder and world2Folder:IsA("Folder") then
+                worldFolder = world2Folder
+            elseif hubFolder and hubFolder:IsA("Folder") then
+                worldFolder = hubFolder
             end
 
             local pathsFolder = workspace:FindFirstChild("Paths")
-            if not worldFolder or not pathsFolder then
+            local safeSign = worldFolder and worldFolder:FindFirstChild("SafeZoneSign", true)
+
+            if not worldFolder or not pathsFolder
+            or not safeSign or not safeSign:IsA("BasePart") then
                 return nil, nil, nil
             end
 
-            activeWorldFolder = worldFolder
-            activeWorldPathsFolder = pathsFolder
-            activeSafeZoneSign = safeSign
-            return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
+            return pathsFolder, worldFolder, safeSign
         end
         local function IsPathInActiveWorld(pathObject)
             if not pathObject then return false end
