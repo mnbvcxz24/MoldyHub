@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.23"
+local testver = "Deploy ver 1.24"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -50,8 +50,8 @@ local UIConfig = {
         "Main",
         "Features",
         "Misc. feature",
-        "Settings"
-    }
+        "Settings",
+        }
 }
 -- THEME
 local Theme = {
@@ -499,8 +499,6 @@ local Content = Create("Frame", {
 })
 -- PAGE SYSTEM
 local Pages = {}local SidebarButtons = {}local CurrentPage = 1
--- Deploy build keeps debug logging disabled.
-local function AddDebugLog(message) end
 -- CREATE PAGE
 local function CreatePage(pageNumber, pageName)
     local PageClip = Create("Frame", {
@@ -1829,7 +1827,6 @@ end))
         end
 
         local function SetNavigationStatus(message)
-            AddDebugLog("[Navigation] " .. tostring(message))
             if StatusValue then
                 StatusValue.Text = message
                 StatusValue.TextColor3 = Theme.Accent
@@ -2572,40 +2569,29 @@ end))
             end
 
             local function MoveToCage(root, humanoid, destination, token, cageModel)
-                local navigationRoot = GetNavigationRoot(root)
+                local navigationRoot = GetRidingPetRoot(root)
                 if not navigationRoot or not navigationRoot.Parent then
-                    return false, "Pet root unavailable"
+                    return false, "Riding pet root unavailable"
                 end
 
                 local function IsPetAtCage()
-                    navigationRoot = GetNavigationRoot(root)
-                    if not navigationRoot or not navigationRoot.Parent then
+                    local petRoot = GetRidingPetRoot(root)
+                    if not petRoot or not petRoot.Parent then
                         return false
                     end
 
+                    local targetPosition = destination
                     if cageModel and cageModel.Parent then
-                        local ok, boundsCFrame, boundsSize = pcall(function()
-                            return cageModel:GetBoundingBox()
-                        end)
-                        if ok and boundsCFrame and boundsSize then
-                            local localPosition = boundsCFrame:PointToObjectSpace(navigationRoot.Position)
-                            local halfSize = boundsSize * 0.5
-                            local closestPoint = Vector3.new(
-                                math.clamp(localPosition.X, -halfSize.X, halfSize.X),
-                                math.clamp(localPosition.Y, -halfSize.Y, halfSize.Y),
-                                math.clamp(localPosition.Z, -halfSize.Z, halfSize.Z)
-                            )
-                            if (localPosition - closestPoint).Magnitude <= 10 then
-                                return true
-                            end
+                        local prompt = cageModel:FindFirstChild("StealPrompt", true)
+                        if prompt and prompt:IsA("ProximityPrompt") then
+                            targetPosition = GetPromptWorldPosition(prompt) or targetPosition
                         end
                     end
 
-                    local delta = destination - navigationRoot.Position
+                    local delta = targetPosition - petRoot.Position
                     local horizontalDistance = Vector3.new(delta.X, 0, delta.Z).Magnitude
                     return horizontalDistance <= 12 and math.abs(delta.Y) <= 20
                 end
-
                 if IsPetAtCage() then
                     SetNavigationStatus("Cage nearby")
                     return true
@@ -2613,7 +2599,22 @@ end))
 
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
-                    return MoveToPosition(root, humanoid, destination, token, true), "Failed to reach cage"
+                    local reached = MoveToPosition(root, humanoid, destination, token, true)
+                    if reached then
+                        return true
+                    end
+
+                    if token ~= navigationToken or Runtime.Stopped then
+                        return false, "Navigation stopped"
+                    end
+
+                    SetNavigationStatus("Rechecking cage position")
+                    if IsPetAtCage() then
+                        SetNavigationStatus("Cage nearby - checking steal prompt")
+                        return true
+                    end
+
+                    return false, "Failed to reach cage"
                 end
 
                 local ridingOffset = root.Position - navigationRoot.Position
@@ -2792,13 +2793,20 @@ end))
                         break
                     end
 
-                    SetNavigationStatus("Waiting for cage prompt to stream in")
+                    SetNavigationStatus("Checking cage prompt")
                     local promptWaitUntil = os.clock() + 8
-                    while os.clock() < promptWaitUntil do
+                    repeat
                         if token ~= navigationToken or Runtime.Stopped
                         or not selectedCage:IsDescendantOf(workspace) then
                             break
                         end
+
+                        local petRoot = GetRidingPetRoot(root)
+                        if not petRoot or not petRoot.Parent then
+                            SetNavigationStatus("Riding pet root unavailable")
+                            break
+                        end
+
                         local promptOk, foundPrompt = pcall(function()
                             return selectedCage:FindFirstChild("StealPrompt", true)
                         end)
@@ -2808,8 +2816,12 @@ end))
                             stealPrompt = foundPrompt
                             break
                         end
-                        task.wait(0.2)
-                    end
+
+                        if os.clock() >= promptWaitUntil then
+                            break
+                        end
+                        task.wait(0.1)
+                    until stealPrompt
 
                     if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
@@ -2831,10 +2843,10 @@ end))
                     end
                     cagePosition = promptPosition
 
-                    local navigationRoot = GetNavigationRoot(root)
+                    local navigationRoot = GetRidingPetRoot(root)
                     if not navigationRoot or not navigationRoot.Parent then
                         RestoreFloating()
-                        SetNavigationStatus("Pet root unavailable")
+                        SetNavigationStatus("Riding pet root unavailable")
                         continue
                     end
 
@@ -2847,10 +2859,10 @@ end))
                             SetNavigationStatus("Cage out of reach")
                             continue
                         end
-                        navigationRoot = GetNavigationRoot(root)
+                        navigationRoot = GetRidingPetRoot(root)
                         if not navigationRoot or not navigationRoot.Parent then
                             RestoreFloating()
-                            SetNavigationStatus("Pet root unavailable")
+                            SetNavigationStatus("Riding pet root unavailable")
                             continue
                         end
                         cagePosition = GetPromptWorldPosition(stealPrompt) or cagePosition
@@ -2869,7 +2881,7 @@ end))
                     local holdStarted = false
                     local holdCompleted = false
                     local holdOk = pcall(function()
-                        local currentNavigationRoot = GetNavigationRoot(root)
+                        local currentNavigationRoot = GetRidingPetRoot(root)
                         if not stealPrompt.Enabled
                         or not currentNavigationRoot
                         or not currentNavigationRoot.Parent then
@@ -3236,7 +3248,6 @@ end))
             ApplyTheme(themeName)
         end)
         local AboutCard = CreateCard(Page, "About", "Steal A Pet & Ride It • UI only")
-
     end
 end
 -- SHOW FIRST PAGE
