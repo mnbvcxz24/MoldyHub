@@ -1669,6 +1669,11 @@ end))
             end
         end
 
+        local function IsLocalPlayerPlot(ownerName)
+            return ownerName == LocalPlayer.Name
+                or ownerName == LocalPlayer.DisplayName
+        end
+
         local function GetRidingPetRoot(root)
             local hub = workspace:FindFirstChild("Hub")
             local plots = hub and hub:FindFirstChild("Plots")
@@ -1682,7 +1687,7 @@ end))
                 local playerName = gui and gui:FindFirstChild("PlayerName")
 
                 if playerName and playerName:IsA("TextLabel")
-                and playerName.Text == LocalPlayer.Name then
+                and IsLocalPlayerPlot(playerName.Text) then
                     local pets = plot:FindFirstChild("Pets")
                     if not pets then
                         return nil
@@ -1720,7 +1725,7 @@ end))
                 local playerName = gui and gui:FindFirstChild("PlayerName")
 
                 if playerName and playerName:IsA("TextLabel")
-                and playerName.Text == LocalPlayer.Name then
+                and IsLocalPlayerPlot(playerName.Text) then
                     if ownerDisplay:IsA("BasePart") then
                         return ownerDisplay.Position
                     end
@@ -1746,7 +1751,7 @@ end))
                 local playerName = gui and gui:FindFirstChild("PlayerName")
 
                 if playerName and playerName:IsA("TextLabel")
-                and playerName.Text == LocalPlayer.Name then
+                and IsLocalPlayerPlot(playerName.Text) then
                     local treadmill = plot:FindFirstChild("Treadmill", true)
                     if treadmill and treadmill:IsA("BasePart") then
                         return treadmill
