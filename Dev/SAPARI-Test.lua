@@ -3219,7 +3219,35 @@ end))
                 AutoTreadmillStatusValue = StatusValue
                 AutoTreadmillStatusDot = StatusDot
 
+                local tapBoostConnection
+
                 local TapBoostToggle = CreateToggle(Card, "Auto Tap Boost", false, function(enabled)
+                    if tapBoostConnection then
+                        tapBoostConnection:Disconnect()
+                        tapBoostConnection = nil
+                    end
+
+                    if not enabled then
+                        return
+                    end
+
+                    local shared = ReplicatedStorage:FindFirstChild("Shared")
+                    local remotes = shared and shared:FindFirstChild("Remotes")
+                    local tapBoostRemote = remotes and remotes:FindFirstChild("TapBoost")
+
+                    if not tapBoostRemote or not tapBoostRemote:IsA("RemoteEvent") then
+                        return
+                    end
+
+                    tapBoostConnection = TrackConnection(tapBoostRemote.OnClientEvent:Connect(function(action, offerId)
+                        if not enabled or action ~= "Offer" then
+                            return
+                        end
+
+                        if typeof(offerId) == "number" then
+                            tapBoostRemote:FireServer(offerId)
+                        end
+                    end))
                 end)
                 TapBoostToggle.Position = UDim2.fromOffset(11, 66)
                 TapBoostToggle.Size = UDim2.new(1, -22, 0, 22)
