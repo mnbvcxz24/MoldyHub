@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.8"
+local testver = "Deploy ver 1.9"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -979,10 +979,30 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local SelectedRarities = {}
         local MovementMode = "Walk"
         local AutoStealEnabled = false
+        local AutoTreadmillEnabled = false
+        local AutoTreadmillStatusValue
+        local AutoTreadmillStatusDot
         local StatusValue
         local StatusDot
 
         local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
+            if enabled and next(SelectedPaths) == nil and next(SelectedRarities) == nil then
+                local controller = ToggleControllers[AutoStealToggle]
+                if controller then
+                    controller.SetEnabled(false, false)
+                end
+                AutoStealEnabled = false
+                Runtime.AutoStealEnabled = false
+                if StatusValue then
+                    StatusValue.Text = "Select at least 1 filter"
+                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                end
+                if StatusDot then
+                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                end
+                return
+            end
+
             AutoStealEnabled = enabled
             Runtime.AutoStealEnabled = enabled
             if StatusValue then
@@ -996,8 +1016,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 task.spawn(Runtime.StartNavigation)
             elseif not enabled and Runtime.StopNavigation then
                 Runtime.StopNavigation()
-            end        end)
-        AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)        AutoStealToggle.Size = UDim2.fromOffset(40, 24)
+            end
+        end)
+        AutoStealToggle.Position = UDim2.new(1, -55, 0, 9)
+        AutoStealToggle.Size = UDim2.fromOffset(40, 24)
 
         local StatusRow = Create("Frame", {
             Parent = AutoCard,
@@ -1009,7 +1031,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Parent = StatusRow,
             Position = UDim2.fromOffset(2, 6),
             Size = UDim2.fromOffset(7, 7),
-            BackgroundColor3 = Color3.fromRGB(75, 190, 145),
+            BackgroundColor3 = Theme.Gray,
             BorderSizePixel = 0
         })
         AddCorner(StatusDot, 8)
@@ -1610,6 +1632,7 @@ end))
         Runtime.SelectedRarities = SelectedRarities
 
         local navigationToken = 0
+        local treadmillToken = 0
         local activeNavigationTween
         local baseTeleportConnection
         local bossCaughtConnection
@@ -1706,6 +1729,32 @@ end))
                     end
                     local displayPart = ownerDisplay:FindFirstChildWhichIsA("BasePart", true)
                     return displayPart and displayPart.Position or nil
+                end
+            end
+
+            return nil
+        end
+
+        local function GetOwnedTreadmill()
+            local hub = workspace:FindFirstChild("Hub")
+            local plots = hub and hub:FindFirstChild("Plots")
+            if not plots then return nil end
+
+            for _, plot in ipairs(plots:GetChildren()) do
+                local ownerDisplay = plot:FindFirstChild("OwnerDisplay")
+                local gui = ownerDisplay and ownerDisplay:FindFirstChild("Gui")
+                local playerName = gui and gui:FindFirstChild("PlayerName")
+
+                if playerName and playerName:IsA("TextLabel")
+                and playerName.Text == LocalPlayer.Name then
+                    local treadmill = plot:FindFirstChild("Treadmill", true)
+                    if treadmill and treadmill:IsA("BasePart") then
+                        return treadmill
+                    end
+                    if treadmill and treadmill:IsA("Model") then
+                        return treadmill.PrimaryPart or treadmill:FindFirstChildWhichIsA("BasePart", true)
+                    end
+                    return nil
                 end
             end
 
@@ -1825,7 +1874,7 @@ end))
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local glideHeight = humanoid.HipHeight + (root.Size.Y * 0.5)
             local finalGlideStop = 12
-            local walkDuration = startWithWalk and 1 or 2
+            local walkDuration = 2
 
             if startWithWalk then
                 local ridingOffset = root.Position - navigationRoot.Position
@@ -2002,10 +2051,84 @@ end))
             RestoreFloating()
             SetAutoStealEnabled(false)
             SetNavigationStatus("Stopped")
+            if AutoTreadmillEnabled and not Runtime.Stopped then
+                task.defer(function()
+                    if Runtime.StartTreadmillIdle then
+                        Runtime.StartTreadmillIdle()
+                    end
+                end)
+            end
+        end
+
+        Runtime.StopTreadmillIdle = function()
+            treadmillToken += 1
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if humanoid and root then
+                humanoid:MoveTo(root.Position)
+            end
+        end
+
+        Runtime.StartTreadmillIdle = function()
+            if Runtime.Stopped or not AutoTreadmillEnabled or AutoStealEnabled then
+                return
+            end
+
+            treadmillToken += 1
+            local token = treadmillToken
+            task.spawn(function()
+                while token == treadmillToken and AutoTreadmillEnabled
+                and not AutoStealEnabled and not Runtime.Stopped do
+                    local treadmill = GetOwnedTreadmill()
+                    local character = LocalPlayer.Character
+                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+
+                    if not treadmill then
+                        if AutoTreadmillStatusValue then
+                            AutoTreadmillStatusValue.Text = "Treadmill unavailable"
+                            AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                        end
+                        if AutoTreadmillStatusDot then
+                            AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                        end
+                        task.wait(1)
+                    elseif humanoid and root then
+                        local distance = (root.Position - treadmill.Position).Magnitude
+                        if distance <= 4 then
+                            humanoid:MoveTo(root.Position)
+                            if AutoTreadmillStatusValue then
+                                AutoTreadmillStatusValue.Text = "Working"
+                                AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                            if AutoTreadmillStatusDot then
+                                AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                            task.wait(0.25)
+                        else
+                            if AutoTreadmillStatusValue then
+                                AutoTreadmillStatusValue.Text = "Walking"
+                                AutoTreadmillStatusValue.TextColor3 = Theme.Accent
+                            end
+                            if AutoTreadmillStatusDot then
+                                AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                            humanoid:MoveTo(treadmill.Position)
+                            task.wait(0.75)
+                        end
+                    else
+                        task.wait(0.25)
+                    end
+                end
+            end)
         end
 
         Runtime.StartNavigation = function()
             navigationToken += 1
+            if Runtime.StopTreadmillIdle then
+                Runtime.StopTreadmillIdle()
+            end
             local token = navigationToken            CancelActiveMovement()
 
             if Runtime.Stopped then
@@ -2021,7 +2144,6 @@ end))
             local hub = workspace:FindFirstChild("Hub")
             local safeSign = hub and hub:FindFirstChild("SafeZoneSign")
             local pathsFolder = workspace:FindFirstChild("Paths")
-            local path1 = pathsFolder and pathsFolder:FindFirstChild("Path1")
 
             if not safeSign or not safeSign:IsA("BasePart") then
                 SetNavigationStatus("Safe zone unavailable")
@@ -2073,7 +2195,6 @@ end))
                 SetNavigationStatus("Recovery complete - resuming cage scan")
                 return true
             end
-
             local previousCharacterRoot
             local previousCharacterPosition
             local previousNavigationRoot
@@ -2157,66 +2278,6 @@ end))
                 return true
             end
 
-            local function WalkToSafeZoneAtStart()
-                while token == navigationToken and not Runtime.Stopped do
-                    if bossCaughtDetected then
-                        return WaitForBossCaught()
-                    end
-                    if baseTeleportDetected and not WaitForBaseTeleport() then return false end
-                    local character = LocalPlayer.Character
-                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                    local root = character and character:FindFirstChild("HumanoidRootPart")
-                    if not humanoid or not root then
-                        SetNavigationStatus("Waiting for character")
-                        task.wait(0.25)
-                    else
-                        SetNavigationStatus("Walking to safe zone")
-                        local safeZoneDestination = safeSign.Position
-                        local ridingPetRoot = GetRidingPetRoot(root)
-                        if ridingPetRoot then
-                            safeZoneDestination -= root.Position - ridingPetRoot.Position
-                        end
-                        if MoveToPosition(root, humanoid, safeZoneDestination, token, true) then
-                            SetNavigationStatus("Safe zone reached")
-                            return true
-                        end
-                        RestoreFloating()
-                        if bossCaughtDetected then
-                            return WaitForBossCaught()
-                        end
-                        if baseTeleportDetected then
-                            if not WaitForBaseTeleport() then return false end
-                        else
-                            if token == navigationToken then
-                                SetAutoStealEnabled(false)
-                                SetNavigationStatus("Failed to reach safe zone")
-                            end
-                            return false
-                        end
-                    end
-                end
-                return false
-            end
-            if not WalkToSafeZoneAtStart() then return end
-
-            local function GetBossCFrame()
-                local boss = path1 and path1:FindFirstChild("Boss")
-                if not boss then return nil end
-                if boss:IsA("Model") then
-                    return boss:GetPivot()
-                end
-                if boss:IsA("BasePart") then
-                    return boss.CFrame
-                end
-                return nil
-            end
-
-            if not GetBossCFrame() then
-                SetNavigationStatus("Path1 Boss unavailable")
-                SetAutoStealEnabled(false)
-                return
-            end
-
             local function GetSelectedCages()
                 local cages = {}
                 local pathsFolder = workspace:FindFirstChild("Paths")
@@ -2258,53 +2319,154 @@ end))
                 return cages
             end
 
+            local function WaitAtTreadmillUntilCage(root, humanoid, token)
+                local treadmill = GetOwnedTreadmill()
+
+                if not treadmill or not treadmill:IsA("BasePart") then
+                    if AutoTreadmillStatusValue then
+                        AutoTreadmillStatusValue.Text = "Treadmill unavailable"
+                        AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                    end
+                    if AutoTreadmillStatusDot then
+                        AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                    end
+                    return
+                end
+
+                local destination = treadmill.Position
+                local nextMoveRefresh = 0
+                local arrived = false
+
+                if AutoTreadmillStatusValue then
+                    AutoTreadmillStatusValue.Text = "Walking"
+                    AutoTreadmillStatusValue.TextColor3 = Theme.Accent
+                end
+                if AutoTreadmillStatusDot then
+                    AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                end
+
+                while token == navigationToken and not Runtime.Stopped
+                and AutoTreadmillEnabled and AutoStealEnabled do
+                    if #GetSelectedCages() > 0 then
+                        humanoid:MoveTo(root.Position)
+                        if AutoTreadmillStatusValue then
+                            AutoTreadmillStatusValue.Text = "Waiting"
+                            AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                        end
+                        if AutoTreadmillStatusDot then
+                            AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                        end
+                        return
+                    end
+
+                    if not root.Parent or not humanoid.Parent then
+                        return
+                    end
+
+                    local distance = (root.Position - destination).Magnitude
+                    if distance <= 4 then
+                        if not arrived then
+                            humanoid:MoveTo(root.Position)
+                            arrived = true
+                            if AutoTreadmillStatusValue then
+                                AutoTreadmillStatusValue.Text = "Working"
+                                AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                            if AutoTreadmillStatusDot then
+                                AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                            end
+                        end
+                    elseif os.clock() >= nextMoveRefresh then
+                        humanoid:MoveTo(destination)
+                        nextMoveRefresh = os.clock() + 1
+                    end
+
+                    RunService.Heartbeat:Wait()
+                end
+
+                humanoid:MoveTo(root.Position)
+                if not AutoTreadmillEnabled and AutoTreadmillStatusValue then
+                    AutoTreadmillStatusValue.Text = "Disabled"
+                    AutoTreadmillStatusValue.TextColor3 = Theme.Gray
+                    if AutoTreadmillStatusDot then
+                        AutoTreadmillStatusDot.BackgroundColor3 = Theme.Gray
+                    end
+                end
+            end
+
             local function MoveToCage(root, humanoid, destination, token)
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
-                    return MoveToPosition(root, humanoid, destination, token, true),
-                        "Failed to reach cage"
+                    return MoveToPosition(root, humanoid, destination, token, true), "Failed to reach cage"
                 end
-
-                local bossCFrame = GetBossCFrame()
-                if not bossCFrame then
-                    SetNavigationStatus("Path1 Boss unavailable")
-                    return false, "Path1 Boss unavailable"
-                end
-
-                SetNavigationStatus("Walking to Path1 Boss")
-                if not MoveToPosition(root, humanoid, bossCFrame.Position, token, true) then
-                    return false, "Failed to reach Path1 Boss"
-                end
-
                 local navigationRoot = GetNavigationRoot(root)
-                if not navigationRoot or not navigationRoot.Parent then
-                    return false, "Pet root unavailable"
-                end
-
+                if not navigationRoot or not navigationRoot.Parent then return false, "Pet root unavailable" end
                 local ridingOffset = root.Position - navigationRoot.Position
-                local approachDirection = Vector3.new(
-                    root.Position.X - destination.X,
-                    0,
-                    root.Position.Z - destination.Z
-                )
+                local approachDirection = Vector3.new(root.Position.X - destination.X, 0, root.Position.Z - destination.Z)
                 if approachDirection.Magnitude < 0.01 then
                     local look = root.CFrame.LookVector
                     approachDirection = Vector3.new(look.X, 0, look.Z)
                 end
-                if approachDirection.Magnitude < 0.01 then
-                    approachDirection = Vector3.new(0, 0, -1)
-                end
-
+                if approachDirection.Magnitude < 0.01 then approachDirection = Vector3.new(0, 0, -1) end
                 local approachPosition = destination + approachDirection.Unit * 3.5
                 local petDestination = approachPosition - ridingOffset
-
-                SetNavigationStatus("Gliding to cage")
-                if not MoveToPosition(root, humanoid, petDestination, token) then
-                    return false, "Failed to glide to cage"
+                SetNavigationStatus("Walking to cage")
+                if not MoveToPosition(root, humanoid, petDestination, token, false, true) then
+                    return false, "Failed to reach cage"
                 end
-
                 return true
             end
+            local function WalkToSafeZoneAtStart()
+                while token == navigationToken and not Runtime.Stopped do
+                    if bossCaughtDetected then
+                        return WaitForBossCaught()
+                    end
+                    if baseTeleportDetected and not WaitForBaseTeleport() then return false end
+                    local character = LocalPlayer.Character
+                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    if not humanoid or not root then
+                        SetNavigationStatus("Waiting for character")
+                        task.wait(0.25)
+                    else
+                        SetNavigationStatus("Walking to safe zone")
+                        local safeZoneDestination = safeSign.Position
+                        local ridingPetRoot = GetRidingPetRoot(root)
+                        if ridingPetRoot then
+                            safeZoneDestination -= root.Position - ridingPetRoot.Position
+                        end
+                        if MoveToPosition(root, humanoid, safeZoneDestination, token, true) then
+                            SetNavigationStatus("Safe zone reached")
+                            return true
+                        end
+                        RestoreFloating()
+                        if bossCaughtDetected then
+                            return WaitForBossCaught()
+                        end
+                        if baseTeleportDetected then
+                            if not WaitForBaseTeleport() then return false end
+                        else
+                            if token == navigationToken then
+                                SetAutoStealEnabled(false)
+                                SetNavigationStatus("Failed to reach safe zone")
+                            end
+                            return false
+                        end
+                    end
+                end
+                return false
+            end
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.Jump = true
+                pcall(function()
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end)
+                task.wait(0.1)
+            end
+            if not WalkToSafeZoneAtStart() then return end
+
             while token == navigationToken and not Runtime.Stopped do
                 if bossCaughtDetected then
                     if not WaitForBossCaught() then return end
@@ -2316,6 +2478,18 @@ end))
 
                 local selectedCages = GetSelectedCages()
                 if #selectedCages == 0 then
+                    if AutoTreadmillEnabled and MovementMode == "Walk" then
+                        SetNavigationStatus("Scanning for available cages")
+                        local character = LocalPlayer.Character
+                        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                        local root = character and character:FindFirstChild("HumanoidRootPart")
+                        if humanoid and root then
+                            WaitAtTreadmillUntilCage(root, humanoid, token)
+                        else
+                            task.wait(0.25)
+                        end
+                        continue
+                    end
                     if MovementMode == "Walk" then
                         SetNavigationStatus("Scanning for available cages")
                         task.wait(0.25)
@@ -2479,16 +2653,10 @@ end))
                         SetNavigationStatus("Walking back to safe zone")
                     end
 
-                    local safeZoneDestination = safeSign.Position
-                    local ridingPetRoot = GetRidingPetRoot(root)
-                    if ridingPetRoot then
-                        safeZoneDestination -= root.Position - ridingPetRoot.Position
-                    end
-
                     reachedSafeZone = MoveToPosition(
                         root,
                         humanoid,
-                        safeZoneDestination,
+                        safeSign.Position,
                         token,
                         false,
                         MovementMode == "Glide"
@@ -2555,7 +2723,130 @@ end))
                     end
                 end
             end
-        end        elseif name == "Features" then
+        end
+
+        local AutomationRow = Create("Frame", {
+            Name = "AutomationCards",
+            Parent = Page,
+            Size = UDim2.new(1, -4, 0, 82),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0
+        })
+
+        local function CreateAutomationCard(title, position)
+            local Card = Create("Frame", {
+                Name = title:gsub("%s+", ""),
+                Parent = AutomationRow,
+                Position = position,
+                Size = UDim2.new(0.5, -4, 1, 0),
+                BackgroundColor3 = Theme.Card,
+                BorderSizePixel = 0
+            })
+            AddCorner(Card, 8)
+            AddStroke(Card, Theme.Border, 1)
+
+            Create("TextLabel", {
+                Parent = Card,
+                Position = UDim2.fromOffset(11, 8),
+                Size = UDim2.new(1, -48, 0, 18),
+                BackgroundTransparency = 1,
+                Text = title,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.GothamBold,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd
+            })
+
+            local StatusRow = Create("Frame", {
+                Parent = Card,
+                Position = UDim2.fromOffset(11, 35),
+                Size = UDim2.new(1, -22, 0, 18),
+                BackgroundTransparency = 1
+            })
+            local StatusDot = Create("Frame", {
+                Parent = StatusRow,
+                Position = UDim2.fromOffset(2, 6),
+                Size = UDim2.fromOffset(7, 7),
+                BackgroundColor3 = Theme.Gray,
+                BorderSizePixel = 0
+            })
+            AddCorner(StatusDot, 8)
+
+            Create("TextLabel", {
+                Parent = StatusRow,
+                Position = UDim2.fromOffset(18, 0),
+                Size = UDim2.fromOffset(34, 18),
+                BackgroundTransparency = 1,
+                Text = "Status",
+                TextColor3 = Theme.DarkGray,
+                Font = Enum.Font.Gotham,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+
+            local StatusValue = Create("TextLabel", {
+                Parent = StatusRow,
+                Position = UDim2.fromOffset(54, 0),
+                Size = UDim2.new(1, -54, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "Disabled",
+                TextColor3 = Theme.Gray,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 9,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                TextXAlignment = Enum.TextXAlignment.Right
+            })
+
+            Create("Frame", {
+                Parent = Card,
+                Position = UDim2.fromOffset(11, 61),
+                Size = UDim2.new(1, -22, 0, 1),
+                BackgroundColor3 = Theme.Border,
+                BorderSizePixel = 0
+            })
+
+            local Toggle = CreateToggle(Card, "", false, function(enabled)
+                if title == "Auto Treadmill" then
+                    AutoTreadmillEnabled = enabled
+                    if not enabled then
+                        StatusValue.Text = "Disabled"
+                        StatusValue.TextColor3 = Theme.Gray
+                        StatusDot.BackgroundColor3 = Theme.Gray
+                    elseif AutoStealEnabled then
+                        StatusValue.Text = "Waiting for scan"
+                        StatusValue.TextColor3 = Theme.Accent
+                        StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                    else
+                        StatusValue.Text = "Enabled"
+                        StatusValue.TextColor3 = Theme.Accent
+                        StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                    end
+                    AutoTreadmillStatusValue = StatusValue
+                    AutoTreadmillStatusDot = StatusDot
+                    if enabled and not AutoStealEnabled and Runtime.StartTreadmillIdle then
+                        Runtime.StartTreadmillIdle()
+                    elseif not enabled and Runtime.StopTreadmillIdle then
+                        Runtime.StopTreadmillIdle()
+                    end
+                else
+                    StatusValue.Text = enabled and "Enabled" or "Disabled"
+                    StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
+                    StatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+                end
+            end)
+            Toggle.Position = UDim2.new(1, -49, 0, 6)
+            Toggle.Size = UDim2.fromOffset(38, 24)
+            if title == "Auto Treadmill" then
+                AutoTreadmillStatusValue = StatusValue
+                AutoTreadmillStatusDot = StatusDot
+            end
+            return Card
+        end
+
+        CreateAutomationCard("Auto Treadmill", UDim2.new(0, 0, 0, 0))
+        CreateAutomationCard("Auto Collect", UDim2.new(0.5, 4, 0, 0))
+    elseif name == "Features" then
         CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
     elseif name == "Misc. feature" then
         CreateCard(Page, "Miscellaneous", "Empty content area for future game-specific features.")
@@ -2584,34 +2875,77 @@ Pages[1].Visible = true
 SidebarButtons[1].TextColor3 = Theme.Text
 -- WINDOW CONTROLS
 local Minimized = false
+local IsAnimating = false
 local ExpandedPosition = Main.Position
+local MinimizedSize = UDim2.fromOffset(36, 36)
+local MinimizedTopOffset = 11
+local AnimationInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
 local function SetMinimized(state)
-    Minimized = state
-    if Minimized then
+    if IsAnimating or Minimized == state then return end
+    IsAnimating = true
+
+    if state then
         ExpandedPosition = Main.Position
+        Minimized = true
+
+        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
+        RestoreButton.Visible = true
+
+        local minimizedPosition = UDim2.new(
+            ExpandedPosition.X.Scale,
+            ExpandedPosition.X.Offset + UIConfig.Width - MinimizedSize.X.Offset,
+            ExpandedPosition.Y.Scale,
+            ExpandedPosition.Y.Offset + MinimizedTopOffset
+        )
+
+        local mainTween = TweenService:Create(Main, AnimationInfo, {
+            Size = MinimizedSize,
+            Position = minimizedPosition
+        })
+        local restoreTween = TweenService:Create(RestoreButton, AnimationInfo, {
+            Position = UDim2.fromOffset(0, 0)
+        })
+        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
+            CornerRadius = UDim.new(0, 18)
+        })
+
+        mainTween:Play()
+        restoreTween:Play()
+        cornerTween:Play()
+        mainTween.Completed:Wait()
+
         Content.Visible = false
         Sidebar.Visible = false
         TopBar.Visible = false
-        RestoreButton.Visible = true
-        MainCorner.CornerRadius = UDim.new(0, 18)
-        Tween(Main, {
-            Size = UDim2.fromOffset(36, 36),
-            Position = UDim2.new(
-                ExpandedPosition.X.Scale,
-                ExpandedPosition.X.Offset + UIConfig.Width - 59,
-                ExpandedPosition.Y.Scale,
-                ExpandedPosition.Y.Offset + 11
-            )
-        })
     else
-        RestoreButton.Visible = false
-        MainCorner.CornerRadius = UDim.new(0, 12)
-        Main.Position = ExpandedPosition
-        Tween(Main, {Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height)})
-        TopBar.Visible = true
+        Minimized = false
+
         Content.Visible = true
         Sidebar.Visible = true
+        TopBar.Visible = true
+        RestoreButton.Visible = true
+
+        local mainTween = TweenService:Create(Main, AnimationInfo, {
+            Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
+            Position = ExpandedPosition
+        })
+        local restoreTween = TweenService:Create(RestoreButton, AnimationInfo, {
+            Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
+        })
+        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
+            CornerRadius = UDim.new(0, 12)
+        })
+
+        mainTween:Play()
+        restoreTween:Play()
+        cornerTween:Play()
+        mainTween.Completed:Wait()
+
+        RestoreButton.Visible = false
     end
+
+    IsAnimating = false
 end
 MinimizeButton.MouseButton1Click:Connect(function()
     SetMinimized(true)
@@ -2665,6 +2999,14 @@ end))
 TrackConnection(UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
+        if Dragging and Minimized then
+            ExpandedPosition = UDim2.new(
+                Main.Position.X.Scale,
+                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset),
+                Main.Position.Y.Scale,
+                Main.Position.Y.Offset - MinimizedTopOffset
+            )
+        end
         Dragging = false
     end
 end))
