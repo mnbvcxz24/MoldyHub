@@ -2384,10 +2384,9 @@ end))
                 SetNavigationStatus("Recovery complete - resuming cage scan")
                 return true
             end
-            local previousCharacterRoot
-            local previousCharacterPosition
             local previousNavigationRoot
             local previousNavigationPosition
+            local ownedPlotPosition = GetOwnedPlotPosition()
             local nextRootScanAt = 0
 
             baseTeleportConnection = RunService.Heartbeat:Connect(function()
@@ -2410,48 +2409,29 @@ end))
 
                 local character = LocalPlayer.Character
                 local currentRoot = character and character:FindFirstChild("HumanoidRootPart")
-                if not currentRoot or not currentRoot:IsA("BasePart") then
-                    previousCharacterRoot = nil
-                    previousCharacterPosition = nil
-                    previousNavigationRoot = nil
-                    previousNavigationPosition = nil
-                    return
-                end
+                local currentNavigationRoot = currentRoot and GetRidingPetRoot(currentRoot)
 
-                local currentNavigationRoot = GetRidingPetRoot(currentRoot) or currentRoot
-                local ownedPlotPosition = GetOwnedPlotPosition()
                 if not currentNavigationRoot or not currentNavigationRoot.Parent then
-                    previousCharacterRoot = nil
-                    previousCharacterPosition = nil
                     previousNavigationRoot = nil
                     previousNavigationPosition = nil
                     return
                 end
 
-                if previousCharacterRoot ~= currentRoot
-                or previousNavigationRoot ~= currentNavigationRoot
-                or not previousCharacterPosition
+                if previousNavigationRoot ~= currentNavigationRoot
                 or not previousNavigationPosition then
-                    previousCharacterRoot = currentRoot
-                    previousCharacterPosition = currentRoot.Position
                     previousNavigationRoot = currentNavigationRoot
                     previousNavigationPosition = currentNavigationRoot.Position
                     return
                 end
 
-                local characterJump = (currentRoot.Position - previousCharacterPosition).Magnitude
                 local navigationJump = (currentNavigationRoot.Position - previousNavigationPosition).Magnitude
-                local characterAtBase = (currentRoot.Position - safeSign.Position).Magnitude <= 65
-                    or (ownedPlotPosition and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65)
-                local navigationRootAtBase = (currentNavigationRoot.Position - safeSign.Position).Magnitude <= 65
-                    or (ownedPlotPosition and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65)
+                local navigationAtBase = ownedPlotPosition
+                    and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65
 
-                previousCharacterPosition = currentRoot.Position
                 previousNavigationPosition = currentNavigationRoot.Position
 
-                if not baseTeleportDetected
-                and ((characterJump >= 70 and characterAtBase)
-                or (navigationJump >= 70 and navigationRootAtBase)) then
+                if not baseTeleportDetected and ownedPlotPosition
+                and navigationJump >= 70 and navigationAtBase then
                     baseTeleportDetected = true
                     CancelActiveMovement()
                     RestoreFloating()
