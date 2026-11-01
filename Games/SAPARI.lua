@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.32"
+local deployver = "Deploy ver 1.33"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2820,13 +2820,15 @@ end))
             end
 
             local skipInitialSafeZone = false
-            if safeSign and safeSign:IsA("BasePart") and root then
-                for _, cage in ipairs(GetSelectedCages()) do
+            local navigationRoot = root and GetNavigationRoot(root)
+            if safeSign and safeSign:IsA("BasePart")
+            and navigationRoot and navigationRoot.Parent then
+                for _, cage in ipairs(GetSelectedCages(root)) do
                     local ok, cagePosition = pcall(function()
                         return cage:GetPivot().Position
                     end)
                     if ok and cagePosition
-                    and (cagePosition - root.Position).Magnitude <= 200 then
+                    and (cagePosition - navigationRoot.Position).Magnitude <= 200 then
                         skipInitialSafeZone = true
                         break
                     end
