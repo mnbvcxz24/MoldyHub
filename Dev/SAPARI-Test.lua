@@ -8,7 +8,7 @@ local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.86"
+local testver = "Test ver: 1.87"
 local displayVersion = "v" .. (string.match(testver, "[%d%.]+") or "1.86")
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2188,6 +2188,11 @@ end))
             Runtime.BossMovementActive = true
             Runtime.BossResumeAutoSteal = AutoStealEnabled
 
+            if nightDetected then
+                Runtime.NightPending = true
+                nightDetected = false
+            end
+
             navigationToken += 1
             if bossCaughtConnection then
                 bossCaughtConnection:Disconnect()
@@ -2462,7 +2467,9 @@ end))
                 return
             end
 
-            nightDetected = false
+            local pendingNightRecovery = Runtime.NightPending == true
+            Runtime.NightPending = false
+            nightDetected = pendingNightRecovery
             bossCaughtDetected = false
             if bossCaughtConnection then
                 bossCaughtConnection:Disconnect()
@@ -2564,12 +2571,17 @@ end))
                 SetNavigationStatus("Recovery complete - checking dropped cage")
                 return true
             end
-            local nightRecoveryPending = false
+            local nightRecoveryPending = pendingNightRecovery
             local treadmillCageSafeZonePending = false
             local playerGui = LocalPlayer:WaitForChild("PlayerGui")
             local watchedNightTimer
 
             local function HandleNightStarted()
+                if Runtime.BossMovementActive then
+                    Runtime.NightPending = true
+                    return
+                end
+
                 if nightDetected or bossCaughtDetected then
                     return
                 end
