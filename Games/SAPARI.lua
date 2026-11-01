@@ -557,7 +557,7 @@ local function CreateCard(parent, title, description)
         Text = title,
         TextColor3 = Theme.Text,
         Font = Enum.Font.GothamBold,
-        TextSize = 9,
+        TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Left
     })
     Create("TextLabel", {
@@ -908,7 +908,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         if HeaderTitle then
             HeaderTitle.Position = UDim2.fromOffset(15, 10)
             HeaderTitle.Size = UDim2.new(1, -70, 0, 22)
-            HeaderTitle.TextSize = 13
+            HeaderTitle.TextSize = 10
         end
 
         local SelectedPaths = {}
@@ -1030,7 +1030,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Text = "Disabled",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.GothamMedium,
-            TextSize = 9,
+            TextSize = 10,
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Right
         })
@@ -3644,6 +3644,10 @@ end))
         local StatusCard = CreateCard(Page, "Status", "")
         StatusCard.Size = UDim2.new(1, 0, 0, 148)
 
+        local StatusCardTitle = StatusCard:FindFirstChildWhichIsA("TextLabel")
+        if StatusCardTitle then
+            StatusCardTitle.TextSize = 10
+        end
         local ActivityRow = Create("Frame", {
             Parent = StatusCard,
             Position = UDim2.fromOffset(11, 34),
@@ -3667,7 +3671,7 @@ end))
             Text = "Activity",
             TextColor3 = Theme.DarkGray,
             Font = Enum.Font.Gotham,
-            TextSize = 9,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left
         })
 
@@ -3679,7 +3683,7 @@ end))
             Text = "Idle",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.GothamMedium,
-            TextSize = 9,
+            TextSize = 10,
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Right
         })
@@ -4051,7 +4055,7 @@ end))
             "Dark Plum + Rose",
             "Forest Night + Lime"
         }
-        AppearanceCard.Size = UDim2.new(1, 0, 0, 222)
+        AppearanceCard.Size = UDim2.new(1, 0, 0, 352)
         local ThemeButtons = {}
         local function RefreshThemeSelection()
             for themeName, controls in pairs(ThemeButtons) do
@@ -4061,12 +4065,10 @@ end))
             end
         end
         for index, themeName in ipairs(ThemeOptions) do
-            local column = (index - 1) % 2
-            local row = math.floor((index - 1) / 2)
             local ThemeButton = Create("TextButton", {
                 Parent = AppearanceCard,
-                Position = UDim2.fromOffset(11 + column * 218, 64 + row * 29),
-                Size = UDim2.fromOffset(210, 25),
+                Position = UDim2.fromOffset(11, 64 + (index - 1) * 27),
+                Size = UDim2.new(1, -22, 0, 23),
                 BackgroundColor3 = Theme.SurfaceInput,
                 Text = "",
                 BorderSizePixel = 0,
@@ -4076,7 +4078,7 @@ end))
             AddStroke(ThemeButton, Theme.Border, 1)
             local Preview = Create("Frame", {
                 Parent = ThemeButton,
-                Position = UDim2.fromOffset(7, 5),
+                Position = UDim2.fromOffset(7, 4),
                 Size = UDim2.fromOffset(15, 15),
                 BackgroundColor3 = ThemePresets[themeName].Accent,
                 BorderSizePixel = 0
@@ -4090,13 +4092,13 @@ end))
                 Text = themeName,
                 TextColor3 = Theme.Text,
                 Font = Enum.Font.Gotham,
-                TextSize = 8,
+                TextSize = 9,
                 TextXAlignment = Enum.TextXAlignment.Left
             })
             local Check = Create("TextLabel", {
                 Parent = ThemeButton,
                 Position = UDim2.new(1, -24, 0, 0),
-                Size = UDim2.fromOffset(20, 25),
+                Size = UDim2.fromOffset(20, 23),
                 BackgroundTransparency = 1,
                 Text = "",
                 TextColor3 = Theme.Accent,
