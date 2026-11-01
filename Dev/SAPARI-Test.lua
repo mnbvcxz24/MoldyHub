@@ -3717,10 +3717,16 @@ end))
         })
     elseif name == "Events" then
         local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "")
+        AutoFightBossCard.Size = UDim2.new(1, 0, 0, 84)
+        local BossCardTitle = AutoFightBossCard:FindFirstChildWhichIsA("TextLabel")
+        if BossCardTitle then
+            BossCardTitle.TextSize = 10
+            BossCardTitle.Position = UDim2.fromOffset(11, 8)
+        end
 
         local BossStatusRow = Create("Frame", {
             Parent = AutoFightBossCard,
-            Position = UDim2.fromOffset(11, 35),
+            Position = UDim2.fromOffset(11, 29),
             Size = UDim2.new(1, -22, 0, 18),
             BackgroundTransparency = 1
         })
@@ -3740,7 +3746,7 @@ end))
             Text = "Status",
             TextColor3 = Theme.DarkGray,
             Font = Enum.Font.Gotham,
-            TextSize = 10,
+            TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
         local BossStatusValue = Create("TextLabel", {
@@ -3757,7 +3763,7 @@ end))
         })
         Create("Frame", {
             Parent = AutoFightBossCard,
-            Position = UDim2.fromOffset(11, 61),
+            Position = UDim2.fromOffset(11, 50),
             Size = UDim2.new(1, -22, 0, 1),
             BackgroundColor3 = Theme.Border,
             BorderSizePixel = 0
@@ -3931,8 +3937,8 @@ end))
                 StopBossRoutine()
             end
         end)
-        AutoFightBossToggle.Position = UDim2.fromOffset(11, 68)
-        AutoFightBossToggle.Size = UDim2.new(1, -22, 0, 28)
+        AutoFightBossToggle.Position = UDim2.fromOffset(11, 54)
+        AutoFightBossToggle.Size = UDim2.new(1, -22, 0, 22)
     elseif name == "Misc. feature" then
         local AntiAFKCard = CreateCard(Page, "Anti AFK", "Prevents the idle kick while this toggle is enabled.")
         local antiAFKConnection
