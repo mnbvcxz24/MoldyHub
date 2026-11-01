@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.39"
+local deployver = "Deploy ver 1.40"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1695,6 +1695,8 @@ end))
 
         local navigationToken = 0
         local treadmillToken = 0
+        local treadmillStatus = "Disabled"
+        local treadmillCageWasRunning = false
         local activeNavigationTween
         local nightTimerConnection
         local nightTimerAddedConnection
@@ -2262,7 +2264,8 @@ end))
 
                     if not treadmill then
                         if AutoTreadmillStatusValue then
-                            AutoTreadmillStatusValue.Text = "Treadmill unavailable"
+                            treadmillStatus = "Treadmill unavailable"
+                            AutoTreadmillStatusValue.Text = treadmillStatus
                             AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                         end
                         if AutoTreadmillStatusDot then
@@ -2279,7 +2282,8 @@ end))
                         if distance <= 4 then
                             humanoid:MoveTo(root.Position)
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Running"
+                                treadmillStatus = "Running"
+                                AutoTreadmillStatusValue.Text = treadmillStatus
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
                             end
                             if AutoTreadmillStatusDot then
@@ -2288,7 +2292,8 @@ end))
                             task.wait(0.25)
                         else
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Walking"
+                                treadmillStatus = "Walking"
+                                AutoTreadmillStatusValue.Text = treadmillStatus
                                 AutoTreadmillStatusValue.TextColor3 = Theme.Accent
                             end
                             if AutoTreadmillStatusDot then
@@ -2657,7 +2662,8 @@ end))
 
                 if not treadmill or not treadmill:IsA("BasePart") then
                     if AutoTreadmillStatusValue then
-                        AutoTreadmillStatusValue.Text = "Treadmill unavailable"
+                        treadmillStatus = "Treadmill unavailable"
+                        AutoTreadmillStatusValue.Text = treadmillStatus
                         AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                     end
                     if AutoTreadmillStatusDot then
@@ -2671,7 +2677,8 @@ end))
                 local arrived = false
 
                 if AutoTreadmillStatusValue then
-                    AutoTreadmillStatusValue.Text = "Walking"
+                    treadmillStatus = "Walking"
+                    AutoTreadmillStatusValue.Text = treadmillStatus
                     AutoTreadmillStatusValue.TextColor3 = Theme.Accent
                 end
                 if AutoTreadmillStatusDot then
@@ -2686,10 +2693,12 @@ end))
                     end
 
                     if #GetSelectedCages() > 0 then
+                        treadmillCageWasRunning = treadmillStatus == "Running"
                         treadmillCageSafeZonePending = true
                         humanoid:MoveTo(root.Position)
                         if AutoTreadmillStatusValue then
-                            AutoTreadmillStatusValue.Text = "Waiting"
+                            treadmillStatus = "Waiting"
+                            AutoTreadmillStatusValue.Text = treadmillStatus
                             AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                         end
                         if AutoTreadmillStatusDot then
@@ -2733,7 +2742,8 @@ end))
 
                 humanoid:MoveTo(root.Position)
                 if not AutoTreadmillEnabled and AutoTreadmillStatusValue then
-                    AutoTreadmillStatusValue.Text = "Disabled"
+                    treadmillStatus = "Disabled"
+                    AutoTreadmillStatusValue.Text = treadmillStatus
                     AutoTreadmillStatusValue.TextColor3 = Theme.Gray
                     if AutoTreadmillStatusDot then
                         AutoTreadmillStatusDot.BackgroundColor3 = Theme.Gray
@@ -2829,7 +2839,7 @@ end))
                 task.wait(0.1)
             end
 
-            local function WalkToSafeZoneAtStart()
+            local function WalkToSafeZoneAtStart(jumpForTreadmill)
                 if not safeSign or not safeSign:IsA("BasePart") then
                     SetNavigationStatus("Safe zone unavailable - continuing")
                     return true
@@ -2848,9 +2858,10 @@ end))
                     else
                         SetNavigationStatus("Walking to safe zone")
                         local safeZoneDestination = safeSign.Position
-                        JumpForSafeZone(humanoid)
-                        if MoveToPosition(root, humanoid, safeZoneDestination, token, true) then
+                        if jumpForTreadmill then
                             JumpForSafeZone(humanoid)
+                        end
+                        if MoveToPosition(root, humanoid, safeZoneDestination, token, true) then
                             SetNavigationStatus("Safe zone reached")
                             return true
                         end
@@ -2922,8 +2933,9 @@ end))
 
                 if treadmillCageSafeZonePending then
                     SetNavigationStatus("Cage found - returning to safe zone")
-                    if not WalkToSafeZoneAtStart() then return end
+                    if not WalkToSafeZoneAtStart(treadmillCageWasRunning) then return end
                     treadmillCageSafeZonePending = false
+                    treadmillCageWasRunning = false
                     continue
                 end
 
@@ -3252,10 +3264,6 @@ end))
                             false,
                             MovementMode == "Glide"
                         )
-                        if reachedSafeZone then
-                            JumpForSafeZone(humanoid)
-                        end
-
                         if not reachedSafeZone then
                             RestoreFloating()
                             if bossCaughtDetected then
@@ -3410,15 +3418,18 @@ end))
                 if title == "Auto Treadmill" then
                     AutoTreadmillEnabled = enabled
                     if not enabled then
-                        StatusValue.Text = "Disabled"
+                        treadmillStatus = "Disabled"
+                        StatusValue.Text = treadmillStatus
                         StatusValue.TextColor3 = Theme.Gray
                         StatusDot.BackgroundColor3 = Theme.Gray
                     elseif AutoStealEnabled then
-                        StatusValue.Text = "Waiting for scan"
+                        treadmillStatus = "Waiting for scan"
+                        StatusValue.Text = treadmillStatus
                         StatusValue.TextColor3 = Theme.Accent
                         StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
                     else
-                        StatusValue.Text = "Enabled"
+                        treadmillStatus = "Enabled"
+                        StatusValue.Text = treadmillStatus
                         StatusValue.TextColor3 = Theme.Accent
                         StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
                     end
