@@ -3446,7 +3446,7 @@ end))
         end
 
         CreateAutomationCard("Auto Treadmill", UDim2.new(0, 0, 0, 0))
-        CreateAutomationCard("Auto Collect", UDim2.new(0.5, 4, 0, 0))
+        CreateAutomationCard("Auto Fight Boss", UDim2.new(0.5, 4, 0, 0))
     elseif name == "Features" then
         CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
     elseif name == "Misc. feature" then
