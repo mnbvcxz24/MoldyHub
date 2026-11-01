@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy v1.222"
+local testver = "Deploy v1.223"
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2755,7 +2755,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                             if ok and pivot then destination = pivot.Position end
                         end
                     end
-                    local offset = Vector3.new(destination.X - root.Position.X, 0, destination.Z - root.Position.Z)
+                    local horizontalDestination = Vector3.new(destination.X, root.Position.Y, destination.Z)
+                    local offset = horizontalDestination - root.Position
                     if offset.Magnitude < lastReturnDistance - 0.5 then
                         lastReturnDistance = offset.Magnitude
                         TouchAutomationProgress()
@@ -2853,7 +2854,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         end
                         return
                     end
-                    if os.clock() - moveStarted >= 25 then
+                    if os.clock() - moveStarted >= 60 then
                         humanoid:Move(Vector3.zero, false)
                         connection:Disconnect()
                         connection = nil
@@ -4821,8 +4822,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         task.spawn(function()
             while not Runtime.Stopped and not ScriptShuttingDown do
                 task.wait(1)
-                local active = PickupRequested or ReturningAfterPickup or FlingRecoveryActive
-                    or (AutoBreakEnabled and (CurrentTarget ~= nil or WaitingForPickup or ArrivedAtTarget
+                local active = PickupRequested or FlingRecoveryActive
+                    or (not ReturningAfterPickup and AutoBreakEnabled and (CurrentTarget ~= nil or WaitingForPickup or ArrivedAtTarget
                         or AutomationProgressStage:find("^AUTO_BREAK:") ~= nil))
                 if active and not AutomationWatchdogBusy
                     and os.clock() - LastAutomationProgressAt >= 20 then
