@@ -431,7 +431,7 @@ local Content = Create("Frame", {
     Name = "Content",
     Parent = Main,
     Position = UDim2.fromOffset(0, 78),
-    Size = UDim2.new(1, -12, 1, -90),
+    Size = UDim2.new(1, 0, 1, -90),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
