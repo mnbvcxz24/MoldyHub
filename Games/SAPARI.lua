@@ -8,7 +8,7 @@ local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.45"
+local deployver = "Deploy ver 1.46"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -301,7 +301,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font size="10" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. deployver .. '</font>'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">v1.46</font>'
     end
 end
 -- MAIN WINDOW
@@ -343,7 +343,7 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(14, 0),
     Size = UDim2.new(1, -100, 1, 0),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font size="10" color="#' .. Theme.Accent:ToHex() .. '">' .. deployver .. '</font>',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font size="9" color="#' .. Theme.Accent:ToHex() .. '">v1.46</font>',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamMedium,
