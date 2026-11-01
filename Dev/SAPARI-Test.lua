@@ -2224,6 +2224,13 @@ end))
                                 treadmillStatus = "Running"
                                 AutoTreadmillStatusValue.Text = treadmillStatus
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                                if StatusValue then
+                                    StatusValue.Text = "In Treadmill"
+                                    StatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                                end
+                                if StatusDot then
+                                    StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                                end
                             end
                             if AutoTreadmillStatusDot then
                                 AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
@@ -2753,7 +2760,7 @@ end))
                 end
 
                 if ShouldWalk(root) then
-                    SetNavigationStatus("Walking to cage")
+                    SetNavigationStatus("Walking to " .. (cageModel and cageModel.Name or "cage"))
                     local reached = MoveToPosition(root, humanoid, destination, token, true, false, true)
                     if reached then
                         return true
@@ -2796,7 +2803,7 @@ end))
                     end
                     return false, "Failed to reach cage"
                 end
-                SetNavigationStatus("Cage reached")
+                SetNavigationStatus("Found " .. (cageModel and cageModel.Name or "cage"))
                 return true
             end
             local function WalkToSafeZoneAtStart()
@@ -2812,7 +2819,7 @@ end))
                         SetNavigationStatus("Waiting for character")
                         task.wait(0.25)
                     else
-                        SetNavigationStatus("Walking to safe zone")
+                        SetNavigationStatus("Returning to safezone")
                         local safeZoneDestination = safeSign.Position
                         safeZoneNavigationActive = true
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
@@ -2885,7 +2892,7 @@ end))
                 end
 
                 if treadmillCageSafeZonePending then
-                    SetNavigationStatus("Cage found - returning to safe zone")
+                    SetNavigationStatus("Returning to safezone")
                     if not WalkToSafeZoneAtStart() then return end
                     treadmillCageSafeZonePending = false
                     continue
@@ -3435,6 +3442,96 @@ end))
         end
 
         CreateAutomationCard("Auto Treadmill", UDim2.new(0, 0, 0, 0))
+
+        StatusRow.Visible = false
+        StatusDivider.Visible = false
+
+        local StatusCard = CreateCard(Page, "Status", "")
+        StatusCard.Size = UDim2.new(1, 0, 0, 148)
+
+        local ActivityRow = Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 34),
+            Size = UDim2.new(1, -22, 0, 20),
+            BackgroundTransparency = 1
+        })
+        StatusDot = Create("Frame", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(1, 6),
+            Size = UDim2.fromOffset(8, 8),
+            BackgroundColor3 = Theme.Gray,
+            BorderSizePixel = 0
+        })
+        AddCorner(StatusDot, 8)
+
+        Create("TextLabel", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(16, 0),
+            Size = UDim2.fromOffset(42, 20),
+            BackgroundTransparency = 1,
+            Text = "Activity",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        StatusValue = Create("TextLabel", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(60, 0),
+            Size = UDim2.new(1, -60, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Idle",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+
+        Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 62),
+            Size = UDim2.new(1, -22, 0, 1),
+            BackgroundColor3 = Theme.Border,
+            BorderSizePixel = 0
+        })
+
+        Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 70),
+            Size = UDim2.new(1, -22, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Current World: Hub",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 91),
+            Size = UDim2.new(1, -22, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "RareCage - 2",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 112),
+            Size = UDim2.new(1, -22, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "DivineCage - 5",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
     elseif name == "Events" then
         local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "Automatically fights the boss when enabled.")
         local AutoFightBossToggle = CreateToggle(AutoFightBossCard, "Enable Auto Fight Boss", false, function(enabled)
