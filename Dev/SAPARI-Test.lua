@@ -402,7 +402,7 @@ local NavigationBar = Create("Frame", {
     Name = "NavigationBar",
     Parent = Main,
     Position = UDim2.fromOffset(0, 40),
-    Size = UDim2.new(1, 0, 0, 38),
+    Size = UDim2.new(1, 0, 0, 32),
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
@@ -430,8 +430,8 @@ Create("UIListLayout", {
 local Content = Create("Frame", {
     Name = "Content",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 78),
-    Size = UDim2.new(1, 0, 1, -90),
+    Position = UDim2.fromOffset(0, 72),
+    Size = UDim2.new(1, 0, 1, -84),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
