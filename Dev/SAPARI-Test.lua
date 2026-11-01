@@ -2193,14 +2193,6 @@ end))
                 bossCaughtConnection:Disconnect()
                 bossCaughtConnection = nil
             end
-            if nightTimerConnection then
-                nightTimerConnection:Disconnect()
-                nightTimerConnection = nil
-            end
-            if nightTimerAddedConnection then
-                nightTimerAddedConnection:Disconnect()
-                nightTimerAddedConnection = nil
-            end
 
             CancelActiveMovement()
             RestoreFloating()
