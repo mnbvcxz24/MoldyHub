@@ -42,8 +42,9 @@ RuntimeEnv.__StealAPetAndRideItCleanup = function()
 end
 -- UI CONFIGURATION
 local UIConfig = {
-    Title = "STEAL A PET AND RIDE IT",
-    Subtitle = testver,
+    Title = "MoldyHub",
+    Subtitle = "Steal a pet and ride it",
+    Version = testver,
     Width = 480,
     Height = 320,
     SidebarWidth = 100,
@@ -341,6 +342,19 @@ Create("Frame", {
     BorderSizePixel = 0,
     ZIndex = 0
 })
+local Title = Create("TextLabel", {
+    Name = "Title",
+    Parent = TopBar,
+    Position = UDim2.fromOffset(14, 0),
+    Size = UDim2.new(1, -100, 1, 0),
+    BackgroundTransparency = 1,
+    Text = UIConfig.Title,
+    TextColor3 = Theme.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center
+})
 -- Minimize
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
@@ -424,10 +438,10 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(8, 10),
     Size = UDim2.new(1, -16, 0, 28),
     BackgroundTransparency = 1,
-    Text = UIConfig.Title,
+    Text = UIConfig.Subtitle,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
-    TextSize = 11,
+    TextSize = 10,
     TextWrapped = true,
     TextXAlignment = Enum.TextXAlignment.Left,
     TextYAlignment = Enum.TextYAlignment.Top
@@ -438,7 +452,7 @@ local Subtitle = Create("TextLabel", {
     Position = UDim2.fromOffset(8, 38),
     Size = UDim2.new(1, -16, 0, 14),
     BackgroundTransparency = 1,
-    Text = UIConfig.Subtitle,
+    Text = UIConfig.Version,
     TextColor3 = Theme.Gray,
     Font = Enum.Font.Gotham,
     TextSize = 9,
