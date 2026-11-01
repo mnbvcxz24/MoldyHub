@@ -445,7 +445,6 @@ local Sidebar = Create("Frame", {
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
-AddCorner(Sidebar, 12)
 -- Sidebar container
 local SidebarContainer = Create("ScrollingFrame", {
     Name = "Buttons",
@@ -482,6 +481,24 @@ local Content = Create("Frame", {
     ),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
+})
+local SidebarDividerDark = Create("Frame", {
+    Name = "SidebarDividerDark",
+    Parent = Main,
+    Position = UDim2.fromOffset(UIConfig.SidebarWidth - 1, 48),
+    Size = UDim2.new(0, 1, 1, -48),
+    BackgroundColor3 = Theme.Background,
+    BorderSizePixel = 0,
+    ZIndex = 4
+})
+local SidebarDividerLight = Create("Frame", {
+    Name = "SidebarDividerLight",
+    Parent = Main,
+    Position = UDim2.fromOffset(UIConfig.SidebarWidth, 48),
+    Size = UDim2.new(0, 1, 1, -48),
+    BackgroundColor3 = Theme.Border,
+    BorderSizePixel = 0,
+    ZIndex = 4
 })
 -- PAGE SYSTEM
 local Pages = {}
