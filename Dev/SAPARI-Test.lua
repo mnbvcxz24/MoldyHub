@@ -2763,6 +2763,7 @@ end))
             end
             local character = LocalPlayer.Character
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local root = character and character:FindFirstChild("HumanoidRootPart")
             if humanoid then
                 humanoid.Jump = true
                 pcall(function()
