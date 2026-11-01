@@ -3521,12 +3521,17 @@ local function SetMinimized(state)
         ExpandedPosition = Main.Position
         Minimized = true
 
-        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
+        RestoreButton.Position = UDim2.fromOffset(0, 0)
         RestoreButton.Visible = true
+        Content.Visible = false
+        NavigationBar.Visible = false
+        TopBar.Visible = false
 
+        local expandedWidth = Main.AbsoluteSize.X
+        local minimizedWidth = MinimizedSize.X.Offset * UIScale.Scale
         local minimizedPosition = UDim2.new(
             ExpandedPosition.X.Scale,
-            ExpandedPosition.X.Offset + UIConfig.Width - MinimizedSize.X.Offset,
+            ExpandedPosition.X.Offset + expandedWidth - minimizedWidth,
             ExpandedPosition.Y.Scale,
             ExpandedPosition.Y.Offset + MinimizedTopOffset
         )
@@ -3535,46 +3540,36 @@ local function SetMinimized(state)
             Size = MinimizedSize,
             Position = minimizedPosition
         })
-        local restoreTween = TweenService:Create(RestoreButton, AnimationInfo, {
-            Position = UDim2.fromOffset(0, 0)
-        })
         local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
             CornerRadius = UDim.new(0, 18)
         })
 
         mainTween:Play()
-        restoreTween:Play()
         cornerTween:Play()
         mainTween.Completed:Wait()
-
-        Content.Visible = false
-        Sidebar.Visible = false
-        TopBar.Visible = false
     else
         Minimized = false
 
-        Content.Visible = true
-        Sidebar.Visible = true
-        TopBar.Visible = true
+        RestoreButton.Position = UDim2.fromOffset(0, 0)
         RestoreButton.Visible = true
 
         local mainTween = TweenService:Create(Main, AnimationInfo, {
             Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
             Position = ExpandedPosition
         })
-        local restoreTween = TweenService:Create(RestoreButton, AnimationInfo, {
-            Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
-        })
         local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
             CornerRadius = UDim.new(0, 12)
         })
 
         mainTween:Play()
-        restoreTween:Play()
         cornerTween:Play()
         mainTween.Completed:Wait()
 
+        Content.Visible = true
+        NavigationBar.Visible = true
+        TopBar.Visible = true
         RestoreButton.Visible = false
+        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
     end
 
     IsAnimating = false
@@ -3617,16 +3612,18 @@ RestoreButton.InputBegan:Connect(function(input)
     end
 end)
 TrackConnection(UserInputService.InputChanged:Connect(function(input)
-    if not Dragging then return end
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
     and input.UserInputType ~= Enum.UserInputType.Touch then return end
-    local Delta = input.Position - DragStart
-    Main.Position = UDim2.new(
-        StartPosition.X.Scale,
-        StartPosition.X.Offset + Delta.X,
-        StartPosition.Y.Scale,
-        StartPosition.Y.Offset + Delta.Y
-    )
+
+    if Dragging then
+        local Delta = input.Position - DragStart
+        Main.Position = UDim2.new(
+            StartPosition.X.Scale,
+            StartPosition.X.Offset + Delta.X,
+            StartPosition.Y.Scale,
+            StartPosition.Y.Offset + Delta.Y
+        )
+    end
 end))
 TrackConnection(UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -3634,7 +3631,7 @@ TrackConnection(UserInputService.InputEnded:Connect(function(input)
         if Dragging and Minimized then
             ExpandedPosition = UDim2.new(
                 Main.Position.X.Scale,
-                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset),
+                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset) * UIScale.Scale,
                 Main.Position.Y.Scale,
                 Main.Position.Y.Offset - MinimizedTopOffset
             )
