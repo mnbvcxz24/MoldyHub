@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.75"
+local testver = "Test ver: 1.76"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2535,6 +2535,27 @@ end))
                 return droppedCage
             end
 
+            local function GetCagePrompt(cageModel)
+                if not cageModel or not cageModel.Parent then
+                    return nil
+                end
+
+                if cageModel.Name == "DroppedCage" then
+                    local cageRoot = cageModel:FindFirstChild("Root")
+                    local grabPrompt = cageRoot and cageRoot:FindFirstChild("GrabPrompt")
+                    if grabPrompt and grabPrompt:IsA("ProximityPrompt") then
+                        return grabPrompt
+                    end
+                    return nil
+                end
+
+                local stealPrompt = cageModel:FindFirstChild("StealPrompt", true)
+                if stealPrompt and stealPrompt:IsA("ProximityPrompt") then
+                    return stealPrompt
+                end
+                return nil
+            end
+
             local function GetSelectedCages(characterRoot)
                 local cages = {}
                 if prioritizeDroppedCageRecovery then
@@ -2749,8 +2770,8 @@ end))
 
                     local targetPosition = destination
                     if cageModel and cageModel.Parent then
-                        local prompt = cageModel:FindFirstChild("StealPrompt", true)
-                        if prompt and prompt:IsA("ProximityPrompt") then
+                        local prompt = GetCagePrompt(cageModel)
+                        if prompt then
                             targetPosition = GetPromptWorldPosition(prompt) or targetPosition
                         end
                     end
@@ -3036,7 +3057,7 @@ end))
                         end
 
                         local promptOk, foundPrompt = pcall(function()
-                            return selectedCage:FindFirstChild("StealPrompt", true)
+                            return GetCagePrompt(selectedCage)
                         end)
                         if promptOk and foundPrompt
                         and foundPrompt:IsA("ProximityPrompt")
@@ -3105,7 +3126,8 @@ end))
                     end
 
                     SetFloating(root, false)
-                    SetNavigationStatus("Holding steal prompt")
+                    SetNavigationStatus(selectedCage.Name == "DroppedCage"
+                        and "Holding grab prompt" or "Holding steal prompt")
                     local holdStarted = false
                     local holdCompleted = false
                     local holdOk = pcall(function()
