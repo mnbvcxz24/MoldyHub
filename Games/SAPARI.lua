@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.41"
+local deployver = "Deploy ver 1.42"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1696,7 +1696,6 @@ end))
         local navigationToken = 0
         local treadmillToken = 0
         local treadmillStatus = "Disabled"
-        local treadmillCageWasRunning = false
         local activeNavigationTween
         local nightTimerConnection
         local nightTimerAddedConnection
@@ -2931,7 +2930,6 @@ end))
                     SetNavigationStatus("Cage found - returning to safe zone")
                     if not WalkToSafeZoneAtStart() then return end
                     treadmillCageSafeZonePending = false
-                    treadmillCageWasRunning = false
                     continue
                 end
 
@@ -2989,12 +2987,6 @@ end))
                     end
 
                     local stealPrompt
-
-                    humanoid.Jump = true
-                    pcall(function()
-                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                    end)
-                    task.wait(0.1)
 
                     if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
