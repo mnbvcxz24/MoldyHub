@@ -8,7 +8,7 @@ local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.87"
+local testver = "Test ver: 1.88"
 local displayVersion = "v" .. (string.match(testver, "[%d%.]+") or "1.86")
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -557,7 +557,7 @@ local function CreateCard(parent, title, description)
         Text = title,
         TextColor3 = Theme.Text,
         Font = Enum.Font.GothamBold,
-        TextSize = 10,
+        TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Left
     })
     Create("TextLabel", {
@@ -3975,7 +3975,49 @@ end))
         AutoFightBossToggle.Size = UDim2.new(1, -22, 0, 22)
     elseif name == "Misc. feature" then
         local AntiAFKCard = CreateCard(Page, "Anti AFK", "Prevents the idle kick while this toggle is enabled.")
+        AntiAFKCard.Size = UDim2.new(1, 0, 0, 116)
         local antiAFKConnection
+        local AntiAFKStatusRow = Create("Frame", {
+            Parent = AntiAFKCard,
+            Position = UDim2.fromOffset(11, 62),
+            Size = UDim2.new(1, -22, 0, 18),
+            BackgroundTransparency = 1
+        })
+        local AntiAFKStatusDot = Create("Frame", {
+            Parent = AntiAFKStatusRow,
+            Position = UDim2.fromOffset(2, 5),
+            Size = UDim2.fromOffset(8, 8),
+            BackgroundColor3 = Theme.Gray,
+            BorderSizePixel = 0
+        })
+        AddCorner(AntiAFKStatusDot, 8)
+        Create("TextLabel", {
+            Parent = AntiAFKStatusRow,
+            Position = UDim2.fromOffset(18, 0),
+            Size = UDim2.fromOffset(38, 18),
+            BackgroundTransparency = 1,
+            Text = "Status",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local AntiAFKStatusValue = Create("TextLabel", {
+            Parent = AntiAFKStatusRow,
+            Position = UDim2.fromOffset(58, 0),
+            Size = UDim2.new(1, -58, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Disabled",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+        local function SetAntiAFKStatus(enabled)
+            AntiAFKStatusValue.Text = enabled and "Enabled" or "Disabled"
+            AntiAFKStatusValue.TextColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+            AntiAFKStatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+        end
         local AntiAFKToggle = CreateToggle(AntiAFKCard, "Enable Anti AFK", false, function(enabled)
             if enabled then
                 if antiAFKConnection and antiAFKConnection.Connected then
@@ -3991,11 +4033,12 @@ end))
                 antiAFKConnection:Disconnect()
                 antiAFKConnection = nil
             end
+            SetAntiAFKStatus(enabled)
         end)
-        AntiAFKToggle.Position = UDim2.fromOffset(11, 68)
-        AntiAFKToggle.Size = UDim2.new(1, -22, 0, 28)
+        AntiAFKToggle.Position = UDim2.fromOffset(11, 84)
+        AntiAFKToggle.Size = UDim2.new(1, -22, 0, 24)
     elseif name == "Settings" then
-        local AppearanceCard = CreateCard(Page, "Appearance", "Choose a color palette for the interface.")
+        local AppearanceCard = CreateCard(Page, "Appearance", "Select a color palette for the interface.")
         local ThemeOptions = {
             "Midnight Blue + Cyan",
             "Black + Purple",
@@ -4008,9 +4051,69 @@ end))
             "Dark Plum + Rose",
             "Forest Night + Lime"
         }
-        CreateDropdown(AppearanceCard, "Theme", ThemeOptions, function(themeName)
-            ApplyTheme(themeName)
-        end)
+        AppearanceCard.Size = UDim2.new(1, 0, 0, 222)
+        local ThemeButtons = {}
+        local function RefreshThemeSelection()
+            for themeName, controls in pairs(ThemeButtons) do
+                controls.Check.Text = ActiveThemeName == themeName and "✓" or ""
+                controls.Button.BackgroundColor3 = ActiveThemeName == themeName and Theme.Selected or Theme.SurfaceInput
+                controls.Button.TextColor3 = ActiveThemeName == themeName and Theme.SelectedText or Theme.Text
+            end
+        end
+        for index, themeName in ipairs(ThemeOptions) do
+            local column = (index - 1) % 2
+            local row = math.floor((index - 1) / 2)
+            local ThemeButton = Create("TextButton", {
+                Parent = AppearanceCard,
+                Position = UDim2.fromOffset(11 + column * 218, 64 + row * 29),
+                Size = UDim2.fromOffset(210, 25),
+                BackgroundColor3 = Theme.SurfaceInput,
+                Text = "",
+                BorderSizePixel = 0,
+                AutoButtonColor = false
+            })
+            AddCorner(ThemeButton, 5)
+            AddStroke(ThemeButton, Theme.Border, 1)
+            local Preview = Create("Frame", {
+                Parent = ThemeButton,
+                Position = UDim2.fromOffset(7, 5),
+                Size = UDim2.fromOffset(15, 15),
+                BackgroundColor3 = ThemePresets[themeName].Accent,
+                BorderSizePixel = 0
+            })
+            AddCorner(Preview, 4)
+            Create("TextLabel", {
+                Parent = ThemeButton,
+                Position = UDim2.fromOffset(29, 0),
+                Size = UDim2.new(1, -55, 1, 0),
+                BackgroundTransparency = 1,
+                Text = themeName,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 8,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            local Check = Create("TextLabel", {
+                Parent = ThemeButton,
+                Position = UDim2.new(1, -24, 0, 0),
+                Size = UDim2.fromOffset(20, 25),
+                BackgroundTransparency = 1,
+                Text = "",
+                TextColor3 = Theme.Accent,
+                Font = Enum.Font.GothamBold,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Center
+            })
+            ThemeButtons[themeName] = {
+                Button = ThemeButton,
+                Check = Check
+            }
+            TrackConnection(ThemeButton.MouseButton1Click:Connect(function()
+                ApplyTheme(themeName)
+                RefreshThemeSelection()
+            end))
+        end
+        RefreshThemeSelection()
         local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
         local ScaleOptions = {"50%", "75%", "100%"}
         CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
