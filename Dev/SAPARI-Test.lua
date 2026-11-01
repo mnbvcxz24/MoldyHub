@@ -3783,7 +3783,7 @@ end))
         local BossFightEnded = false
         local BossRoutineToken = 0
         local BossListenerToken = 0
-        local MobBiteConnection
+        local WaveMobsConnection
         local WaveResultConnection
 
         local function SetBossStatus(status)
@@ -3802,9 +3802,9 @@ end))
 
         local function DisconnectBossListeners()
             BossListenerToken += 1
-            if MobBiteConnection then
-                MobBiteConnection:Disconnect()
-                MobBiteConnection = nil
+            if WaveMobsConnection then
+                WaveMobsConnection:Disconnect()
+                WaveMobsConnection = nil
             end
             if WaveResultConnection then
                 WaveResultConnection:Disconnect()
@@ -3915,19 +3915,19 @@ end))
             task.spawn(function()
                 while AutoFightBossEnabled and listenerToken == BossListenerToken
                 and not Runtime.Stopped do
+                    local waveMobs = workspace:FindFirstChild("WaveMobs")
                     local shared = ReplicatedStorage:FindFirstChild("Shared")
                     local remotes = shared and shared:FindFirstChild("Remotes")
-                    local mobBite = remotes and remotes:FindFirstChild("MobBite")
                     local waveResult = remotes and remotes:FindFirstChild("WaveResult")
 
-                    if mobBite and mobBite:IsA("RemoteEvent")
+                    if waveMobs and waveMobs:IsA("Folder")
                     and waveResult and waveResult:IsA("RemoteEvent") then
                         if listenerToken ~= BossListenerToken or not AutoFightBossEnabled
                         or Runtime.Stopped then
                             return
                         end
 
-                        MobBiteConnection = TrackConnection(mobBite.OnClientEvent:Connect(function()
+                        WaveMobsConnection = TrackConnection(waveMobs.ChildAdded:Connect(function()
                             if AutoFightBossEnabled and not BossRoutineRunning then
                                 StartBossRoutine()
                             end
@@ -3937,10 +3937,15 @@ end))
                                 BossFightEnded = true
                             end
                         end))
+
+                        if #waveMobs:GetChildren() > 0 and AutoFightBossEnabled
+                        and not BossRoutineRunning then
+                            StartBossRoutine()
+                        end
                         return
                     end
 
-                    SetBossStatus("Remotes unavailable - retrying")
+                    SetBossStatus("WaveMobs / WaveResult unavailable - retrying")
                     task.wait(5)
                 end
             end)
