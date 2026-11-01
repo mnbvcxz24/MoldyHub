@@ -47,7 +47,6 @@ local UIConfig = {
     Version = testver,
     Width = 480,
     Height = 320,
-    SidebarWidth = 100,
     SidebarNames = {
         "Main",
         "Features",
@@ -419,80 +418,41 @@ local ResizeHandle = Create("TextButton", {
     ZIndex = 10
 })
 AddCorner(ResizeHandle, 5)
--- SIDEBAR
-local Sidebar = Create("Frame", {
-    Name = "Sidebar",
+-- HORIZONTAL NAVIGATION
+local NavigationBar = Create("Frame", {
+    Name = "NavigationBar",
     Parent = Main,
     Position = UDim2.fromOffset(0, 48),
-    Size = UDim2.new(
-        0,
-        UIConfig.SidebarWidth,
-        1,
-        -48
-    ),
+    Size = UDim2.new(1, 0, 0, 38),
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
-local Title = Create("TextLabel", {
-    Name = "Title",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(8, 10),
-    Size = UDim2.new(1, -16, 0, 28),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Subtitle,
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 10,
-    TextWrapped = true,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    TextYAlignment = Enum.TextYAlignment.Top
-})
-local Subtitle = Create("TextLabel", {
-    Name = "Subtitle",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(8, 38),
-    Size = UDim2.new(1, -16, 0, 14),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Version,
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.Gotham,
-    TextSize = 9,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
--- Sidebar container
-local SidebarContainer = Create("ScrollingFrame", {
-    Name = "Buttons",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(5, 62),
-    Size = UDim2.new(1, -10, 1, -74),
+local NavigationContainer = Create("ScrollingFrame", {
+    Name = "NavigationButtons",
+    Parent = NavigationBar,
+    Position = UDim2.fromOffset(10, 2),
+    Size = UDim2.new(1, -20, 1, -4),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
-    ScrollBarThickness = 3,
-    ScrollBarImageColor3 = Theme.Gray,
-    ScrollingDirection = Enum.ScrollingDirection.Y,
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 0,
+    ScrollingDirection = Enum.ScrollingDirection.X,
+    AutomaticCanvasSize = Enum.AutomaticSize.X,
     CanvasSize = UDim2.new(0, 0, 0, 0),
     ClipsDescendants = true
 })
 Create("UIListLayout", {
-    Parent = SidebarContainer,
-    Padding = UDim.new(0, 6),
-    SortOrder = Enum.SortOrder.LayoutOrder
+    Parent = NavigationContainer,
+    FillDirection = Enum.FillDirection.Horizontal,
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    VerticalAlignment = Enum.VerticalAlignment.Center
 })
 -- CONTENT AREA
 local Content = Create("Frame", {
     Name = "Content",
     Parent = Main,
-    Position = UDim2.fromOffset(
-        UIConfig.SidebarWidth,
-        48
-    ),
-    Size = UDim2.new(
-        1,
-        -UIConfig.SidebarWidth - 12,
-        1,
-        -60
-    ),
+    Position = UDim2.fromOffset(0, 86),
+    Size = UDim2.new(1, -12, 1, -98),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
@@ -873,41 +833,43 @@ end))
 end))
     return Holder
 end
--- CREATE SIDEBAR BUTTONS
+-- CREATE HORIZONTAL NAVIGATION BUTTONS
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Button = Create("TextButton", {
-        Name = "SidebarButton_" .. index,
-        Parent = SidebarContainer,
-        Size = UDim2.new(1, -2, 0, 34),
-        BackgroundColor3 = Theme.Sidebar,
+        Name = "NavigationButton_" .. index,
+        Parent = NavigationContainer,
+        Size = UDim2.fromOffset(math.max(62, (#name * 7) + 24), 34),
+        BackgroundTransparency = 1,
         Text = name,
         TextColor3 = Theme.DarkGray,
         Font = Enum.Font.GothamMedium,
-        TextSize = 9,
+        TextSize = 10,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextXAlignment = Enum.TextXAlignment.Center,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         LayoutOrder = index
     })
-    AddCorner(Button, 7)
-    Button.BackgroundTransparency = 1
-    local ActiveLine = Create("Frame", {Name = "ActiveLine", Parent = Button, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -2, 0.5, 0), Size = UDim2.fromOffset(2, 18), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Visible = index == 1})
-    AddCorner(ActiveLine, 1)
-    local Padding = Create("UIPadding", {
+    local ActiveLine = Create("Frame", {
+        Name = "ActiveLine",
         Parent = Button,
-        PaddingLeft = UDim.new(0, 10)
+        AnchorPoint = Vector2.new(0.5, 1),
+        Position = UDim2.new(0.5, 0, 1, -1),
+        Size = UDim2.new(0.62, 0, 0, 2),
+        BackgroundColor3 = Theme.Accent,
+        BorderSizePixel = 0,
+        Visible = index == 1
     })
+    AddCorner(ActiveLine, 1)
     SidebarButtons[index] = Button
     Button.MouseButton1Click:Connect(function()
         for pageIndex, page in pairs(Pages) do
             page.Visible = pageIndex == index
         end
-        for buttonIndex, sidebarButton in pairs(SidebarButtons) do
+        for buttonIndex, navigationButton in pairs(SidebarButtons) do
             local active = buttonIndex == index
-            sidebarButton.BackgroundTransparency = 1
-            sidebarButton.TextColor3 = active and Theme.Text or Theme.DarkGray
-            local line = sidebarButton:FindFirstChild("ActiveLine")
+            navigationButton.TextColor3 = active and Theme.Text or Theme.DarkGray
+            local line = navigationButton:FindFirstChild("ActiveLine")
             if line then line.Visible = active end
         end
     end)
@@ -3553,14 +3515,14 @@ local function SetMinimized(state)
         mainTween.Completed:Wait()
 
         Content.Visible = false
-        Sidebar.Visible = false
+        NavigationBar.Visible = false
         TopBar.Visible = false
         ResizeHandle.Visible = false
     else
         Minimized = false
 
         Content.Visible = true
-        Sidebar.Visible = true
+        NavigationBar.Visible = true
         TopBar.Visible = true
         RestoreButton.Visible = true
         ResizeHandle.Visible = true
