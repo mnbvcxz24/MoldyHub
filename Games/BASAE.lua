@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy v1.221"
+local testver = "Deploy v1.222"
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1218,7 +1218,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end)
         MarkUnderDevelopment(AutoFuseCard)
         local RarityFilterOpen = false
-        local RarityOptions = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine", "Celestial", "Inferno", "Void", "Omega", "Spectral"}
+        local RarityOptions = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine", "Celestial", "Inferno", "Void", "Omega", "Spectral", "Ethereal"}
         local SelectedRarities = {}
         local SelectedPickupZones = {}
         local PickupZoneList
@@ -2580,7 +2580,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
         local HitEvent = game:GetService("ReplicatedStorage"):WaitForChild("EggHitConfirmed")
         local AnimalPickups = workspace:FindFirstChild("AnimalPickups")
-        local BaseReturnPosition = Vector3.new(-29.243687, 3.5, -14.755682)
+        local function GetSafeZonePosition()
+            local build = workspace:FindFirstChild("Build")
+            local hitboxes = build and build:FindFirstChild("ZoneHitboxes")
+            local safeZone = hitboxes and hitboxes:FindFirstChild("SafeZone")
+            if not safeZone then return nil end
+            if safeZone:IsA("BasePart") then
+                return safeZone.Position
+            end
+            local ok, pivot = pcall(function()
+                return safeZone:GetPivot()
+            end)
+            return ok and pivot and pivot.Position or nil
+        end
         function EquipHotbarOne()
             local Players = game:GetService("Players")
             local currentPlayer = LocalPlayer or Players.LocalPlayer
@@ -2680,7 +2692,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     end
                     return
                 end
-                SetTrackerStatus(useZoneDrop and "Moving to Zone 1 to drop the animal." or "Moving to static return position.")
+                SetTrackerStatus(useZoneDrop and "Moving to Zone 1 to drop the animal." or "Returning to workspace.Build.ZoneHitboxes.SafeZone.")
                 local moveStarted = os.clock()
                 local lastReturnDistance = math.huge
                 local connection
@@ -2705,7 +2717,20 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         end
                         return
                     end
-                    local destination = BaseReturnPosition
+                    local destination = GetSafeZonePosition()
+                    if not destination then
+                        humanoid:Move(Vector3.zero, false)
+                        connection:Disconnect()
+                        connection = nil
+                        ReturningAfterPickup = false
+                        SetTrackerStatus("Return stopped: workspace.Build.ZoneHitboxes.SafeZone was not found or has no readable position.")
+                        if AutoBreakEnabled and StartAutoBreak then
+                            task.delay(0.2, function()
+                                if PickupGeneration == returnToken and AutoBreakEnabled and not PickupRequested and not ReturningAfterPickup then StartAutoBreak() end
+                            end)
+                        end
+                        return
+                    end
                     if useZoneDrop then
                         local build = workspace:FindFirstChild("Build")
                         local zoneBuilds = build and build:FindFirstChild("ZoneBuilds")
