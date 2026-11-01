@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.66"
+local testver = "Test ver: 1.67"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1696,6 +1696,7 @@ end))
         local bossCaughtConnection
         local bossCaughtDetected = false
         local baseTeleportDetected = false
+        local baseTeleportRecoveryPending = false
         local floatingRoot
         local floatingOriginalAnchored
 
@@ -2471,6 +2472,7 @@ end))
                 and not safeZoneNavigationActive and navigationEnteredOwnedPlot then
                     baseTeleportDetected = true
                     baseTeleportRecoveryPending = true
+                    baseTeleportRecoveryPending = true
                     CancelActiveMovement()
                     RestoreFloating()
                     SetNavigationStatus("Base teleport detected - waiting 12s")
@@ -2865,6 +2867,7 @@ end))
                 if baseTeleportRecoveryPending then
                     SetNavigationStatus("Returning to safe zone after base teleport")
                     if not WalkToSafeZoneAtStart() then return end
+                    baseTeleportRecoveryPending = false
                     continue
                 end
 
