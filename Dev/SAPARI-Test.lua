@@ -341,32 +341,6 @@ Create("Frame", {
     BorderSizePixel = 0,
     ZIndex = 0
 })
--- Title
-local Title = Create("TextLabel", {
-    Name = "Title",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(14, 4),
-    Size = UDim2.new(1, -100, 0, 20),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Title,
-    RichText = false,
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 14,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
-local Subtitle = Create("TextLabel", {
-    Name = "Subtitle",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(14, 24),
-    Size = UDim2.new(1, -100, 0, 16),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Subtitle,
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.Gotham,
-    TextSize = 9,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
 -- Minimize
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
@@ -444,12 +418,38 @@ local Sidebar = Create("Frame", {
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
+local Title = Create("TextLabel", {
+    Name = "Title",
+    Parent = Sidebar,
+    Position = UDim2.fromOffset(8, 10),
+    Size = UDim2.new(1, -16, 0, 28),
+    BackgroundTransparency = 1,
+    Text = UIConfig.Title,
+    TextColor3 = Theme.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top
+})
+local Subtitle = Create("TextLabel", {
+    Name = "Subtitle",
+    Parent = Sidebar,
+    Position = UDim2.fromOffset(8, 38),
+    Size = UDim2.new(1, -16, 0, 14),
+    BackgroundTransparency = 1,
+    Text = UIConfig.Subtitle,
+    TextColor3 = Theme.Gray,
+    Font = Enum.Font.Gotham,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
 -- Sidebar container
 local SidebarContainer = Create("ScrollingFrame", {
     Name = "Buttons",
     Parent = Sidebar,
-    Position = UDim2.fromOffset(5, 12),
-    Size = UDim2.new(1, -10, 1, -24),
+    Position = UDim2.fromOffset(5, 62),
+    Size = UDim2.new(1, -10, 1, -74),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 3,
