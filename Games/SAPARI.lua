@@ -3488,6 +3488,7 @@ end))
             ApplyTheme(themeName)
         end)
         local AboutCard = CreateCard(Page, "About", "Steal A Pet & Ride It • UI only")
+    end
 end
 -- SHOW FIRST PAGE
 Pages[1].Visible = true
