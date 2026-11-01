@@ -324,6 +324,10 @@ local Main = Create("Frame", {
 })
 local MainCorner = AddCorner(Main, 12)
 AddStroke(Main, Theme.Border, 1)
+local UIScale = Create("UIScale", {
+    Parent = Main,
+    Scale = 1
+})
 -- TOP BAR
 local TopBar = Create("Frame", {
     Name = "TopBar",
@@ -393,23 +397,6 @@ local RestoreButton = Create("TextButton", {
 })
 AddCorner(RestoreButton, 18)
 AddStroke(RestoreButton, Theme.Border, 1)
-local ResizeHandle = Create("TextButton", {
-    Name = "ResizeHandle",
-    Parent = Main,
-    AnchorPoint = Vector2.new(1, 1),
-    Position = UDim2.new(1, -3, 1, -3),
-    Size = UDim2.fromOffset(18, 18),
-    BackgroundColor3 = Theme.Sidebar,
-    BackgroundTransparency = 0.15,
-    Text = "◢",
-    TextColor3 = Theme.Accent,
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    BorderSizePixel = 0,
-    AutoButtonColor = false,
-    ZIndex = 10
-})
-AddCorner(ResizeHandle, 5)
 -- HORIZONTAL NAVIGATION
 local NavigationBar = Create("Frame", {
     Name = "NavigationBar",
@@ -3476,6 +3463,21 @@ end))
         CreateDropdown(AppearanceCard, "Theme", ThemeOptions, function(themeName)
             ApplyTheme(themeName)
         end)
+        local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
+        local ScaleOptions = {"50%", "75%", "100%"}
+        CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
+            local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
+            if not scalePercent then return end
+            local oldSize = Main.AbsoluteSize
+            UIScale.Scale = scalePercent / 75
+            local newSize = Main.AbsoluteSize
+            Main.Position = UDim2.new(
+                Main.Position.X.Scale,
+                Main.Position.X.Offset + (oldSize.X - newSize.X) / 2,
+                Main.Position.Y.Scale,
+                Main.Position.Y.Offset + (oldSize.Y - newSize.Y) / 2
+            )
+        end)
         local AboutCard = CreateCard(Page, "About", "Steal A Pet & Ride It • UI only")
     end
 end
@@ -3503,11 +3505,12 @@ local function SetMinimized(state)
         Content.Visible = false
         NavigationBar.Visible = false
         TopBar.Visible = false
-        ResizeHandle.Visible = false
 
+        local expandedWidth = Main.AbsoluteSize.X
+        local minimizedWidth = MinimizedSize.X.Offset * UIScale.Scale
         local minimizedPosition = UDim2.new(
             ExpandedPosition.X.Scale,
-            ExpandedPosition.X.Offset + UIConfig.Width - MinimizedSize.X.Offset,
+            ExpandedPosition.X.Offset + expandedWidth - minimizedWidth,
             ExpandedPosition.Y.Scale,
             ExpandedPosition.Y.Offset + MinimizedTopOffset
         )
@@ -3544,7 +3547,6 @@ local function SetMinimized(state)
         Content.Visible = true
         NavigationBar.Visible = true
         TopBar.Visible = true
-        ResizeHandle.Visible = true
         RestoreButton.Visible = false
         RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
     end
@@ -3572,22 +3574,6 @@ end)
 local Dragging = false
 local DragStart
 local StartPosition
-local Resizing = false
-local ResizeStart
-local ResizeStartSize
-local MinWindowWidth = 400
-local MinWindowHeight = 280
-local MaxWindowWidth = 720
-local MaxWindowHeight = 600
-ResizeHandle.InputBegan:Connect(function(input)
-    if Minimized then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        Resizing = true
-        ResizeStart = input.Position
-        ResizeStartSize = Main.AbsoluteSize
-    end
-end)
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
@@ -3608,15 +3594,6 @@ TrackConnection(UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
     and input.UserInputType ~= Enum.UserInputType.Touch then return end
 
-    if Resizing then
-        local delta = input.Position - ResizeStart
-        local width = math.clamp(ResizeStartSize.X + delta.X, MinWindowWidth, MaxWindowWidth)
-        local height = math.clamp(ResizeStartSize.Y + delta.Y, MinWindowHeight, MaxWindowHeight)
-        UIConfig.Width = width
-        UIConfig.Height = height
-        Main.Size = UDim2.fromOffset(width, height)
-    end
-
     if Dragging then
         local Delta = input.Position - DragStart
         Main.Position = UDim2.new(
@@ -3630,11 +3607,10 @@ end))
 TrackConnection(UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
-        Resizing = false
         if Dragging and Minimized then
             ExpandedPosition = UDim2.new(
                 Main.Position.X.Scale,
-                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset),
+                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset) * UIScale.Scale,
                 Main.Position.Y.Scale,
                 Main.Position.Y.Offset - MinimizedTopOffset
             )
