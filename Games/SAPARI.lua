@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.26"
+local testver = "Deploy ver 1.27"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1081,48 +1081,81 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
-        local activeWorldPathsFolder
+        local activeWorldPathsFolder = workspace:FindFirstChild("Paths")
         local activeWorldFolder
-        local activeSafeZoneSign
+        local activeSafeZoneSign = workspace:FindFirstChild("SafeZoneSign", true)
+        local cachedPathFolders = {}
+
+        if activeWorldPathsFolder then
+            for _, pathObject in ipairs(activeWorldPathsFolder:GetChildren()) do
+                if pathObject:IsA("Folder") then
+                    local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
+                    if pathNumber and pathNumber >= 1 and pathNumber <= 20 then
+                        cachedPathFolders[pathNumber] = pathObject
+                    end
+                end
+            end
+        end
+
+        if activeSafeZoneSign then
+            activeWorldFolder = activeSafeZoneSign:FindFirstAncestor("Hub")
+                or activeSafeZoneSign:FindFirstAncestor("World2")
+        end
+
+        if not activeWorldFolder and activeWorldPathsFolder then
+            local character = LocalPlayer.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local closestPathNumber
+                local closestPathDistance = math.huge
+
+                for pathNumber, pathObject in pairs(cachedPathFolders) do
+                    local pathDistance = math.huge
+                    for _, descendant in ipairs(pathObject:GetDescendants()) do
+                        if descendant:IsA("BasePart") then
+                            local localPosition = descendant.CFrame:PointToObjectSpace(root.Position)
+                            local halfSize = descendant.Size * 0.5
+                            local outsideX = math.max(math.abs(localPosition.X) - halfSize.X, 0)
+                            local outsideY = math.max(math.abs(localPosition.Y) - halfSize.Y, 0)
+                            local outsideZ = math.max(math.abs(localPosition.Z) - halfSize.Z, 0)
+                            local distance = Vector3.new(outsideX, outsideY, outsideZ).Magnitude
+                            if distance < pathDistance then
+                                pathDistance = distance
+                            end
+                            if pathDistance == 0 then
+                                break
+                            end
+                        end
+                    end
+
+                    if pathDistance < closestPathDistance then
+                        closestPathDistance = pathDistance
+                        closestPathNumber = pathNumber
+                    end
+                end
+
+                if closestPathNumber then
+                    activeWorldFolder = {
+                        Name = closestPathNumber >= 11 and "World2" or "Hub"
+                    }
+                end
+            end
+        end
 
         local function GetActiveWorldPathsFolder()
-            if activeWorldFolder and activeWorldPathsFolder and activeSafeZoneSign then
-                return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
+            if not activeWorldPathsFolder or not activeWorldFolder then
+                return nil, nil, activeSafeZoneSign
             end
-
-            local safeSign = workspace:FindFirstChild("SafeZoneSign", true)
-            if not safeSign then return nil, nil, nil end
-
-            local worldFolder
-            local current = safeSign
-            while current and current ~= workspace do
-                if current.Name == "World2" or current.Name == "Hub" then
-                    worldFolder = current
-                    break
-                end
-                current = current.Parent
-            end
-
-            local pathsFolder = workspace:FindFirstChild("Paths")
-            if not worldFolder or not pathsFolder then
-                return nil, nil, nil
-            end
-
-            activeWorldFolder = worldFolder
-            activeWorldPathsFolder = pathsFolder
-            activeSafeZoneSign = safeSign
             return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
         end
         local function IsPathInActiveWorld(pathObject)
-            if not pathObject then return false end
-            local _, worldFolder = GetActiveWorldPathsFolder()
-            if not worldFolder then return false end
+            if not pathObject or not activeWorldFolder then return false end
             local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
             if not pathNumber then return false end
-            if worldFolder.Name == "World2" then
+            if activeWorldFolder.Name == "World2" then
                 return pathNumber >= 11 and pathNumber <= 20
             end
-            if worldFolder.Name == "Hub" then
+            if activeWorldFolder.Name == "Hub" then
                 return pathNumber >= 1 and pathNumber <= 10
             end
             return false
@@ -2277,8 +2310,7 @@ end))
                 return            end
 
             local pathsFolder, worldFolder, safeSign = GetActiveWorldPathsFolder()
-            if not safeSign or not safeSign:IsA("BasePart")
-            or not worldFolder or not pathsFolder then
+            if not worldFolder or not pathsFolder then
                 SetNavigationStatus("World paths unavailable")
                 SetAutoStealEnabled(false)
                 return
@@ -2729,6 +2761,10 @@ end))
                 return true
             end
             local function WalkToSafeZoneAtStart()
+                if not safeSign or not safeSign:IsA("BasePart") then
+                    SetNavigationStatus("Safe zone unavailable - continuing")
+                    return true
+                end
                 while token == navigationToken and not Runtime.Stopped do
                     if bossCaughtDetected then
                         return WaitForBossCaught()
@@ -2766,6 +2802,7 @@ end))
             end
             local character = LocalPlayer.Character
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local root = character and character:FindFirstChild("HumanoidRootPart")
             if humanoid then
                 humanoid.Jump = true
                 pcall(function()
@@ -2773,7 +2810,26 @@ end))
                 end)
                 task.wait(0.1)
             end
-            if not WalkToSafeZoneAtStart() then return end
+
+            local skipInitialSafeZone = false
+            if safeSign and safeSign:IsA("BasePart") and root then
+                for _, cage in ipairs(GetSelectedCages()) do
+                    local ok, cagePosition = pcall(function()
+                        return cage:GetPivot().Position
+                    end)
+                    if ok and cagePosition
+                    and (cagePosition - root.Position).Magnitude <= 200 then
+                        skipInitialSafeZone = true
+                        break
+                    end
+                end
+            end
+
+            if skipInitialSafeZone then
+                SetNavigationStatus("Selected cage nearby - skipping safe zone")
+            elseif not WalkToSafeZoneAtStart() then
+                return
+            end
 
             while token == navigationToken and not Runtime.Stopped do
                 if bossCaughtDetected then
