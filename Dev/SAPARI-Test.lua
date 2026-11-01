@@ -439,6 +439,7 @@ local Content = Create("Frame", {
 local Pages = {}
 local SidebarButtons = {}
 -- CREATE PAGE
+local PageColumnMap = {}
 local function CreatePage(pageNumber, pageName)
     local PageClip = Create("Frame", {
         Name = "PageClip_" .. pageNumber,
@@ -511,7 +512,6 @@ local function CreatePage(pageNumber, pageName)
         Padding = UDim.new(0, 8),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
-    PageColumnMap = PageColumnMap or {}
     PageColumnMap[Page] = {
         Left = LeftColumn,
         Right = RightColumn,
@@ -895,7 +895,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if name == "Main" then
         local AutoCard = CreateCard(Page, "Auto Steal", "")
-        AutoCard.Size = UDim2.new(1, -4, 0, 265)
+        AutoCard.Parent = PageColumnMap[Page].Left
+        AutoCard.Size = UDim2.new(1, 0, 0, 265)
         AutoCard.AutomaticSize = Enum.AutomaticSize.None
 
         local HeaderTitle = AutoCard:FindFirstChildWhichIsA("TextLabel")
