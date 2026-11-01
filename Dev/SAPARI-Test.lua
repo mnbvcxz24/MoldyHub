@@ -1126,9 +1126,48 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 or CachedSafeZoneSign:FindFirstAncestor("World2")
         end
 
+        if not CachedActiveWorldFolder and CachedPathsFolder then
+            local character = LocalPlayer.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local closestPathNumber
+                local closestPathDistance = math.huge
+
+                for pathNumber, pathObject in pairs(CachedPathFolders) do
+                    local pathDistance = math.huge
+                    for _, descendant in ipairs(pathObject:GetDescendants()) do
+                        if descendant:IsA("BasePart") then
+                            local localPosition = descendant.CFrame:PointToObjectSpace(root.Position)
+                            local halfSize = descendant.Size * 0.5
+                            local outsideX = math.max(math.abs(localPosition.X) - halfSize.X, 0)
+                            local outsideY = math.max(math.abs(localPosition.Y) - halfSize.Y, 0)
+                            local outsideZ = math.max(math.abs(localPosition.Z) - halfSize.Z, 0)
+                            local distance = Vector3.new(outsideX, outsideY, outsideZ).Magnitude
+                            if distance < pathDistance then
+                                pathDistance = distance
+                            end
+                            if pathDistance == 0 then
+                                break
+                            end
+                        end
+                    end
+
+                    if pathDistance < closestPathDistance then
+                        closestPathDistance = pathDistance
+                        closestPathNumber = pathNumber
+                    end
+                end
+
+                if closestPathNumber then
+                    CachedActiveWorldFolder = {
+                        Name = closestPathNumber >= 11 and "World2" or "Hub"
+                    }
+                end
+            end
+        end
+
         local function GetActiveWorldPathsFolder()
-            if not CachedPathsFolder or not CachedActiveWorldFolder
-            or not CachedSafeZoneSign then
+            if not CachedPathsFolder or not CachedActiveWorldFolder then
                 return nil, nil, nil
             end
             return CachedPathsFolder, CachedActiveWorldFolder, CachedSafeZoneSign
