@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.83"
+local testver = "Test ver: 1.84"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2915,21 +2915,17 @@ end))
                 end
             end
 
+            local firstCharacter = LocalPlayer.Character
+            local firstHumanoid = firstCharacter and firstCharacter:FindFirstChildOfClass("Humanoid")
+            Jump(firstHumanoid)
+
             if skipInitialSafeZone then
                 SetNavigationStatus("Selected cage nearby - skipping safe zone")
             elseif not WalkToSafeZoneAtStart() then
                 return
             end
 
-            local firstNavigationLoop = true
             while token == navigationToken and not Runtime.Stopped do
-                if firstNavigationLoop then
-                    firstNavigationLoop = false
-                    local character = LocalPlayer.Character
-                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                    Jump(humanoid)
-                end
-
                 if bossCaughtDetected then
                     if not WaitForBossCaught() then return end
                 end
