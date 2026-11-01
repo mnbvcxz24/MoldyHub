@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.73"
+local testver = "Test ver: 1.74"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2498,13 +2498,6 @@ end))
                 or not droppedCage:IsDescendantOf(workspace)
                 or droppedCage:GetAttribute("Path") ~= lastAttemptedCagePath
                 or droppedCage:GetAttribute("Spot") ~= lastAttemptedCageSpot then
-                    return nil
-                end
-
-                local pathsFolder = GetActiveWorldPathsFolder()
-                local pathName = tostring(droppedCage:GetAttribute("Path") or "")
-                local pathObject = pathsFolder and pathsFolder:FindFirstChild(pathName)
-                if not pathObject or not IsPathInActiveWorld(pathObject) then
                     return nil
                 end
 
