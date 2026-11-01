@@ -3716,7 +3716,7 @@ end))
             TextXAlignment = Enum.TextXAlignment.Left
         })
     elseif name == "Events" then
-        local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "Automatically fights the boss when enabled.")
+        local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "")
 
         local BossStatusRow = Create("Frame", {
             Parent = AutoFightBossCard,
