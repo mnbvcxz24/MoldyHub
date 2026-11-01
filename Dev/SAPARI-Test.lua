@@ -2352,6 +2352,10 @@ end))
                 end)
             end
 
+            local lastAttemptedCagePath
+            local lastAttemptedCageSpot
+            local prioritizeDroppedCageRecovery = false
+
             local function WaitForBossCaught()
                 if not bossCaughtDetected then return false end
 
@@ -2410,7 +2414,9 @@ end))
 
                 bossCaughtDetected = false
                 baseTeleportDetected = false
-                SetNavigationStatus("Recovery complete - resuming cage scan")
+                prioritizeDroppedCageRecovery = lastAttemptedCagePath ~= nil
+                    and lastAttemptedCageSpot ~= nil
+                SetNavigationStatus("Recovery complete - checking dropped cage")
                 return true
             end
             local previousNavigationRoot
@@ -2593,6 +2599,21 @@ end))
                         return cageSortKeys[a] < cageSortKeys[b]
                     end)
                 end
+                if prioritizeDroppedCageRecovery then
+                    local droppedCagesFolder = workspace:FindFirstChild("DroppedCages")
+                    local droppedCage = droppedCagesFolder
+                        and droppedCagesFolder:FindFirstChild("DroppedCage")
+
+                    if droppedCage and droppedCage:IsA("Model")
+                    and droppedCage:IsDescendantOf(workspace)
+                    and droppedCage:GetAttribute("Path") == lastAttemptedCagePath
+                    and droppedCage:GetAttribute("Spot") == lastAttemptedCageSpot then
+                        table.insert(cages, 1, droppedCage)
+                        prioritizeDroppedCageRecovery = false
+                        SetNavigationStatus("Matching dropped cage found - recovering")
+                    end
+                end
+
                 return cages
             end
 
@@ -2875,6 +2896,9 @@ end))
                 for _, selectedCage in ipairs(selectedCages) do
                     if token ~= navigationToken or Runtime.Stopped then return end
                     if not selectedCage.Parent then continue end
+
+                    lastAttemptedCagePath = selectedCage:GetAttribute("Path")
+                    lastAttemptedCageSpot = selectedCage:GetAttribute("Spot")
 
                     local character = LocalPlayer.Character
                     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
