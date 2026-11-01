@@ -265,8 +265,8 @@ local ThemePresets = {
         AccentText = Color3.fromRGB(19, 35, 4)
     }
 }
-Theme = ThemePresets["Midnight Blue + Cyan"]
-local ActiveThemeName = "Midnight Blue + Cyan"
+Theme = ThemePresets["Black + Electric Blue"]
+local ActiveThemeName = "Black + Electric Blue"
 -- SCREEN GUI
 local ScreenGui = Create("ScreenGui", {
     Name = "StealAPetAndRideItUI",
@@ -3978,12 +3978,12 @@ end))
         AutoFightBossToggle.Position = UDim2.fromOffset(11, 54)
         AutoFightBossToggle.Size = UDim2.new(1, -22, 0, 22)
     elseif name == "Misc. feature" then
-        local AntiAFKCard = CreateCard(Page, "Anti AFK", "Prevents the idle kick while this toggle is enabled.")
-        AntiAFKCard.Size = UDim2.new(1, 0, 0, 116)
+        local AntiAFKCard = CreateCard(Page, "Anti AFK", "")
+        AntiAFKCard.Size = UDim2.new(1, 0, 0, 88)
         local antiAFKConnection
         local AntiAFKStatusRow = Create("Frame", {
             Parent = AntiAFKCard,
-            Position = UDim2.fromOffset(11, 62),
+            Position = UDim2.fromOffset(11, 33),
             Size = UDim2.new(1, -22, 0, 18),
             BackgroundTransparency = 1
         })
@@ -4039,7 +4039,7 @@ end))
             end
             SetAntiAFKStatus(enabled)
         end)
-        AntiAFKToggle.Position = UDim2.fromOffset(11, 84)
+        AntiAFKToggle.Position = UDim2.fromOffset(11, 56)
         AntiAFKToggle.Size = UDim2.new(1, -22, 0, 24)
     elseif name == "Settings" then
         local AppearanceCard = CreateCard(Page, "Appearance", "Select a color palette for the interface.")
@@ -4055,67 +4055,138 @@ end))
             "Dark Plum + Rose",
             "Forest Night + Lime"
         }
-        AppearanceCard.Size = UDim2.new(1, 0, 0, 352)
-        local ThemeButtons = {}
-        local function RefreshThemeSelection()
-            for themeName, controls in pairs(ThemeButtons) do
-                controls.Check.Text = ActiveThemeName == themeName and "✓" or ""
-                controls.Button.BackgroundColor3 = ActiveThemeName == themeName and Theme.Selected or Theme.SurfaceInput
-                controls.Button.TextColor3 = ActiveThemeName == themeName and Theme.SelectedText or Theme.Text
-            end
-        end
+        local ThemeRows = {}
+        local RowHeight = 34
+        local ThemeRowCount = math.ceil(#ThemeOptions / 2)
+        AppearanceCard.Size = UDim2.new(1, 0, 0, 48 + (ThemeRowCount * RowHeight) + 8)
+
         for index, themeName in ipairs(ThemeOptions) do
-            local ThemeButton = Create("TextButton", {
+            local palette = ThemePresets[themeName]
+            local column = index > ThemeRowCount and 2 or 1
+            local rowIndex = column == 1 and index or (index - ThemeRowCount)
+            local rowXScale = column == 1 and 0 or 0.5
+            local Row = Create("TextButton", {
+                Name = "ThemeOption_" .. tostring(index),
                 Parent = AppearanceCard,
-                Position = UDim2.fromOffset(11, 64 + (index - 1) * 27),
-                Size = UDim2.new(1, -22, 0, 23),
+                Position = UDim2.new(rowXScale, column == 1 and 10 or 4, 0, 42 + ((rowIndex - 1) * RowHeight)),
+                Size = UDim2.new(0.5, -14, 0, 30),
                 BackgroundColor3 = Theme.SurfaceInput,
-                Text = "",
                 BorderSizePixel = 0,
-                AutoButtonColor = false
+                AutoButtonColor = false,
+                Text = "",
+                ZIndex = 2
             })
-            AddCorner(ThemeButton, 5)
-            AddStroke(ThemeButton, Theme.Border, 1)
-            local Preview = Create("Frame", {
-                Parent = ThemeButton,
-                Position = UDim2.fromOffset(7, 4),
-                Size = UDim2.fromOffset(15, 15),
-                BackgroundColor3 = ThemePresets[themeName].Accent,
-                BorderSizePixel = 0
+            AddCorner(Row, 5)
+            AddStroke(Row, Theme.Border, 1)
+
+            local RadioOuter = Create("Frame", {
+                Parent = Row,
+                Position = UDim2.fromOffset(6, 7),
+                Size = UDim2.fromOffset(13, 13),
+                BackgroundColor3 = Theme.SurfaceInput,
+                BorderSizePixel = 0,
+                ZIndex = 3
             })
-            AddCorner(Preview, 4)
+            AddCorner(RadioOuter, 20)
+            AddStroke(RadioOuter, Theme.Gray, 1)
+
+            local RadioInner = Create("Frame", {
+                Parent = RadioOuter,
+                Position = UDim2.fromOffset(3, 3),
+                Size = UDim2.fromOffset(7, 7),
+                BackgroundColor3 = palette.Accent,
+                BorderSizePixel = 0,
+                Visible = themeName == ActiveThemeName,
+                ZIndex = 4
+            })
+            AddCorner(RadioInner, 20)
+
+            local Swatch = Create("Frame", {
+                Parent = Row,
+                Position = UDim2.fromOffset(24, 7),
+                Size = UDim2.fromOffset(30, 16),
+                BackgroundColor3 = palette.Background,
+                BorderSizePixel = 0,
+                ZIndex = 3
+            })
+            AddCorner(Swatch, 4)
+            AddStroke(Swatch, palette.Border, 1)
+
+            Create("Frame", {
+                Parent = Swatch,
+                Position = UDim2.fromOffset(3, 4),
+                Size = UDim2.fromOffset(7, 8),
+                BackgroundColor3 = palette.Card,
+                BorderSizePixel = 0,
+                ZIndex = 4
+            })
+            Create("Frame", {
+                Parent = Swatch,
+                Position = UDim2.fromOffset(12, 4),
+                Size = UDim2.fromOffset(7, 8),
+                BackgroundColor3 = palette.Accent,
+                BorderSizePixel = 0,
+                ZIndex = 4
+            })
+            Create("Frame", {
+                Parent = Swatch,
+                Position = UDim2.fromOffset(21, 4),
+                Size = UDim2.fromOffset(6, 8),
+                BackgroundColor3 = palette.Selected,
+                BorderSizePixel = 0,
+                ZIndex = 4
+            })
+
             Create("TextLabel", {
-                Parent = ThemeButton,
-                Position = UDim2.fromOffset(29, 0),
-                Size = UDim2.new(1, -55, 1, 0),
+                Parent = Row,
+                Position = UDim2.fromOffset(59, 1),
+                Size = UDim2.new(1, -64, 1, -2),
                 BackgroundTransparency = 1,
                 Text = themeName,
                 TextColor3 = Theme.Text,
                 Font = Enum.Font.Gotham,
-                TextSize = 9,
-                TextXAlignment = Enum.TextXAlignment.Left
+                TextSize = 8,
+                TextWrapped = true,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextYAlignment = Enum.TextYAlignment.Center,
+                ZIndex = 3
             })
-            local Check = Create("TextLabel", {
-                Parent = ThemeButton,
-                Position = UDim2.new(1, -24, 0, 0),
-                Size = UDim2.fromOffset(20, 23),
-                BackgroundTransparency = 1,
-                Text = "",
-                TextColor3 = Theme.Accent,
-                Font = Enum.Font.GothamBold,
-                TextSize = 12,
-                TextXAlignment = Enum.TextXAlignment.Center
-            })
-            ThemeButtons[themeName] = {
-                Button = ThemeButton,
-                Check = Check
+
+            ThemeRows[#ThemeRows + 1] = {
+                Name = themeName,
+                Row = Row,
+                RadioInner = RadioInner,
+                Swatch = Swatch,
+                Palette = palette
             }
-            TrackConnection(ThemeButton.MouseButton1Click:Connect(function()
+
+            TrackConnection(Row.MouseButton1Click:Connect(function()
                 ApplyTheme(themeName)
-                RefreshThemeSelection()
+                for _, item in ipairs(ThemeRows) do
+                    item.RadioInner.Visible = item.Name == themeName
+                    item.RadioInner.BackgroundColor3 = item.Palette.Accent
+                    item.Swatch.BackgroundColor3 = item.Palette.Background
+                    local swatchStroke = item.Swatch:FindFirstChildOfClass("UIStroke")
+                    if swatchStroke then
+                        swatchStroke.Color = item.Palette.Border
+                    end
+                    local swatchFrames = {}
+                    for _, child in ipairs(item.Swatch:GetChildren()) do
+                        if child:IsA("Frame") then
+                            swatchFrames[#swatchFrames + 1] = child
+                        end
+                    end
+                    if swatchFrames[1] then swatchFrames[1].BackgroundColor3 = item.Palette.Card end
+                    if swatchFrames[2] then swatchFrames[2].BackgroundColor3 = item.Palette.Accent end
+                    if swatchFrames[3] then swatchFrames[3].BackgroundColor3 = item.Palette.Selected end
+                    item.Row.BackgroundColor3 = item.Name == themeName and item.Palette.Selected or Theme.SurfaceInput
+                end
             end))
         end
-        RefreshThemeSelection()
+
+        for _, item in ipairs(ThemeRows) do
+            item.Row.BackgroundColor3 = item.Name == ActiveThemeName and Theme.Selected or Theme.SurfaceInput
+        end
         local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
         local ScaleOptions = {"50%", "75%", "100%"}
         CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
