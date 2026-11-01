@@ -486,22 +486,58 @@ local function CreatePage(pageNumber, pageName)
         PaddingLeft = UDim.new(0, 12),
         PaddingRight = UDim.new(0, 12)
     })
-    local Layout = Create("UIListLayout", {
+    local LeftColumn = Create("Frame", {
+        Name = "LeftColumn",
         Parent = Page,
+        Size = UDim2.new(0.5, -4, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    local RightColumn = Create("Frame", {
+        Name = "RightColumn",
+        Parent = Page,
+        Position = UDim2.new(0.5, 4, 0, 0),
+        Size = UDim2.new(0.5, -4, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    local LeftLayout = Create("UIListLayout", {
+        Parent = LeftColumn,
         Padding = UDim.new(0, 8),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
-    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 24)
-    end)
+    local RightLayout = Create("UIListLayout", {
+        Parent = RightColumn,
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    PageColumnMap = PageColumnMap or {}
+    PageColumnMap[Page] = {
+        Left = LeftColumn,
+        Right = RightColumn,
+        LeftLayout = LeftLayout,
+        RightLayout = RightLayout
+    }
+    local function UpdateCanvas()
+        local contentHeight = math.max(LeftLayout.AbsoluteContentSize.Y, RightLayout.AbsoluteContentSize.Y)
+        Page.CanvasSize = UDim2.new(0, 0, 0, contentHeight + 24)
+    end
+    LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+    RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
     Pages[pageNumber] = PageClip
     return Page
 end
 -- CARD
 local function CreateCard(parent, title, description)
+    local columns = PageColumnMap and PageColumnMap[parent]
+    local targetParent = parent
+    if columns then
+        targetParent = columns.LeftLayout.AbsoluteContentSize.Y <= columns.RightLayout.AbsoluteContentSize.Y
+            and columns.Left or columns.Right
+    end
     local Card = Create("Frame", {
         Name = title:gsub("%s+", ""),
-        Parent = parent,
+        Parent = targetParent,
         Size = UDim2.new(1, 0, 0, 110),
         BackgroundColor3 = Theme.Card,
         BorderSizePixel = 0
@@ -3269,10 +3305,11 @@ end))
             end
         end
 
+        local AutomationColumns = PageColumnMap[Page]
         local AutomationRow = Create("Frame", {
             Name = "AutomationCards",
-            Parent = Page,
-            Size = UDim2.new(1, -4, 0, 96),
+            Parent = AutomationColumns.Right,
+            Size = UDim2.new(1, 0, 0, 96),
             BackgroundTransparency = 1,
             BorderSizePixel = 0
         })
@@ -3282,7 +3319,7 @@ end))
                 Name = title:gsub("%s+", ""),
                 Parent = AutomationRow,
                 Position = position,
-                Size = UDim2.new(0.5, -4, 1, 0),
+                Size = UDim2.new(1, 0, 1, 0),
                 BackgroundColor3 = Theme.Card,
                 BorderSizePixel = 0
             })
