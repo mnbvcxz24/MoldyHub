@@ -1,1 +1,1 @@
-Disclaimer: For personal use only
+ChatGPT Disclaimer: For personal use only
