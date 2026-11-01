@@ -46,7 +46,7 @@ local UIConfig = {
     Subtitle = "STEAL A PET AND RIDE IT | " .. testver,
     Width = 480,
     Height = 320,
-    SidebarWidth = 108,
+    SidebarWidth = 100,
     SidebarNames = {
         "Main",
         "Features",
@@ -414,6 +414,23 @@ local RestoreButton = Create("TextButton", {
 })
 AddCorner(RestoreButton, 18)
 AddStroke(RestoreButton, Theme.Border, 1)
+local ResizeHandle = Create("TextButton", {
+    Name = "ResizeHandle",
+    Parent = Main,
+    AnchorPoint = Vector2.new(1, 1),
+    Position = UDim2.new(1, -3, 1, -3),
+    Size = UDim2.fromOffset(18, 18),
+    BackgroundColor3 = Theme.Sidebar,
+    BackgroundTransparency = 0.15,
+    Text = "◢",
+    TextColor3 = Theme.Accent,
+    Font = Enum.Font.GothamBold,
+    TextSize = 13,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    ZIndex = 10
+})
+AddCorner(ResizeHandle, 5)
 -- SIDEBAR
 local Sidebar = Create("Frame", {
     Name = "Sidebar",
@@ -429,25 +446,12 @@ local Sidebar = Create("Frame", {
     BorderSizePixel = 0
 })
 AddCorner(Sidebar, 12)
--- Sidebar title
-local NavigationTitle = Create("TextLabel", {
-    Name = "NavigationTitle",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(8, 12),
-    Size = UDim2.new(1, -16, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "NAVIGATION",
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.GothamBold,
-    TextSize = 9,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
 -- Sidebar container
 local SidebarContainer = Create("ScrollingFrame", {
     Name = "Buttons",
     Parent = Sidebar,
-    Position = UDim2.fromOffset(5, 40),
-    Size = UDim2.new(1, -10, 1, -60),
+    Position = UDim2.fromOffset(5, 12),
+    Size = UDim2.new(1, -10, 1, -24),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 3,
@@ -3538,6 +3542,7 @@ local function SetMinimized(state)
         Content.Visible = false
         Sidebar.Visible = false
         TopBar.Visible = false
+        ResizeHandle.Visible = false
     else
         Minimized = false
 
@@ -3545,6 +3550,7 @@ local function SetMinimized(state)
         Sidebar.Visible = true
         TopBar.Visible = true
         RestoreButton.Visible = true
+        ResizeHandle.Visible = true
 
         local mainTween = TweenService:Create(Main, AnimationInfo, {
             Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
@@ -3588,6 +3594,22 @@ end)
 local Dragging = false
 local DragStart
 local StartPosition
+local Resizing = false
+local ResizeStart
+local ResizeStartSize
+local MinWindowWidth = 400
+local MinWindowHeight = 280
+local MaxWindowWidth = 720
+local MaxWindowHeight = 600
+ResizeHandle.InputBegan:Connect(function(input)
+    if Minimized then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        Resizing = true
+        ResizeStart = input.Position
+        ResizeStartSize = Main.AbsoluteSize
+    end
+end)
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
@@ -3605,20 +3627,32 @@ RestoreButton.InputBegan:Connect(function(input)
     end
 end)
 TrackConnection(UserInputService.InputChanged:Connect(function(input)
-    if not Dragging then return end
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
     and input.UserInputType ~= Enum.UserInputType.Touch then return end
-    local Delta = input.Position - DragStart
-    Main.Position = UDim2.new(
-        StartPosition.X.Scale,
-        StartPosition.X.Offset + Delta.X,
-        StartPosition.Y.Scale,
-        StartPosition.Y.Offset + Delta.Y
-    )
+
+    if Resizing then
+        local delta = input.Position - ResizeStart
+        local width = math.clamp(ResizeStartSize.X + delta.X, MinWindowWidth, MaxWindowWidth)
+        local height = math.clamp(ResizeStartSize.Y + delta.Y, MinWindowHeight, MaxWindowHeight)
+        UIConfig.Width = width
+        UIConfig.Height = height
+        Main.Size = UDim2.fromOffset(width, height)
+    end
+
+    if Dragging then
+        local Delta = input.Position - DragStart
+        Main.Position = UDim2.new(
+            StartPosition.X.Scale,
+            StartPosition.X.Offset + Delta.X,
+            StartPosition.Y.Scale,
+            StartPosition.Y.Offset + Delta.Y
+        )
+    end
 end))
 TrackConnection(UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
+        Resizing = false
         if Dragging and Minimized then
             ExpandedPosition = UDim2.new(
                 Main.Position.X.Scale,
