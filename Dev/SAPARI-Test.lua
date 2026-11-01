@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.80"
+local testver = "Test ver: 1.81"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1691,6 +1691,8 @@ end))
 
         local navigationToken = 0
         local treadmillToken = 0
+        local treadmillStatus = "Disabled"
+        local treadmillCageWasRunning = false
         local activeNavigationTween
         local nightTimerConnection
         local nightTimerAddedConnection
@@ -2433,8 +2435,6 @@ end))
             end
             local nightRecoveryPending = false
             local treadmillCageSafeZonePending = false
-            local treadmillStatus = "Disabled"
-            local treadmillCageWasRunning = false
             local playerGui = LocalPlayer:WaitForChild("PlayerGui")
             local watchedNightTimer
 
