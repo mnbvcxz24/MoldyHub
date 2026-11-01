@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.71"
+local testver = "Test ver: 1.72"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2526,14 +2526,12 @@ end))
                             if cage:IsA("Model") then
                                 modelCount += 1
                                 local rarityMatches = MatchesSelectedKind(cage)
-                                local matchesFilters
-                                if hasSelectedPath and hasSelectedRarity then
-                                    matchesFilters = pathMatches and rarityMatches
-                                elseif hasSelectedPath then
-                                    matchesFilters = pathMatches
-                                else
-                                    matchesFilters = rarityMatches
-                                end
+                                local activeWorldPath = IsPathInActiveWorld(pathObject)
+                                local matchesSelectedPath = not hasSelectedPath or pathMatches
+                                local matchesSelectedRarity = not hasSelectedRarity or rarityMatches
+                                local matchesFilters = activeWorldPath
+                                    and matchesSelectedPath
+                                    and matchesSelectedRarity
                                 if matchesFilters then
                                     table.insert(cages, cage)
                                 end
