@@ -1135,6 +1135,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
         end
 
+        Runtime.CurrentWorld = CachedActiveWorldFolder and CachedActiveWorldFolder.Name or nil
+        Runtime.CurrentWorldFolder = Runtime.CurrentWorld and workspace:FindFirstChild(Runtime.CurrentWorld) or nil
+
         local function GetActiveWorldPathsFolder()
             if not CachedPathsFolder or not CachedActiveWorldFolder then
                 return nil, nil, nil
@@ -2221,8 +2224,12 @@ end))
             local target
             local targetDeadline = os.clock() + 15
             repeat
-                local hub = workspace:FindFirstChild("Hub")
-                local waves = hub and hub:FindFirstChild("Waves")
+                local activeWorld = Runtime.CurrentWorldFolder
+                if not activeWorld or not activeWorld.Parent then
+                    activeWorld = Runtime.CurrentWorld and workspace:FindFirstChild(Runtime.CurrentWorld)
+                    Runtime.CurrentWorldFolder = activeWorld
+                end
+                local waves = activeWorld and activeWorld:FindFirstChild("Waves")
                 target = waves and waves:FindFirstChild("CandyPumpkin")
                 if target then
                     break
@@ -3680,17 +3687,18 @@ end))
             BorderSizePixel = 0
         })
 
-        Create("TextLabel", {
+        local CurrentWorldValue = Create("TextLabel", {
             Parent = StatusCard,
             Position = UDim2.fromOffset(11, 70),
             Size = UDim2.new(1, -22, 0, 16),
             BackgroundTransparency = 1,
-            Text = "Current World: Hub",
+            Text = "Current World: " .. tostring(Runtime.CurrentWorld or "Unknown"),
             TextColor3 = Theme.DarkGray,
             Font = Enum.Font.GothamMedium,
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
+        Runtime.CurrentWorldValue = CurrentWorldValue
 
         Create("TextLabel", {
             Parent = StatusCard,
