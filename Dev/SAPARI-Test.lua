@@ -351,7 +351,7 @@ local Title = Create("TextLabel", {
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
     Parent = TopBar,
-    Position = UDim2.new(1, -56, 0, 12),
+    Position = UDim2.new(1, -56, 0, 8),
     Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "-",
@@ -366,7 +366,7 @@ AddStroke(MinimizeButton, Theme.Border, 1)
 local CloseButton = Create("TextButton", {
     Name = "Close",
     Parent = TopBar,
-    Position = UDim2.new(1, -28, 0, 12),
+    Position = UDim2.new(1, -28, 0, 8),
     Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "×",
