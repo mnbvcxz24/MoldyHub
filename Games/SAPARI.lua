@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.37"
+local deployver = "Deploy ver 1.38"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2817,6 +2817,18 @@ end))
                 SetNavigationStatus("Cage reached")
                 return true
             end
+            local function JumpForSafeZone(humanoid)
+                if not humanoid or humanoid.Health <= 0 then
+                    return
+                end
+
+                humanoid.Jump = true
+                pcall(function()
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end)
+                task.wait(0.1)
+            end
+
             local function WalkToSafeZoneAtStart()
                 if not safeSign or not safeSign:IsA("BasePart") then
                     SetNavigationStatus("Safe zone unavailable - continuing")
@@ -2836,7 +2848,9 @@ end))
                     else
                         SetNavigationStatus("Walking to safe zone")
                         local safeZoneDestination = safeSign.Position
+                        JumpForSafeZone(humanoid)
                         if MoveToPosition(root, humanoid, safeZoneDestination, token, true) then
+                            JumpForSafeZone(humanoid)
                             SetNavigationStatus("Safe zone reached")
                             return true
                         end
@@ -3230,6 +3244,7 @@ end))
                             SetNavigationStatus("Walking back to safe zone")
                         end
 
+                        JumpForSafeZone(humanoid)
                         reachedSafeZone = MoveToPosition(
                             root,
                             humanoid,
@@ -3238,6 +3253,9 @@ end))
                             false,
                             MovementMode == "Glide"
                         )
+                        if reachedSafeZone then
+                            JumpForSafeZone(humanoid)
+                        end
 
                         if not reachedSafeZone then
                             RestoreFloating()
