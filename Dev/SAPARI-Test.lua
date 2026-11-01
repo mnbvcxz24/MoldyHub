@@ -3498,8 +3498,12 @@ local function SetMinimized(state)
         ExpandedPosition = Main.Position
         Minimized = true
 
-        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
+        RestoreButton.Position = UDim2.fromOffset(0, 0)
         RestoreButton.Visible = true
+        Content.Visible = false
+        NavigationBar.Visible = false
+        TopBar.Visible = false
+        ResizeHandle.Visible = false
 
         local minimizedPosition = UDim2.new(
             ExpandedPosition.X.Scale,
@@ -3512,48 +3516,37 @@ local function SetMinimized(state)
             Size = MinimizedSize,
             Position = minimizedPosition
         })
-        local restoreTween = TweenService:Create(RestoreButton, AnimationInfo, {
-            Position = UDim2.fromOffset(0, 0)
-        })
         local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
             CornerRadius = UDim.new(0, 18)
         })
 
         mainTween:Play()
-        restoreTween:Play()
         cornerTween:Play()
         mainTween.Completed:Wait()
-
-        Content.Visible = false
-        NavigationBar.Visible = false
-        TopBar.Visible = false
-        ResizeHandle.Visible = false
     else
         Minimized = false
 
-        Content.Visible = true
-        NavigationBar.Visible = true
-        TopBar.Visible = true
+        RestoreButton.Position = UDim2.fromOffset(0, 0)
         RestoreButton.Visible = true
-        ResizeHandle.Visible = true
 
         local mainTween = TweenService:Create(Main, AnimationInfo, {
             Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
             Position = ExpandedPosition
-        })
-        local restoreTween = TweenService:Create(RestoreButton, AnimationInfo, {
-            Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
         })
         local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
             CornerRadius = UDim.new(0, 12)
         })
 
         mainTween:Play()
-        restoreTween:Play()
         cornerTween:Play()
         mainTween.Completed:Wait()
 
+        Content.Visible = true
+        NavigationBar.Visible = true
+        TopBar.Visible = true
+        ResizeHandle.Visible = true
         RestoreButton.Visible = false
+        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
     end
 
     IsAnimating = false
