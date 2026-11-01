@@ -301,7 +301,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font color="#' .. selectedTheme.Accent:ToHex() .. '">' .. deployver .. '</font>'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font size="10" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. deployver .. '</font>'
     end
 end
 -- MAIN WINDOW
@@ -343,11 +343,11 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(14, 0),
     Size = UDim2.new(1, -100, 1, 0),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font color="#' .. Theme.Accent:ToHex() .. '">' .. deployver .. '</font>',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font size="10" color="#' .. Theme.Accent:ToHex() .. '">' .. deployver .. '</font>',
     RichText = true,
     TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 14,
+    Font = Enum.Font.GothamMedium,
+    TextSize = 12,
     TextXAlignment = Enum.TextXAlignment.Left,
     TextYAlignment = Enum.TextYAlignment.Center
 })
@@ -848,41 +848,43 @@ end))
 end))
     return Holder
 end
--- CREATE SIDEBAR BUTTONS
+-- CREATE HORIZONTAL NAVIGATION BUTTONS
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Button = Create("TextButton", {
-        Name = "SidebarButton_" .. index,
-        Parent = SidebarContainer,
-        Size = UDim2.new(1, -2, 0, 34),
-        BackgroundColor3 = Theme.Sidebar,
+        Name = "NavigationButton_" .. index,
+        Parent = NavigationContainer,
+        Size = UDim2.fromOffset(math.max(62, (#name * 7) + 24), 28),
+        BackgroundTransparency = 1,
         Text = name,
         TextColor3 = Theme.DarkGray,
         Font = Enum.Font.GothamMedium,
-        TextSize = 9,
+        TextSize = 10,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextXAlignment = Enum.TextXAlignment.Center,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         LayoutOrder = index
     })
-    AddCorner(Button, 7)
-    Button.BackgroundTransparency = 1
-    local ActiveLine = Create("Frame", {Name = "ActiveLine", Parent = Button, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -2, 0.5, 0), Size = UDim2.fromOffset(2, 18), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Visible = index == 1})
-    AddCorner(ActiveLine, 1)
-    local Padding = Create("UIPadding", {
+    local ActiveLine = Create("Frame", {
+        Name = "ActiveLine",
         Parent = Button,
-        PaddingLeft = UDim.new(0, 10)
+        AnchorPoint = Vector2.new(0.5, 1),
+        Position = UDim2.new(0.5, 0, 1, -1),
+        Size = UDim2.new(0.62, 0, 0, 2),
+        BackgroundColor3 = Theme.Accent,
+        BorderSizePixel = 0,
+        Visible = index == 1
     })
+    AddCorner(ActiveLine, 1)
     SidebarButtons[index] = Button
     Button.MouseButton1Click:Connect(function()
         for pageIndex, page in pairs(Pages) do
             page.Visible = pageIndex == index
         end
-        for buttonIndex, sidebarButton in pairs(SidebarButtons) do
+        for buttonIndex, navigationButton in pairs(SidebarButtons) do
             local active = buttonIndex == index
-            sidebarButton.BackgroundTransparency = 1
-            sidebarButton.TextColor3 = active and Theme.Text or Theme.DarkGray
-            local line = sidebarButton:FindFirstChild("ActiveLine")
+            navigationButton.TextColor3 = active and Theme.Text or Theme.DarkGray
+            local line = navigationButton:FindFirstChild("ActiveLine")
             if line then line.Visible = active end
         end
     end)
