@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy ver 1.27"
+local deployver = "Deploy ver 1.28"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -42,7 +42,7 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "MoldyHub",
-    Subtitle = "STEAL A PET AND RIDE IT | " .. testver,
+    Subtitle = "STEAL A PET AND RIDE IT | " .. deployver,
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
@@ -2355,6 +2355,10 @@ end))
                 end)
             end
 
+            local lastAttemptedCagePath
+            local lastAttemptedCageSpot
+            local prioritizeDroppedCageRecovery = false
+
             local function WaitForBossCaught()
                 if not bossCaughtDetected then return false end
 
@@ -2413,7 +2417,9 @@ end))
 
                 bossCaughtDetected = false
                 baseTeleportDetected = false
-                SetNavigationStatus("Recovery complete - resuming cage scan")
+                prioritizeDroppedCageRecovery = lastAttemptedCagePath ~= nil
+                    and lastAttemptedCageSpot ~= nil
+                SetNavigationStatus("Recovery complete - checking dropped cage")
                 return true
             end
             local previousCharacterRoot
@@ -2526,6 +2532,23 @@ end))
 
                 return false
             end
+            local function AddMatchingDroppedCage(cages)
+                if not prioritizeDroppedCageRecovery then return end
+
+                local droppedCagesFolder = workspace:FindFirstChild("DroppedCages")
+                local droppedCage = droppedCagesFolder
+                    and droppedCagesFolder:FindFirstChild("DroppedCage")
+
+                if droppedCage and droppedCage:IsA("Model")
+                and droppedCage:IsDescendantOf(workspace)
+                and droppedCage:GetAttribute("Path") == lastAttemptedCagePath
+                and droppedCage:GetAttribute("Spot") == lastAttemptedCageSpot then
+                    table.insert(cages, 1, droppedCage)
+                    prioritizeDroppedCageRecovery = false
+                    SetNavigationStatus("Matching dropped cage found - recovering")
+                end
+            end
+
             local function GetSelectedCages()
                 local cages = {}
                 local hasSelectedPath = false
@@ -2547,11 +2570,13 @@ end))
                 local hasFilter = hasSelectedPath or hasSelectedRarity
 
                 if not hasFilter then
+                    AddMatchingDroppedCage(cages)
                     return cages
                 end
 
                 local pathsFolder = GetActiveWorldPathsFolder()
                 if not pathsFolder then
+                    AddMatchingDroppedCage(cages)
                     return cages
                 end
 
@@ -2593,6 +2618,7 @@ end))
                 table.sort(cages, function(a, b)
                     return cageSortKeys[a] < cageSortKeys[b]
                 end)
+                AddMatchingDroppedCage(cages)
                 return cages
             end
 
@@ -2868,6 +2894,9 @@ end))
                 for _, selectedCage in ipairs(selectedCages) do
                     if token ~= navigationToken or Runtime.Stopped then return end
                     if not selectedCage.Parent then continue end
+
+                    lastAttemptedCagePath = selectedCage:GetAttribute("Path")
+                    lastAttemptedCageSpot = selectedCage:GetAttribute("Spot")
 
                     local character = LocalPlayer.Character
                     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
