@@ -2820,7 +2820,7 @@ end))
                         return nearestCage:GetPivot().Position
                     end)
                     if ok and cagePosition
-                    and (cagePosition - navigationRoot.Position).Magnitude <= 50 then
+                    and (cagePosition - navigationRoot.Position).Magnitude <= 200 then
                         skipInitialSafeZone = true
                     end
                 end
