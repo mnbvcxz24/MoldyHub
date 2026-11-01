@@ -1697,6 +1697,7 @@ end))
         local treadmillToken = 0
         local activeNavigationTween
         local nightTimerConnection
+        local nightTimerAddedConnection
         local bossCaughtConnection
         local bossCaughtDetected = false
         local bossCaughtAt = 0
@@ -2217,6 +2218,10 @@ end))
                 nightTimerConnection:Disconnect()
                 nightTimerConnection = nil
             end
+            if nightTimerAddedConnection then
+                nightTimerAddedConnection:Disconnect()
+                nightTimerAddedConnection = nil
+            end
             CancelActiveMovement()
             RestoreFloating()
             SetAutoStealEnabled(false)
@@ -2334,6 +2339,10 @@ end))
                 nightTimerConnection:Disconnect()
                 nightTimerConnection = nil
             end
+            if nightTimerAddedConnection then
+                nightTimerAddedConnection:Disconnect()
+                nightTimerAddedConnection = nil
+            end
 
             local sharedRemotes = ReplicatedStorage:FindFirstChild("Shared")
                 and ReplicatedStorage.Shared:FindFirstChild("Remotes")
@@ -2425,8 +2434,8 @@ end))
             end
             local nightRecoveryPending = false
             local treadmillCageSafeZonePending = false
-            local nightHud = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("NightHud", 10)
-            local nightTimer = nightHud and nightHud:WaitForChild("Timer", 10)
+            local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+            local watchedNightTimer
 
             local function HandleNightStarted()
                 if nightDetected or bossCaughtDetected then
@@ -2440,21 +2449,43 @@ end))
                 SetNavigationStatus("Night detected - waiting 12s")
             end
 
-            if nightTimer and (nightTimer:IsA("TextLabel") or nightTimer:IsA("TextButton")) then
-                local wasNight = string.find(string.lower(nightTimer.Text), "night", 1, true) ~= nil
+            local function AttachNightTimer(timer)
+                if not timer or not (timer:IsA("TextLabel") or timer:IsA("TextButton"))
+                or watchedNightTimer == timer then
+                    return
+                end
 
+                if nightTimerConnection then
+                    nightTimerConnection:Disconnect()
+                    nightTimerConnection = nil
+                end
+
+                watchedNightTimer = timer
+                local wasNight = string.find(string.lower(timer.Text), "night", 1, true) ~= nil
                 if wasNight then
                     HandleNightStarted()
                 end
 
-                nightTimerConnection = nightTimer:GetPropertyChangedSignal("Text"):Connect(function()
-                    local isNight = string.find(string.lower(nightTimer.Text), "night", 1, true) ~= nil
+                nightTimerConnection = timer:GetPropertyChangedSignal("Text"):Connect(function()
+                    local isNight = string.find(string.lower(timer.Text), "night", 1, true) ~= nil
                     if isNight and not wasNight then
                         HandleNightStarted()
                     end
                     wasNight = isNight
                 end)
             end
+
+            nightTimerAddedConnection = playerGui.DescendantAdded:Connect(function(descendant)
+                if descendant.Name == "Timer"
+                and descendant.Parent
+                and descendant.Parent.Name == "NightHud" then
+                    AttachNightTimer(descendant)
+                end
+            end)
+
+            local nightHud = playerGui:FindFirstChild("NightHud")
+            local nightTimer = nightHud and nightHud:FindFirstChild("Timer")
+            AttachNightTimer(nightTimer)
 
             local function WaitForNight()
                 if not nightDetected then
@@ -2491,25 +2522,69 @@ end))
 
                 return false
             end
-            local function AddMatchingDroppedCage(cages)
-                if not prioritizeDroppedCageRecovery then return end
+            local function GetMatchingDroppedCage()
+                if not prioritizeDroppedCageRecovery then return nil end
 
                 local droppedCagesFolder = workspace:FindFirstChild("DroppedCages")
                 local droppedCage = droppedCagesFolder
                     and droppedCagesFolder:FindFirstChild("DroppedCage")
 
-                if droppedCage and droppedCage:IsA("Model")
-                and droppedCage:IsDescendantOf(workspace)
-                and droppedCage:GetAttribute("Path") == lastAttemptedCagePath
-                and droppedCage:GetAttribute("Spot") == lastAttemptedCageSpot then
-                    table.insert(cages, 1, droppedCage)
-                    prioritizeDroppedCageRecovery = false
-                    SetNavigationStatus("Matching dropped cage found - recovering")
+                if not droppedCage or not droppedCage:IsA("Model")
+                or not droppedCage:IsDescendantOf(workspace)
+                or droppedCage:GetAttribute("Path") ~= lastAttemptedCagePath
+                or droppedCage:GetAttribute("Spot") ~= lastAttemptedCageSpot then
+                    return nil
                 end
+
+                return droppedCage
+            end
+
+            local function GetCagePrompt(cageModel)
+                if not cageModel or not cageModel.Parent then
+                    return nil
+                end
+
+                if cageModel.Name == "DroppedCage" then
+                    local cageRoot = cageModel:FindFirstChild("Root")
+                    local grabPrompt = cageRoot and cageRoot:FindFirstChild("GrabPrompt")
+                    if grabPrompt and grabPrompt:IsA("ProximityPrompt") then
+                        return grabPrompt
+                    end
+                    return nil
+                end
+
+                local stealPrompt = cageModel:FindFirstChild("StealPrompt", true)
+                if stealPrompt and stealPrompt:IsA("ProximityPrompt") then
+                    return stealPrompt
+                end
+                return nil
             end
 
             local function GetSelectedCages()
                 local cages = {}
+                if prioritizeDroppedCageRecovery then
+                    SetNavigationStatus("Waiting for dropped cage recovery")
+                    local recoveryUntil = os.clock() + 12
+                    while prioritizeDroppedCageRecovery
+                    and os.clock() < recoveryUntil do
+                        if token ~= navigationToken or Runtime.Stopped then
+                            return cages
+                        end
+
+                        local droppedCage = GetMatchingDroppedCage()
+                        if droppedCage then
+                            prioritizeDroppedCageRecovery = false
+                            SetNavigationStatus("Matching dropped cage found - recovering")
+                            return { droppedCage }
+                        end
+
+                        task.wait(0.1)
+                    end
+
+                    prioritizeDroppedCageRecovery = false
+                    SetNavigationStatus("Dropped cage not found - resuming scan")
+                end
+
                 local hasSelectedPath = false
                 local hasSelectedRarity = false
 
@@ -2529,13 +2604,11 @@ end))
                 local hasFilter = hasSelectedPath or hasSelectedRarity
 
                 if not hasFilter then
-                    AddMatchingDroppedCage(cages)
                     return cages
                 end
 
                 local pathsFolder = GetActiveWorldPathsFolder()
                 if not pathsFolder then
-                    AddMatchingDroppedCage(cages)
                     return cages
                 end
 
@@ -2682,8 +2755,8 @@ end))
 
                     local targetPosition = destination
                     if cageModel and cageModel.Parent then
-                        local prompt = cageModel:FindFirstChild("StealPrompt", true)
-                        if prompt and prompt:IsA("ProximityPrompt") then
+                        local prompt = GetCagePrompt(cageModel)
+                        if prompt then
                             targetPosition = GetPromptWorldPosition(prompt) or targetPosition
                         end
                     end
@@ -2970,7 +3043,7 @@ end))
                         end
 
                         local promptOk, foundPrompt = pcall(function()
-                            return selectedCage:FindFirstChild("StealPrompt", true)
+                            return GetCagePrompt(selectedCage)
                         end)
                         if promptOk and foundPrompt
                         and foundPrompt:IsA("ProximityPrompt")
@@ -3039,7 +3112,8 @@ end))
                     end
 
                     SetFloating(root, false)
-                    SetNavigationStatus("Holding steal prompt")
+                    SetNavigationStatus(selectedCage.Name == "DroppedCage"
+                        and "Holding grab prompt" or "Holding steal prompt")
                     local holdStarted = false
                     local holdCompleted = false
                     local holdOk = pcall(function()
