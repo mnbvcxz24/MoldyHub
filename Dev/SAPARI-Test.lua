@@ -1693,6 +1693,7 @@ end))
         local treadmillToken = 0
         local activeNavigationTween
         local nightTimerConnection
+        local nightTimerAddedConnection
         local bossCaughtConnection
         local bossCaughtDetected = false
         local nightDetected = false
@@ -2214,6 +2215,10 @@ end))
                 nightTimerConnection:Disconnect()
                 nightTimerConnection = nil
             end
+            if nightTimerAddedConnection then
+                nightTimerAddedConnection:Disconnect()
+                nightTimerAddedConnection = nil
+            end
             CancelActiveMovement()
             RestoreFloating()
             SetAutoStealEnabled(false)
@@ -2331,6 +2336,10 @@ end))
                 nightTimerConnection:Disconnect()
                 nightTimerConnection = nil
             end
+            if nightTimerAddedConnection then
+                nightTimerAddedConnection:Disconnect()
+                nightTimerAddedConnection = nil
+            end
 
             local sharedRemotes = ReplicatedStorage:FindFirstChild("Shared")
                 and ReplicatedStorage.Shared:FindFirstChild("Remotes")
@@ -2421,8 +2430,8 @@ end))
             end
             local nightRecoveryPending = false
             local treadmillCageSafeZonePending = false
-            local nightHud = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("NightHud", 10)
-            local nightTimer = nightHud and nightHud:WaitForChild("Timer", 10)
+            local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+            local watchedNightTimer
 
             local function HandleNightStarted()
                 if nightDetected or bossCaughtDetected then
@@ -2436,21 +2445,43 @@ end))
                 SetNavigationStatus("Night detected - waiting 12s")
             end
 
-            if nightTimer and (nightTimer:IsA("TextLabel") or nightTimer:IsA("TextButton")) then
-                local wasNight = string.find(string.lower(nightTimer.Text), "night", 1, true) ~= nil
+            local function AttachNightTimer(timer)
+                if not timer or not (timer:IsA("TextLabel") or timer:IsA("TextButton"))
+                or watchedNightTimer == timer then
+                    return
+                end
 
+                if nightTimerConnection then
+                    nightTimerConnection:Disconnect()
+                    nightTimerConnection = nil
+                end
+
+                watchedNightTimer = timer
+                local wasNight = string.find(string.lower(timer.Text), "night", 1, true) ~= nil
                 if wasNight then
                     HandleNightStarted()
                 end
 
-                nightTimerConnection = nightTimer:GetPropertyChangedSignal("Text"):Connect(function()
-                    local isNight = string.find(string.lower(nightTimer.Text), "night", 1, true) ~= nil
+                nightTimerConnection = timer:GetPropertyChangedSignal("Text"):Connect(function()
+                    local isNight = string.find(string.lower(timer.Text), "night", 1, true) ~= nil
                     if isNight and not wasNight then
                         HandleNightStarted()
                     end
                     wasNight = isNight
                 end)
             end
+
+            nightTimerAddedConnection = playerGui.DescendantAdded:Connect(function(descendant)
+                if descendant.Name == "Timer"
+                and descendant.Parent
+                and descendant.Parent.Name == "NightHud" then
+                    AttachNightTimer(descendant)
+                end
+            end)
+
+            local nightHud = playerGui:FindFirstChild("NightHud")
+            local nightTimer = nightHud and nightHud:FindFirstChild("Timer")
+            AttachNightTimer(nightTimer)
 
             local function WaitForNight()
                 if not nightDetected then
@@ -2506,11 +2537,27 @@ end))
 
             local function GetSelectedCages(characterRoot)
                 local cages = {}
-                local droppedCage = GetMatchingDroppedCage()
-                if droppedCage then
+                if prioritizeDroppedCageRecovery then
+                    SetNavigationStatus("Waiting for dropped cage recovery")
+                    local recoveryUntil = os.clock() + 12
+                    while prioritizeDroppedCageRecovery
+                    and os.clock() < recoveryUntil do
+                        if token ~= navigationToken or Runtime.Stopped then
+                            return cages
+                        end
+
+                        local droppedCage = GetMatchingDroppedCage()
+                        if droppedCage then
+                            prioritizeDroppedCageRecovery = false
+                            SetNavigationStatus("Matching dropped cage found - recovering")
+                            return { droppedCage }
+                        end
+
+                        task.wait(0.1)
+                    end
+
                     prioritizeDroppedCageRecovery = false
-                    SetNavigationStatus("Matching dropped cage found - recovering")
-                    return { droppedCage }
+                    SetNavigationStatus("Dropped cage not found - resuming scan")
                 end
 
                 local hasSelectedPath = false
