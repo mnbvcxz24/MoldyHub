@@ -332,6 +332,7 @@ local TopBar = Create("Frame", {
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
+AddCorner(TopBar, 12)
 local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
