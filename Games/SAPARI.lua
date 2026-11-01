@@ -8,7 +8,8 @@ local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.46"
+local deployver = "Deploy ver 1.47"
+local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.86")
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -23,6 +24,10 @@ local function TrackConnection(connection)
 end
 RuntimeEnv.__StealAPetAndRideItCleanup = function()
     Runtime.Stopped = true
+
+    if Runtime.StopBossFight then
+        pcall(Runtime.StopBossFight)
+    end
 
     if Runtime.StopNavigation then
         pcall(Runtime.StopNavigation)
@@ -43,15 +48,15 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "MoldyHub",
-    Subtitle = "STEAL A PET AND RIDE IT",
+    Subtitle = "Steal a pet and ride it",
+    Version = deployver,
     Width = 480,
     Height = 320,
-    SidebarWidth = 108,
     SidebarNames = {
         "Main",
         "Events",
         "Misc. feature",
-        "Settings",
+        "Settings"
     }
 }
 -- THEME
@@ -301,7 +306,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">v1.46</font>'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. displayVersion .. '</font>'
     end
 end
 -- MAIN WINDOW
@@ -341,9 +346,9 @@ local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
     Position = UDim2.fromOffset(14, 0),
-    Size = UDim2.new(0, 190, 1, 0),
+    Size = UDim2.new(1, -100, 1, 0),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. Theme.Accent:ToHex() .. '">v1.46</font>',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. Theme.Accent:ToHex() .. '">' .. displayVersion .. '</font>',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
@@ -522,8 +527,8 @@ local function CreatePage(pageNumber, pageName)
         local contentHeight = math.max(LeftLayout.AbsoluteContentSize.Y, RightLayout.AbsoluteContentSize.Y)
         Page.CanvasSize = UDim2.new(0, 0, 0, contentHeight + 24)
     end
-    LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
-    RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+    TrackConnection(LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas))
+    TrackConnection(RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas))
     Pages[pageNumber] = PageClip
     return Page
 end
@@ -586,21 +591,21 @@ local function CreateButton(parent, text, callback)
         AutoButtonColor = false
     })
     AddCorner(Button, 6)
-    Button.MouseEnter:Connect(function()
+    TrackConnection(Button.MouseEnter:Connect(function()
         Tween(Button, {
             BackgroundColor3 = Theme.Selected
         })
-    end)
-    Button.MouseLeave:Connect(function()
+    end))
+    TrackConnection(Button.MouseLeave:Connect(function()
         Tween(Button, {
             BackgroundColor3 = Theme.Selected
         })
-    end)
-    Button.MouseButton1Click:Connect(function()
+    end))
+    TrackConnection(Button.MouseButton1Click:Connect(function()
         if callback then
             callback()
         end
-    end)
+    end))
     return Button
 end
 -- TOGGLE
@@ -671,10 +676,10 @@ local function CreateToggle(parent, text, default, callback)
             return Enabled
         end
     }
-    Toggle.MouseButton1Click:Connect(function()
+    TrackConnection(Toggle.MouseButton1Click:Connect(function()
         Enabled = not Enabled
         Update(true)
-    end)
+    end))
     Update(false)
     return Toggle
 end
@@ -743,19 +748,19 @@ local function CreateDropdown(parent, text, options, callback)
             BorderSizePixel = 0,
             ZIndex = 201
         })
-        Option.MouseButton1Click:Connect(function()
+        TrackConnection(Option.MouseButton1Click:Connect(function()
             Current.Text = text .. ": " .. tostring(option)
             List.Visible = false
             Open = false
             if callback then
                 callback(option)
             end
-        end)
+        end))
     end
-    Dropdown.MouseButton1Click:Connect(function()
+    TrackConnection(Dropdown.MouseButton1Click:Connect(function()
         Open = not Open
         List.Visible = Open
-    end)
+    end))
     return Dropdown
 end
 -- SLIDER
@@ -825,13 +830,13 @@ local function CreateSlider(parent, text, minimum, maximum, default, callback)
             callback(Number)
         end
     end
-    Bar.InputBegan:Connect(function(input)
+    TrackConnection(Bar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = true
             Update(input)
         end
-    end)
+    end))
     TrackConnection(UserInputService.InputChanged:Connect(function(input)
         if Dragging then
             if input.UserInputType == Enum.UserInputType.MouseMovement
@@ -877,7 +882,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     })
     AddCorner(ActiveLine, 1)
     SidebarButtons[index] = Button
-    Button.MouseButton1Click:Connect(function()
+    TrackConnection(Button.MouseButton1Click:Connect(function()
         for pageIndex, page in pairs(Pages) do
             page.Visible = pageIndex == index
         end
@@ -887,10 +892,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local line = navigationButton:FindFirstChild("ActiveLine")
             if line then line.Visible = active end
         end
-    end)
+    end))
 end
-
-local CreateAutomationCard
 
 -- CREATE TEMPLATE PAGES
 for index, name in ipairs(UIConfig.SidebarNames) do
@@ -926,8 +929,22 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local AutoTreadmillStatusDot
         local StatusValue
         local StatusDot
+        local AutoStealStatusValue
+        local AutoStealStatusDot
 
         local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
+            if Runtime.BossMovementActive then
+                if enabled then
+                    local controller = ToggleControllers[AutoStealToggle]
+                    if controller then
+                        controller.SetEnabled(false, false)
+                    end
+                else
+                    Runtime.BossResumeAutoSteal = false
+                end
+                return
+            end
+
             if enabled and (not Runtime.IsRidingPet or not Runtime.IsRidingPet()) then
                 local controller = ToggleControllers[AutoStealToggle]
                 if controller then
@@ -935,12 +952,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 AutoStealEnabled = false
                 Runtime.AutoStealEnabled = false
-                if StatusValue then
-                    StatusValue.Text = "Please ride in a pet first"
-                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusValue then
+                    AutoStealStatusValue.Text = "Please ride a pet first"
+                    AutoStealStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                 end
-                if StatusDot then
-                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusDot then
+                    AutoStealStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
                 end
                 return
             end
@@ -952,24 +969,24 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 AutoStealEnabled = false
                 Runtime.AutoStealEnabled = false
-                if StatusValue then
-                    StatusValue.Text = "Select at least 1 filter"
-                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusValue then
+                    AutoStealStatusValue.Text = "Select at least 1 filter"
+                    AutoStealStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                 end
-                if StatusDot then
-                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusDot then
+                    AutoStealStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
                 end
                 return
             end
 
             AutoStealEnabled = enabled
             Runtime.AutoStealEnabled = enabled
-            if StatusValue then
-                StatusValue.Text = enabled and "Navigating" or "Disabled"
-                StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
+            if AutoStealStatusValue then
+                AutoStealStatusValue.Text = enabled and "Active" or "Disabled"
+                AutoStealStatusValue.TextColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
             end
-            if StatusDot then
-                StatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+            if AutoStealStatusDot then
+                AutoStealStatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
             end
             if enabled and Runtime.StartNavigation then
                 task.spawn(Runtime.StartNavigation)
@@ -986,14 +1003,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Size = UDim2.new(1, -30, 0, 18),
             BackgroundTransparency = 1
         })
-        StatusDot = Create("Frame", {
+        AutoStealStatusDot = Create("Frame", {
             Parent = StatusRow,
             Position = UDim2.fromOffset(2, 6),
             Size = UDim2.fromOffset(7, 7),
             BackgroundColor3 = Theme.Gray,
             BorderSizePixel = 0
         })
-        AddCorner(StatusDot, 8)
+        AddCorner(AutoStealStatusDot, 8)
         local StatusLabel = Create("TextLabel", {
             Parent = StatusRow,
             Position = UDim2.fromOffset(18, 0),
@@ -1005,7 +1022,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        StatusValue = Create("TextLabel", {
+        AutoStealStatusValue = Create("TextLabel", {
             Parent = StatusRow,
             Position = UDim2.fromOffset(54, 0),
             Size = UDim2.new(1, -54, 1, 0),
@@ -1118,6 +1135,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end
         end
+
+        Runtime.CurrentWorld = CachedActiveWorldFolder and CachedActiveWorldFolder.Name or nil
+        Runtime.CurrentWorldFolder = Runtime.CurrentWorld and workspace:FindFirstChild(Runtime.CurrentWorld) or nil
 
         local function GetActiveWorldPathsFolder()
             if not CachedPathsFolder or not CachedActiveWorldFolder then
@@ -1312,20 +1332,20 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         TextXAlignment = Enum.TextXAlignment.Left,
                         ZIndex = 102
                     })
-                    OptionButton.MouseButton1Click:Connect(function()
+                    TrackConnection(OptionButton.MouseButton1Click:Connect(function()
                         selected[optionObject] = not selected[optionObject] and true or nil
                         if onChanged then onChanged() end
                         Rebuild()
                         Refresh()
-                    end)
+                    end))
                 end
             end
-            Button.MouseButton1Click:Connect(function()
+            TrackConnection(Button.MouseButton1Click:Connect(function()
                 local opening = not List.Visible
                 if opening then Rebuild() end
                 List.Visible = opening
                 Chevron.Text = opening and "^" or "v"
-            end)
+            end))
             Refresh()
             return Button, List, SectionLabel, SectionIcon
         end
@@ -1403,9 +1423,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             })
             AddCorner(Button, 6)
             MovementButtons[mode] = Button
-            Button.MouseButton1Click:Connect(function()
+            TrackConnection(Button.MouseButton1Click:Connect(function()
                 SetMovement(mode)
-            end)
+            end))
         end
         Runtime.MovementMode = MovementMode
 
@@ -1494,8 +1514,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             DraggingSpeed = true
             UpdateSpeed(input)
         end
-        SpeedBar.InputBegan:Connect(BeginSpeedDrag)
-        SpeedThumb.InputBegan:Connect(BeginSpeedDrag)
+        TrackConnection(SpeedBar.InputBegan:Connect(BeginSpeedDrag))
+        TrackConnection(SpeedThumb.InputBegan:Connect(BeginSpeedDrag))
         TrackConnection(UserInputService.InputChanged:Connect(function(input)            if DraggingSpeed and (
                 input.UserInputType == Enum.UserInputType.MouseMovement
                 or input.UserInputType == Enum.UserInputType.Touch
@@ -1596,8 +1616,8 @@ end))
             DraggingJumpDistance = true
             UpdateJumpDistance(input)
         end
-        JumpDistanceBar.InputBegan:Connect(BeginJumpDistanceDrag)
-        JumpDistanceThumb.InputBegan:Connect(BeginJumpDistanceDrag)
+        TrackConnection(JumpDistanceBar.InputBegan:Connect(BeginJumpDistanceDrag))
+        TrackConnection(JumpDistanceThumb.InputBegan:Connect(BeginJumpDistanceDrag))
         TrackConnection(UserInputService.InputChanged:Connect(function(input)
             if DraggingJumpDistance and (
                 input.UserInputType == Enum.UserInputType.MouseMovement
@@ -1813,13 +1833,14 @@ end))
                 StatusValue.TextColor3 = Theme.Accent
             end
         end
+        Runtime.SetMainActivity = SetNavigationStatus
 
         local function SetAutoStealEnabled(enabled)
             if enabled and not HasSelectedFilter() then
                 enabled = false
-                if StatusValue then
-                    StatusValue.Text = "Select at least 1 filter"
-                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusValue then
+                    AutoStealStatusValue.Text = "Select at least 1 filter"
+                    AutoStealStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                 end
             end
 
@@ -1831,8 +1852,12 @@ end))
                 controller.SetEnabled(enabled, false)
             end
 
-            if StatusDot then
-                StatusDot.BackgroundColor3 = enabled
+            if AutoStealStatusValue then
+                AutoStealStatusValue.Text = enabled and "Active" or "Disabled"
+                AutoStealStatusValue.TextColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+            end
+            if AutoStealStatusDot then
+                AutoStealStatusDot.BackgroundColor3 = enabled
                     and Color3.fromRGB(75, 190, 145)
                     or Theme.Gray
             end
@@ -2151,6 +2176,162 @@ end))
             SetFloating(GetNavigationRoot(root), false)
             return token == navigationToken and not Runtime.Stopped
         end
+
+        Runtime.BossMovementActive = false
+        Runtime.BossResumeAutoSteal = false
+
+        Runtime.BeginBossMovement = function()
+            if Runtime.Stopped or Runtime.BossMovementActive then
+                return false
+            end
+
+            Runtime.BossMovementActive = true
+            Runtime.BossResumeAutoSteal = AutoStealEnabled
+
+            if nightDetected then
+                Runtime.NightPending = true
+                nightDetected = false
+            end
+
+            navigationToken += 1
+            if bossCaughtConnection then
+                bossCaughtConnection:Disconnect()
+                bossCaughtConnection = nil
+            end
+
+            CancelActiveMovement()
+            RestoreFloating()
+
+            if AutoStealEnabled then
+                SetAutoStealEnabled(false)
+            end
+            if Runtime.StopTreadmillIdle then
+                Runtime.StopTreadmillIdle()
+            end
+
+            SetNavigationStatus("Navigating to Candy Pumpkin")
+            return true
+        end
+
+        Runtime.NavigateToBoss = function()
+            if Runtime.Stopped or not Runtime.BossMovementActive then
+                return false
+            end
+
+            local token = navigationToken
+            local target
+            local targetDeadline = os.clock() + 15
+            repeat
+                local activeWorld = Runtime.CurrentWorldFolder
+                if not activeWorld or not activeWorld.Parent then
+                    activeWorld = Runtime.CurrentWorld and workspace:FindFirstChild(Runtime.CurrentWorld)
+                    Runtime.CurrentWorldFolder = activeWorld
+                end
+                local waves = activeWorld and activeWorld:FindFirstChild("Waves")
+                target = waves and waves:FindFirstChild("CandyPumpkin")
+                if target then
+                    break
+                end
+                task.wait(0.25)
+            until os.clock() >= targetDeadline
+                or token ~= navigationToken
+                or not Runtime.BossMovementActive
+                or Runtime.Stopped
+
+            if not target or token ~= navigationToken
+            or not Runtime.BossMovementActive or Runtime.Stopped then
+                SetNavigationStatus("Candy Pumpkin unavailable")
+                return false
+            end
+
+            local destination
+            local positionOk = pcall(function()
+                if target:IsA("Model") then
+                    destination = target:GetPivot().Position
+                elseif target:IsA("BasePart") then
+                    destination = target.Position
+                else
+                    local part = target:FindFirstChildWhichIsA("BasePart", true)
+                    destination = part and part.Position
+                end
+            end)
+
+            if not positionOk or not destination then
+                SetNavigationStatus("Invalid boss location")
+                return false
+            end
+
+            local characterDeadline = os.clock() + 10
+            local character, humanoid, root
+            repeat
+                character = LocalPlayer.Character
+                humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                root = character and character:FindFirstChild("HumanoidRootPart")
+                if humanoid and root and humanoid.Health > 0 then
+                    break
+                end
+                task.wait(0.25)
+            until os.clock() >= characterDeadline
+                or token ~= navigationToken
+                or not Runtime.BossMovementActive
+                or Runtime.Stopped
+
+            if not humanoid or not root or humanoid.Health <= 0
+            or token ~= navigationToken or not Runtime.BossMovementActive
+            or Runtime.Stopped then
+                SetNavigationStatus("Character unavailable")
+                return false
+            end
+
+            local reached = MoveToPosition(root, humanoid, destination, token, true, false, true)
+            if reached and token == navigationToken
+            and Runtime.BossMovementActive and not Runtime.Stopped then
+                SetNavigationStatus("At Candy Pumpkin")
+                return true
+            end
+
+            SetNavigationStatus("Failed to reach Candy Pumpkin")
+            return false
+        end
+
+        Runtime.EndBossMovement = function()
+            if not Runtime.BossMovementActive then
+                return
+            end
+
+            Runtime.BossMovementActive = false
+            navigationToken += 1
+            CancelActiveMovement()
+            RestoreFloating()
+
+            if Runtime.Stopped then
+                Runtime.BossResumeAutoSteal = false
+                return
+            end
+
+            local resumeAutoSteal = Runtime.BossResumeAutoSteal
+            Runtime.BossResumeAutoSteal = false
+
+            if resumeAutoSteal then
+                SetAutoStealEnabled(true)
+                task.defer(function()
+                    if not Runtime.Stopped and not Runtime.BossMovementActive
+                    and AutoStealEnabled and Runtime.StartNavigation then
+                        task.spawn(Runtime.StartNavigation)
+                    end
+                end)
+            elseif AutoTreadmillEnabled and Runtime.StartTreadmillIdle then
+                task.defer(function()
+                    if not Runtime.Stopped and not Runtime.BossMovementActive
+                    and AutoTreadmillEnabled and not AutoStealEnabled then
+                        Runtime.StartTreadmillIdle()
+                    end
+                end)
+            else
+                SetNavigationStatus("Boss fight complete")
+            end
+        end
+
         Runtime.StopNavigation = function()
             navigationToken += 1
             if bossCaughtConnection then
@@ -2189,7 +2370,8 @@ end))
         end
 
         Runtime.StartTreadmillIdle = function()
-            if Runtime.Stopped or not AutoTreadmillEnabled or AutoStealEnabled then
+            if Runtime.Stopped or Runtime.BossMovementActive
+            or not AutoTreadmillEnabled or AutoStealEnabled then
                 return
             end
 
@@ -2226,6 +2408,13 @@ end))
                                 treadmillStatus = "Running"
                                 AutoTreadmillStatusValue.Text = treadmillStatus
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                                if StatusValue then
+                                    StatusValue.Text = "In Treadmill"
+                                    StatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                                end
+                                if StatusDot then
+                                    StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+                                end
                             end
                             if AutoTreadmillStatusDot then
                                 AutoTreadmillStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
@@ -2251,6 +2440,9 @@ end))
         end
 
         Runtime.StartNavigation = function()
+            if Runtime.Stopped or Runtime.BossMovementActive then
+                return
+            end
             navigationToken += 1
             if Runtime.StopTreadmillIdle then
                 Runtime.StopTreadmillIdle()
@@ -2275,7 +2467,9 @@ end))
                 return
             end
 
-            nightDetected = false
+            local pendingNightRecovery = Runtime.NightPending == true
+            Runtime.NightPending = false
+            nightDetected = pendingNightRecovery
             bossCaughtDetected = false
             if bossCaughtConnection then
                 bossCaughtConnection:Disconnect()
@@ -2295,7 +2489,7 @@ end))
             local bossCaughtRemote = sharedRemotes and sharedRemotes:FindFirstChild("BossCaught")
 
             if bossCaughtRemote and bossCaughtRemote:IsA("RemoteEvent") then
-                bossCaughtConnection = bossCaughtRemote.OnClientEvent:Connect(function(playerId, bossName, direction)
+                bossCaughtConnection = TrackConnection(bossCaughtRemote.OnClientEvent:Connect(function(playerId, bossName, direction)
                     if token ~= navigationToken or Runtime.Stopped then return end
                     if tonumber(playerId) ~= LocalPlayer.UserId then return end
                     if bossCaughtDetected then return end
@@ -2307,7 +2501,7 @@ end))
                     end
 
                     SetNavigationStatus("Boss caught - recovering")
-                end)
+                end))
             end
 
             local lastAttemptedCagePath
@@ -2377,12 +2571,17 @@ end))
                 SetNavigationStatus("Recovery complete - checking dropped cage")
                 return true
             end
-            local nightRecoveryPending = false
+            local nightRecoveryPending = pendingNightRecovery
             local treadmillCageSafeZonePending = false
             local playerGui = LocalPlayer:WaitForChild("PlayerGui")
             local watchedNightTimer
 
             local function HandleNightStarted()
+                if Runtime.BossMovementActive then
+                    Runtime.NightPending = true
+                    return
+                end
+
                 if nightDetected or bossCaughtDetected then
                     return
                 end
@@ -2411,22 +2610,22 @@ end))
                     HandleNightStarted()
                 end
 
-                nightTimerConnection = timer:GetPropertyChangedSignal("Text"):Connect(function()
+                nightTimerConnection = TrackConnection(timer:GetPropertyChangedSignal("Text"):Connect(function()
                     local isNight = string.find(string.lower(timer.Text), "night", 1, true) ~= nil
                     if isNight and not wasNight then
                         HandleNightStarted()
                     end
                     wasNight = isNight
-                end)
+                end))
             end
 
-            nightTimerAddedConnection = playerGui.DescendantAdded:Connect(function(descendant)
+            nightTimerAddedConnection = TrackConnection(playerGui.DescendantAdded:Connect(function(descendant)
                 if descendant.Name == "Timer"
                 and descendant.Parent
                 and descendant.Parent.Name == "NightHud" then
                     AttachNightTimer(descendant)
                 end
-            end)
+            end))
 
             local nightHud = playerGui:FindFirstChild("NightHud")
             local nightTimer = nightHud and nightHud:FindFirstChild("Timer")
@@ -2755,7 +2954,7 @@ end))
                 end
 
                 if ShouldWalk(root) then
-                    SetNavigationStatus("Walking to cage")
+                    SetNavigationStatus("Walking to " .. (cageModel and cageModel.Name or "cage"))
                     local reached = MoveToPosition(root, humanoid, destination, token, true, false, true)
                     if reached then
                         return true
@@ -2798,7 +2997,7 @@ end))
                     end
                     return false, "Failed to reach cage"
                 end
-                SetNavigationStatus("Cage reached")
+                SetNavigationStatus("Found " .. (cageModel and cageModel.Name or "cage"))
                 return true
             end
             local function WalkToSafeZoneAtStart()
@@ -2814,7 +3013,7 @@ end))
                         SetNavigationStatus("Waiting for character")
                         task.wait(0.25)
                     else
-                        SetNavigationStatus("Walking to safe zone")
+                        SetNavigationStatus("Returning to safezone")
                         local safeZoneDestination = safeSign.Position
                         safeZoneNavigationActive = true
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
@@ -2887,7 +3086,7 @@ end))
                 end
 
                 if treadmillCageSafeZonePending then
-                    SetNavigationStatus("Cage found - returning to safe zone")
+                    SetNavigationStatus("Returning to safezone")
                     if not WalkToSafeZoneAtStart() then return end
                     treadmillCageSafeZonePending = false
                     continue
@@ -3292,10 +3491,10 @@ end))
             BorderSizePixel = 0
         })
 
-        CreateAutomationCard = function(parent, title, position)
+        local function CreateAutomationCard(title, position)
             local Card = Create("Frame", {
                 Name = title:gsub("%s+", ""),
-                Parent = parent,
+                Parent = AutomationRow,
                 Position = position,
                 Size = UDim2.new(1, 0, 1, 0),
                 BackgroundColor3 = Theme.Card,
@@ -3383,7 +3582,8 @@ end))
                     end
                     AutoTreadmillStatusValue = StatusValue
                     AutoTreadmillStatusDot = StatusDot
-                    if enabled and not AutoStealEnabled and Runtime.StartTreadmillIdle then
+                    if enabled and not AutoStealEnabled
+                    and not Runtime.BossMovementActive and Runtime.StartTreadmillIdle then
                         Runtime.StartTreadmillIdle()
                     elseif not enabled and Runtime.StopTreadmillIdle then
                         Runtime.StopTreadmillIdle()
@@ -3436,16 +3636,343 @@ end))
             return Card
         end
 
-        CreateAutomationCard(AutomationRow, "Auto Treadmill", UDim2.new(0, 0, 0, 0))
-    elseif name == "Events" then
-        local EventsAutomationRow = Create("Frame", {
-            Name = "EventsAutomationCards",
-            Parent = PageColumnMap[Page].Left,
-            Size = UDim2.new(1, 0, 0, 96),
-            BackgroundTransparency = 1,
+        CreateAutomationCard("Auto Treadmill", UDim2.new(0, 0, 0, 0))
+
+        StatusRow.Visible = true
+        StatusDivider.Visible = true
+
+        local StatusCard = CreateCard(Page, "Status", "")
+        StatusCard.Size = UDim2.new(1, 0, 0, 148)
+
+        local ActivityRow = Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 34),
+            Size = UDim2.new(1, -22, 0, 20),
+            BackgroundTransparency = 1
+        })
+        StatusDot = Create("Frame", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(1, 6),
+            Size = UDim2.fromOffset(8, 8),
+            BackgroundColor3 = Theme.Gray,
             BorderSizePixel = 0
         })
-        CreateAutomationCard(EventsAutomationRow, "Auto Fight Boss", UDim2.new(0, 0, 0, 0))
+        AddCorner(StatusDot, 8)
+
+        Create("TextLabel", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(16, 0),
+            Size = UDim2.fromOffset(42, 20),
+            BackgroundTransparency = 1,
+            Text = "Activity",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        StatusValue = Create("TextLabel", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(60, 0),
+            Size = UDim2.new(1, -60, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Idle",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+
+        Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 62),
+            Size = UDim2.new(1, -22, 0, 1),
+            BackgroundColor3 = Theme.Border,
+            BorderSizePixel = 0
+        })
+
+        local CurrentWorldValue = Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 70),
+            Size = UDim2.new(1, -22, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Current World: " .. tostring(Runtime.CurrentWorld or "Unknown"),
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        Runtime.CurrentWorldValue = CurrentWorldValue
+
+        Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 91),
+            Size = UDim2.new(1, -22, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "RareCage - 2",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 112),
+            Size = UDim2.new(1, -22, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "DivineCage - 5",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+    elseif name == "Events" then
+        local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "")
+        AutoFightBossCard.Size = UDim2.new(1, 0, 0, 84)
+        local BossCardTitle = AutoFightBossCard:FindFirstChildWhichIsA("TextLabel")
+        if BossCardTitle then
+            BossCardTitle.TextSize = 10
+            BossCardTitle.Position = UDim2.fromOffset(11, 8)
+        end
+
+        local BossStatusRow = Create("Frame", {
+            Parent = AutoFightBossCard,
+            Position = UDim2.fromOffset(11, 29),
+            Size = UDim2.new(1, -22, 0, 18),
+            BackgroundTransparency = 1
+        })
+        local BossStatusDot = Create("Frame", {
+            Parent = BossStatusRow,
+            Position = UDim2.fromOffset(2, 6),
+            Size = UDim2.fromOffset(7, 7),
+            BackgroundColor3 = Theme.Gray,
+            BorderSizePixel = 0
+        })
+        AddCorner(BossStatusDot, 8)
+        Create("TextLabel", {
+            Parent = BossStatusRow,
+            Position = UDim2.fromOffset(18, 0),
+            Size = UDim2.fromOffset(34, 18),
+            BackgroundTransparency = 1,
+            Text = "Status",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local BossStatusValue = Create("TextLabel", {
+            Parent = BossStatusRow,
+            Position = UDim2.fromOffset(54, 0),
+            Size = UDim2.new(1, -54, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Disabled",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+        Create("Frame", {
+            Parent = AutoFightBossCard,
+            Position = UDim2.fromOffset(11, 50),
+            Size = UDim2.new(1, -22, 0, 1),
+            BackgroundColor3 = Theme.Border,
+            BorderSizePixel = 0
+        })
+
+        local AutoFightBossEnabled = false
+        local BossRoutineRunning = false
+        local BossFightEnded = false
+        local BossRoutineToken = 0
+        local BossListenerToken = 0
+        local WaveMobsConnection
+        local WaveResultConnection
+
+        local function SetBossStatus(status)
+            BossStatusValue.Text = status
+            if status == "Disabled" then
+                BossStatusValue.TextColor3 = Theme.Gray
+                BossStatusDot.BackgroundColor3 = Theme.Gray
+            elseif status == "Fighting" then
+                BossStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
+                BossStatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
+            else
+                BossStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                BossStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+            end
+        end
+
+        local function DisconnectBossListeners()
+            BossListenerToken += 1
+            if WaveMobsConnection then
+                WaveMobsConnection:Disconnect()
+                WaveMobsConnection = nil
+            end
+            if WaveResultConnection then
+                WaveResultConnection:Disconnect()
+                WaveResultConnection = nil
+            end
+        end
+
+        local function StopBossRoutine()
+            BossRoutineToken += 1
+            BossFightEnded = true
+            BossRoutineRunning = false
+            if Runtime.EndBossMovement then
+                Runtime.EndBossMovement()
+            end
+            SetBossStatus(AutoFightBossEnabled and "Waiting" or "Disabled")
+        end
+
+        local function StartBossRoutine()
+            if not AutoFightBossEnabled or BossRoutineRunning or Runtime.Stopped then
+                return
+            end
+
+            BossRoutineRunning = true
+            BossFightEnded = false
+            BossRoutineToken += 1
+            local token = BossRoutineToken
+
+            task.spawn(function()
+                local routineStatus
+                local movementStarted = Runtime.BeginBossMovement
+                    and Runtime.BeginBossMovement()
+                if not movementStarted then
+                    BossRoutineRunning = false
+                    if AutoFightBossEnabled and not Runtime.Stopped then
+                        SetBossStatus("Movement unavailable")
+                    end
+                    return
+                end
+
+                if Runtime.SetMainActivity then
+                    Runtime.SetMainActivity("Navigating to Candy Pumpkin")
+                end
+
+                local reachedBoss = Runtime.NavigateToBoss
+                    and Runtime.NavigateToBoss()
+
+                if token == BossRoutineToken and AutoFightBossEnabled
+                and not BossFightEnded and not reachedBoss and not Runtime.Stopped then
+                    routineStatus = "Boss navigation failed"
+                end
+
+                if token == BossRoutineToken and AutoFightBossEnabled
+                and not BossFightEnded and reachedBoss and not Runtime.Stopped then
+                    local remotes = ReplicatedStorage:FindFirstChild("Shared")
+                    remotes = remotes and remotes:FindFirstChild("Remotes")
+                    local useAbility = remotes and remotes:FindFirstChild("UseAbility")
+
+                    if useAbility and useAbility:IsA("RemoteEvent") then
+                        SetBossStatus("Fighting")
+                        if Runtime.SetMainActivity then
+                            Runtime.SetMainActivity("Fighting Candy Pumpkin")
+                        end
+
+                        while token == BossRoutineToken and AutoFightBossEnabled
+                        and not BossFightEnded and not Runtime.Stopped do
+                            local character = LocalPlayer.Character
+                            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                            if not humanoid or humanoid.Health <= 0 then
+                                routineStatus = "Character unavailable"
+                                break
+                            end
+
+                            local attackOk = pcall(function()
+                                useAbility:FireServer()
+                            end)
+                            if not attackOk then
+                                routineStatus = "Attack failed"
+                                break
+                            end
+                            task.wait(0.2)
+                        end
+                    else
+                        routineStatus = "UseAbility unavailable"
+                        if Runtime.SetMainActivity then
+                            Runtime.SetMainActivity("UseAbility unavailable")
+                        end
+                    end
+                end
+
+                if token == BossRoutineToken then
+                    BossRoutineRunning = false
+                    if Runtime.EndBossMovement then
+                        Runtime.EndBossMovement()
+                    end
+                    if AutoFightBossEnabled and not Runtime.Stopped then
+                        SetBossStatus(routineStatus or "Waiting")
+                    else
+                        SetBossStatus("Disabled")
+                    end
+                end
+            end)
+        end
+
+        local function ConnectBossListeners()
+            DisconnectBossListeners()
+            local listenerToken = BossListenerToken
+
+            task.spawn(function()
+                while AutoFightBossEnabled and listenerToken == BossListenerToken
+                and not Runtime.Stopped do
+                    local waveMobs = workspace:FindFirstChild("WaveMobs")
+                    local shared = ReplicatedStorage:FindFirstChild("Shared")
+                    local remotes = shared and shared:FindFirstChild("Remotes")
+                    local waveResult = remotes and remotes:FindFirstChild("WaveResult")
+
+                    if waveMobs and waveMobs:IsA("Folder")
+                    and waveResult and waveResult:IsA("RemoteEvent") then
+                        if listenerToken ~= BossListenerToken or not AutoFightBossEnabled
+                        or Runtime.Stopped then
+                            return
+                        end
+
+                        WaveMobsConnection = TrackConnection(waveMobs.ChildAdded:Connect(function()
+                            if AutoFightBossEnabled and not BossRoutineRunning then
+                                StartBossRoutine()
+                            end
+                        end))
+                        WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
+                            if AutoFightBossEnabled and BossRoutineRunning then
+                                BossFightEnded = true
+                            end
+                        end))
+
+                        if #waveMobs:GetChildren() > 0 and AutoFightBossEnabled
+                        and not BossRoutineRunning then
+                            StartBossRoutine()
+                        end
+                        return
+                    end
+
+                    SetBossStatus("WaveMobs / WaveResult unavailable - retrying")
+                    task.wait(5)
+                end
+            end)
+        end
+
+        Runtime.StopBossFight = function()
+            AutoFightBossEnabled = false
+            DisconnectBossListeners()
+            StopBossRoutine()
+        end
+
+        local AutoFightBossToggle = CreateToggle(AutoFightBossCard, "Enable Auto Fight Boss", false, function(enabled)
+            AutoFightBossEnabled = enabled
+            if enabled then
+                SetBossStatus("Waiting")
+                ConnectBossListeners()
+            else
+                DisconnectBossListeners()
+                StopBossRoutine()
+            end
+        end)
+        AutoFightBossToggle.Position = UDim2.fromOffset(11, 54)
+        AutoFightBossToggle.Size = UDim2.new(1, -22, 0, 22)
     elseif name == "Misc. feature" then
         local AntiAFKCard = CreateCard(Page, "Anti AFK", "Prevents the idle kick while this toggle is enabled.")
         local antiAFKConnection
@@ -3574,13 +4101,13 @@ local function SetMinimized(state)
 
     IsAnimating = false
 end
-MinimizeButton.MouseButton1Click:Connect(function()
+TrackConnection(MinimizeButton.MouseButton1Click:Connect(function()
     SetMinimized(true)
-end)
-RestoreButton.MouseButton1Click:Connect(function()
+end))
+TrackConnection(RestoreButton.MouseButton1Click:Connect(function()
     SetMinimized(false)
-end)
-CloseButton.MouseButton1Click:Connect(function()
+end))
+TrackConnection(CloseButton.MouseButton1Click:Connect(function()
     if type(RuntimeEnv.__StealAPetAndRideItCleanup) == "function" then
         RuntimeEnv.__StealAPetAndRideItCleanup()
     else
@@ -3590,27 +4117,27 @@ CloseButton.MouseButton1Click:Connect(function()
         end
         ScreenGui:Destroy()
     end
-end)
+end))
 -- WINDOW DRAGGING
 local Dragging = false
 local DragStart
 local StartPosition
-TopBar.InputBegan:Connect(function(input)
+TrackConnection(TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
         Dragging = true
         DragStart = input.Position
         StartPosition = Main.Position
     end
-end)
-RestoreButton.InputBegan:Connect(function(input)
+end))
+TrackConnection(RestoreButton.InputBegan:Connect(function(input)
     if Minimized and (input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch) then
         Dragging = true
         DragStart = input.Position
         StartPosition = Main.Position
     end
-end)
+end))
 TrackConnection(UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
     and input.UserInputType ~= Enum.UserInputType.Touch then return end
