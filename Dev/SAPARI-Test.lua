@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.76"
+local testver = "Test ver: 1.77"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2832,6 +2832,18 @@ end))
                 SetNavigationStatus("Cage reached")
                 return true
             end
+            local function JumpForSafeZone(humanoid)
+                if not humanoid or humanoid.Health <= 0 then
+                    return
+                end
+
+                humanoid.Jump = true
+                pcall(function()
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end)
+                task.wait(0.1)
+            end
+
             local function WalkToSafeZoneAtStart()
                 while token == navigationToken and not Runtime.Stopped do
                     if bossCaughtDetected then
@@ -2847,10 +2859,12 @@ end))
                     else
                         SetNavigationStatus("Walking to safe zone")
                         local safeZoneDestination = safeSign.Position
+                        JumpForSafeZone(humanoid)
                         safeZoneNavigationActive = true
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
                         safeZoneNavigationActive = false
                         if reachedSafeZone then
+                            JumpForSafeZone(humanoid)
                             nightRecoveryPending = false
                             SetNavigationStatus("Safe zone reached")
                             return true
@@ -3244,6 +3258,7 @@ end))
                             SetNavigationStatus("Walking back to safe zone")
                         end
 
+                        JumpForSafeZone(humanoid)
                         safeZoneNavigationActive = true
                         reachedSafeZone = MoveToPosition(
                             root,
@@ -3254,6 +3269,9 @@ end))
                             MovementMode == "Glide"
                         )
                         safeZoneNavigationActive = false
+                        if reachedSafeZone then
+                            JumpForSafeZone(humanoid)
+                        end
 
                         if not reachedSafeZone then
                             RestoreFloating()
