@@ -4,10 +4,11 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.42"
+local deployver = "Deploy ver 1.43"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -3481,7 +3482,26 @@ end))
     elseif name == "Features" then
         CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
     elseif name == "Misc. feature" then
-        CreateCard(Page, "Miscellaneous", "Empty content area for future game-specific features.")
+        local AntiAFKCard = CreateCard(Page, "Anti AFK", "Prevents the idle kick while this toggle is enabled.")
+        local antiAFKConnection
+        local AntiAFKToggle = CreateToggle(AntiAFKCard, "Enable Anti AFK", false, function(enabled)
+            if enabled then
+                if antiAFKConnection and antiAFKConnection.Connected then
+                    antiAFKConnection:Disconnect()
+                end
+                antiAFKConnection = TrackConnection(LocalPlayer.Idled:Connect(function()
+                    pcall(function()
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton2(Vector2.new(0, 0))
+                    end)
+                end))
+            elseif antiAFKConnection then
+                antiAFKConnection:Disconnect()
+                antiAFKConnection = nil
+            end
+        end)
+        AntiAFKToggle.Position = UDim2.fromOffset(11, 68)
+        AntiAFKToggle.Size = UDim2.new(1, -22, 0, 28)
     elseif name == "Settings" then
         local AppearanceCard = CreateCard(Page, "Appearance", "Choose a color palette for the interface.")
         local ThemeOptions = {
