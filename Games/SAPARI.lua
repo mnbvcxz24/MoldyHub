@@ -43,13 +43,13 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "MoldyHub",
-    Subtitle = "STEAL A PET AND RIDE IT | " .. deployver,
+    Subtitle = "STEAL A PET AND RIDE IT",
     Width = 480,
     Height = 320,
     SidebarWidth = 108,
     SidebarNames = {
         "Main",
-        "Features",
+        "Events",
         "Misc. feature",
         "Settings",
     }
@@ -267,6 +267,7 @@ local ScreenGui = Create("ScreenGui", {
     Name = "StealAPetAndRideItUI",
     Parent = game.CoreGui,
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Global
 })
 local function ApplyTheme(themeName)
@@ -300,7 +301,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font color="#' .. selectedTheme.Accent:ToHex() .. '">' .. deployver .. '</font>'
     end
 end
 -- MAIN WINDOW
@@ -323,57 +324,39 @@ local Main = Create("Frame", {
 })
 local MainCorner = AddCorner(Main, 12)
 AddStroke(Main, Theme.Border, 1)
+local UIScale = Create("UIScale", {
+    Parent = Main,
+    Scale = 1
+})
 -- TOP BAR
 local TopBar = Create("Frame", {
     Name = "TopBar",
     Parent = Main,
-    Size = UDim2.new(1, 0, 0, 48),
+    Size = UDim2.new(1, 0, 0, 40),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
 AddCorner(TopBar, 12)
-Create("Frame", {
-    Name = "TopBarCornerCover",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(0, 12),
-    Size = UDim2.new(1, 0, 1, -12),
-    BackgroundColor3 = Theme.Background,
-    BorderSizePixel = 0,
-    ZIndex = 0
-})
--- Title
 local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
-    Position = UDim2.fromOffset(14, 5),
-    Size = UDim2.fromOffset(330, 22),
+    Position = UDim2.fromOffset(14, 0),
+    Size = UDim2.new(1, -100, 1, 0),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font color="#' .. Theme.Accent:ToHex() .. '">' .. deployver .. '</font>',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
     TextSize = 14,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
--- Subtitle
-local Subtitle = Create("TextLabel", {
-    Name = "Subtitle",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(14, 27),
-    Size = UDim2.fromOffset(170, 16),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Subtitle,
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    TextXAlignment = Enum.TextXAlignment.Left
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center
 })
 -- Minimize
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
     Parent = TopBar,
-    Position = UDim2.new(1, -52, 0, 16),
-    Size = UDim2.fromOffset(22, 26),
+    Position = UDim2.new(1, -56, 0, 8),
+    Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "-",
     TextColor3 = Theme.Text,
@@ -387,8 +370,8 @@ AddStroke(MinimizeButton, Theme.Border, 1)
 local CloseButton = Create("TextButton", {
     Name = "Close",
     Parent = TopBar,
-    Position = UDim2.new(1, -27, 0, 16),
-    Size = UDim2.fromOffset(22, 26),
+    Position = UDim2.new(1, -28, 0, 8),
+    Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "×",
     TextColor3 = Theme.Text,
@@ -414,68 +397,41 @@ local RestoreButton = Create("TextButton", {
 })
 AddCorner(RestoreButton, 18)
 AddStroke(RestoreButton, Theme.Border, 1)
--- SIDEBAR
-local Sidebar = Create("Frame", {
-    Name = "Sidebar",
+-- HORIZONTAL NAVIGATION
+local NavigationBar = Create("Frame", {
+    Name = "NavigationBar",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 48),
-    Size = UDim2.new(
-        0,
-        UIConfig.SidebarWidth,
-        1,
-        -48
-    ),
+    Position = UDim2.fromOffset(0, 40),
+    Size = UDim2.new(1, 0, 0, 32),
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
-AddCorner(Sidebar, 12)
--- Sidebar title
-local NavigationTitle = Create("TextLabel", {
-    Name = "NavigationTitle",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(8, 12),
-    Size = UDim2.new(1, -16, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "NAVIGATION",
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.GothamBold,
-    TextSize = 9,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
--- Sidebar container
-local SidebarContainer = Create("ScrollingFrame", {
-    Name = "Buttons",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(5, 40),
-    Size = UDim2.new(1, -10, 1, -60),
+local NavigationContainer = Create("ScrollingFrame", {
+    Name = "NavigationButtons",
+    Parent = NavigationBar,
+    Position = UDim2.fromOffset(10, 2),
+    Size = UDim2.new(1, -20, 1, -4),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
-    ScrollBarThickness = 3,
-    ScrollBarImageColor3 = Theme.Gray,
-    ScrollingDirection = Enum.ScrollingDirection.Y,
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 0,
+    ScrollingDirection = Enum.ScrollingDirection.X,
+    AutomaticCanvasSize = Enum.AutomaticSize.X,
     CanvasSize = UDim2.new(0, 0, 0, 0),
     ClipsDescendants = true
 })
 Create("UIListLayout", {
-    Parent = SidebarContainer,
-    Padding = UDim.new(0, 6),
-    SortOrder = Enum.SortOrder.LayoutOrder
+    Parent = NavigationContainer,
+    FillDirection = Enum.FillDirection.Horizontal,
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    VerticalAlignment = Enum.VerticalAlignment.Center
 })
 -- CONTENT AREA
 local Content = Create("Frame", {
     Name = "Content",
     Parent = Main,
-    Position = UDim2.fromOffset(
-        UIConfig.SidebarWidth,
-        48
-    ),
-    Size = UDim2.new(
-        1,
-        -UIConfig.SidebarWidth - 12,
-        1,
-        -60
-    ),
+    Position = UDim2.fromOffset(0, 72),
+    Size = UDim2.new(1, 0, 1, -84),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
@@ -483,6 +439,7 @@ local Content = Create("Frame", {
 local Pages = {}
 local SidebarButtons = {}
 -- CREATE PAGE
+local PageColumnMap = {}
 local function CreatePage(pageNumber, pageName)
     local PageClip = Create("Frame", {
         Name = "PageClip_" .. pageNumber,
@@ -530,22 +487,57 @@ local function CreatePage(pageNumber, pageName)
         PaddingLeft = UDim.new(0, 12),
         PaddingRight = UDim.new(0, 12)
     })
-    local Layout = Create("UIListLayout", {
+    local LeftColumn = Create("Frame", {
+        Name = "LeftColumn",
         Parent = Page,
+        Size = UDim2.new(0.5, -4, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    local RightColumn = Create("Frame", {
+        Name = "RightColumn",
+        Parent = Page,
+        Position = UDim2.new(0.5, 4, 0, 0),
+        Size = UDim2.new(0.5, -4, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    local LeftLayout = Create("UIListLayout", {
+        Parent = LeftColumn,
         Padding = UDim.new(0, 8),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
-    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 24)
-    end)
+    local RightLayout = Create("UIListLayout", {
+        Parent = RightColumn,
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    PageColumnMap[Page] = {
+        Left = LeftColumn,
+        Right = RightColumn,
+        LeftLayout = LeftLayout,
+        RightLayout = RightLayout
+    }
+    local function UpdateCanvas()
+        local contentHeight = math.max(LeftLayout.AbsoluteContentSize.Y, RightLayout.AbsoluteContentSize.Y)
+        Page.CanvasSize = UDim2.new(0, 0, 0, contentHeight + 24)
+    end
+    LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+    RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
     Pages[pageNumber] = PageClip
     return Page
 end
 -- CARD
 local function CreateCard(parent, title, description)
+    local columns = PageColumnMap and PageColumnMap[parent]
+    local targetParent = parent
+    if columns then
+        targetParent = columns.LeftLayout.AbsoluteContentSize.Y <= columns.RightLayout.AbsoluteContentSize.Y
+            and columns.Left or columns.Right
+    end
     local Card = Create("Frame", {
         Name = title:gsub("%s+", ""),
-        Parent = parent,
+        Parent = targetParent,
         Size = UDim2.new(1, 0, 0, 110),
         BackgroundColor3 = Theme.Card,
         BorderSizePixel = 0
@@ -896,12 +888,15 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     end)
 end
 
+local CreateAutomationCard
+
 -- CREATE TEMPLATE PAGES
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if name == "Main" then
         local AutoCard = CreateCard(Page, "Auto Steal", "")
-        AutoCard.Size = UDim2.new(1, -4, 0, 265)
+        AutoCard.Parent = PageColumnMap[Page].Left
+        AutoCard.Size = UDim2.new(1, 0, 0, 265)
         AutoCard.AutomaticSize = Enum.AutomaticSize.None
 
         local HeaderTitle = AutoCard:FindFirstChildWhichIsA("TextLabel")
@@ -3286,20 +3281,21 @@ end))
             end
         end
 
+        local AutomationColumns = PageColumnMap[Page]
         local AutomationRow = Create("Frame", {
             Name = "AutomationCards",
-            Parent = Page,
-            Size = UDim2.new(1, -4, 0, 96),
+            Parent = AutomationColumns.Right,
+            Size = UDim2.new(1, 0, 0, 96),
             BackgroundTransparency = 1,
             BorderSizePixel = 0
         })
 
-        local function CreateAutomationCard(title, position)
+        CreateAutomationCard = function(parent, title, position)
             local Card = Create("Frame", {
                 Name = title:gsub("%s+", ""),
-                Parent = AutomationRow,
+                Parent = parent,
                 Position = position,
-                Size = UDim2.new(0.5, -4, 1, 0),
+                Size = UDim2.new(1, 0, 1, 0),
                 BackgroundColor3 = Theme.Card,
                 BorderSizePixel = 0
             })
@@ -3438,10 +3434,16 @@ end))
             return Card
         end
 
-        CreateAutomationCard("Auto Treadmill", UDim2.new(0, 0, 0, 0))
-        CreateAutomationCard("Auto Fight Boss", UDim2.new(0.5, 4, 0, 0))
-    elseif name == "Features" then
-        CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
+        CreateAutomationCard(AutomationRow, "Auto Treadmill", UDim2.new(0, 0, 0, 0))
+    elseif name == "Events" then
+        local EventsAutomationRow = Create("Frame", {
+            Name = "EventsAutomationCards",
+            Parent = PageColumnMap[Page].Left,
+            Size = UDim2.new(1, 0, 0, 96),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0
+        })
+        CreateAutomationCard(EventsAutomationRow, "Auto Fight Boss", UDim2.new(0, 0, 0, 0))
     elseif name == "Misc. feature" then
         local AntiAFKCard = CreateCard(Page, "Anti AFK", "Prevents the idle kick while this toggle is enabled.")
         local antiAFKConnection
@@ -3479,6 +3481,21 @@ end))
         }
         CreateDropdown(AppearanceCard, "Theme", ThemeOptions, function(themeName)
             ApplyTheme(themeName)
+        end)
+        local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
+        local ScaleOptions = {"50%", "75%", "100%"}
+        CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
+            local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
+            if not scalePercent then return end
+            local oldSize = Main.AbsoluteSize
+            UIScale.Scale = scalePercent / 75
+            local newSize = Main.AbsoluteSize
+            Main.Position = UDim2.new(
+                Main.Position.X.Scale,
+                Main.Position.X.Offset + (oldSize.X - newSize.X) / 2,
+                Main.Position.Y.Scale,
+                Main.Position.Y.Offset + (oldSize.Y - newSize.Y) / 2
+            )
         end)
         local AboutCard = CreateCard(Page, "About", "Steal A Pet & Ride It • UI only")
     end
