@@ -1,1 +1,1 @@
-Desclaimer: For personal use only
+Disclaimer: For personal use only
