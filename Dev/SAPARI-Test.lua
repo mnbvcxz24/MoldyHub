@@ -301,7 +301,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = UIConfig.Title
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
     end
 end
 -- MAIN WINDOW
@@ -348,7 +348,8 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(14, 0),
     Size = UDim2.new(1, -100, 1, 0),
     BackgroundTransparency = 1,
-    Text = UIConfig.Title,
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
+    RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
     TextSize = 14,
