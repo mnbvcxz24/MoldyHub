@@ -49,7 +49,7 @@ local UIConfig = {
     Height = 320,
     SidebarNames = {
         "Main",
-        "Features",
+        "Events",
         "Misc. feature",
         "Settings"
     }
@@ -3422,9 +3422,16 @@ end))
         end
 
         CreateAutomationCard("Auto Treadmill", UDim2.new(0, 0, 0, 0))
-        CreateAutomationCard("Auto Fight Boss", UDim2.new(0.5, 4, 0, 0))
-    elseif name == "Features" then
-        CreateCard(Page, "Feature Template", "Use this card as a starting point for new features.")
+    elseif name == "Events" then
+        local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "Automatically fights the boss when enabled.")
+        local AutoFightBossToggle = CreateToggle(AutoFightBossCard, "Enable Auto Fight Boss", false, function(enabled)
+            local StatusLabel = AutoFightBossCard:FindFirstChildWhichIsA("TextLabel")
+            if StatusLabel then
+                StatusLabel.Text = enabled and "Auto Fight Boss - Enabled" or "Auto Fight Boss"
+            end
+        end)
+        AutoFightBossToggle.Position = UDim2.fromOffset(11, 68)
+        AutoFightBossToggle.Size = UDim2.new(1, -22, 0, 28)
     elseif name == "Misc. feature" then
         local AntiAFKCard = CreateCard(Page, "Anti AFK", "Prevents the idle kick while this toggle is enabled.")
         local antiAFKConnection
