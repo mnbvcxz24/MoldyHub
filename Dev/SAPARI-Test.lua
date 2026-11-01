@@ -527,8 +527,8 @@ local function CreatePage(pageNumber, pageName)
         local contentHeight = math.max(LeftLayout.AbsoluteContentSize.Y, RightLayout.AbsoluteContentSize.Y)
         Page.CanvasSize = UDim2.new(0, 0, 0, contentHeight + 24)
     end
-    LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
-    RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+    TrackConnection(LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas))
+    TrackConnection(RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas))
     Pages[pageNumber] = PageClip
     return Page
 end
@@ -591,21 +591,21 @@ local function CreateButton(parent, text, callback)
         AutoButtonColor = false
     })
     AddCorner(Button, 6)
-    Button.MouseEnter:Connect(function()
+    TrackConnection(Button.MouseEnter:Connect(function()
         Tween(Button, {
             BackgroundColor3 = Theme.Selected
         })
-    end)
-    Button.MouseLeave:Connect(function()
+    end))
+    TrackConnection(Button.MouseLeave:Connect(function()
         Tween(Button, {
             BackgroundColor3 = Theme.Selected
         })
-    end)
-    Button.MouseButton1Click:Connect(function()
+    end))
+    TrackConnection(Button.MouseButton1Click:Connect(function()
         if callback then
             callback()
         end
-    end)
+    end))
     return Button
 end
 -- TOGGLE
@@ -676,10 +676,10 @@ local function CreateToggle(parent, text, default, callback)
             return Enabled
         end
     }
-    Toggle.MouseButton1Click:Connect(function()
+    TrackConnection(Toggle.MouseButton1Click:Connect(function()
         Enabled = not Enabled
         Update(true)
-    end)
+    end))
     Update(false)
     return Toggle
 end
@@ -748,19 +748,19 @@ local function CreateDropdown(parent, text, options, callback)
             BorderSizePixel = 0,
             ZIndex = 201
         })
-        Option.MouseButton1Click:Connect(function()
+        TrackConnection(Option.MouseButton1Click:Connect(function()
             Current.Text = text .. ": " .. tostring(option)
             List.Visible = false
             Open = false
             if callback then
                 callback(option)
             end
-        end)
+        end))
     end
-    Dropdown.MouseButton1Click:Connect(function()
+    TrackConnection(Dropdown.MouseButton1Click:Connect(function()
         Open = not Open
         List.Visible = Open
-    end)
+    end))
     return Dropdown
 end
 -- SLIDER
@@ -830,13 +830,13 @@ local function CreateSlider(parent, text, minimum, maximum, default, callback)
             callback(Number)
         end
     end
-    Bar.InputBegan:Connect(function(input)
+    TrackConnection(Bar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = true
             Update(input)
         end
-    end)
+    end))
     TrackConnection(UserInputService.InputChanged:Connect(function(input)
         if Dragging then
             if input.UserInputType == Enum.UserInputType.MouseMovement
@@ -882,7 +882,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     })
     AddCorner(ActiveLine, 1)
     SidebarButtons[index] = Button
-    Button.MouseButton1Click:Connect(function()
+    TrackConnection(Button.MouseButton1Click:Connect(function()
         for pageIndex, page in pairs(Pages) do
             page.Visible = pageIndex == index
         end
@@ -892,7 +892,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local line = navigationButton:FindFirstChild("ActiveLine")
             if line then line.Visible = active end
         end
-    end)
+    end))
 end
 
 -- CREATE TEMPLATE PAGES
@@ -1332,20 +1332,20 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         TextXAlignment = Enum.TextXAlignment.Left,
                         ZIndex = 102
                     })
-                    OptionButton.MouseButton1Click:Connect(function()
+                    TrackConnection(OptionButton.MouseButton1Click:Connect(function()
                         selected[optionObject] = not selected[optionObject] and true or nil
                         if onChanged then onChanged() end
                         Rebuild()
                         Refresh()
-                    end)
+                    end))
                 end
             end
-            Button.MouseButton1Click:Connect(function()
+            TrackConnection(Button.MouseButton1Click:Connect(function()
                 local opening = not List.Visible
                 if opening then Rebuild() end
                 List.Visible = opening
                 Chevron.Text = opening and "^" or "v"
-            end)
+            end))
             Refresh()
             return Button, List, SectionLabel, SectionIcon
         end
@@ -1423,9 +1423,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             })
             AddCorner(Button, 6)
             MovementButtons[mode] = Button
-            Button.MouseButton1Click:Connect(function()
+            TrackConnection(Button.MouseButton1Click:Connect(function()
                 SetMovement(mode)
-            end)
+            end))
         end
         Runtime.MovementMode = MovementMode
 
@@ -1514,8 +1514,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             DraggingSpeed = true
             UpdateSpeed(input)
         end
-        SpeedBar.InputBegan:Connect(BeginSpeedDrag)
-        SpeedThumb.InputBegan:Connect(BeginSpeedDrag)
+        TrackConnection(SpeedBar.InputBegan:Connect(BeginSpeedDrag))
+        TrackConnection(SpeedThumb.InputBegan:Connect(BeginSpeedDrag))
         TrackConnection(UserInputService.InputChanged:Connect(function(input)            if DraggingSpeed and (
                 input.UserInputType == Enum.UserInputType.MouseMovement
                 or input.UserInputType == Enum.UserInputType.Touch
@@ -1616,8 +1616,8 @@ end))
             DraggingJumpDistance = true
             UpdateJumpDistance(input)
         end
-        JumpDistanceBar.InputBegan:Connect(BeginJumpDistanceDrag)
-        JumpDistanceThumb.InputBegan:Connect(BeginJumpDistanceDrag)
+        TrackConnection(JumpDistanceBar.InputBegan:Connect(BeginJumpDistanceDrag))
+        TrackConnection(JumpDistanceThumb.InputBegan:Connect(BeginJumpDistanceDrag))
         TrackConnection(UserInputService.InputChanged:Connect(function(input)
             if DraggingJumpDistance and (
                 input.UserInputType == Enum.UserInputType.MouseMovement
@@ -2490,7 +2490,7 @@ end))
             local bossCaughtRemote = sharedRemotes and sharedRemotes:FindFirstChild("BossCaught")
 
             if bossCaughtRemote and bossCaughtRemote:IsA("RemoteEvent") then
-                bossCaughtConnection = bossCaughtRemote.OnClientEvent:Connect(function(playerId, bossName, direction)
+                bossCaughtConnection = TrackConnection(bossCaughtRemote.OnClientEvent:Connect(function(playerId, bossName, direction)
                     if token ~= navigationToken or Runtime.Stopped then return end
                     if tonumber(playerId) ~= LocalPlayer.UserId then return end
                     if bossCaughtDetected then return end
@@ -2502,7 +2502,7 @@ end))
                     end
 
                     SetNavigationStatus("Boss caught - recovering")
-                end)
+                end))
             end
 
             local lastAttemptedCagePath
@@ -2606,22 +2606,22 @@ end))
                     HandleNightStarted()
                 end
 
-                nightTimerConnection = timer:GetPropertyChangedSignal("Text"):Connect(function()
+                nightTimerConnection = TrackConnection(timer:GetPropertyChangedSignal("Text"):Connect(function()
                     local isNight = string.find(string.lower(timer.Text), "night", 1, true) ~= nil
                     if isNight and not wasNight then
                         HandleNightStarted()
                     end
                     wasNight = isNight
-                end)
+                end))
             end
 
-            nightTimerAddedConnection = playerGui.DescendantAdded:Connect(function(descendant)
+            nightTimerAddedConnection = TrackConnection(playerGui.DescendantAdded:Connect(function(descendant)
                 if descendant.Name == "Timer"
                 and descendant.Parent
                 and descendant.Parent.Name == "NightHud" then
                     AttachNightTimer(descendant)
                 end
-            end)
+            end))
 
             local nightHud = playerGui:FindFirstChild("NightHud")
             local nightTimer = nightHud and nightHud:FindFirstChild("Timer")
@@ -4092,13 +4092,13 @@ local function SetMinimized(state)
 
     IsAnimating = false
 end
-MinimizeButton.MouseButton1Click:Connect(function()
+TrackConnection(MinimizeButton.MouseButton1Click:Connect(function()
     SetMinimized(true)
-end)
-RestoreButton.MouseButton1Click:Connect(function()
+end))
+TrackConnection(RestoreButton.MouseButton1Click:Connect(function()
     SetMinimized(false)
-end)
-CloseButton.MouseButton1Click:Connect(function()
+end))
+TrackConnection(CloseButton.MouseButton1Click:Connect(function()
     if type(RuntimeEnv.__StealAPetAndRideItCleanup) == "function" then
         RuntimeEnv.__StealAPetAndRideItCleanup()
     else
@@ -4108,27 +4108,27 @@ CloseButton.MouseButton1Click:Connect(function()
         end
         ScreenGui:Destroy()
     end
-end)
+end))
 -- WINDOW DRAGGING
 local Dragging = false
 local DragStart
 local StartPosition
-TopBar.InputBegan:Connect(function(input)
+TrackConnection(TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
         Dragging = true
         DragStart = input.Position
         StartPosition = Main.Position
     end
-end)
-RestoreButton.InputBegan:Connect(function(input)
+end))
+TrackConnection(RestoreButton.InputBegan:Connect(function(input)
     if Minimized and (input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch) then
         Dragging = true
         DragStart = input.Position
         StartPosition = Main.Position
     end
-end)
+end))
 TrackConnection(UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
     and input.UserInputType ~= Enum.UserInputType.Touch then return end
