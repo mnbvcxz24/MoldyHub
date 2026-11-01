@@ -817,7 +817,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Button = Create("TextButton", {
         Name = "NavigationButton_" .. index,
         Parent = NavigationContainer,
-        Size = UDim2.fromOffset(math.max(62, (#name * 7) + 24), 34),
+        Size = UDim2.fromOffset(math.max(62, (#name * 7) + 24), 28),
         BackgroundTransparency = 1,
         Text = name,
         TextColor3 = Theme.DarkGray,
