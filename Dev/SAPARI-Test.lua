@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.78"
+local testver = "Test ver: 1.79"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2859,6 +2859,7 @@ end))
                     else
                         SetNavigationStatus("Walking to safe zone")
                         local safeZoneDestination = safeSign.Position
+                        JumpForSafeZone(humanoid)
                         safeZoneNavigationActive = true
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
                         safeZoneNavigationActive = false
