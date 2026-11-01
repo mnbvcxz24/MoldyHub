@@ -328,19 +328,9 @@ AddStroke(Main, Theme.Border, 1)
 local TopBar = Create("Frame", {
     Name = "TopBar",
     Parent = Main,
-    Size = UDim2.new(1, 0, 0, 48),
+    Size = UDim2.new(1, 0, 0, 40),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
-})
-AddCorner(TopBar, 12)
-Create("Frame", {
-    Name = "TopBarCornerCover",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(0, 12),
-    Size = UDim2.new(1, 0, 1, -12),
-    BackgroundColor3 = Theme.Background,
-    BorderSizePixel = 0,
-    ZIndex = 0
 })
 local Title = Create("TextLabel", {
     Name = "Title",
@@ -423,7 +413,7 @@ AddCorner(ResizeHandle, 5)
 local NavigationBar = Create("Frame", {
     Name = "NavigationBar",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 48),
+    Position = UDim2.fromOffset(0, 40),
     Size = UDim2.new(1, 0, 0, 38),
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
@@ -452,8 +442,8 @@ Create("UIListLayout", {
 local Content = Create("Frame", {
     Name = "Content",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 86),
-    Size = UDim2.new(1, -12, 1, -98),
+    Position = UDim2.fromOffset(0, 78),
+    Size = UDim2.new(1, -12, 1, -90),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
