@@ -42,8 +42,8 @@ RuntimeEnv.__StealAPetAndRideItCleanup = function()
 end
 -- UI CONFIGURATION
 local UIConfig = {
-    Title = "MoldyHub",
-    Subtitle = "STEAL A PET AND RIDE IT | " .. testver,
+    Title = "STEAL A PET AND RIDE IT",
+    Subtitle = testver,
     Width = 480,
     Height = 320,
     SidebarWidth = 100,
@@ -300,7 +300,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
+        titleLabel.Text = UIConfig.Title
     end
 end
 -- MAIN WINDOW
@@ -345,22 +345,34 @@ Create("Frame", {
 local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
-    Position = UDim2.fromOffset(14, 5),
-    Size = UDim2.fromOffset(330, 22),
+    Position = UDim2.fromOffset(14, 4),
+    Size = UDim2.new(1, -100, 0, 20),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
-    RichText = true,
+    Text = UIConfig.Title,
+    RichText = false,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
     TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+local Subtitle = Create("TextLabel", {
+    Name = "Subtitle",
+    Parent = TopBar,
+    Position = UDim2.fromOffset(14, 24),
+    Size = UDim2.new(1, -100, 0, 16),
+    BackgroundTransparency = 1,
+    Text = UIConfig.Subtitle,
+    TextColor3 = Theme.Gray,
+    Font = Enum.Font.Gotham,
+    TextSize = 9,
     TextXAlignment = Enum.TextXAlignment.Left
 })
 -- Minimize
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
     Parent = TopBar,
-    Position = UDim2.new(1, -52, 0, 16),
-    Size = UDim2.fromOffset(22, 26),
+    Position = UDim2.new(1, -56, 0, 12),
+    Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "-",
     TextColor3 = Theme.Text,
@@ -374,8 +386,8 @@ AddStroke(MinimizeButton, Theme.Border, 1)
 local CloseButton = Create("TextButton", {
     Name = "Close",
     Parent = TopBar,
-    Position = UDim2.new(1, -27, 0, 16),
-    Size = UDim2.fromOffset(22, 26),
+    Position = UDim2.new(1, -28, 0, 12),
+    Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "×",
     TextColor3 = Theme.Text,
@@ -432,26 +444,12 @@ local Sidebar = Create("Frame", {
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
-local SidebarSubtitle = Create("TextLabel", {
-    Name = "SidebarSubtitle",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(8, 10),
-    Size = UDim2.new(1, -16, 0, 30),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Subtitle,
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.Gotham,
-    TextSize = 8,
-    TextWrapped = true,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    TextYAlignment = Enum.TextYAlignment.Top
-})
 -- Sidebar container
 local SidebarContainer = Create("ScrollingFrame", {
     Name = "Buttons",
     Parent = Sidebar,
-    Position = UDim2.fromOffset(5, 48),
-    Size = UDim2.new(1, -10, 1, -60),
+    Position = UDim2.fromOffset(5, 12),
+    Size = UDim2.new(1, -10, 1, -24),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 3,
