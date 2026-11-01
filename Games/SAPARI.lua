@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.30"
+local deployver = "Deploy ver 1.31"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2423,81 +2423,59 @@ end))
                 SetNavigationStatus("Recovery complete - checking dropped cage")
                 return true
             end
-            local previousCharacterRoot
             local previousCharacterPosition
-            local previousNavigationRoot
-            local previousNavigationPosition
-            local nextRootScanAt = 0
+            local baseTeleportRecoveryPending = false
+            local spawnLocation = workspace:FindFirstChild("SpawnLocation")
 
-            baseTeleportConnection = RunService.Heartbeat:Connect(function()
-                if token ~= navigationToken or Runtime.Stopped then
-                    if baseTeleportConnection then
-                        baseTeleportConnection:Disconnect()
-                        baseTeleportConnection = nil
+            if spawnLocation and spawnLocation:IsA("BasePart") then
+                baseTeleportConnection = RunService.Heartbeat:Connect(function(deltaTime)
+                    if token ~= navigationToken or Runtime.Stopped then
+                        if baseTeleportConnection then
+                            baseTeleportConnection:Disconnect()
+                            baseTeleportConnection = nil
+                        end
+                        return
                     end
-                    return
-                end
 
-                if bossCaughtDetected then
-                    return
-                end
+                    if bossCaughtDetected or baseTeleportDetected then
+                        return
+                    end
 
-                if os.clock() < nextRootScanAt then
-                    return
-                end
-                nextRootScanAt = os.clock() + 0.5
+                    local character = LocalPlayer.Character
+                    local currentRoot = character and character:FindFirstChild("HumanoidRootPart")
+                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                    if not currentRoot or not currentRoot:IsA("BasePart") or not humanoid then
+                        previousCharacterPosition = nil
+                        return
+                    end
 
-                local character = LocalPlayer.Character
-                local currentRoot = character and character:FindFirstChild("HumanoidRootPart")
-                if not currentRoot or not currentRoot:IsA("BasePart") then
-                    previousCharacterRoot = nil
-                    previousCharacterPosition = nil
-                    previousNavigationRoot = nil
-                    previousNavigationPosition = nil
-                    return
-                end
+                    local currentPosition = currentRoot.Position
+                    if not previousCharacterPosition then
+                        previousCharacterPosition = currentPosition
+                        return
+                    end
 
-                local currentNavigationRoot = GetRidingPetRoot(currentRoot) or currentRoot
-                local ownedPlotPosition = GetOwnedPlotPosition()
-                if not currentNavigationRoot or not currentNavigationRoot.Parent then
-                    previousCharacterRoot = nil
-                    previousCharacterPosition = nil
-                    previousNavigationRoot = nil
-                    previousNavigationPosition = nil
-                    return
-                end
+                    local movementDelta = (currentPosition - previousCharacterPosition).Magnitude
+                    previousCharacterPosition = currentPosition
 
-                if previousCharacterRoot ~= currentRoot
-                or previousNavigationRoot ~= currentNavigationRoot
-                or not previousCharacterPosition
-                or not previousNavigationPosition then
-                    previousCharacterRoot = currentRoot
-                    previousCharacterPosition = currentRoot.Position
-                    previousNavigationRoot = currentNavigationRoot
-                    previousNavigationPosition = currentNavigationRoot.Position
-                    return
-                end
+                    local spawnLocalPosition = spawnLocation.CFrame:PointToObjectSpace(currentPosition)
+                    local insideSpawnLocation =
+                        math.abs(spawnLocalPosition.X) <= spawnLocation.Size.X / 2
+                        and math.abs(spawnLocalPosition.Z) <= spawnLocation.Size.Z / 2
+                        and math.abs(spawnLocalPosition.Y) <= (spawnLocation.Size.Y / 2) + 3
 
-                local characterJump = (currentRoot.Position - previousCharacterPosition).Magnitude
-                local navigationJump = (currentNavigationRoot.Position - previousNavigationPosition).Magnitude
-                local characterAtBase = (currentRoot.Position - safeSign.Position).Magnitude <= 65
-                    or (ownedPlotPosition and (currentRoot.Position - ownedPlotPosition).Magnitude <= 65)
-                local navigationRootAtBase = (currentNavigationRoot.Position - safeSign.Position).Magnitude <= 65
-                    or (ownedPlotPosition and (currentNavigationRoot.Position - ownedPlotPosition).Magnitude <= 65)
+                    local expectedMovement = humanoid.WalkSpeed * math.max(deltaTime, 0)
+                    local movementWasDiscontinuous = movementDelta > (expectedMovement * 2 + 2)
 
-                previousCharacterPosition = currentRoot.Position
-                previousNavigationPosition = currentNavigationRoot.Position
-
-                if not baseTeleportDetected
-                and ((characterJump >= 70 and characterAtBase)
-                or (navigationJump >= 70 and navigationRootAtBase)) then
-                    baseTeleportDetected = true
-                    baseTeleportRecoveryPending = true
-                    CancelActiveMovement()
-                    RestoreFloating()
-                    SetNavigationStatus("Base teleport detected - waiting 12s")
-                end
-            end)
+                    if insideSpawnLocation and movementWasDiscontinuous then
+                        baseTeleportDetected = true
+                        baseTeleportRecoveryPending = true
+                        CancelActiveMovement()
+                        RestoreFloating()
+                        SetNavigationStatus("Base teleport detected - waiting 12s")
+                    end
+                end)
+            end
 
             local function WaitForBaseTeleport()
                 if not baseTeleportDetected then
