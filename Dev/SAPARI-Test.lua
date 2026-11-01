@@ -1918,7 +1918,8 @@ end))
                 humanoid:MoveTo(root.Position)
             end
         end
-        local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk)
+        local Jump
+        local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk, jumpWhenStuck)
             if token ~= navigationToken or Runtime.Stopped then
                 return false
             end
@@ -1937,6 +1938,9 @@ end))
                 local speed = math.max(humanoid.WalkSpeed, 1)
                 local timeout = os.clock() + math.max(5, distance / speed + 5)
                 local nextMoveRefresh = 0
+                local lastProgressPosition = navigationRoot.Position
+                local lastProgressAt = os.clock()
+                local nextJumpAt = 0
 
                 while os.clock() < timeout do
                     if bossCaughtDetected then
@@ -1964,6 +1968,20 @@ end))
                     if IsNavigationAtDestination(navigationRoot, destination) then
                         BrakeAtDestination(root, humanoid, token)
                         return true
+                    end
+
+                    if jumpWhenStuck then
+                        local currentPosition = navigationRoot.Position
+                        if (currentPosition - lastProgressPosition).Magnitude >= 1.5 then
+                            lastProgressPosition = currentPosition
+                            lastProgressAt = os.clock()
+                        elseif os.clock() - lastProgressAt >= 5
+                        and os.clock() >= nextJumpAt then
+                            Jump(humanoid)
+                            lastProgressPosition = navigationRoot.Position
+                            lastProgressAt = os.clock()
+                            nextJumpAt = os.clock() + 10
+                        end
                     end
 
                     if os.clock() >= nextMoveRefresh then
@@ -2605,7 +2623,7 @@ end))
                 return cages
             end
 
-            local function Jump(humanoid)
+            Jump = function(humanoid)
                 if not humanoid or humanoid.Health <= 0 then
                     return
                 end
@@ -2745,7 +2763,7 @@ end))
 
                 if ShouldWalk(root) then
                     SetNavigationStatus("Walking to cage")
-                    local reached = MoveToPosition(root, humanoid, destination, token, true)
+                    local reached = MoveToPosition(root, humanoid, destination, token, true, false, true)
                     if reached then
                         return true
                     end
@@ -3052,7 +3070,7 @@ end))
                     local promptDistance = (cagePosition - navigationRoot.Position).Magnitude
                     if promptDistance > stealPrompt.MaxActivationDistance then
                         SetNavigationStatus("Closing in on cage")
-                        if not MoveToPosition(root, humanoid, cagePosition, token, true) then
+                        if not MoveToPosition(root, humanoid, cagePosition, token, true, false, true) then
                             RestoreFloating()
                             SetNavigationStatus("Cage out of reach")
                             continue
