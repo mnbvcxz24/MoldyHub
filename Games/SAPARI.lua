@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.31"
+local deployver = "Deploy ver 1.32"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2425,6 +2425,7 @@ end))
             end
             local previousCharacterPosition
             local baseTeleportRecoveryPending = false
+            local treadmillCageSafeZonePending = false
             local spawnLocation = workspace:FindFirstChild("SpawnLocation")
 
             if spawnLocation and spawnLocation:IsA("BasePart") then
@@ -2636,6 +2637,7 @@ end))
                     end
 
                     if #GetSelectedCages() > 0 then
+                        treadmillCageSafeZonePending = true
                         humanoid:MoveTo(root.Position)
                         if AutoTreadmillStatusValue then
                             AutoTreadmillStatusValue.Text = "Waiting"
@@ -2850,6 +2852,13 @@ end))
                     SetNavigationStatus("Returning to safe zone after base teleport")
                     if not WalkToSafeZoneAtStart() then return end
                     baseTeleportRecoveryPending = false
+                    continue
+                end
+
+                if treadmillCageSafeZonePending then
+                    SetNavigationStatus("Cage found - returning to safe zone")
+                    if not WalkToSafeZoneAtStart() then return end
+                    treadmillCageSafeZonePending = false
                     continue
                 end
 
