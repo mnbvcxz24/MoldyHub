@@ -1696,7 +1696,6 @@ end))
         local bossCaughtConnection
         local bossCaughtDetected = false
         local baseTeleportDetected = false
-        local baseTeleportRecoveryPending = false
         local floatingRoot
         local floatingOriginalAnchored
 
@@ -2471,7 +2470,6 @@ end))
                 if not baseTeleportDetected and ownedPlotPosition
                 and not safeZoneNavigationActive and navigationEnteredOwnedPlot then
                     baseTeleportDetected = true
-                    baseTeleportRecoveryPending = true
                     baseTeleportRecoveryPending = true
                     CancelActiveMovement()
                     RestoreFloating()
