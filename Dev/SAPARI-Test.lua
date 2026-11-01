@@ -1198,7 +1198,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 Position = UDim2.fromOffset(10, 0),
                 Size = UDim2.new(1, -35, 1, 0),
                 BackgroundTransparency = 1,
-                Text = "Select " .. label:lower() .. "...",
+                Text = label == "Path Filter" and "Choose paths..." or "Choose rarity...",
                 TextColor3 = Theme.Gray,
                 Font = Enum.Font.Gotham,
                 TextSize = 9,
@@ -1246,7 +1246,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local function Refresh()
                 local count = 0
                 for _ in pairs(selected) do count += 1 end
-                ButtonText.Text = count > 0 and (label .. " - " .. count .. " selected") or ("Select " .. label:lower() .. "...")
+                ButtonText.Text = count > 0 and (count .. " selected") or (label == "Path Filter" and "Choose paths..." or "Choose rarity...")
                 ButtonText.TextColor3 = count > 0 and Theme.Text or Theme.Gray
             end
             local function Rebuild()
@@ -1465,17 +1465,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local SpeedMaxLabel = Create("TextLabel", {
-            Parent = SpeedHolder,
-            Position = UDim2.new(1, -35, 0, 39),
-            Size = UDim2.fromOffset(35, 16),
-            BackgroundTransparency = 1,
-            Text = "300",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Right
-        })
         local GlideSpeed = 275
         local GlideMaxSpeed = 300
         local DraggingSpeed = false
@@ -1484,7 +1473,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             SpeedThumb.Position = UDim2.new(currentPosition, 0, 0.5, 0)
             SpeedFill.Size = UDim2.new(currentPosition, 0, 1, 0)
             SpeedValue.Text = tostring(GlideSpeed)
-            SpeedMaxLabel.Text = tostring(GlideMaxSpeed)
             Runtime.GlideSpeed = GlideSpeed
         end
         local function UpdateSpeed(input)
@@ -1579,18 +1567,6 @@ end))
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local JumpDistanceMaxLabel = Create("TextLabel", {
-            Parent = JumpDistanceHolder,
-            Position = UDim2.new(1, -35, 0, 39),
-            Size = UDim2.fromOffset(35, 16),
-            BackgroundTransparency = 1,
-            Text = "100",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Right
-        })
-
         local GlideJumpDistance = 80
         local GlideMaxJumpDistance = 100
         local DraggingJumpDistance = false
@@ -1599,7 +1575,6 @@ end))
             JumpDistanceThumb.Position = UDim2.new(currentPosition, 0, 0.5, 0)
             JumpDistanceFill.Size = UDim2.new(currentPosition, 0, 1, 0)
             JumpDistanceValue.Text = tostring(GlideJumpDistance) .. " studs"
-            JumpDistanceMaxLabel.Text = tostring(GlideMaxJumpDistance)
             Runtime.GlideJumpDistance = GlideJumpDistance
         end
         local function UpdateJumpDistance(input)
