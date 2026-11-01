@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.81"
+local testver = "Test ver: 1.82"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1692,7 +1692,6 @@ end))
         local navigationToken = 0
         local treadmillToken = 0
         local treadmillStatus = "Disabled"
-        local treadmillCageWasRunning = false
         local activeNavigationTween
         local nightTimerConnection
         local nightTimerAddedConnection
@@ -2672,12 +2671,25 @@ end))
                 return cages
             end
 
+            local function Jump(humanoid)
+                if not humanoid or humanoid.Health <= 0 then
+                    return
+                end
+
+                humanoid.Jump = true
+                pcall(function()
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end)
+                task.wait(0.1)
+            end
+
             local function WaitAtTreadmillUntilCage(root, humanoid, token)
                 local treadmill = GetOwnedTreadmill()
 
                 if not treadmill or not treadmill:IsA("BasePart") then
+                    treadmillStatus = "Treadmill unavailable"
                     if AutoTreadmillStatusValue then
-                        AutoTreadmillStatusValue.Text = "Treadmill unavailable"
+                        AutoTreadmillStatusValue.Text = treadmillStatus
                         AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                     end
                     if AutoTreadmillStatusDot then
@@ -2690,8 +2702,9 @@ end))
                 local nextMoveRefresh = 0
                 local arrived = false
 
+                treadmillStatus = "Walking"
                 if AutoTreadmillStatusValue then
-                    AutoTreadmillStatusValue.Text = "Walking"
+                    AutoTreadmillStatusValue.Text = treadmillStatus
                     AutoTreadmillStatusValue.TextColor3 = Theme.Accent
                 end
                 if AutoTreadmillStatusDot then
@@ -2706,7 +2719,9 @@ end))
                     end
 
                     if #GetSelectedCages() > 0 then
-                        treadmillCageWasRunning = treadmillStatus == "Running"
+                        if treadmillStatus == "Running" then
+                            Jump(humanoid)
+                        end
                         treadmillCageSafeZonePending = true
                         humanoid:MoveTo(root.Position)
                         if AutoTreadmillStatusValue then
@@ -2733,8 +2748,9 @@ end))
                         if not arrived then
                             humanoid:MoveTo(root.Position)
                             arrived = true
+                            treadmillStatus = "Running"
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Running"
+                                AutoTreadmillStatusValue.Text = treadmillStatus
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
                             end
                             if AutoTreadmillStatusDot then
@@ -2840,19 +2856,7 @@ end))
                 SetNavigationStatus("Cage reached")
                 return true
             end
-            local function JumpForSafeZone(humanoid)
-                if not humanoid or humanoid.Health <= 0 then
-                    return
-                end
-
-                humanoid.Jump = true
-                pcall(function()
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                end)
-                task.wait(0.1)
-            end
-
-            local function WalkToSafeZoneAtStart(jumpForTreadmill)
+            local function WalkToSafeZoneAtStart()
                 while token == navigationToken and not Runtime.Stopped do
                     if bossCaughtDetected then
                         return WaitForBossCaught()
@@ -2867,9 +2871,6 @@ end))
                     else
                         SetNavigationStatus("Walking to safe zone")
                         local safeZoneDestination = safeSign.Position
-                        if jumpForTreadmill then
-                            JumpForSafeZone(humanoid)
-                        end
                         safeZoneNavigationActive = true
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
                         safeZoneNavigationActive = false
@@ -2898,13 +2899,6 @@ end))
             local character = LocalPlayer.Character
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             local root = character and character:FindFirstChild("HumanoidRootPart")
-            if humanoid then
-                humanoid.Jump = true
-                pcall(function()
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                end)
-                task.wait(0.1)
-            end
             local skipInitialSafeZone = false
             local navigationRoot = root and GetNavigationRoot(root)
             if safeSign and safeSign:IsA("BasePart")
@@ -2945,9 +2939,8 @@ end))
 
                 if treadmillCageSafeZonePending then
                     SetNavigationStatus("Cage found - returning to safe zone")
-                    if not WalkToSafeZoneAtStart(treadmillCageWasRunning) then return end
+                    if not WalkToSafeZoneAtStart() then return end
                     treadmillCageSafeZonePending = false
-                    treadmillCageWasRunning = false
                     continue
                 end
 
@@ -3005,12 +2998,6 @@ end))
                     end
 
                     local stealPrompt
-
-                    humanoid.Jump = true
-                    pcall(function()
-                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                    end)
-                    task.wait(0.1)
 
                     if token ~= navigationToken or Runtime.Stopped then
                         RestoreFloating()
