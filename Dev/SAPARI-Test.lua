@@ -2831,16 +2831,16 @@ end))
             end
             local skipInitialSafeZone = false
             local navigationRoot = root and GetNavigationRoot(root)
-            if navigationRoot and navigationRoot.Parent then
-                local nearbyCages = GetSelectedCages(root)
-                local nearestCage = nearbyCages[1]
-                if nearestCage then
+            if safeSign and safeSign:IsA("BasePart")
+            and navigationRoot and navigationRoot.Parent then
+                for _, cage in ipairs(GetSelectedCages(root)) do
                     local ok, cagePosition = pcall(function()
-                        return nearestCage:GetPivot().Position
+                        return cage:GetPivot().Position
                     end)
                     if ok and cagePosition
                     and (cagePosition - navigationRoot.Position).Magnitude <= 200 then
                         skipInitialSafeZone = true
+                        break
                     end
                 end
             end
