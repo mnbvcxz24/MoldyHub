@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.70"
+local testver = "Test ver: 1.71"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -1692,10 +1692,10 @@ end))
         local navigationToken = 0
         local treadmillToken = 0
         local activeNavigationTween
-        local baseTeleportConnection
+        local nightTimerConnection
         local bossCaughtConnection
         local bossCaughtDetected = false
-        local baseTeleportDetected = false
+        local nightDetected = false
         local floatingRoot
         local floatingOriginalAnchored
 
@@ -2009,7 +2009,7 @@ end))
                         return false
                     end
 
-                    if baseTeleportDetected then
+                    if nightDetected then
                         humanoid:MoveTo(root.Position)
                         RestoreFloating()
                         return false
@@ -2062,7 +2062,7 @@ end))
                         return false
                     end
 
-                    if baseTeleportDetected then
+                    if nightDetected then
                         humanoid:MoveTo(root.Position)
                         RestoreFloating()
                         return false
@@ -2167,7 +2167,7 @@ end))
                         return false
                     end
 
-                    if baseTeleportDetected then
+                    if nightDetected then
                         humanoid:MoveTo(root.Position)
                         RestoreFloating()
                         return false
@@ -2210,9 +2210,9 @@ end))
                 bossCaughtConnection:Disconnect()
                 bossCaughtConnection = nil
             end
-            if baseTeleportConnection then
-                baseTeleportConnection:Disconnect()
-                baseTeleportConnection = nil
+            if nightTimerConnection then
+                nightTimerConnection:Disconnect()
+                nightTimerConnection = nil
             end
             CancelActiveMovement()
             RestoreFloating()
@@ -2321,15 +2321,15 @@ end))
                 return
             end
 
-            baseTeleportDetected = false
+            nightDetected = false
             bossCaughtDetected = false
             if bossCaughtConnection then
                 bossCaughtConnection:Disconnect()
                 bossCaughtConnection = nil
             end
-            if baseTeleportConnection then
-                baseTeleportConnection:Disconnect()
-                baseTeleportConnection = nil
+            if nightTimerConnection then
+                nightTimerConnection:Disconnect()
+                nightTimerConnection = nil
             end
 
             local sharedRemotes = ReplicatedStorage:FindFirstChild("Shared")
@@ -2406,82 +2406,60 @@ end))
 
                 if stableChecks < 3 then
                     bossCaughtDetected = false
-                    baseTeleportDetected = false
+                    nightDetected = false
                     SetAutoStealEnabled(false)
                     SetNavigationStatus("Recovery timed out - please ride a pet again")
                     return false
                 end
 
                 bossCaughtDetected = false
-                baseTeleportDetected = false
+                nightDetected = false
                 prioritizeDroppedCageRecovery = lastAttemptedCagePath ~= nil
                     and lastAttemptedCageSpot ~= nil
                 SetNavigationStatus("Recovery complete - checking dropped cage")
                 return true
             end
-            local baseTeleportRecoveryPending = false
+            local nightRecoveryPending = false
             local treadmillCageSafeZonePending = false
-            local spawnLocation = workspace:FindFirstChild("SpawnLocation")
-            local previousCharacterPosition
+            local nightHud = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("NightHud", 10)
+            local nightTimer = nightHud and nightHud:WaitForChild("Timer", 10)
 
-            if spawnLocation and spawnLocation:IsA("BasePart") then
-                baseTeleportConnection = RunService.Heartbeat:Connect(function(deltaTime)
-                    if token ~= navigationToken or Runtime.Stopped then
-                        if baseTeleportConnection then
-                            baseTeleportConnection:Disconnect()
-                            baseTeleportConnection = nil
-                        end
-                        return
+            local function HandleNightStarted()
+                if nightDetected or bossCaughtDetected then
+                    return
+                end
+
+                nightDetected = true
+                nightRecoveryPending = true
+                CancelActiveMovement()
+                RestoreFloating()
+                SetNavigationStatus("Night detected - waiting 12s")
+            end
+
+            if nightTimer and (nightTimer:IsA("TextLabel") or nightTimer:IsA("TextButton")) then
+                local wasNight = string.find(string.lower(nightTimer.Text), "night", 1, true) ~= nil
+
+                if wasNight then
+                    HandleNightStarted()
+                end
+
+                nightTimerConnection = nightTimer:GetPropertyChangedSignal("Text"):Connect(function()
+                    local isNight = string.find(string.lower(nightTimer.Text), "night", 1, true) ~= nil
+                    if isNight and not wasNight then
+                        HandleNightStarted()
                     end
-
-                    if bossCaughtDetected or baseTeleportDetected then
-                        return
-                    end
-
-                    local character = LocalPlayer.Character
-                    local currentRoot = character and character:FindFirstChild("HumanoidRootPart")
-                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                    if not currentRoot or not currentRoot:IsA("BasePart") or not humanoid then
-                        previousCharacterPosition = nil
-                        return
-                    end
-
-                    local currentPosition = currentRoot.Position
-                    if not previousCharacterPosition then
-                        previousCharacterPosition = currentPosition
-                        return
-                    end
-
-                    local movementDelta = (currentPosition - previousCharacterPosition).Magnitude
-                    previousCharacterPosition = currentPosition
-
-                    local spawnLocalPosition = spawnLocation.CFrame:PointToObjectSpace(currentPosition)
-                    local insideSpawnLocation =
-                        math.abs(spawnLocalPosition.X) <= spawnLocation.Size.X / 2
-                        and math.abs(spawnLocalPosition.Z) <= spawnLocation.Size.Z / 2
-                        and math.abs(spawnLocalPosition.Y) <= (spawnLocation.Size.Y / 2) + 3
-
-                    local expectedMovement = humanoid.WalkSpeed * math.max(deltaTime, 0)
-                    local movementWasDiscontinuous = movementDelta > (expectedMovement * 2 + 2)
-
-                    if insideSpawnLocation and movementWasDiscontinuous then
-                        baseTeleportDetected = true
-                        baseTeleportRecoveryPending = true
-                        CancelActiveMovement()
-                        RestoreFloating()
-                        SetNavigationStatus("Base teleport detected - waiting 12s")
-                    end
+                    wasNight = isNight
                 end)
             end
 
-            local function WaitForBaseTeleport()
-                if not baseTeleportDetected then
+            local function WaitForNight()
+                if not nightDetected then
                     return false
                 end
 
                 CancelActiveMovement()
                 RestoreFloating()
-                SetNavigationStatus("Base teleport detected - waiting 12s")
+                SetNavigationStatus("Night detected - waiting 12s")
 
                 local waitUntil = os.clock() + 12
                 while os.clock() < waitUntil do
@@ -2491,7 +2469,7 @@ end))
                     task.wait(math.min(0.1, waitUntil - os.clock()))
                 end
 
-                baseTeleportDetected = false
+                nightDetected = false
                 SetNavigationStatus("12s wait complete - restarting cage scan")
                 return true
             end
@@ -2642,7 +2620,7 @@ end))
 
                 while token == navigationToken and not Runtime.Stopped
                 and AutoTreadmillEnabled and AutoStealEnabled do
-                    if bossCaughtDetected or baseTeleportDetected then
+                    if bossCaughtDetected or nightDetected then
                         humanoid:MoveTo(root.Position)
                         return
                     end
@@ -2784,7 +2762,7 @@ end))
                     if bossCaughtDetected then
                         return WaitForBossCaught()
                     end
-                    if baseTeleportDetected and not WaitForBaseTeleport() then return false end
+                    if nightDetected and not WaitForNight() then return false end
                     local character = LocalPlayer.Character
                     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                     local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -2798,7 +2776,7 @@ end))
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
                         safeZoneNavigationActive = false
                         if reachedSafeZone then
-                            baseTeleportRecoveryPending = false
+                            nightRecoveryPending = false
                             SetNavigationStatus("Safe zone reached")
                             return true
                         end
@@ -2806,8 +2784,8 @@ end))
                         if bossCaughtDetected then
                             return WaitForBossCaught()
                         end
-                        if baseTeleportDetected then
-                            if not WaitForBaseTeleport() then return false end
+                        if nightDetected then
+                            if not WaitForNight() then return false end
                         else
                             if token == navigationToken then
                                 SetAutoStealEnabled(false)
@@ -2856,14 +2834,14 @@ end))
                     if not WaitForBossCaught() then return end
                 end
 
-                if baseTeleportDetected then
-                    if not WaitForBaseTeleport() then return end
+                if nightDetected then
+                    if not WaitForNight() then return end
                 end
 
-                if baseTeleportRecoveryPending then
-                    SetNavigationStatus("Returning to safe zone after base teleport")
+                if nightRecoveryPending then
+                    SetNavigationStatus("Returning to safe zone after night trigger")
                     if not WalkToSafeZoneAtStart() then return end
-                    baseTeleportRecoveryPending = false
+                    nightRecoveryPending = false
                     continue
                 end
 
@@ -2943,8 +2921,8 @@ end))
                         if not WaitForBossCaught() then return end
                         break
                     end
-                    if baseTeleportDetected then
-                        if not WaitForBaseTeleport() then return end
+                    if nightDetected then
+                        if not WaitForNight() then return end
                         break
                     end
 
@@ -2964,8 +2942,8 @@ end))
                             if not WaitForBossCaught() then return end
                             break
                         end
-                        if baseTeleportDetected then
-                            if not WaitForBaseTeleport() then return end
+                        if nightDetected then
+                            if not WaitForNight() then return end
                             break
                         end
                         if token == navigationToken then
@@ -2984,8 +2962,8 @@ end))
                         break
                     end
 
-                    if baseTeleportDetected then
-                        if not WaitForBaseTeleport() then return end
+                    if nightDetected then
+                        if not WaitForNight() then return end
                         break
                     end
 
@@ -3116,8 +3094,8 @@ end))
                         break
                     end
 
-                    if baseTeleportDetected then
-                        if not WaitForBaseTeleport() then return end
+                    if nightDetected then
+                        if not WaitForNight() then return end
                         break
                     end
 
@@ -3134,7 +3112,7 @@ end))
                     local verifyUntil = os.clock() + 1.25
                     while os.clock() < verifyUntil do
                         if token ~= navigationToken or Runtime.Stopped
-                        or bossCaughtDetected or baseTeleportDetected then
+                        or bossCaughtDetected or nightDetected then
                             break
                         end
                         if not selectedCage:IsDescendantOf(workspace)
@@ -3150,8 +3128,8 @@ end))
                         if not WaitForBossCaught() then return end
                         break
                     end
-                    if baseTeleportDetected then
-                        if not WaitForBaseTeleport() then return end
+                    if nightDetected then
+                        if not WaitForNight() then return end
                         break
                     end
                     if token ~= navigationToken or Runtime.Stopped then
@@ -3207,8 +3185,8 @@ end))
                                 if not WaitForBossCaught() then return end
                                 break
                             end
-                            if baseTeleportDetected then
-                                if not WaitForBaseTeleport() then return end
+                            if nightDetected then
+                                if not WaitForNight() then return end
                                 break
                             end
                             if ShouldWalk(root) then
@@ -3246,7 +3224,7 @@ end))
                         if token ~= navigationToken or Runtime.Stopped then
                             return
                         end
-                        if baseTeleportDetected or bossCaughtDetected then
+                        if nightDetected or bossCaughtDetected then
                             break
                         end
                         task.wait(math.min(0.1, nextTargetAt - os.clock()))
@@ -3257,8 +3235,8 @@ end))
                         break
                     end
 
-                    if baseTeleportDetected then
-                        if not WaitForBaseTeleport() then return end
+                    if nightDetected then
+                        if not WaitForNight() then return end
                         break
                     end
 
