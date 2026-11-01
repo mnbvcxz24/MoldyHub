@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.65"
+local testver = "Test ver: 1.66"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2922,6 +2922,25 @@ end))
                     end
 
                     local stealPrompt
+
+                    humanoid.Jump = true
+                    pcall(function()
+                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    end)
+                    task.wait(0.1)
+
+                    if token ~= navigationToken or Runtime.Stopped then
+                        RestoreFloating()
+                        return
+                    end
+                    if bossCaughtDetected then
+                        if not WaitForBossCaught() then return end
+                        break
+                    end
+                    if baseTeleportDetected then
+                        if not WaitForBaseTeleport() then return end
+                        break
+                    end
 
                     SetFloating(root, false)
                     local moveOk, reachedCage, navigationFailure = pcall(function()
