@@ -3833,12 +3833,13 @@ end))
             local token = BossRoutineToken
 
             task.spawn(function()
+                local routineStatus
                 local movementStarted = Runtime.BeginBossMovement
                     and Runtime.BeginBossMovement()
                 if not movementStarted then
                     BossRoutineRunning = false
-                    if AutoFightBossEnabled then
-                        SetBossStatus("Waiting")
+                    if AutoFightBossEnabled and not Runtime.Stopped then
+                        SetBossStatus("Movement unavailable")
                     end
                     return
                 end
@@ -3849,6 +3850,11 @@ end))
 
                 local reachedBoss = Runtime.NavigateToBoss
                     and Runtime.NavigateToBoss()
+
+                if token == BossRoutineToken and AutoFightBossEnabled
+                and not BossFightEnded and not reachedBoss and not Runtime.Stopped then
+                    routineStatus = "Boss navigation failed"
+                end
 
                 if token == BossRoutineToken and AutoFightBossEnabled
                 and not BossFightEnded and reachedBoss and not Runtime.Stopped then
@@ -3867,6 +3873,7 @@ end))
                             local character = LocalPlayer.Character
                             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                             if not humanoid or humanoid.Health <= 0 then
+                                routineStatus = "Character unavailable"
                                 break
                             end
 
@@ -3874,12 +3881,16 @@ end))
                                 useAbility:FireServer()
                             end)
                             if not attackOk then
+                                routineStatus = "Attack failed"
                                 break
                             end
                             task.wait(0.2)
                         end
-                    elseif Runtime.SetMainActivity then
-                        Runtime.SetMainActivity("UseAbility unavailable")
+                    else
+                        routineStatus = "UseAbility unavailable"
+                        if Runtime.SetMainActivity then
+                            Runtime.SetMainActivity("UseAbility unavailable")
+                        end
                     end
                 end
 
@@ -3889,7 +3900,7 @@ end))
                         Runtime.EndBossMovement()
                     end
                     if AutoFightBossEnabled and not Runtime.Stopped then
-                        SetBossStatus("Waiting")
+                        SetBossStatus(routineStatus or "Waiting")
                     else
                         SetBossStatus("Disabled")
                     end
@@ -3902,30 +3913,35 @@ end))
             local listenerToken = BossListenerToken
 
             task.spawn(function()
-                local shared = ReplicatedStorage:WaitForChild("Shared", 10)
-                local remotes = shared and shared:WaitForChild("Remotes", 10)
-                local mobBite = remotes and remotes:WaitForChild("MobBite", 10)
-                local waveResult = remotes and remotes:WaitForChild("WaveResult", 10)
+                while AutoFightBossEnabled and listenerToken == BossListenerToken
+                and not Runtime.Stopped do
+                    local shared = ReplicatedStorage:FindFirstChild("Shared")
+                    local remotes = shared and shared:FindFirstChild("Remotes")
+                    local mobBite = remotes and remotes:FindFirstChild("MobBite")
+                    local waveResult = remotes and remotes:FindFirstChild("WaveResult")
 
-                if not AutoFightBossEnabled or listenerToken ~= BossListenerToken
-                or Runtime.Stopped then
-                    return
-                end
-
-                if mobBite and mobBite:IsA("RemoteEvent") then
-                    MobBiteConnection = TrackConnection(mobBite.OnClientEvent:Connect(function()
-                        if AutoFightBossEnabled and not BossRoutineRunning then
-                            StartBossRoutine()
+                    if mobBite and mobBite:IsA("RemoteEvent")
+                    and waveResult and waveResult:IsA("RemoteEvent") then
+                        if listenerToken ~= BossListenerToken or not AutoFightBossEnabled
+                        or Runtime.Stopped then
+                            return
                         end
-                    end))
-                end
 
-                if waveResult and waveResult:IsA("RemoteEvent") then
-                    WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
-                        if AutoFightBossEnabled and BossRoutineRunning then
-                            BossFightEnded = true
-                        end
-                    end))
+                        MobBiteConnection = TrackConnection(mobBite.OnClientEvent:Connect(function()
+                            if AutoFightBossEnabled and not BossRoutineRunning then
+                                StartBossRoutine()
+                            end
+                        end))
+                        WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
+                            if AutoFightBossEnabled and BossRoutineRunning then
+                                BossFightEnded = true
+                            end
+                        end))
+                        return
+                    end
+
+                    SetBossStatus("Remotes unavailable - retrying")
+                    task.wait(5)
                 end
             end)
         end
