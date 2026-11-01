@@ -355,19 +355,6 @@ local Title = Create("TextLabel", {
     TextSize = 14,
     TextXAlignment = Enum.TextXAlignment.Left
 })
--- Subtitle
-local Subtitle = Create("TextLabel", {
-    Name = "Subtitle",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(14, 27),
-    Size = UDim2.fromOffset(170, 16),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Subtitle,
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
 -- Minimize
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
@@ -445,12 +432,26 @@ local Sidebar = Create("Frame", {
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
+local SidebarSubtitle = Create("TextLabel", {
+    Name = "SidebarSubtitle",
+    Parent = Sidebar,
+    Position = UDim2.fromOffset(8, 10),
+    Size = UDim2.new(1, -16, 0, 30),
+    BackgroundTransparency = 1,
+    Text = UIConfig.Subtitle,
+    TextColor3 = Theme.Gray,
+    Font = Enum.Font.Gotham,
+    TextSize = 8,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top
+})
 -- Sidebar container
 local SidebarContainer = Create("ScrollingFrame", {
     Name = "Buttons",
     Parent = Sidebar,
-    Position = UDim2.fromOffset(5, 12),
-    Size = UDim2.new(1, -10, 1, -24),
+    Position = UDim2.fromOffset(5, 48),
+    Size = UDim2.new(1, -10, 1, -60),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 3,
@@ -481,24 +482,6 @@ local Content = Create("Frame", {
     ),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
-})
-local SidebarDividerDark = Create("Frame", {
-    Name = "SidebarDividerDark",
-    Parent = Main,
-    Position = UDim2.fromOffset(UIConfig.SidebarWidth - 1, 48),
-    Size = UDim2.new(0, 1, 1, -48),
-    BackgroundColor3 = Theme.Background,
-    BorderSizePixel = 0,
-    ZIndex = 4
-})
-local SidebarDividerLight = Create("Frame", {
-    Name = "SidebarDividerLight",
-    Parent = Main,
-    Position = UDim2.fromOffset(UIConfig.SidebarWidth, 48),
-    Size = UDim2.new(0, 1, 1, -48),
-    BackgroundColor3 = Theme.Border,
-    BorderSizePixel = 0,
-    ZIndex = 4
 })
 -- PAGE SYSTEM
 local Pages = {}
