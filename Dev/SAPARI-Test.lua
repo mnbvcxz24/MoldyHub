@@ -924,6 +924,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local AutoTreadmillStatusDot
         local StatusValue
         local StatusDot
+        local AutoStealStatusValue
+        local AutoStealStatusDot
 
         local AutoStealToggle = CreateToggle(AutoCard, "", false, function(enabled)
             if enabled and (not Runtime.IsRidingPet or not Runtime.IsRidingPet()) then
@@ -933,12 +935,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 AutoStealEnabled = false
                 Runtime.AutoStealEnabled = false
-                if StatusValue then
-                    StatusValue.Text = "Please ride in a pet first"
-                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusValue then
+                    AutoStealStatusValue.Text = "Please ride a pet first"
+                    AutoStealStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                 end
-                if StatusDot then
-                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusDot then
+                    AutoStealStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
                 end
                 return
             end
@@ -950,24 +952,24 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 AutoStealEnabled = false
                 Runtime.AutoStealEnabled = false
-                if StatusValue then
-                    StatusValue.Text = "Select at least 1 filter"
-                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusValue then
+                    AutoStealStatusValue.Text = "Select at least 1 filter"
+                    AutoStealStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                 end
-                if StatusDot then
-                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusDot then
+                    AutoStealStatusDot.BackgroundColor3 = Color3.fromRGB(255, 190, 80)
                 end
                 return
             end
 
             AutoStealEnabled = enabled
             Runtime.AutoStealEnabled = enabled
-            if StatusValue then
-                StatusValue.Text = enabled and "Navigating" or "Disabled"
-                StatusValue.TextColor3 = enabled and Theme.Accent or Theme.Gray
+            if AutoStealStatusValue then
+                AutoStealStatusValue.Text = enabled and "Active" or "Disabled"
+                AutoStealStatusValue.TextColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
             end
-            if StatusDot then
-                StatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+            if AutoStealStatusDot then
+                AutoStealStatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
             end
             if enabled and Runtime.StartNavigation then
                 task.spawn(Runtime.StartNavigation)
@@ -984,14 +986,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Size = UDim2.new(1, -30, 0, 18),
             BackgroundTransparency = 1
         })
-        StatusDot = Create("Frame", {
+        AutoStealStatusDot = Create("Frame", {
             Parent = StatusRow,
             Position = UDim2.fromOffset(2, 6),
             Size = UDim2.fromOffset(7, 7),
             BackgroundColor3 = Theme.Gray,
             BorderSizePixel = 0
         })
-        AddCorner(StatusDot, 8)
+        AddCorner(AutoStealStatusDot, 8)
         local StatusLabel = Create("TextLabel", {
             Parent = StatusRow,
             Position = UDim2.fromOffset(18, 0),
@@ -1003,7 +1005,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        StatusValue = Create("TextLabel", {
+        AutoStealStatusValue = Create("TextLabel", {
             Parent = StatusRow,
             Position = UDim2.fromOffset(54, 0),
             Size = UDim2.new(1, -54, 1, 0),
@@ -1815,9 +1817,9 @@ end))
         local function SetAutoStealEnabled(enabled)
             if enabled and not HasSelectedFilter() then
                 enabled = false
-                if StatusValue then
-                    StatusValue.Text = "Select at least 1 filter"
-                    StatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
+                if AutoStealStatusValue then
+                    AutoStealStatusValue.Text = "Select at least 1 filter"
+                    AutoStealStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                 end
             end
 
@@ -1829,8 +1831,12 @@ end))
                 controller.SetEnabled(enabled, false)
             end
 
-            if StatusDot then
-                StatusDot.BackgroundColor3 = enabled
+            if AutoStealStatusValue then
+                AutoStealStatusValue.Text = enabled and "Active" or "Disabled"
+                AutoStealStatusValue.TextColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
+            end
+            if AutoStealStatusDot then
+                AutoStealStatusDot.BackgroundColor3 = enabled
                     and Color3.fromRGB(75, 190, 145)
                     or Theme.Gray
             end
@@ -3443,8 +3449,8 @@ end))
 
         CreateAutomationCard("Auto Treadmill", UDim2.new(0, 0, 0, 0))
 
-        StatusRow.Visible = false
-        StatusDivider.Visible = false
+        StatusRow.Visible = true
+        StatusDivider.Visible = true
 
         local StatusCard = CreateCard(Page, "Status", "")
         StatusCard.Size = UDim2.new(1, 0, 0, 148)
