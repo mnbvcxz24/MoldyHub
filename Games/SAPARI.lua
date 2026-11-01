@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.35"
+local deployver = "Deploy ver 1.36"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2498,13 +2498,8 @@ end))
                 local droppedCage = droppedCagesFolder
                     and droppedCagesFolder:FindFirstChild("DroppedCage")
 
-                local activePathsFolder = GetActiveWorldPathsFolder()
-                local droppedPathName = tostring(droppedCage and droppedCage:GetAttribute("Path") or "")
-                local droppedPathObject = activePathsFolder and activePathsFolder:FindFirstChild(droppedPathName)
-
                 if droppedCage and droppedCage:IsA("Model")
                 and droppedCage:IsDescendantOf(workspace)
-                and droppedPathObject and IsPathInActiveWorld(droppedPathObject)
                 and droppedCage:GetAttribute("Path") == lastAttemptedCagePath
                 and droppedCage:GetAttribute("Spot") == lastAttemptedCageSpot then
                     table.insert(cages, 1, droppedCage)
