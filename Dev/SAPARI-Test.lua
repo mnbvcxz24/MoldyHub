@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.79"
+local testver = "Test ver: 1.80"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -2259,7 +2259,8 @@ end))
 
                     if not treadmill then
                         if AutoTreadmillStatusValue then
-                            AutoTreadmillStatusValue.Text = "Treadmill unavailable"
+                            treadmillStatus = "Treadmill unavailable"
+                            AutoTreadmillStatusValue.Text = treadmillStatus
                             AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                         end
                         if AutoTreadmillStatusDot then
@@ -2276,7 +2277,8 @@ end))
                         if distance <= 4 then
                             humanoid:MoveTo(root.Position)
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Running"
+                                treadmillStatus = "Running"
+                                AutoTreadmillStatusValue.Text = treadmillStatus
                                 AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(75, 190, 145)
                             end
                             if AutoTreadmillStatusDot then
@@ -2285,7 +2287,8 @@ end))
                             task.wait(0.25)
                         else
                             if AutoTreadmillStatusValue then
-                                AutoTreadmillStatusValue.Text = "Walking"
+                                treadmillStatus = "Walking"
+                                AutoTreadmillStatusValue.Text = treadmillStatus
                                 AutoTreadmillStatusValue.TextColor3 = Theme.Accent
                             end
                             if AutoTreadmillStatusDot then
@@ -2430,6 +2433,8 @@ end))
             end
             local nightRecoveryPending = false
             local treadmillCageSafeZonePending = false
+            local treadmillStatus = "Disabled"
+            local treadmillCageWasRunning = false
             local playerGui = LocalPlayer:WaitForChild("PlayerGui")
             local watchedNightTimer
 
@@ -2701,10 +2706,12 @@ end))
                     end
 
                     if #GetSelectedCages() > 0 then
+                        treadmillCageWasRunning = treadmillStatus == "Running"
                         treadmillCageSafeZonePending = true
                         humanoid:MoveTo(root.Position)
                         if AutoTreadmillStatusValue then
-                            AutoTreadmillStatusValue.Text = "Waiting"
+                            treadmillStatus = "Waiting"
+                            AutoTreadmillStatusValue.Text = treadmillStatus
                             AutoTreadmillStatusValue.TextColor3 = Color3.fromRGB(255, 190, 80)
                         end
                         if AutoTreadmillStatusDot then
@@ -2748,7 +2755,8 @@ end))
 
                 humanoid:MoveTo(root.Position)
                 if not AutoTreadmillEnabled and AutoTreadmillStatusValue then
-                    AutoTreadmillStatusValue.Text = "Disabled"
+                    treadmillStatus = "Disabled"
+                    AutoTreadmillStatusValue.Text = treadmillStatus
                     AutoTreadmillStatusValue.TextColor3 = Theme.Gray
                     if AutoTreadmillStatusDot then
                         AutoTreadmillStatusDot.BackgroundColor3 = Theme.Gray
@@ -2844,7 +2852,7 @@ end))
                 task.wait(0.1)
             end
 
-            local function WalkToSafeZoneAtStart()
+            local function WalkToSafeZoneAtStart(jumpForTreadmill)
                 while token == navigationToken and not Runtime.Stopped do
                     if bossCaughtDetected then
                         return WaitForBossCaught()
@@ -2859,12 +2867,13 @@ end))
                     else
                         SetNavigationStatus("Walking to safe zone")
                         local safeZoneDestination = safeSign.Position
-                        JumpForSafeZone(humanoid)
+                        if jumpForTreadmill then
+                            JumpForSafeZone(humanoid)
+                        end
                         safeZoneNavigationActive = true
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
                         safeZoneNavigationActive = false
                         if reachedSafeZone then
-                            JumpForSafeZone(humanoid)
                             nightRecoveryPending = false
                             SetNavigationStatus("Safe zone reached")
                             return true
@@ -2936,8 +2945,9 @@ end))
 
                 if treadmillCageSafeZonePending then
                     SetNavigationStatus("Cage found - returning to safe zone")
-                    if not WalkToSafeZoneAtStart() then return end
+                    if not WalkToSafeZoneAtStart(treadmillCageWasRunning) then return end
                     treadmillCageSafeZonePending = false
+                    treadmillCageWasRunning = false
                     continue
                 end
 
@@ -3258,7 +3268,6 @@ end))
                             SetNavigationStatus("Walking back to safe zone")
                         end
 
-                        JumpForSafeZone(humanoid)
                         safeZoneNavigationActive = true
                         reachedSafeZone = MoveToPosition(
                             root,
@@ -3269,10 +3278,6 @@ end))
                             MovementMode == "Glide"
                         )
                         safeZoneNavigationActive = false
-                        if reachedSafeZone then
-                            JumpForSafeZone(humanoid)
-                        end
-
                         if not reachedSafeZone then
                             RestoreFloating()
                             if bossCaughtDetected then
