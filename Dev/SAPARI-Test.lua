@@ -4022,6 +4022,13 @@ end))
             AntiAFKStatusValue.TextColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
             AntiAFKStatusDot.BackgroundColor3 = enabled and Color3.fromRGB(75, 190, 145) or Theme.Gray
         end
+        Create("Frame", {
+            Parent = AntiAFKCard,
+            Position = UDim2.fromOffset(11, 55),
+            Size = UDim2.new(1, -22, 0, 1),
+            BackgroundColor3 = Theme.Border,
+            BorderSizePixel = 0
+        })
         local AntiAFKToggle = CreateToggle(AntiAFKCard, "Enable Anti AFK", false, function(enabled)
             if enabled then
                 if antiAFKConnection and antiAFKConnection.Connected then
@@ -4039,7 +4046,7 @@ end))
             end
             SetAntiAFKStatus(enabled)
         end)
-        AntiAFKToggle.Position = UDim2.fromOffset(11, 56)
+        AntiAFKToggle.Position = UDim2.fromOffset(11, 61)
         AntiAFKToggle.Size = UDim2.new(1, -22, 0, 24)
     elseif name == "Settings" then
         local AppearanceCard = CreateCard(Page, "Appearance", "Select a color palette for the interface.")
