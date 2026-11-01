@@ -8,7 +8,7 @@ local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.43"
+local deployver = "Deploy ver 1.44"
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -51,7 +51,7 @@ local UIConfig = {
         "Main",
         "Features",
         "Misc. feature",
-        "Settings"
+        "Settings",
     }
 }
 -- THEME
@@ -368,25 +368,6 @@ local Subtitle = Create("TextLabel", {
     TextSize = 10,
     TextXAlignment = Enum.TextXAlignment.Left
 })
--- Search
-local SearchBox = Create("TextBox", {
-    Name = "Search",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(10, 36),
-    Size = UDim2.fromOffset(80, 18),
-    BackgroundColor3 = Theme.SurfaceInput,
-    PlaceholderText = "Search...",
-    PlaceholderColor3 = Theme.Gray,
-    Visible = false,
-    Text = "",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    ClearTextOnFocus = false,
-    BorderSizePixel = 0
-})
-AddCorner(SearchBox, 8)
-AddStroke(SearchBox, Theme.Border, 1)
 -- Minimize
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
@@ -499,7 +480,8 @@ local Content = Create("Frame", {
     BorderSizePixel = 0
 })
 -- PAGE SYSTEM
-local Pages = {}local SidebarButtons = {}local CurrentPage = 1
+local Pages = {}
+local SidebarButtons = {}
 -- CREATE PAGE
 local function CreatePage(pageNumber, pageName)
     local PageClip = Create("Frame", {
@@ -911,15 +893,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local line = sidebarButton:FindFirstChild("ActiveLine")
             if line then line.Visible = active end
         end
-        CurrentPage = index
     end)
 end
 
 -- CREATE TEMPLATE PAGES
-local PagesByName = {}
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
-    PagesByName[name] = Page
     if name == "Main" then
         local AutoCard = CreateCard(Page, "Auto Steal", "")
         AutoCard.Size = UDim2.new(1, -4, 0, 265)
@@ -1082,35 +1061,35 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
-        local activeWorldPathsFolder = workspace:FindFirstChild("Paths")
-        local activeWorldFolder
-        local activeSafeZoneSign = workspace:FindFirstChild("SafeZoneSign", true)
-        local cachedPathFolders = {}
+        local CachedPathsFolder = workspace:FindFirstChild("Paths")
+        local CachedPathFolders = {}
+        local CachedActiveWorldFolder
+        local CachedSafeZoneSign = workspace:FindFirstChild("SafeZoneSign", true)
 
-        if activeWorldPathsFolder then
-            for _, pathObject in ipairs(activeWorldPathsFolder:GetChildren()) do
+        if CachedPathsFolder then
+            for _, pathObject in ipairs(CachedPathsFolder:GetChildren()) do
                 if pathObject:IsA("Folder") then
                     local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
                     if pathNumber and pathNumber >= 1 and pathNumber <= 20 then
-                        cachedPathFolders[pathNumber] = pathObject
+                        CachedPathFolders[pathNumber] = pathObject
                     end
                 end
             end
         end
 
-        if activeSafeZoneSign then
-            activeWorldFolder = activeSafeZoneSign:FindFirstAncestor("Hub")
-                or activeSafeZoneSign:FindFirstAncestor("World2")
+        if CachedSafeZoneSign then
+            CachedActiveWorldFolder = CachedSafeZoneSign:FindFirstAncestor("Hub")
+                or CachedSafeZoneSign:FindFirstAncestor("World2")
         end
 
-        if not activeWorldFolder and activeWorldPathsFolder then
+        if not CachedActiveWorldFolder and CachedPathsFolder then
             local character = LocalPlayer.Character
             local root = character and character:FindFirstChild("HumanoidRootPart")
             if root then
                 local closestPathNumber
                 local closestPathDistance = math.huge
 
-                for pathNumber, pathObject in pairs(cachedPathFolders) do
+                for pathNumber, pathObject in pairs(CachedPathFolders) do
                     local pathDistance = math.huge
                     for _, descendant in ipairs(pathObject:GetDescendants()) do
                         if descendant:IsA("BasePart") then
@@ -1136,7 +1115,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
 
                 if closestPathNumber then
-                    activeWorldFolder = {
+                    CachedActiveWorldFolder = {
                         Name = closestPathNumber >= 11 and "World2" or "Hub"
                     }
                 end
@@ -1144,68 +1123,41 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         local function GetActiveWorldPathsFolder()
-            if not activeWorldPathsFolder or not activeWorldFolder then
-                return nil, nil, activeSafeZoneSign
+            if not CachedPathsFolder or not CachedActiveWorldFolder then
+                return nil, nil, nil
             end
-            return activeWorldPathsFolder, activeWorldFolder, activeSafeZoneSign
+            return CachedPathsFolder, CachedActiveWorldFolder, CachedSafeZoneSign
         end
+
         local function IsPathInActiveWorld(pathObject)
-            if not pathObject or not activeWorldFolder then return false end
+            if not pathObject or not CachedActiveWorldFolder then return false end
             local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
             if not pathNumber then return false end
-            if activeWorldFolder.Name == "World2" then
+            if CachedActiveWorldFolder.Name == "World2" then
                 return pathNumber >= 11 and pathNumber <= 20
             end
-            if activeWorldFolder.Name == "Hub" then
+            if CachedActiveWorldFolder.Name == "Hub" then
                 return pathNumber >= 1 and pathNumber <= 10
             end
             return false
         end
 
         local function GetPathFolders()
-            local pathsFolder = GetActiveWorldPathsFolder()
             local results = {}
-            if pathsFolder then
-                for _, child in ipairs(pathsFolder:GetChildren()) do
-                    if child:IsA("Folder") and IsPathInActiveWorld(child) then
-                        table.insert(results, child)
-                    end
-                end
-            end
-            table.sort(results, function(a, b)
-                return NaturalSortKey(a.Name) < NaturalSortKey(b.Name)
-            end)
-            return results
-        end
-
-        local function GetCageModels()
-            local results = {}
-            local seenNames = {}
-            local paths = {}
-            for pathObject in pairs(SelectedPaths) do
-                if pathObject and pathObject.Parent then
-                    table.insert(paths, pathObject)
-                end
-            end
-            if #paths == 0 then
+            if not CachedPathsFolder or not CachedActiveWorldFolder then
                 return results
             end
-            for _, pathObject in ipairs(paths) do
-                local cagesFolder = pathObject:FindFirstChild("Cages")
-                if cagesFolder then
-                    for _, child in ipairs(cagesFolder:GetChildren()) do
-                        if child:IsA("Model") and not seenNames[child.Name] then
-                            seenNames[child.Name] = true
-                            table.insert(results, child)
-                        end
-                    end
+
+            local firstPath = CachedActiveWorldFolder.Name == "World2" and 11 or 1
+            local lastPath = CachedActiveWorldFolder.Name == "World2" and 20 or 10
+
+            for pathNumber = firstPath, lastPath do
+                local pathObject = CachedPathFolders[pathNumber]
+                if pathObject and pathObject.Parent == CachedPathsFolder then
+                    table.insert(results, pathObject)
                 end
             end
-            table.sort(results, function(a, b)
-                local ap = a.Parent and a.Parent.Parent and a.Parent.Parent.Name or ""
-                local bp = b.Parent and b.Parent.Parent and b.Parent.Parent.Name or ""
-                return NaturalSortKey(ap .. "/" .. a.Name) < NaturalSortKey(bp .. "/" .. b.Name)
-            end)
+
             return results
         end
 
@@ -1507,7 +1459,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         AddCorner(SpeedThumb, 10)
         AddStroke(SpeedThumb, Theme.Card, 1)
-        local SpeedMinLabel = Create("TextLabel", {
+        Create("TextLabel", {
             Parent = SpeedHolder,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(35, 16),
@@ -1539,7 +1491,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             SpeedValue.Text = tostring(GlideSpeed)
             SpeedMaxLabel.Text = tostring(GlideMaxSpeed)
             Runtime.GlideSpeed = GlideSpeed
-            Runtime.GlideMaxSpeed = GlideMaxSpeed
         end
         local function UpdateSpeed(input)
             local width = SpeedBar.AbsoluteSize.X
@@ -1622,7 +1573,7 @@ end))
         })
         AddCorner(JumpDistanceThumb, 10)
         AddStroke(JumpDistanceThumb, Theme.Card, 1)
-        local JumpDistanceMinLabel = Create("TextLabel", {
+        Create("TextLabel", {
             Parent = JumpDistanceHolder,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(35, 16),
@@ -1702,9 +1653,7 @@ end))
         local nightTimerAddedConnection
         local bossCaughtConnection
         local bossCaughtDetected = false
-        local bossCaughtAt = 0
         local nightDetected = false
-        local nightRecoveryPending = false
         local floatingRoot
         local floatingOriginalAnchored
 
@@ -2054,13 +2003,14 @@ end))
             local speed = math.max(10, Runtime.GlideSpeed or 50)
             local glideHeight = humanoid.HipHeight + (navigationRoot.Size.Y * 0.5)
             local finalGlideStop = 12
-            local walkDuration = 1
+            local alternatingWalkDuration = 1
+            local walkDuration = alternatingWalkDuration
 
             if startWithWalk then
                 local ridingOffset = root.Position - navigationRoot.Position
                 humanoid:MoveTo(destination + ridingOffset)
 
-                local initialWalkUntil = os.clock() + walkDuration
+                local initialWalkUntil = os.clock() + alternatingWalkDuration
                 local nextMoveRefresh = os.clock() + 1
                 while os.clock() < initialWalkUntil do
                     if bossCaughtDetected then
@@ -2112,7 +2062,8 @@ end))
                     return false
                 end
 
-                local remaining = destination - navigationRoot.Position
+                local routeTarget = destination
+                local remaining = routeTarget - navigationRoot.Position
                 local horizontal = Vector3.new(remaining.X, 0, remaining.Z)
                 local horizontalDistance = horizontal.Magnitude
 
@@ -2321,7 +2272,8 @@ end))
                 return            end
 
             local pathsFolder, worldFolder, safeSign = GetActiveWorldPathsFolder()
-            if not worldFolder or not pathsFolder then
+            if not safeSign or not safeSign:IsA("BasePart")
+            or not worldFolder or not pathsFolder then
                 SetNavigationStatus("World paths unavailable")
                 SetAutoStealEnabled(false)
                 return
@@ -2335,7 +2287,6 @@ end))
 
             nightDetected = false
             bossCaughtDetected = false
-            bossCaughtAt = 0
             if bossCaughtConnection then
                 bossCaughtConnection:Disconnect()
                 bossCaughtConnection = nil
@@ -2360,7 +2311,6 @@ end))
                     if bossCaughtDetected then return end
 
                     bossCaughtDetected = true
-                    bossCaughtAt = os.clock()
 
                     if activeNavigationTween then
                         activeNavigationTween:Cancel()
@@ -2565,7 +2515,7 @@ end))
                 return nil
             end
 
-            local function GetSelectedCages()
+            local function GetSelectedCages(characterRoot)
                 local cages = {}
                 if prioritizeDroppedCageRecovery then
                     SetNavigationStatus("Waiting for dropped cage recovery")
@@ -2640,20 +2590,39 @@ end))
                         end
                     end
                 end
-                local cageSortKeys = {}
-                for _, cage in ipairs(cages) do
-                    local names = {}
-                    local current = cage
-                    while current and current ~= workspace do
-                        table.insert(names, 1, current.Name)
-                        current = current.Parent
+                local navigationRoot = characterRoot and GetNavigationRoot(characterRoot)
+                if navigationRoot and navigationRoot.Parent then
+                    local cageDistances = {}
+                    for _, cage in ipairs(cages) do
+                        local ok, position = pcall(function()
+                            return cage:GetPivot().Position
+                        end)
+                        if not ok then
+                            local part = cage:FindFirstChildWhichIsA("BasePart", true)
+                            position = part and part.Position
+                        end
+                        cageDistances[cage] = position
+                            and (position - navigationRoot.Position).Magnitude
+                            or math.huge
                     end
-                    cageSortKeys[cage] = NaturalSortKey(table.concat(names, "/"))
+                    table.sort(cages, function(a, b)
+                        return cageDistances[a] < cageDistances[b]
+                    end)
+                else
+                    local cageSortKeys = {}
+                    for _, cage in ipairs(cages) do
+                        local names = {}
+                        local current = cage
+                        while current and current ~= workspace do
+                            table.insert(names, 1, current.Name)
+                            current = current.Parent
+                        end
+                        cageSortKeys[cage] = NaturalSortKey(table.concat(names, "/"))
+                    end
+                    table.sort(cages, function(a, b)
+                        return cageSortKeys[a] < cageSortKeys[b]
+                    end)
                 end
-                table.sort(cages, function(a, b)
-                    return cageSortKeys[a] < cageSortKeys[b]
-                end)
-                AddMatchingDroppedCage(cages)
                 return cages
             end
 
@@ -2843,10 +2812,6 @@ end))
                 return true
             end
             local function WalkToSafeZoneAtStart()
-                if not safeSign or not safeSign:IsA("BasePart") then
-                    SetNavigationStatus("Safe zone unavailable - continuing")
-                    return true
-                end
                 while token == navigationToken and not Runtime.Stopped do
                     if bossCaughtDetected then
                         return WaitForBossCaught()
@@ -2861,7 +2826,11 @@ end))
                     else
                         SetNavigationStatus("Walking to safe zone")
                         local safeZoneDestination = safeSign.Position
-                        if MoveToPosition(root, humanoid, safeZoneDestination, token, true) then
+                        safeZoneNavigationActive = true
+                        local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
+                        safeZoneNavigationActive = false
+                        if reachedSafeZone then
+                            nightRecoveryPending = false
                             SetNavigationStatus("Safe zone reached")
                             return true
                         end
@@ -2934,7 +2903,7 @@ end))
                     continue
                 end
 
-                local selectedCages = GetSelectedCages()
+                local selectedCages = GetSelectedCages(LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
                 if #selectedCages == 0 then
                     if AutoTreadmillEnabled then
                         SetNavigationStatus("Walking to treadmill")
@@ -3245,6 +3214,7 @@ end))
                             SetNavigationStatus("Walking back to safe zone")
                         end
 
+                        safeZoneNavigationActive = true
                         reachedSafeZone = MoveToPosition(
                             root,
                             humanoid,
@@ -3253,6 +3223,7 @@ end))
                             false,
                             MovementMode == "Glide"
                         )
+                        safeZoneNavigationActive = false
                         if not reachedSafeZone then
                             RestoreFloating()
                             if bossCaughtDetected then
@@ -3407,18 +3378,15 @@ end))
                 if title == "Auto Treadmill" then
                     AutoTreadmillEnabled = enabled
                     if not enabled then
-                        treadmillStatus = "Disabled"
-                        StatusValue.Text = treadmillStatus
+                        StatusValue.Text = "Disabled"
                         StatusValue.TextColor3 = Theme.Gray
                         StatusDot.BackgroundColor3 = Theme.Gray
                     elseif AutoStealEnabled then
-                        treadmillStatus = "Waiting for scan"
-                        StatusValue.Text = treadmillStatus
+                        StatusValue.Text = "Waiting for scan"
                         StatusValue.TextColor3 = Theme.Accent
                         StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
                     else
-                        treadmillStatus = "Enabled"
-                        StatusValue.Text = treadmillStatus
+                        StatusValue.Text = "Enabled"
                         StatusValue.TextColor3 = Theme.Accent
                         StatusDot.BackgroundColor3 = Color3.fromRGB(75, 190, 145)
                     end
@@ -3520,7 +3488,6 @@ end))
             ApplyTheme(themeName)
         end)
         local AboutCard = CreateCard(Page, "About", "Steal A Pet & Ride It • UI only")
-    end
 end
 -- SHOW FIRST PAGE
 Pages[1].Visible = true
