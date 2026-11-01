@@ -301,11 +301,7 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
-    end
-    local versionLabel = ScreenGui:FindFirstChild("Version", true)
-    if versionLabel and versionLabel:IsA("TextLabel") then
-        versionLabel.TextColor3 = selectedTheme.Accent
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">v1.46</font>'
     end
 end
 -- MAIN WINDOW
@@ -345,26 +341,13 @@ local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
     Position = UDim2.fromOffset(14, 0),
-    Size = UDim2.new(0, 78, 1, 0),
+    Size = UDim2.new(0, 190, 1, 0),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. Theme.Accent:ToHex() .. '">v1.46</font>',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
     TextSize = 14,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    TextYAlignment = Enum.TextYAlignment.Center
-})
-local VersionLabel = Create("TextLabel", {
-    Name = "Version",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(94, 1),
-    Size = UDim2.fromOffset(70, 38),
-    BackgroundTransparency = 1,
-    Text = "v1.46",
-    TextColor3 = Theme.Accent,
-    Font = Enum.Font.Gotham,
-    TextSize = 9,
     TextXAlignment = Enum.TextXAlignment.Left,
     TextYAlignment = Enum.TextYAlignment.Center
 })
