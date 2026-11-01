@@ -267,6 +267,7 @@ local ScreenGui = Create("ScreenGui", {
     Name = "StealAPetAndRideItUI",
     Parent = game.CoreGui,
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Global
 })
 local function ApplyTheme(themeName)
