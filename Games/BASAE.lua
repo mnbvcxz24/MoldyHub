@@ -4950,6 +4950,22 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             item.Row.BackgroundColor3 = item.Name == ActiveThemeName and Theme.Selected or Theme.SurfaceInput
         end
 
+        local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
+        local ScaleOptions = {"50%", "75%", "100%"}
+        CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
+            local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
+            if not scalePercent then return end
+            local oldSize = Main.AbsoluteSize
+            UIScale.Scale = scalePercent / 75
+            local newSize = Main.AbsoluteSize
+            Main.Position = UDim2.new(
+                Main.Position.X.Scale,
+                Main.Position.X.Offset + (oldSize.X - newSize.X) / 2,
+                Main.Position.Y.Scale,
+                Main.Position.Y.Offset + (oldSize.Y - newSize.Y) / 2
+            )
+        end)
+
     elseif index == 2 then
         local CandyCard = CreateCard(Page, "🍬  Auto collect candies", "UNDER DEVELOPMENT")
         CandyCard.Size = UDim2.new(1, 0, 0, 110)
