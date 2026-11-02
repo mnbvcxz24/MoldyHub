@@ -6199,7 +6199,7 @@ local function ClampMainWindowPosition(x, y)
         return x, y
     end
 
-    local viewport = ScreenGui.AbsoluteSize
+    local viewport = camera.ViewportSize
     local windowSize = Main.AbsoluteSize
     local maxX = math.max(0, viewport.X - windowSize.X)
     local maxY = math.max(0, viewport.Y - windowSize.Y)
