@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.241"
+local testver = "Test ver: 1.242"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -351,6 +351,19 @@ local StatusBar = Create("Frame", {
 AddCorner(StatusBar, 9)
 AddStroke(StatusBar, Theme.Border, 1)
 
+-- Scale the complete bar (including its contents) to fit the current screen.
+local StatusBarUIScale = Create("UIScale", {
+    Parent = StatusBar,
+    Scale = 0.86
+})
+local function UpdateStatusBarScale()
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    local viewportWidth = camera.ViewportSize.X
+    StatusBarUIScale.Scale = math.clamp(math.min(0.86, (viewportWidth - 20) / 500), 0.45, 0.86)
+end
+UpdateStatusBarScale()
+
 local StatusBarAccent = Create("Frame", {
     Name = "AccentLine",
     Parent = StatusBar,
@@ -495,7 +508,10 @@ local function ConnectStatusBarViewport(camera)
         StatusBarViewportConnection = nil
     end
     if camera then
-        StatusBarViewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepStatusBarOnScreen)
+        StatusBarViewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            UpdateStatusBarScale()
+            KeepStatusBarOnScreen()
+        end)
     end
 end
 ConnectStatusBarViewport(workspace.CurrentCamera)
