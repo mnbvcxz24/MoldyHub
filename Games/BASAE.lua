@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.253"
+local testver = "Test ver: 1.254"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -503,10 +503,12 @@ local StatusBarStartAbsolutePosition
 local function ClampStatusBarPosition(x, y)
     local camera = workspace.CurrentCamera
     if not camera then return x, y end
-    local viewport = camera.ViewportSize
+    -- Use the status bar ScreenGui canvas so its drag limits match
+    -- the same coordinate space as StatusBar.AbsolutePosition.
+    local screenSize = StatusBar.Parent and StatusBar.Parent.AbsoluteSize or camera.ViewportSize
     local size = StatusBar.AbsoluteSize
-    return math.clamp(x, 0, math.max(0, viewport.X - size.X)),
-        math.clamp(y, 0, math.max(0, viewport.Y - size.Y))
+    return math.clamp(x, 0, math.max(0, screenSize.X - size.X)),
+        math.clamp(y, 0, math.max(0, screenSize.Y - size.Y))
 end
 
 StatusBar.InputBegan:Connect(function(input)
@@ -6221,10 +6223,12 @@ local function ClampMainWindowPosition(x, y)
         return x, y
     end
 
-    local viewport = camera.ViewportSize
+    -- Clamp in the ScreenGui's coordinate space, not the camera viewport.
+    -- This avoids an inset/viewport mismatch that can create an invisible drag boundary.
+    local screenSize = Main.Parent and Main.Parent.AbsoluteSize or camera.ViewportSize
     local windowSize = Main.AbsoluteSize
-    local maxX = math.max(0, viewport.X - windowSize.X)
-    local maxY = math.max(0, viewport.Y - windowSize.Y)
+    local maxX = math.max(0, screenSize.X - windowSize.X)
+    local maxY = math.max(0, screenSize.Y - windowSize.Y)
 
     return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
 end
