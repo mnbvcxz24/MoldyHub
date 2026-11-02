@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.224"
+local testver = "Test ver: 1.225"
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -585,11 +585,43 @@ local function CreatePage(pageNumber, pageName)
         RightLayout = RightLayout
     }
     local function UpdateCanvas()
-        local contentHeight = math.max(LeftLayout.AbsoluteContentSize.Y, RightLayout.AbsoluteContentSize.Y)
-        Page.CanvasSize = UDim2.new(0, 0, 0, contentHeight + 24)
+        -- Include both auto-column cards and manually positioned feature rows.
+        local contentBottom = 0
+        for _, child in ipairs(Page:GetChildren()) do
+            if child:IsA("GuiObject") then
+                local childBottom =
+                    child.Position.Y.Scale * Page.AbsoluteSize.Y
+                    + child.Position.Y.Offset
+                    + child.AbsoluteSize.Y
+                contentBottom = math.max(contentBottom, childBottom)
+            end
+        end
+        -- Account for the page's 12px top and bottom padding.
+        Page.CanvasSize = UDim2.new(0, 0, 0, contentBottom + 24)
     end
+    local function TrackCanvasChild(child)
+        if not child:IsA("GuiObject") then return end
+        child:GetPropertyChangedSignal("Position"):Connect(function()
+            task.defer(UpdateCanvas)
+        end)
+        child:GetPropertyChangedSignal("Size"):Connect(function()
+            task.defer(UpdateCanvas)
+        end)
+        child:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            task.defer(UpdateCanvas)
+        end)
+        task.defer(UpdateCanvas)
+    end
+    for _, child in ipairs(Page:GetChildren()) do
+        TrackCanvasChild(child)
+    end
+    Page.ChildAdded:Connect(TrackCanvasChild)
+    Page:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        task.defer(UpdateCanvas)
+    end)
     LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
     RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+    task.defer(UpdateCanvas)
     Pages[pageNumber] = PageClip
     return Page
 end
@@ -5444,6 +5476,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local MiscFeatureRow = Create("Frame", {
             Name = "MiscFeatureCardsRow",
             Parent = Page,
+            Position = UDim2.fromOffset(0, 128),
             Size = UDim2.new(1, 0, 0, 110),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
