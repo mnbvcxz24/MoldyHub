@@ -2272,6 +2272,15 @@ end))
             Runtime.BossMovementActive = true
             Runtime.BossResumeAutoSteal = AutoStealEnabled
 
+            -- Jump off the treadmill before boss navigation if it was actively running.
+            if treadmillStatus == "Running" then
+                local character = LocalPlayer.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    Jump(humanoid)
+                end
+            end
+
             if nightDetected then
                 Runtime.NightPending = true
                 nightDetected = false
