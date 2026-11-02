@@ -4,11 +4,12 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.232"
+local testver = "Test ver: 1.234"
 local ScriptStartedAt = os.clock()
-local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
+local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
 end
@@ -1102,7 +1103,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local AutoBreakToggleInitialized = false
         local AutoBreakEnabled = false
         local AutoBreakGeneration = 0
-        local RefreshTitanicPriority
+        local RefreshEggFilters
+        local HighLuckFilterEnabled = false
+        local TitanicFilterEnabled = false
         local AutoBreakControlLayout = {
             ZoneY = 42,
             EggY = 81,
@@ -1169,14 +1172,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AutoPickupToggle.Size = UDim2.fromOffset(48, 24)
         local AutoPickupTitle = AutoPickupCard:FindFirstChildWhichIsA("TextLabel")
         if AutoPickupTitle then AutoPickupTitle.Size = UDim2.new(1, -78, 0, 22) end
-        local AntiFuseRow = Create("Frame", {
-            Name = "AntiFuseRow",
-            Parent = Page,
-            Size = UDim2.new(1, 0, 0, 0),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            LayoutOrder = 2
-        })
         local AutoFuseCard = CreateCard(AutoRow, "⚙️  Auto Fuse", "UNDER DEVELOPMENT")
         AutoFuseCard.Position = UDim2.new(0.5, 6, 0, 196)
         AutoFuseCard.Size = UDim2.new(0.5, -6, 0, 150)
@@ -1945,12 +1940,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local HighestLuckToggle
         function UpdateSortButtons()
-            SortOrder = HighestLuckToggle and ToggleControllers[HighestLuckToggle].GetEnabled() and "Highest Luck" or "Default"
+            SortOrder = HighLuckFilterEnabled and "Highest Luck" or "Default"
         end
-        HighestLuckToggle = CreateToggle(SortFrame, "HighLuck Priority", false, function(enabled)
-            SortOrder = enabled and "Highest Luck" or "Default"
+        HighestLuckToggle = CreateToggle(SortFrame, "Highest Luck Filter", false, function(enabled)
+            HighLuckFilterEnabled = enabled
+            UpdateSortButtons()
             if RefreshEggList then RefreshEggList() end
-            AddDebugLog("[Auto Break] Highest Luck first " .. (enabled and "ON" or "OFF"))
+            if RefreshEggFilters then RefreshEggFilters() end
+            AddDebugLog("[Auto Break] Highest Luck filter " .. (enabled and "ON" or "OFF"))
         end)
         HighestLuckToggle.Position = UDim2.fromOffset(0, 0)
         HighestLuckToggle.Size = UDim2.new(1, 0, 0, 28)
@@ -2369,23 +2366,29 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
         end
         UpdateSortButtons()
-        local TitanicPriorityEnabled = false
-        local TitanicPriorityToggle = CreateToggle(Card1, "Titanic Priority", false, function(enabled)
-            TitanicPriorityEnabled = enabled
-            AddDebugLog("[Auto Break] TITANIC priority " .. (enabled and "ON" or "OFF"))
-            if RefreshTitanicPriority then
-                RefreshTitanicPriority()
-            end
+        local TitanicPriorityToggle = CreateToggle(Card1, "Titanic Filter", false, function(enabled)
+            TitanicFilterEnabled = enabled
+            AddDebugLog("[Auto Break] TITANIC filter " .. (enabled and "ON" or "OFF"))
+            if RefreshEggFilters then RefreshEggFilters() end
         end)
         SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
         Card1.Size = UDim2.new(0.5, -6, 0, 190)
         AutoPickupCard.Size = UDim2.new(0.5, -6, 0, 316)
-        AutoRow.Size = UDim2.new(1, 0, 0, 350)
+        local function UpdateAutoBreakCardHeights()
+            local autoBreakBottom = math.max(AutoBreakControlLayout.TitanicY + AutoBreakControlLayout.Height + 12, 190)
+            local pickupBottom = 316
+            local sharedHeight = math.max(autoBreakBottom, pickupBottom)
+            Card1.Size = UDim2.new(0.5, -6, 0, sharedHeight)
+            AutoPickupCard.Size = UDim2.new(0.5, -6, 0, sharedHeight)
+            AutoRow.Size = UDim2.new(1, 0, 0, sharedHeight + 34)
+        end
+        UpdateAutoBreakCardHeights()
         function UpdateFilterPanelWithTitanic()
             UpdateFilterPanel()
             HighestLuckToggle.Position = UDim2.fromOffset(0, 0)
             HighestLuckToggle.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
             SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
+            UpdateAutoBreakCardHeights()
         end
         ZoneFilterButton.MouseButton1Click:Connect(UpdateFilterPanelWithTitanic)
         EggFilterButton.MouseButton1Click:Connect(UpdateFilterPanelWithTitanic)
@@ -4563,8 +4566,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
             table.sort(selectedZoneNames)
             local target = lockedTarget
-            if not target and TitanicPriorityEnabled then
-                local titanicCandidates = {}
+            if not target and (TitanicFilterEnabled or HighLuckFilterEnabled) then
+                local filteredCandidates = {}
                 for _, zoneName in ipairs(selectedZoneNames) do
                     local zone = ZoneBuilds:FindFirstChild(zoneName)
                     local eggsFolder = zone and zone:FindFirstChild("Eggs")
@@ -4576,27 +4579,34 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                 local eggName = GetEggTypeName(egg.Name)
                                 if SelectedEggs[eggName] ~= false then
                                     local category = GetEggWeightBracket(egg)
-                                    if category ~= nil and tostring(category):lower():find("titanic", 1, true) then
-                                        table.insert(titanicCandidates, egg)
+                                    local isTitanic = category ~= nil and tostring(category):lower():find("titanic", 1, true) ~= nil
+                                    local luck = HighLuckFilterEnabled and GetEggLuck(egg) or 0
+                                    if (not TitanicFilterEnabled or isTitanic)
+                                        and (not HighLuckFilterEnabled or luck > 0) then
+                                        table.insert(filteredCandidates, {egg = egg, luck = luck})
                                     end
                                 end
                             end
                         end
                     end
                 end
-                table.sort(titanicCandidates, function(a, b)
-                    return a.Name < b.Name
+                table.sort(filteredCandidates, function(a, b)
+                    if HighLuckFilterEnabled and a.luck ~= b.luck then return a.luck > b.luck end
+                    return a.egg.Name < b.egg.Name
                 end)
-                if #titanicCandidates > 0 then
-                    target = titanicCandidates[1]
-                    SetTrackerStatus("TITANIC PRIORITY: selected " .. target.Name
-                        .. " | category=TITANIC before the normal egg route.")
-                    AddDebugLog("[Auto Break] Titanic category detected: " .. target.Name .. "; prioritizing by category only.")
+                if #filteredCandidates > 0 then
+                    target = filteredCandidates[1].egg
+                    SetTrackerStatus("AUTO BREAK FILTERS: selected " .. target.Name
+                        .. (TitanicFilterEnabled and " | Titanic matched" or "")
+                        .. (HighLuckFilterEnabled and (" | Luck=" .. tostring(filteredCandidates[1].luck)) or ""))
                 else
-                    SetTrackerStatus("TITANIC PRIORITY is ON, but no eligible egg with TITANIC category was found in the selected zones.")
+                    SetTrackerStatus("Auto Break filters found no matching egg in the selected zones; waiting for a match.")
+                end
+                if not target then
+                    return
                 end
             end
-            if not target and SortOrder == "Highest Luck" then
+            if not target and not TitanicFilterEnabled and not HighLuckFilterEnabled and SortOrder == "Highest Luck" then
                 local luckCandidates = {}
                 local unreadableLuckCount = 0
                 for _, zoneName in ipairs(selectedZoneNames) do
@@ -4631,10 +4641,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 table.sort(luckCandidates, function(a, b)
                     if a.luck ~= b.luck then return a.luck > b.luck end
-                    if TitanicPriorityEnabled and a.isTitanic ~= b.isTitanic then
+                    if TitanicFilterEnabled and a.isTitanic ~= b.isTitanic then
                         return a.isTitanic
                     end
-                    if TitanicPriorityEnabled and a.weightKg ~= b.weightKg then
+                    if TitanicFilterEnabled and a.weightKg ~= b.weightKg then
                         return a.weightKg > b.weightKg
                     end
                     return a.egg.Name < b.egg.Name
@@ -4643,7 +4653,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     target = luckCandidates[1].egg
                     SetTrackerStatus("HIGHEST LUCK PRIORITY: selected " .. target.Name
                         .. " | Luck=" .. tostring(luckCandidates[1].luck)
-                        .. (TitanicPriorityEnabled and (" | Size tie-break: " .. (luckCandidates[1].isTitanic and "Titanic" or tostring(luckCandidates[1].weightKg) .. " KG")) or "")
+                        .. (TitanicFilterEnabled and (" | Size tie-break: " .. (luckCandidates[1].isTitanic and "Titanic" or tostring(luckCandidates[1].weightKg) .. " KG")) or "")
                         .. " | readable candidates=" .. tostring(#luckCandidates)
                         .. " | ignored unreadable=" .. tostring(unreadableLuckCount))
                     AddDebugLog("[Auto Break] Selected " .. target.Name .. " | luck=" .. tostring(luckCandidates[1].luck)
@@ -4811,7 +4821,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         task.spawn(function()
             while not Runtime.Stopped and not ScriptShuttingDown do
                 task.wait(1.5)
-                if AutoBreakEnabled and SortOrder == "Highest Luck"
+                if AutoBreakEnabled and HighLuckFilterEnabled
                     and MovementConnection ~= nil and CurrentTarget
                     and IsEggAvailable(CurrentTarget)
                     and not FlingRecoveryActive and not PickupRequested
@@ -4903,13 +4913,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end
         end)
-        RefreshTitanicPriority = function()
-            if not AutoBreakEnabled or not CurrentTarget then return end
+        RefreshEggFilters = function()
+            if not AutoBreakEnabled then return end
             if FlingRecoveryActive or PickupRequested or ReturningAfterPickup or WaitingForPickup then
-                AddDebugLog("[Auto Break] Priority changed; will apply after the current pickup/recovery finishes.")
+                AddDebugLog("[Auto Break] Filter changed; will apply after the current pickup/recovery finishes.")
                 return
             end
-            AddDebugLog("[Auto Break] Refreshing target immediately for updated TITANIC priority.")
+            AddDebugLog("[Auto Break] Refreshing target immediately for updated egg filters.")
+            CurrentTarget = nil
             task.defer(function()
                 if AutoBreakEnabled and not FlingRecoveryActive and not PickupRequested
                     and not ReturningAfterPickup and not WaitingForPickup then
@@ -5079,6 +5090,39 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 Main.Position.Y.Offset + (oldSize.Y - newSize.Y) / 2
             )
         end)
+
+        local AntiAFKCard = CreateCard(Page, "🛡️  Anti AFK", "")
+        AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
+        local AntiAFKEnabled = true
+        local AntiAFKStatus = Create("TextLabel", {
+            Parent = AntiAFKCard,
+            Position = UDim2.fromOffset(11, 47),
+            Size = UDim2.new(1, -82, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Status: ENABLED",
+            TextColor3 = Theme.Accent,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local AntiAFKToggle = CreateToggle(AntiAFKCard, "", true, function(enabled)
+            AntiAFKEnabled = enabled
+            AntiAFKStatus.Text = "Status: " .. (enabled and "ENABLED" or "DISABLED")
+            AntiAFKStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
+        end)
+        AntiAFKToggle.Position = UDim2.new(1, -58, 0, 7)
+        AntiAFKToggle.Size = UDim2.fromOffset(48, 24)
+        local AntiAFKTitle = AntiAFKCard:FindFirstChildWhichIsA("TextLabel")
+        if AntiAFKTitle then AntiAFKTitle.Size = UDim2.new(1, -78, 0, 22) end
+        local AntiAFKConnection = LocalPlayer.Idled:Connect(function()
+            if not AntiAFKEnabled or Runtime.Stopped then return end
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0, 0))
+            end)
+        end)
+        Runtime.PersistentConnections = Runtime.PersistentConnections or {}
+        table.insert(Runtime.PersistentConnections, AntiAFKConnection)
 
     elseif index == 3 then
         local CandyCard = CreateCard(Page, "🍬  Auto collect candies", "UNDER DEVELOPMENT")
