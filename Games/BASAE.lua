@@ -2390,6 +2390,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return luck, weightKG, category
         end
 
+        -- Keep Auto Break weight parsing aligned with the EggESP source paths.
+        function GetEggWeightKg(egg)
+            local _, rawWeight = GetEggESPMetadata(egg)
+            if rawWeight == nil or tostring(rawWeight):match("%S") == nil then return nil end
+            return tonumber(tostring(rawWeight):lower():gsub(",", ""):match("[%d%.]+"))
+        end
+
         function GetEggCategory(egg)
             local _, _, category = GetEggESPMetadata(egg)
             if category == nil or tostring(category):match("%S") == nil then return nil end
