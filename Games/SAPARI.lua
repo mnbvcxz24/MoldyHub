@@ -4006,7 +4006,7 @@ end))
             BackgroundColor3 = Theme.Border,
             BorderSizePixel = 0
         })
-        local AntiAFKToggle = CreateToggle(AntiAFKCard, "Enable Anti AFK", false, function(enabled)
+        local AntiAFKToggle = CreateToggle(AntiAFKCard, "Enable Anti AFK", true, function(enabled)
             if enabled then
                 if antiAFKConnection and antiAFKConnection.Connected then
                     antiAFKConnection:Disconnect()
@@ -4025,6 +4025,7 @@ end))
         end)
         AntiAFKToggle.Position = UDim2.fromOffset(11, 61)
         AntiAFKToggle.Size = UDim2.new(1, -22, 0, 24)
+        ToggleControllers[AntiAFKToggle].SetEnabled(true, true)
     elseif name == "Settings" then
         local AppearanceCard = CreateCard(Page, "Appearance", "Select a color palette for the interface.")
         local ThemeOptions = {
