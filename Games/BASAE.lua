@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.266"
+local testver = "Test ver: 1.267"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2407,10 +2407,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local rawLuck = GetEggESPMetadata(egg)
             if rawLuck == nil or tostring(rawLuck):match("%S") == nil then return 0 end
 
-            -- Supports displayed values such as x90Qa, x10T and x500.2B.
+            -- Supports displayed values such as x90Qa, x10T, x500.2B and x3.49Qa Luck.
+            -- Remove the UI label before parsing so "Luck" is never mistaken for a numeric suffix.
             local text = tostring(rawLuck)
-                :gsub("^%s*[xX×]%s*", "")
                 :lower()
+                :gsub("%s*luck%s*", "")
+                :gsub("^%s*[x×]%s*", "")
                 :gsub(",", "")
                 :gsub("%s+", "")
 
