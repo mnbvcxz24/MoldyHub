@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.257"
+local testver = "Test ver: 1.258"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -451,7 +451,7 @@ local function CreateStatusText(name, position, size, text, color, font, textSiz
         Text = text,
         TextColor3 = color,
         Font = font or Enum.Font.GothamMedium,
-        TextSize = StatusBarFontSize,
+        TextSize = textSize or StatusBarFontSize,
         TextXAlignment = alignment or Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
         TextTruncate = Enum.TextTruncate.AtEnd,
@@ -459,13 +459,14 @@ local function CreateStatusText(name, position, size, text, color, font, textSiz
     })
 end
 
-local GameNameLabel = CreateStatusText("GameName", UDim2.fromOffset(10, 3), UDim2.fromOffset(112, 28), "Loading game...", Theme.DarkGray, Enum.Font.GothamMedium, 9, Enum.TextXAlignment.Left)
+local GameNameLabel = CreateStatusText("GameName", UDim2.fromOffset(10, 3), UDim2.fromOffset(112, 28), "Loading game...", Theme.DarkGray, Enum.Font.GothamBold, 9, Enum.TextXAlignment.Left)
 GameNameLabel.TextScaled = true
 GameNameLabel.TextWrapped = false
--- Let the full experience name shrink to fit instead of cutting it off.
-GameNameLabel.TextTruncate = Enum.TextTruncate.None
+-- Keep long game names inside their own slot; scale down first, then truncate
+-- rather than allowing the text to overlap the FPS section.
+GameNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 local GameNameTextConstraint = Instance.new("UITextSizeConstraint")
-GameNameTextConstraint.MinTextSize = 4
+GameNameTextConstraint.MinTextSize = 7
 GameNameTextConstraint.MaxTextSize = 9
 GameNameTextConstraint.Parent = GameNameLabel
 local function CreateStatusDivider(x)
@@ -482,7 +483,7 @@ local function CreateStatusDivider(x)
 end
 CreateStatusDivider(126)
 
-local FPSLabel = CreateStatusText("FPS", UDim2.fromOffset(132, 3), UDim2.fromOffset(58, 28), "0 FPS", Theme.Text, Enum.Font.GothamBold, 10)
+local FPSLabel = CreateStatusText("FPS", UDim2.fromOffset(132, 3), UDim2.fromOffset(58, 28), "0 FPS", Theme.Text, Enum.Font.GothamBold, 9)
 CreateStatusDivider(194)
 
 local BrandBadge = Create("Frame", {
@@ -512,10 +513,10 @@ local BrandText = Create("TextLabel", {
 })
 CreateStatusDivider(310)
 
-local PingLabel = CreateStatusText("Ping", UDim2.fromOffset(316, 3), UDim2.fromOffset(66, 28), "-- MS", Theme.DarkGray, Enum.Font.GothamMedium, 10)
+local PingLabel = CreateStatusText("Ping", UDim2.fromOffset(316, 3), UDim2.fromOffset(66, 28), "-- MS", Theme.DarkGray, Enum.Font.GothamBold, 9)
 CreateStatusDivider(389)
 
-local DurationLabel = CreateStatusText("Duration", UDim2.fromOffset(395, 3), UDim2.fromOffset(96, 28), "00:00:00", Theme.Text, Enum.Font.GothamMedium, 10)
+local DurationLabel = CreateStatusText("Duration", UDim2.fromOffset(395, 3), UDim2.fromOffset(96, 28), "00:00:00", Theme.Text, Enum.Font.GothamBold, 9)
 
 -- Resolve the actual experience name without blocking UI creation.
 task.spawn(function()
