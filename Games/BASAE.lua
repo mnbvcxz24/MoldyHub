@@ -1181,7 +1181,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             LayoutOrder = 2
         })
         local AutoFuseCard = CreateCard(AutoRow, "⚙️  Auto Fuse", "UNDER DEVELOPMENT")
-        local AntiAFKCard = CreateCard(AntiFuseRow, "🛡️  Anti AFK", "Prevents idle disconnection.")
+        local AntiAFKCard = CreateCard(AntiFuseRow, "🛡️  Anti AFK", "")
         AntiAFKCard.Position = UDim2.fromOffset(0, 0)
         AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
         local AntiAFKEnabled = true
@@ -4955,7 +4955,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
         end)
         RefreshEggFilters = function()
-            if not AutoBreakEnabled or not CurrentTarget then return end
+            if not AutoBreakEnabled then return end
             if FlingRecoveryActive or PickupRequested or ReturningAfterPickup or WaitingForPickup then
                 AddDebugLog("[Auto Break] Filter changed; will apply after the current pickup/recovery finishes.")
                 return
