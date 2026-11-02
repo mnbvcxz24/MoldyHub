@@ -54,6 +54,7 @@ local UIConfig = {
     Height = 320,
     SidebarNames = {
         "Main",
+        "Farm",
         "Events",
         "Misc. feature",
         "Settings"
@@ -899,6 +900,9 @@ end
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if name == "Main" then
+        CreateCard(Page, "Sample Card 1", "Placeholder content for the Main page.")
+        CreateCard(Page, "Sample Card 2", "Placeholder content for the Main page.")
+    elseif name == "Farm" then
         local AutoCard = CreateCard(Page, "Auto Steal", "")
         AutoCard.Parent = PageColumnMap[Page].Left
         AutoCard.Size = UDim2.new(1, 0, 0, 265)
