@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.231"
+local testver = "Test ver: 1.232"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1050,7 +1050,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Position = UDim2.fromOffset(11, 91),
             Size = UDim2.new(1, -22, 0, 12),
             BackgroundTransparency = 1,
-            Text = "SCRIPT DURATION",
+            Text = "DURATION",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.GothamSemibold,
             TextSize = 8,
