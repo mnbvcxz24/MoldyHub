@@ -1077,96 +1077,71 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local CachedPathsFolder = workspace:FindFirstChild("Paths")
         local CachedPathFolders = {}
-        local CachedActiveWorldFolder
-        local CachedSafeZoneSign = workspace:FindFirstChild("SafeZoneSign", true)
+        local CachedSafeZoneSign
 
         if CachedPathsFolder then
             for _, pathObject in ipairs(CachedPathsFolder:GetChildren()) do
                 if pathObject:IsA("Folder") then
                     local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
-                    if pathNumber and pathNumber >= 1 and pathNumber <= 20 then
+                    if pathNumber then
                         CachedPathFolders[pathNumber] = pathObject
                     end
                 end
             end
         end
 
-        if CachedSafeZoneSign then
-            CachedActiveWorldFolder = CachedSafeZoneSign:FindFirstAncestor("Hub")
-                or CachedSafeZoneSign:FindFirstAncestor("World2")
-        end
+        local function RefreshCurrentWorld()
+            local worldValue = LocalPlayer:GetAttribute("World")
+            local worldNumber = tonumber(worldValue)
 
-        if not CachedActiveWorldFolder and CachedPathsFolder then
-            local character = LocalPlayer.Character
-            local root = character and character:FindFirstChild("HumanoidRootPart")
-            if root then
-                local closestPathNumber
-                local closestPathDistance = math.huge
+            Runtime.CurrentWorld = worldNumber or worldValue
+            local worldFolderName
+            if worldNumber == 1 then
+                worldFolderName = "Hub"
+            elseif worldValue ~= nil then
+                worldFolderName = "World" .. tostring(worldValue)
+            end
 
-                for pathNumber, pathObject in pairs(CachedPathFolders) do
-                    local pathDistance = math.huge
-                    for _, descendant in ipairs(pathObject:GetDescendants()) do
-                        if descendant:IsA("BasePart") then
-                            local localPosition = descendant.CFrame:PointToObjectSpace(root.Position)
-                            local halfSize = descendant.Size * 0.5
-                            local outsideX = math.max(math.abs(localPosition.X) - halfSize.X, 0)
-                            local outsideY = math.max(math.abs(localPosition.Y) - halfSize.Y, 0)
-                            local outsideZ = math.max(math.abs(localPosition.Z) - halfSize.Z, 0)
-                            local distance = Vector3.new(outsideX, outsideY, outsideZ).Magnitude
-                            if distance < pathDistance then
-                                pathDistance = distance
-                            end
-                            if pathDistance == 0 then
-                                break
-                            end
-                        end
-                    end
+            Runtime.CurrentWorldFolder = worldFolderName
+                and workspace:FindFirstChild(worldFolderName) or nil
+            CachedSafeZoneSign = Runtime.CurrentWorldFolder
+                and Runtime.CurrentWorldFolder:FindFirstChild("SafeZoneSign", true) or nil
 
-                    if pathDistance < closestPathDistance then
-                        closestPathDistance = pathDistance
-                        closestPathNumber = pathNumber
-                    end
-                end
-
-                if closestPathNumber then
-                    CachedActiveWorldFolder = {
-                        Name = closestPathNumber >= 11 and "World2" or "Hub"
-                    }
-                end
+            if Runtime.CurrentWorldValue then
+                Runtime.CurrentWorldValue.Text = "Current World: " .. tostring(Runtime.CurrentWorld or "Unknown")
             end
         end
 
-        Runtime.CurrentWorld = CachedActiveWorldFolder and CachedActiveWorldFolder.Name or nil
-        Runtime.CurrentWorldFolder = Runtime.CurrentWorld and workspace:FindFirstChild(Runtime.CurrentWorld) or nil
+        RefreshCurrentWorld()
+        TrackConnection(LocalPlayer:GetAttributeChangedSignal("World"):Connect(RefreshCurrentWorld))
 
         local function GetActiveWorldPathsFolder()
-            if not CachedPathsFolder or not CachedActiveWorldFolder then
+            if not CachedPathsFolder or Runtime.CurrentWorld == nil then
                 return nil, nil, nil
             end
-            return CachedPathsFolder, CachedActiveWorldFolder, CachedSafeZoneSign
+            return CachedPathsFolder, Runtime.CurrentWorldFolder, CachedSafeZoneSign
         end
 
         local function IsPathInActiveWorld(pathObject)
-            if not pathObject or not CachedActiveWorldFolder then return false end
+            local worldNumber = tonumber(Runtime.CurrentWorld)
+            if not pathObject or not worldNumber then return false end
             local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
             if not pathNumber then return false end
-            if CachedActiveWorldFolder.Name == "World2" then
-                return pathNumber >= 11 and pathNumber <= 20
-            end
-            if CachedActiveWorldFolder.Name == "Hub" then
-                return pathNumber >= 1 and pathNumber <= 10
-            end
-            return false
+
+            local firstPath = ((worldNumber - 1) * 10) + 1
+            local lastPath = worldNumber * 10
+            return pathNumber >= firstPath and pathNumber <= lastPath
         end
 
         local function GetPathFolders()
             local results = {}
-            if not CachedPathsFolder or not CachedActiveWorldFolder then
+            local worldNumber = tonumber(Runtime.CurrentWorld)
+            if not CachedPathsFolder or not worldNumber then
                 return results
             end
 
-            local firstPath = CachedActiveWorldFolder.Name == "World2" and 11 or 1
-            local lastPath = CachedActiveWorldFolder.Name == "World2" and 20 or 10
+            local firstPath = ((worldNumber - 1) * 10) + 1
+            local lastPath = worldNumber * 10
 
             for pathNumber = firstPath, lastPath do
                 local pathObject = CachedPathFolders[pathNumber]
