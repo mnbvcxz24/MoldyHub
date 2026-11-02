@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.255"
+local testver = "Test ver: 1.256"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -345,16 +345,41 @@ local function ApplyTheme(themeName)
     -- its badge explicitly whenever the user changes the theme.
     local statusGui = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
     if statusGui then
+        local statusBar = statusGui:FindFirstChild("MoldyHubStatusBar", true)
         local brandBadge = statusGui:FindFirstChild("BrandBadge", true)
         local brandText = statusGui:FindFirstChild("BrandText", true)
+        local accentLine = statusGui:FindFirstChild("AccentLine", true)
+        if statusBar then
+            statusBar.BackgroundColor3 = selectedTheme.Card
+            local outline = statusBar:FindFirstChildOfClass("UIStroke")
+            if outline then outline.Color = selectedTheme.Border end
+        end
+        if accentLine then
+            accentLine.BackgroundColor3 = selectedTheme.Accent
+        end
+        for _, divider in ipairs(statusGui:GetDescendants()) do
+            if divider:IsA("Frame") and divider.Name == "StatusDivider" then
+                divider.BackgroundColor3 = selectedTheme.Border
+            end
+        end
         if brandBadge then
             brandBadge.BackgroundColor3 = selectedTheme.Selected
+            local outline = brandBadge:FindFirstChildOfClass("UIStroke")
+            if outline then outline.Color = selectedTheme.Border end
         end
         if brandText then
             brandText.RichText = true
             brandText.TextColor3 = selectedTheme.Text
             brandText.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font><font color="#' .. selectedTheme.Text:ToHex() .. '">Hub</font>'
         end
+        local gameName = statusGui:FindFirstChild("GameName", true)
+        local fps = statusGui:FindFirstChild("FPS", true)
+        local ping = statusGui:FindFirstChild("Ping", true)
+        local duration = statusGui:FindFirstChild("Duration", true)
+        if gameName then gameName.TextColor3 = selectedTheme.DarkGray end
+        if fps then fps.TextColor3 = selectedTheme.Text end
+        if ping then ping.TextColor3 = selectedTheme.DarkGray end
+        if duration then duration.TextColor3 = selectedTheme.Text end
     end
 end
 -- COMPACT TOP STATUS BAR
@@ -372,7 +397,7 @@ local StatusBar = Create("Frame", {
     Name = "MoldyHubStatusBar",
     Parent = StatusBarGui,
     AnchorPoint = Vector2.new(0, 0),
-    Position = UDim2.fromOffset(0, 12),
+    Position = UDim2.fromOffset(0, 0),
     Size = UDim2.fromOffset(500, 34),
     BackgroundColor3 = Theme.Card,
     BorderSizePixel = 0,
@@ -380,7 +405,7 @@ local StatusBar = Create("Frame", {
     ZIndex = 200
 })
 AddCorner(StatusBar, 9)
-AddStroke(StatusBar, Theme.Border, 1)
+local StatusBarStroke = AddStroke(StatusBar, Theme.Border, 1)
 
 -- Scale the entire status bar as one unit so the frame, padding,
 -- dividers, badge, and every text label stay aligned inside the border.
@@ -400,7 +425,7 @@ do
     local camera = workspace.CurrentCamera
     local viewportWidth = camera and camera.ViewportSize.X or 0
     local scaledWidth = StatusBar.AbsoluteSize.X
-    StatusBar.Position = UDim2.fromOffset(math.max(0, (viewportWidth - scaledWidth) / 2), 12)
+    StatusBar.Position = UDim2.fromOffset(math.max(0, (viewportWidth - scaledWidth) / 2), 0)
 end
 
 local StatusBarAccent = Create("Frame", {
@@ -435,8 +460,15 @@ local function CreateStatusText(name, position, size, text, color, font, textSiz
 end
 
 local GameNameLabel = CreateStatusText("GameName", UDim2.fromOffset(10, 3), UDim2.fromOffset(112, 28), "Loading game...", Theme.DarkGray, Enum.Font.GothamMedium, 9, Enum.TextXAlignment.Left)
+GameNameLabel.TextScaled = true
+GameNameLabel.TextWrapped = false
+local GameNameTextConstraint = Instance.new("UITextSizeConstraint")
+GameNameTextConstraint.MinTextSize = 6
+GameNameTextConstraint.MaxTextSize = 9
+GameNameTextConstraint.Parent = GameNameLabel
 local function CreateStatusDivider(x)
     local divider = Create("Frame", {
+        Name = "StatusDivider",
         Parent = StatusBar,
         Position = UDim2.fromOffset(x, 9),
         Size = UDim2.fromOffset(1, 16),
@@ -461,7 +493,7 @@ local BrandBadge = Create("Frame", {
     ZIndex = 202
 })
 AddCorner(BrandBadge, 12)
-AddStroke(BrandBadge, Theme.Border, 1)
+local BrandBadgeStroke = AddStroke(BrandBadge, Theme.Border, 1)
 local BrandText = Create("TextLabel", {
     Name = "BrandText",
     Parent = BrandBadge,
