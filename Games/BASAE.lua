@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.273"
+local testver = "Test ver: 1.274"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -840,34 +840,34 @@ local function CreatePage(pageNumber, pageName)
     })
     Create("UIPadding", {
         Parent = Page,
-        PaddingTop = UDim.new(0, 12),
-        PaddingBottom = UDim.new(0, 12),
-        PaddingLeft = UDim.new(0, 12),
-        PaddingRight = UDim.new(0, 12)
+        PaddingTop = UDim.new(0, 4),
+        PaddingBottom = UDim.new(0, 4),
+        PaddingLeft = UDim.new(0, 4),
+        PaddingRight = UDim.new(0, 4)
     })
     local LeftColumn = Create("Frame", {
         Name = "LeftColumn",
         Parent = Page,
-        Size = UDim2.new(0.5, -4, 0, 0),
+        Size = UDim2.new(0.5, -2, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
     local RightColumn = Create("Frame", {
         Name = "RightColumn",
         Parent = Page,
-        Position = UDim2.new(0.5, 4, 0, 0),
-        Size = UDim2.new(0.5, -4, 0, 0),
+        Position = UDim2.new(0.5, 2, 0, 0),
+        Size = UDim2.new(0.5, -2, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
     local LeftLayout = Create("UIListLayout", {
         Parent = LeftColumn,
-        Padding = UDim.new(0, 8),
+        Padding = UDim.new(0, 4),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     local RightLayout = Create("UIListLayout", {
         Parent = RightColumn,
-        Padding = UDim.new(0, 8),
+        Padding = UDim.new(0, 4),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     PageColumnMap[Page] = {
@@ -888,8 +888,8 @@ local function CreatePage(pageNumber, pageName)
                 contentBottom = math.max(contentBottom, childBottom)
             end
         end
-        -- Account for the page's 12px top and bottom padding.
-        Page.CanvasSize = UDim2.new(0, 0, 0, contentBottom + 24)
+        -- Account for the page's 4px top and bottom padding.
+        Page.CanvasSize = UDim2.new(0, 0, 0, contentBottom + 8)
     end
     local function TrackCanvasChild(child)
         if not child:IsA("GuiObject") then return end
