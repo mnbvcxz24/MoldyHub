@@ -1102,6 +1102,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 worldFolderName = "World" .. tostring(worldValue)
             end
 
+            Runtime.CurrentWorldFolderName = worldFolderName
             Runtime.CurrentWorldFolder = worldFolderName
                 and workspace:FindFirstChild(worldFolderName) or nil
             CachedSafeZoneSign = Runtime.CurrentWorldFolder
@@ -2199,7 +2200,8 @@ end))
             repeat
                 local activeWorld = Runtime.CurrentWorldFolder
                 if not activeWorld or not activeWorld.Parent then
-                    activeWorld = Runtime.CurrentWorld and workspace:FindFirstChild(Runtime.CurrentWorld)
+                    activeWorld = Runtime.CurrentWorldFolderName
+                        and workspace:FindFirstChild(Runtime.CurrentWorldFolderName) or nil
                     Runtime.CurrentWorldFolder = activeWorld
                 end
                 local waves = activeWorld and activeWorld:FindFirstChild("Waves")
