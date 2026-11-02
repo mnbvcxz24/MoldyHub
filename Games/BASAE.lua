@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.248"
+local testver = "Test ver: 1.249"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -38,6 +38,8 @@ RuntimeEnv.__BASAECleanup = function()
     pcall(function()
         local oldUI = game.CoreGui:FindFirstChild("BASAESkripUI")
         if oldUI then oldUI:Destroy() end
+        local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+        if oldStatusBar then oldStatusBar:Destroy() end
     end)
     pcall(function()
         local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -128,6 +130,8 @@ end
 pcall(function()
     local oldUI = game.CoreGui:FindFirstChild("BASAESkripUI")
     if oldUI then oldUI:Destroy() end
+    local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    if oldStatusBar then oldStatusBar:Destroy() end
 end)
 pcall(function()
     local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -459,7 +463,9 @@ local BrandText = Create("TextLabel", {
     TextColor3 = Theme.Text,
     RichText = true,
     Font = Enum.Font.GothamBold,
-    TextSize = 11,
+    TextSize = 12,
+    TextScaled = false,
+    TextWrapped = false,
     ZIndex = 203
 })
 CreateStatusDivider(310)
