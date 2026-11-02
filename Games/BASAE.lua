@@ -1172,48 +1172,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AutoPickupToggle.Size = UDim2.fromOffset(48, 24)
         local AutoPickupTitle = AutoPickupCard:FindFirstChildWhichIsA("TextLabel")
         if AutoPickupTitle then AutoPickupTitle.Size = UDim2.new(1, -78, 0, 22) end
-        local AntiFuseRow = Create("Frame", {
-            Name = "AntiFuseRow",
-            Parent = Page,
-            Size = UDim2.new(1, 0, 0, 78),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            LayoutOrder = 2
-        })
         local AutoFuseCard = CreateCard(AutoRow, "⚙️  Auto Fuse", "UNDER DEVELOPMENT")
-        local AntiAFKCard = CreateCard(AntiFuseRow, "🛡️  Anti AFK", "")
-        AntiAFKCard.Position = UDim2.fromOffset(0, 0)
-        AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
-        local AntiAFKEnabled = true
-        local AntiAFKStatus = Create("TextLabel", {
-            Parent = AntiAFKCard,
-            Position = UDim2.fromOffset(11, 47),
-            Size = UDim2.new(1, -82, 0, 14),
-            BackgroundTransparency = 1,
-            Text = "Status: ENABLED",
-            TextColor3 = Theme.Accent,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local AntiAFKToggle = CreateToggle(AntiAFKCard, "", true, function(enabled)
-            AntiAFKEnabled = enabled
-            AntiAFKStatus.Text = "Status: " .. (enabled and "ENABLED" or "DISABLED")
-            AntiAFKStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
-        end)
-        AntiAFKToggle.Position = UDim2.new(1, -58, 0, 7)
-        AntiAFKToggle.Size = UDim2.fromOffset(48, 24)
-        local AntiAFKTitle = AntiAFKCard:FindFirstChildWhichIsA("TextLabel")
-        if AntiAFKTitle then AntiAFKTitle.Size = UDim2.new(1, -78, 0, 22) end
-        local AntiAFKConnection = LocalPlayer.Idled:Connect(function()
-            if not AntiAFKEnabled or Runtime.Stopped then return end
-            pcall(function()
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton2(Vector2.new(0, 0))
-            end)
-        end)
-        Runtime.PersistentConnections = Runtime.PersistentConnections or {}
-        table.insert(Runtime.PersistentConnections, AntiAFKConnection)
         AutoFuseCard.Position = UDim2.new(0.5, 6, 0, 196)
         AutoFuseCard.Size = UDim2.new(0.5, -6, 0, 150)
         local AutoFuseEnabled = false
@@ -5131,6 +5090,39 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 Main.Position.Y.Offset + (oldSize.Y - newSize.Y) / 2
             )
         end)
+
+        local AntiAFKCard = CreateCard(Page, "🛡️  Anti AFK", "")
+        AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
+        local AntiAFKEnabled = true
+        local AntiAFKStatus = Create("TextLabel", {
+            Parent = AntiAFKCard,
+            Position = UDim2.fromOffset(11, 47),
+            Size = UDim2.new(1, -82, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Status: ENABLED",
+            TextColor3 = Theme.Accent,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local AntiAFKToggle = CreateToggle(AntiAFKCard, "", true, function(enabled)
+            AntiAFKEnabled = enabled
+            AntiAFKStatus.Text = "Status: " .. (enabled and "ENABLED" or "DISABLED")
+            AntiAFKStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
+        end)
+        AntiAFKToggle.Position = UDim2.new(1, -58, 0, 7)
+        AntiAFKToggle.Size = UDim2.fromOffset(48, 24)
+        local AntiAFKTitle = AntiAFKCard:FindFirstChildWhichIsA("TextLabel")
+        if AntiAFKTitle then AntiAFKTitle.Size = UDim2.new(1, -78, 0, 22) end
+        local AntiAFKConnection = LocalPlayer.Idled:Connect(function()
+            if not AntiAFKEnabled or Runtime.Stopped then return end
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0, 0))
+            end)
+        end)
+        Runtime.PersistentConnections = Runtime.PersistentConnections or {}
+        table.insert(Runtime.PersistentConnections, AntiAFKConnection)
 
     elseif index == 3 then
         local CandyCard = CreateCard(Page, "🍬  Auto collect candies", "UNDER DEVELOPMENT")
