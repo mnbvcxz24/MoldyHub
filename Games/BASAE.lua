@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.237"
+local testver = "Test ver: 1.238"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1782,6 +1782,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             UpdateFilterPanel()
         end)
         SetAutoBreakControl(ZoneFilterButton, AutoBreakControlLayout.ZoneY)
+        ZoneFilterButton.TextSize = 9
+        ZoneFilterButton.Font = Enum.Font.GothamMedium
+        ZoneFilterButton.BackgroundColor3 = Theme.Selected
         EggFilterButton = CreateButton(Card1, "Eggs ▼", function()
             EggFilterOpen = not EggFilterOpen
             ZoneFilterOpen = false
@@ -1789,6 +1792,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             UpdateFilterPanel()
         end)
         SetAutoBreakControl(EggFilterButton, AutoBreakControlLayout.EggY)
+        EggFilterButton.TextSize = 9
+        EggFilterButton.Font = Enum.Font.GothamMedium
+        EggFilterButton.BackgroundColor3 = Theme.Selected
         ZoneList = Create("ScrollingFrame", {
             Name = "ZoneFilterList",
             Parent = Card1,
@@ -1875,6 +1881,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end)
         PriorityFilterButton.Position = UDim2.fromOffset(0, 0)
         PriorityFilterButton.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
+        PriorityFilterButton.TextSize = 9
+        PriorityFilterButton.Font = Enum.Font.GothamMedium
+        PriorityFilterButton.BackgroundColor3 = Theme.Selected
         PriorityFilterButton.ZIndex = 100
         PriorityOptionsFrame = Create("Frame", {
             Name = "PriorityOptions",
