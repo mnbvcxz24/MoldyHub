@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.280"
+local testver = "Test ver: 1.281"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1417,9 +1417,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ScrollingDirection = Enum.ScrollingDirection.Y
         })
-        local MasteryListLayout = Create("UIListLayout", {
+        local MasteryListLayout = Create("UIGridLayout", {
             Parent = MasteryScroll,
-            Padding = UDim.new(0, 5),
+            CellSize = UDim2.new(0.5, -3, 0, 42),
+            CellPadding = UDim2.fromOffset(6, 6),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
         local MasteryRows = {}
@@ -1457,7 +1458,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     row = Create("Frame", {
                         Name = "MasteryRow_" .. tostring(index),
                         Parent = MasteryScroll,
-                        Size = UDim2.new(1, -4, 0, 36),
+                        Size = UDim2.new(0.5, -3, 0, 42),
                         BackgroundColor3 = Theme.SurfaceInput,
                         BorderSizePixel = 0,
                         LayoutOrder = index
@@ -1467,8 +1468,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local accent = Create("Frame", {
                         Name = "Accent",
                         Parent = row,
-                        Position = UDim2.fromOffset(0, 7),
-                        Size = UDim2.new(0, 3, 1, -14),
+                        Position = UDim2.fromOffset(0, 8),
+                        Size = UDim2.new(0, 2, 1, -16),
                         BackgroundColor3 = Theme.Accent,
                         BorderSizePixel = 0
                     })
@@ -1476,25 +1477,25 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local title = Create("TextLabel", {
                         Name = "MasteryName",
                         Parent = row,
-                        Position = UDim2.fromOffset(11, 0),
-                        Size = UDim2.new(1, -94, 1, 0),
+                        Position = UDim2.fromOffset(8, 5),
+                        Size = UDim2.new(1, -14, 0, 11),
                         BackgroundTransparency = 1,
-                        TextColor3 = Theme.Text,
+                        TextColor3 = Theme.Gray,
                         Font = Enum.Font.GothamMedium,
-                        TextSize = 9,
+                        TextSize = 7,
                         TextXAlignment = Enum.TextXAlignment.Left,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
                     local level = Create("TextLabel", {
                         Name = "MasteryLevel",
                         Parent = row,
-                        Position = UDim2.new(1, -82, 0, 0),
-                        Size = UDim2.fromOffset(72, 36),
+                        Position = UDim2.fromOffset(8, 18),
+                        Size = UDim2.new(1, -14, 0, 18),
                         BackgroundTransparency = 1,
-                        TextColor3 = Theme.Accent,
+                        TextColor3 = Theme.Text,
                         Font = Enum.Font.GothamSemibold,
-                        TextSize = 9,
-                        TextXAlignment = Enum.TextXAlignment.Right,
+                        TextSize = 11,
+                        TextXAlignment = Enum.TextXAlignment.Left,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
                     row:SetAttribute("MasteryKey", item.Key)
