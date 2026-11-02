@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.254"
+local testver = "Test ver: 1.255"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -500,15 +500,10 @@ local StatusBarDragInput
 local StatusBarDragStart
 local StatusBarStartPosition
 local StatusBarStartAbsolutePosition
+-- The status bar is intentionally unrestricted: it can be dragged over
+-- Roblox's top bar, chat, menu, and every other CoreGui area.
 local function ClampStatusBarPosition(x, y)
-    local camera = workspace.CurrentCamera
-    if not camera then return x, y end
-    -- Use the status bar ScreenGui canvas so its drag limits match
-    -- the same coordinate space as StatusBar.AbsolutePosition.
-    local screenSize = StatusBar.Parent and StatusBar.Parent.AbsoluteSize or camera.ViewportSize
-    local size = StatusBar.AbsoluteSize
-    return math.clamp(x, 0, math.max(0, screenSize.X - size.X)),
-        math.clamp(y, 0, math.max(0, screenSize.Y - size.Y))
+    return x, y
 end
 
 StatusBar.InputBegan:Connect(function(input)
@@ -529,14 +524,12 @@ local StatusBarInputChanged = UserInputService.InputChanged:Connect(function(inp
         local delta = input.Position - StatusBarDragStart
         local targetX = StatusBarStartAbsolutePosition.X + delta.X
         local targetY = StatusBarStartAbsolutePosition.Y + delta.Y
-        local x, y = ClampStatusBarPosition(targetX, targetY)
-        local correctionX = x - targetX
-        local correctionY = y - targetY
+        -- No edge clamp: allow dragging across the full screen and over Roblox UI.
         StatusBar.Position = UDim2.new(
             StatusBarStartPosition.X.Scale,
-            StatusBarStartPosition.X.Offset + delta.X + correctionX,
+            StatusBarStartPosition.X.Offset + delta.X,
             StatusBarStartPosition.Y.Scale,
-            StatusBarStartPosition.Y.Offset + delta.Y + correctionY
+            StatusBarStartPosition.Y.Offset + delta.Y
         )
     end
 end)
@@ -554,15 +547,8 @@ end)
 
 local StatusBarViewportConnection
 local function KeepStatusBarOnScreen()
-    local absolutePosition = StatusBar.AbsolutePosition
-    local x, y = ClampStatusBarPosition(absolutePosition.X, absolutePosition.Y)
-    local correctionX = x - absolutePosition.X
-    local correctionY = y - absolutePosition.Y
-    local position = StatusBar.Position
-    StatusBar.Position = UDim2.new(
-        position.X.Scale, position.X.Offset + correctionX,
-        position.Y.Scale, position.Y.Offset + correctionY
-    )
+    -- Intentionally do not reposition the bar on viewport changes.
+    -- Its position is user-controlled and may overlap Roblox CoreGui.
 end
 local function ConnectStatusBarViewport(camera)
     if StatusBarViewportConnection then
@@ -6217,20 +6203,10 @@ local WindowDragStart
 local WindowStartPosition
 local WindowStartAbsolutePosition
 
+-- No edge clamp: the main window can be dragged over Roblox's
+-- top bar, chat, menu, and every other CoreGui area.
 local function ClampMainWindowPosition(x, y)
-    local camera = workspace.CurrentCamera
-    if not camera then
-        return x, y
-    end
-
-    -- Clamp in the ScreenGui's coordinate space, not the camera viewport.
-    -- This avoids an inset/viewport mismatch that can create an invisible drag boundary.
-    local screenSize = Main.Parent and Main.Parent.AbsoluteSize or camera.ViewportSize
-    local windowSize = Main.AbsoluteSize
-    local maxX = math.max(0, screenSize.X - windowSize.X)
-    local maxY = math.max(0, screenSize.Y - windowSize.Y)
-
-    return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
+    return x, y
 end
 
 TopBar.InputBegan:Connect(function(input)
@@ -6288,17 +6264,13 @@ UserInputService.InputChanged:Connect(function(input)
             local delta = input.Position - WindowDragStart
             local targetX = WindowStartAbsolutePosition.X + delta.X
             local targetY = WindowStartAbsolutePosition.Y + delta.Y
-            local clampedX, clampedY = ClampMainWindowPosition(targetX, targetY)
-            local correctionX = clampedX - targetX
-            local correctionY = clampedY - targetY
-
-            -- Preserve the original scale components so the first drag movement
-            -- cannot convert a centered window into an offset-only position.
+            -- No edge clamp: let the window travel freely over all Roblox UI.
+            -- Preserve the original scale components to avoid a first-drag jump.
             Main.Position = UDim2.new(
                 WindowStartPosition.X.Scale,
-                WindowStartPosition.X.Offset + delta.X + correctionX,
+                WindowStartPosition.X.Offset + delta.X,
                 WindowStartPosition.Y.Scale,
-                WindowStartPosition.Y.Offset + delta.Y + correctionY
+                WindowStartPosition.Y.Offset + delta.Y
             )
         end
     end
