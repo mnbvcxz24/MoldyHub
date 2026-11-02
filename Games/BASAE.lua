@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.230"
+local testver = "Test ver: 1.231"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1009,12 +1009,35 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if index == 1 then
         local StatusCard = CreateCard(Page, "Status", "Status display is UI-only for now.")
-        StatusCard.Size = UDim2.new(1, 0, 0, 112)
+        StatusCard.Size = UDim2.new(1, 0, 0, 132)
+        local GameNameCaption = Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 40),
+            Size = UDim2.new(1, -22, 0, 12),
+            BackgroundTransparency = 1,
+            Text = "GAME",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local GameNameValue = Create("TextLabel", {
+            Name = "GameNameValue",
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 52),
+            Size = UDim2.new(1, -22, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Break and Steal and Egg",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
         local StatusPlaceholder = Create("TextLabel", {
             Name = "StatusPlaceholder",
             Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 42),
-            Size = UDim2.new(1, -22, 0, 18),
+            Position = UDim2.fromOffset(11, 72),
+            Size = UDim2.new(1, -22, 0, 14),
             BackgroundTransparency = 1,
             Text = "Not connected",
             TextColor3 = Theme.Gray,
@@ -1024,8 +1047,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local DurationCaption = Create("TextLabel", {
             Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 67),
-            Size = UDim2.new(1, -22, 0, 14),
+            Position = UDim2.fromOffset(11, 91),
+            Size = UDim2.new(1, -22, 0, 12),
             BackgroundTransparency = 1,
             Text = "SCRIPT DURATION",
             TextColor3 = Theme.Gray,
@@ -1036,8 +1059,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local DurationValue = Create("TextLabel", {
             Name = "ScriptDurationValue",
             Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 82),
-            Size = UDim2.new(1, -22, 0, 20),
+            Position = UDim2.fromOffset(11, 104),
+            Size = UDim2.new(1, -22, 0, 18),
             BackgroundTransparency = 1,
             Text = "00:00:00",
             TextColor3 = Theme.Accent,
