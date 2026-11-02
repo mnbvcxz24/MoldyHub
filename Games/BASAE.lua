@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.272"
+local testver = "Test ver: 1.273"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1330,16 +1330,21 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if index == 1 then
         -- MAIN PAGE DASHBOARD
-        -- Stats and Mastery sit side-by-side in the Main page.
+        -- Use the same padded two-column card layout as every other page.
+        -- The page itself supplies the 12px outer margin; the column layout
+        -- supplies the shared 8px inter-card gap.
+        local MainPageColumns = PageColumnMap[Page]
         local StatsCard = CreateCard(Page, "Stats", "")
-        StatsCard.Parent = Page
-        StatsCard.Position = UDim2.fromOffset(12, 12)
-        StatsCard.Size = UDim2.new(0.5, -16, 0, 190)
+        StatsCard.Parent = MainPageColumns.Left
+        StatsCard.Position = UDim2.new(0, 0, 0, 0)
+        StatsCard.Size = UDim2.new(1, 0, 0, 190)
+        StatsCard.LayoutOrder = 1
 
         local MasteryCard = CreateCard(Page, "Mastery", "")
-        MasteryCard.Parent = Page
-        MasteryCard.Position = UDim2.new(0.5, 4, 0, 12)
-        MasteryCard.Size = UDim2.new(0.5, -16, 0, 190)
+        MasteryCard.Parent = MainPageColumns.Right
+        MasteryCard.Position = UDim2.new(0, 0, 0, 0)
+        MasteryCard.Size = UDim2.new(1, 0, 0, 190)
+        MasteryCard.LayoutOrder = 1
 
         local function CreateStatTile(name, caption, column, row)
             local xPosition = column == 0 and UDim2.new(0, 9, 0, 0) or UDim2.new(0.5, 4, 0, 0)
