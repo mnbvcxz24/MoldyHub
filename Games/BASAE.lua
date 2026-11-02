@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.262"
+local testver = "Test ver: 1.263"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2275,8 +2275,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return (name:gsub("^%d+:%s*", ""))
         end
         function GetEggDataValue(egg, variableName)
-            local eggModel = egg and (egg:FindFirstChild("Egg") or egg:FindFirstChild("Egg", true) or egg)
-            if not eggModel then return nil end
+            if not egg then return nil end
+            -- Egg metadata can be stored on the outer zone model OR on its nested Egg model.
+            -- Search the full instance tree so Category/Luck/weight attributes are not missed.
             local function readFrom(object)
                 local attribute = object:GetAttribute(variableName)
                 if attribute ~= nil then return tostring(attribute) end
@@ -2288,9 +2289,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 return nil
             end
-            local value = readFrom(eggModel)
+            local value = readFrom(egg)
             if value ~= nil then return value end
-            for _, node in ipairs(eggModel:GetDescendants()) do
+            for _, node in ipairs(egg:GetDescendants()) do
                 value = readFrom(node)
                 if value ~= nil then return value end
             end
@@ -2343,9 +2344,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         function GetEggLuck(egg)
-            local eggModel = egg and (egg:FindFirstChild("Egg") or egg)
+            local eggModel = egg and (egg:FindFirstChild("Egg", true) or egg)
             if not eggModel then return 0 end
-            local info = eggModel:FindFirstChild("EggInfoUi", true)
+            local info = egg:FindFirstChild("EggInfoUi", true) or eggModel:FindFirstChild("EggInfoUi", true)
 
             local function isTextObject(node)
                 return node and (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
@@ -5098,7 +5099,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             while not Runtime.Stopped and not ScriptShuttingDown do
                 task.wait(1.5)
                 if AutoBreakEnabled and (SortOrder == "Highest Luck" or SortOrder == "Highest Kg" or TitanicPriorityEnabled)
-                    and MovementConnection ~= nil and CurrentTarget
+                    and (MovementConnection ~= nil or ArrivedAtTarget) and CurrentTarget
                     and IsEggAvailable(CurrentTarget)
                     and not FlingRecoveryActive and not PickupRequested
                     and not ReturningAfterPickup and not WaitingForPickup
