@@ -4622,6 +4622,11 @@ local function ClampFloatingTogglePosition(x, y)
     local maxX, maxY = GetFloatingToggleBounds()
     return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
 end
+local function PositionFloatingToggleUpperRight()
+    local maxX = GetFloatingToggleBounds()
+    FloatingToggle.Position = UDim2.fromOffset(math.max(0, maxX - 16), 16)
+end
+PositionFloatingToggleUpperRight()
 local function KeepFloatingToggleOnScreen()
     local x, y = ClampFloatingTogglePosition(FloatingToggle.AbsolutePosition.X, FloatingToggle.AbsolutePosition.Y)
     FloatingToggle.Position = UDim2.fromOffset(x, y)
