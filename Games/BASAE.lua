@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.247"
+local testver = "Test ver: 1.248"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -333,7 +333,24 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
+        titleLabel.RichText = true
         titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. (string.match(testver, "[%d%.]+") and ("v" .. string.match(testver, "[%d%.]+")) or testver) .. '</font>'
+    end
+
+    -- The status bar uses a separate ScreenGui for input priority, so update
+    -- its badge explicitly whenever the user changes the theme.
+    local statusGui = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    if statusGui then
+        local brandBadge = statusGui:FindFirstChild("BrandBadge", true)
+        local brandText = statusGui:FindFirstChild("BrandText", true)
+        if brandBadge then
+            brandBadge.BackgroundColor3 = selectedTheme.Selected
+        end
+        if brandText then
+            brandText.RichText = true
+            brandText.TextColor3 = selectedTheme.Text
+            brandText.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font><font color="#' .. selectedTheme.Text:ToHex() .. '">Hub</font>'
+        end
     end
 end
 -- COMPACT TOP STATUS BAR
@@ -425,22 +442,24 @@ CreateStatusDivider(194)
 local BrandBadge = Create("Frame", {
     Name = "BrandBadge",
     Parent = StatusBar,
-    Position = UDim2.fromOffset(201, 6),
-    Size = UDim2.fromOffset(102, 22),
+    Position = UDim2.fromOffset(201, 5),
+    Size = UDim2.fromOffset(102, 24),
     BackgroundColor3 = Theme.Selected,
     BorderSizePixel = 0,
     ZIndex = 202
 })
-AddCorner(BrandBadge, 6)
-Create("TextLabel", {
+AddCorner(BrandBadge, 12)
+AddStroke(BrandBadge, Theme.Border, 1)
+local BrandText = Create("TextLabel", {
     Name = "BrandText",
     Parent = BrandBadge,
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
-    Text = "MOLDYHUB",
-    TextColor3 = Theme.Accent,
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font><font color="#' .. Theme.Text:ToHex() .. '">Hub</font>',
+    TextColor3 = Theme.Text,
+    RichText = true,
     Font = Enum.Font.GothamBold,
-    TextSize = 10,
+    TextSize = 11,
     ZIndex = 203
 })
 CreateStatusDivider(310)
