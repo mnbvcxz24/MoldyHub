@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.281"
+local testver = "Test ver: 1.282"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1343,19 +1343,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         MasteryCard.LayoutOrder = 1
 
         local function CreateStatTile(name, caption, column, row)
-            local xPosition = column == 0 and UDim2.new(0, 9, 0, 0) or UDim2.new(0.5, 4, 0, 0)
+            local xPosition = UDim2.new(column / 3, 9 - (column * 6), 0, 34 + (row * 48))
             local tile = Create("Frame", {
                 Name = name:gsub("[^%w]", "") .. "Tile",
                 Parent = StatsCard,
-                Position = UDim2.new(xPosition.X.Scale, xPosition.X.Offset, 0, 34 + (row * 48)),
-                Size = UDim2.new(0.5, -14, 0, 42),
+                Position = xPosition,
+                Size = UDim2.new(1 / 3, -6, 0, 42),
                 BackgroundColor3 = Theme.SurfaceInput,
                 BorderSizePixel = 0
             })
             AddCorner(tile, 6)
             AddStroke(tile, Theme.Border, 1)
 
-            if column == 0 then
+            do
                 local accent = Create("Frame", {
                     Name = "Accent",
                     Parent = tile,
@@ -1398,10 +1398,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 0, 0)
         local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 1, 0)
-        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 0, 1)
-        local CashValue = CreateStatTile("Cash", "CASH", 1, 1)
-        local SpeedValue = CreateStatTile("Speed", "SPEED", 0, 2)
-        local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 1, 2)
+        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 2, 0)
+        local CashValue = CreateStatTile("Cash", "CASH", 0, 1)
+        local SpeedValue = CreateStatTile("Speed", "SPEED", 1, 1)
+        local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 2, 1)
 
         -- Live mastery list: include only entries whose frame names start with "Mastery_".
         local MasteryScroll = Create("ScrollingFrame", {
@@ -1417,10 +1417,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ScrollingDirection = Enum.ScrollingDirection.Y
         })
-        local MasteryListLayout = Create("UIGridLayout", {
+        local MasteryListLayout = Create("UIListLayout", {
             Parent = MasteryScroll,
-            CellSize = UDim2.new(0.5, -3, 0, 42),
-            CellPadding = UDim2.fromOffset(6, 6),
+            Padding = UDim.new(0, 5),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
         local MasteryRows = {}
@@ -1458,7 +1457,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     row = Create("Frame", {
                         Name = "MasteryRow_" .. tostring(index),
                         Parent = MasteryScroll,
-                        Size = UDim2.new(0.5, -3, 0, 42),
+                        Size = UDim2.new(1, -4, 0, 36),
                         BackgroundColor3 = Theme.SurfaceInput,
                         BorderSizePixel = 0,
                         LayoutOrder = index
@@ -1468,8 +1467,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local accent = Create("Frame", {
                         Name = "Accent",
                         Parent = row,
-                        Position = UDim2.fromOffset(0, 8),
-                        Size = UDim2.new(0, 2, 1, -16),
+                        Position = UDim2.fromOffset(0, 7),
+                        Size = UDim2.new(0, 3, 1, -14),
                         BackgroundColor3 = Theme.Accent,
                         BorderSizePixel = 0
                     })
@@ -1477,25 +1476,25 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local title = Create("TextLabel", {
                         Name = "MasteryName",
                         Parent = row,
-                        Position = UDim2.fromOffset(8, 5),
-                        Size = UDim2.new(1, -14, 0, 11),
+                        Position = UDim2.fromOffset(11, 0),
+                        Size = UDim2.new(1, -94, 1, 0),
                         BackgroundTransparency = 1,
-                        TextColor3 = Theme.Gray,
+                        TextColor3 = Theme.Text,
                         Font = Enum.Font.GothamMedium,
-                        TextSize = 7,
+                        TextSize = 9,
                         TextXAlignment = Enum.TextXAlignment.Left,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
                     local level = Create("TextLabel", {
                         Name = "MasteryLevel",
                         Parent = row,
-                        Position = UDim2.fromOffset(8, 18),
-                        Size = UDim2.new(1, -14, 0, 18),
+                        Position = UDim2.new(1, -82, 0, 0),
+                        Size = UDim2.fromOffset(72, 36),
                         BackgroundTransparency = 1,
-                        TextColor3 = Theme.Text,
+                        TextColor3 = Theme.Accent,
                         Font = Enum.Font.GothamSemibold,
-                        TextSize = 11,
-                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextSize = 9,
+                        TextXAlignment = Enum.TextXAlignment.Right,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
                     row:SetAttribute("MasteryKey", item.Key)
