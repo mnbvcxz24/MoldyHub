@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.276"
+local testver = "Test ver: 1.277"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -5443,7 +5443,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Name = "ESPFeatureCardsRow",
             Parent = Page,
             Position = UDim2.fromOffset(10, 10),
-            Size = UDim2.new(1, -20, 0, 120),
+            Size = UDim2.new(1, -20, 0, 100),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             LayoutOrder = 0
@@ -5861,7 +5861,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local MiscFeatureRow = Create("Frame", {
             Name = "MiscFeatureCardsRow",
             Parent = Page,
-            Position = UDim2.fromOffset(10, 140),
+            Position = UDim2.fromOffset(10, 110),
             Size = UDim2.new(1, -20, 0, 110),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
