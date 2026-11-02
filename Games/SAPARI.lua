@@ -3711,7 +3711,7 @@ end))
         })
     elseif name == "Events" then
         local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "")
-        AutoFightBossCard.Size = UDim2.new(1, 0, 0, 84)
+        AutoFightBossCard.Size = UDim2.new(1, 0, 0, 104)
         local BossCardTitle = AutoFightBossCard:FindFirstChildWhichIsA("TextLabel")
         if BossCardTitle then
             BossCardTitle.TextSize = 10
@@ -3720,8 +3720,8 @@ end))
 
         local BossStatusRow = Create("Frame", {
             Parent = AutoFightBossCard,
-            Position = UDim2.fromOffset(11, 29),
-            Size = UDim2.new(1, -22, 0, 18),
+            Position = UDim2.fromOffset(11, 27),
+            Size = UDim2.new(1, -22, 0, 17),
             BackgroundTransparency = 1
         })
         local BossStatusDot = Create("Frame", {
@@ -3755,9 +3755,38 @@ end))
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Right
         })
+        local BossTimerRow = Create("Frame", {
+            Parent = AutoFightBossCard,
+            Position = UDim2.fromOffset(11, 47),
+            Size = UDim2.new(1, -22, 0, 17),
+            BackgroundTransparency = 1
+        })
+        Create("TextLabel", {
+            Parent = BossTimerRow,
+            Position = UDim2.fromOffset(18, 0),
+            Size = UDim2.fromOffset(72, 17),
+            BackgroundTransparency = 1,
+            Text = "Next wave",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local BossTimerValue = Create("TextLabel", {
+            Parent = BossTimerRow,
+            Position = UDim2.fromOffset(90, 0),
+            Size = UDim2.new(1, -90, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "--:--:--",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+
         Create("Frame", {
             Parent = AutoFightBossCard,
-            Position = UDim2.fromOffset(11, 50),
+            Position = UDim2.fromOffset(11, 68),
             Size = UDim2.new(1, -22, 0, 1),
             BackgroundColor3 = Theme.Border,
             BorderSizePixel = 0
@@ -3768,8 +3797,22 @@ end))
         local BossFightEnded = false
         local BossRoutineToken = 0
         local BossListenerToken = 0
-        local WaveMobsConnection
+        local BossScheduleToken = 0
         local WaveResultConnection
+
+        local function SetBossTimer(seconds)
+            if seconds == nil then
+                BossTimerValue.Text = "--:--:--"
+                return
+            end
+
+            seconds = math.max(0, math.floor(seconds))
+            local hours = math.floor(seconds / 3600)
+            local minutes = math.floor((seconds % 3600) / 60)
+            local remainingSeconds = seconds % 60
+            BossTimerValue.Text = string.format("%02d:%02d:%02d",
+                hours, minutes, remainingSeconds)
+        end
 
         local function SetBossStatus(status)
             BossStatusValue.Text = status
@@ -3787,10 +3830,7 @@ end))
 
         local function DisconnectBossListeners()
             BossListenerToken += 1
-            if WaveMobsConnection then
-                WaveMobsConnection:Disconnect()
-                WaveMobsConnection = nil
-            end
+            BossScheduleToken += 1
             if WaveResultConnection then
                 WaveResultConnection:Disconnect()
                 WaveResultConnection = nil
@@ -3805,6 +3845,9 @@ end))
                 Runtime.EndBossMovement()
             end
             SetBossStatus(AutoFightBossEnabled and "Waiting" or "Disabled")
+            if not AutoFightBossEnabled then
+                SetBossTimer(nil)
+            end
         end
 
         local function StartBossRoutine()
@@ -3896,42 +3939,63 @@ end))
         local function ConnectBossListeners()
             DisconnectBossListeners()
             local listenerToken = BossListenerToken
+            local scheduleToken = BossScheduleToken
 
             task.spawn(function()
+                local waveResult
                 while AutoFightBossEnabled and listenerToken == BossListenerToken
-                and not Runtime.Stopped do
-                    local waveMobs = workspace:FindFirstChild("WaveMobs")
+                and scheduleToken == BossScheduleToken and not Runtime.Stopped do
                     local shared = ReplicatedStorage:FindFirstChild("Shared")
                     local remotes = shared and shared:FindFirstChild("Remotes")
-                    local waveResult = remotes and remotes:FindFirstChild("WaveResult")
+                    waveResult = remotes and remotes:FindFirstChild("WaveResult")
 
-                    if waveMobs and waveMobs:IsA("Folder")
-                    and waveResult and waveResult:IsA("RemoteEvent") then
-                        if listenerToken ~= BossListenerToken or not AutoFightBossEnabled
-                        or Runtime.Stopped then
-                            return
-                        end
-
-                        WaveMobsConnection = TrackConnection(waveMobs.ChildAdded:Connect(function()
-                            if AutoFightBossEnabled and not BossRoutineRunning then
-                                StartBossRoutine()
-                            end
-                        end))
-                        WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
-                            if AutoFightBossEnabled and BossRoutineRunning then
-                                BossFightEnded = true
-                            end
-                        end))
-
-                        if #waveMobs:GetChildren() > 0 and AutoFightBossEnabled
-                        and not BossRoutineRunning then
-                            StartBossRoutine()
-                        end
-                        return
+                    if waveResult and waveResult:IsA("RemoteEvent") then
+                        break
                     end
 
-                    SetBossStatus("WaveMobs / WaveResult unavailable - retrying")
+                    SetBossStatus("WaveResult unavailable - retrying")
                     task.wait(5)
+                end
+
+                if not AutoFightBossEnabled or listenerToken ~= BossListenerToken
+                or scheduleToken ~= BossScheduleToken or Runtime.Stopped then
+                    return
+                end
+
+                WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
+                    if AutoFightBossEnabled and BossRoutineRunning then
+                        BossFightEnded = true
+                    end
+                end))
+
+                -- SAPARI boss waves begin every hour at :15 Philippine time (UTC+8).
+                -- Calculate the next scheduled occurrence, then repeat hourly.
+                local PH_OFFSET_SECONDS = 8 * 60 * 60
+                local nowPH = DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
+                local nextBossStart = math.floor(nowPH / 3600) * 3600 + (15 * 60)
+                if nowPH >= nextBossStart then
+                    nextBossStart += 3600
+                end
+
+                while AutoFightBossEnabled and listenerToken == BossListenerToken
+                and scheduleToken == BossScheduleToken and not Runtime.Stopped do
+                    nowPH = DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
+                    local remaining = nextBossStart - nowPH
+
+                    if remaining <= 0 then
+                        SetBossTimer(0)
+                        if AutoFightBossEnabled and not BossRoutineRunning then
+                            SetBossStatus("Starting")
+                            StartBossRoutine()
+                        end
+                        nextBossStart += 3600
+                    else
+                        SetBossTimer(remaining)
+                        if not BossRoutineRunning then
+                            SetBossStatus("Waiting")
+                        end
+                        task.wait(math.min(remaining, 1))
+                    end
                 end
             end)
         end
@@ -3952,7 +4016,7 @@ end))
                 StopBossRoutine()
             end
         end)
-        AutoFightBossToggle.Position = UDim2.fromOffset(11, 54)
+        AutoFightBossToggle.Position = UDim2.fromOffset(11, 72)
         AutoFightBossToggle.Size = UDim2.new(1, -22, 0, 22)
     elseif name == "Misc. feature" then
         local AntiAFKCard = CreateCard(Page, "Anti AFK", "")
