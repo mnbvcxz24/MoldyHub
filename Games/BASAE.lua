@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.270"
+local testver = "Test ver: 1.271"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1334,12 +1334,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local StatsCard = CreateCard(Page, "Stats", "")
         StatsCard.Parent = Page
         StatsCard.Position = UDim2.fromOffset(12, 12)
-        StatsCard.Size = UDim2.new(0.58, -16, 0, 190)
+        StatsCard.Size = UDim2.new(0.5, -16, 0, 190)
 
         local MasteryCard = CreateCard(Page, "Mastery", "")
         MasteryCard.Parent = Page
-        MasteryCard.Position = UDim2.new(0.58, 4, 0, 12)
-        MasteryCard.Size = UDim2.new(0.42, -16, 0, 190)
+        MasteryCard.Position = UDim2.new(0.5, 4, 0, 12)
+        MasteryCard.Size = UDim2.new(0.5, -16, 0, 190)
 
         local function CreateStatTile(name, caption, column, row)
             local xPosition = column == 0 and UDim2.new(0, 9, 0, 0) or UDim2.new(0.5, 4, 0, 0)
@@ -1397,7 +1397,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 0, 0)
         local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 1, 0)
-        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE / S", 0, 1)
+        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 0, 1)
         local CashValue = CreateStatTile("Cash", "CASH", 1, 1)
         local SpeedValue = CreateStatTile("Speed", "SPEED", 0, 2)
         local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 1, 2)
