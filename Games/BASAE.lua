@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.259"
+local testver = "Test ver: 1.260"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -516,7 +516,7 @@ CreateStatusDivider(310)
 local PingLabel = CreateStatusText("Ping", UDim2.fromOffset(316, 3), UDim2.fromOffset(66, 28), "-- MS", Theme.DarkGray, Enum.Font.GothamBold, 10)
 CreateStatusDivider(389)
 
-local DurationLabel = CreateStatusText("Duration", UDim2.fromOffset(395, 3), UDim2.fromOffset(96, 28), "00:00:00", Theme.Text, Enum.Font.GothamBold, 9)
+local DurationLabel = CreateStatusText("Duration", UDim2.fromOffset(395, 3), UDim2.fromOffset(96, 28), "00:00:00", Theme.Text, Enum.Font.GothamBold, 10)
 
 -- Resolve the actual experience name without blocking UI creation.
 task.spawn(function()
