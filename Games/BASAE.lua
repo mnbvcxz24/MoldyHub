@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.251"
+local testver = "Test ver: 1.252"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -6182,7 +6182,7 @@ local function ToggleMainWindow()
     if Main.Visible then
         Main.Visible = false
     else
-        CenterMainWindow()
+        -- Reopen at the last position; only the first launch uses the centered default.
         Main.Visible = true
     end
 end
