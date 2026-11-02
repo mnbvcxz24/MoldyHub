@@ -3248,7 +3248,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         SetTrackerStatus = function(message)
             AddDebugLog("[Egg Tracker] " .. tostring(message))
         end
-        HitEventConnection = HitEvent.OnClientEvent:Connect(function(eggReference, hitCounter, health)
+        HitEventConnection = TrackPersistentConnection(HitEvent.OnClientEvent:Connect(function(eggReference, hitCounter, health)
             local target = CurrentTarget
             if not target or not IsTargetReference(eggReference, target) then
                 return
@@ -3281,7 +3281,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     end
                 end)
             end
-        end)
+        end))
         function GetPetRarity(pickup)
             if not pickup then return nil end
 
