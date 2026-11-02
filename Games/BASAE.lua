@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.229"
+local testver = "Test ver: 1.230"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -5850,14 +5850,28 @@ end)
 -- WINDOW DRAGGING
 local WindowDragging = false
 local WindowDragStart
-local WindowStartPosition
+local WindowStartAbsolutePosition
+
+local function ClampMainWindowPosition(x, y)
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return x, y
+    end
+
+    local viewport = camera.ViewportSize
+    local windowSize = Main.AbsoluteSize
+    local maxX = math.max(0, viewport.X - windowSize.X)
+    local maxY = math.max(0, viewport.Y - windowSize.Y)
+
+    return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
+end
 
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
         WindowDragging = true
         WindowDragStart = input.Position
-        WindowStartPosition = Main.Position
+        WindowStartAbsolutePosition = Main.AbsolutePosition
     end
 end)
 
@@ -5902,12 +5916,10 @@ UserInputService.InputChanged:Connect(function(input)
     or input.UserInputType == Enum.UserInputType.Touch then
         if WindowDragging then
             local delta = input.Position - WindowDragStart
-            Main.Position = UDim2.new(
-                WindowStartPosition.X.Scale,
-                WindowStartPosition.X.Offset + delta.X,
-                WindowStartPosition.Y.Scale,
-                WindowStartPosition.Y.Offset + delta.Y
-            )
+            local targetX = WindowStartAbsolutePosition.X + delta.X
+            local targetY = WindowStartAbsolutePosition.Y + delta.Y
+            local clampedX, clampedY = ClampMainWindowPosition(targetX, targetY)
+            Main.Position = UDim2.fromOffset(clampedX, clampedY)
         end
     end
 end)
