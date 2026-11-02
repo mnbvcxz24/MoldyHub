@@ -7,13 +7,13 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.242"
+local testver = "Test ver: 1.243"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
 end
-local Runtime = {Stopped = false}
+local Runtime = {Stopped = false, PersistentConnections = {}, BoundRenderSteps = {}}
 RuntimeEnv.__BASAECleanup = function()
     Runtime.Stopped = true
     pcall(function()
@@ -354,13 +354,13 @@ AddStroke(StatusBar, Theme.Border, 1)
 -- Scale the complete bar (including its contents) to fit the current screen.
 local StatusBarUIScale = Create("UIScale", {
     Parent = StatusBar,
-    Scale = 0.86
+    Scale = 0.72
 })
 local function UpdateStatusBarScale()
     local camera = workspace.CurrentCamera
     if not camera then return end
     local viewportWidth = camera.ViewportSize.X
-    StatusBarUIScale.Scale = math.clamp(math.min(0.86, (viewportWidth - 20) / 500), 0.45, 0.86)
+    StatusBarUIScale.Scale = math.clamp(math.min(0.72, (viewportWidth * 0.88) / 500), 0.35, 0.72)
 end
 UpdateStatusBarScale()
 
