@@ -7,13 +7,17 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.260"
+local testver = "Test ver: 1.261"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
 end
 local Runtime = {Stopped = false, PersistentConnections = {}, BoundRenderSteps = {}}
+local function TrackPersistentConnection(connection)
+    if connection then table.insert(Runtime.PersistentConnections, connection) end
+    return connection
+end
 RuntimeEnv.__BASAECleanup = function()
     Runtime.Stopped = true
     pcall(function()
@@ -74,7 +78,6 @@ local UIConfig = {
         "Farm",
         "Events",
         "Misc. feature",
-        "Pickups",
         "Settings"
     }
 }
@@ -1260,20 +1263,20 @@ local function CreateSlider(parent, text, minimum, maximum, default, callback)
             Update(input)
         end
     end)
-    UserInputService.InputChanged:Connect(function(input)
+    TrackPersistentConnection(UserInputService.InputChanged:Connect(function(input)
         if Dragging then
             if input.UserInputType == Enum.UserInputType.MouseMovement
             or input.UserInputType == Enum.UserInputType.Touch then
                 Update(input)
             end
         end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
+    end))
+    TrackPersistentConnection(UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = false
         end
-    end)
+    end))
     return Holder
 end
 -- CREATE HORIZONTAL NAVIGATION BUTTONS
@@ -2708,14 +2711,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         EggFilterButton.MouseButton1Click:Connect(UpdateFilterPanelWithTitanic)
         RefreshZoneList()
         RefreshEggList()
-        ZoneBuilds.ChildAdded:Connect(function()
+        TrackPersistentConnection(ZoneBuilds.ChildAdded:Connect(function()
             RefreshZoneList()
             RefreshEggList()
-        end)
-        ZoneBuilds.ChildRemoved:Connect(function()
+        end))
+        TrackPersistentConnection(ZoneBuilds.ChildRemoved:Connect(function()
             RefreshZoneList()
             RefreshEggList()
-        end)
+        end))
         ZoneLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             ZoneList.CanvasSize = UDim2.new(0, 0, 0, ZoneLayout.AbsoluteContentSize.Y + 8)
         end)
@@ -3012,21 +3015,21 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if not remote:IsA("RemoteEvent") or AnimalBankEquipConnections[remote] then return end
             local remoteName = remote.Name:lower():gsub("[^%a]", "")
             if not remoteName:find("animalbank", 1, true) and not remoteName:find("bankanimal", 1, true) then return end
-            AnimalBankEquipConnections[remote] = remote.OnClientEvent:Connect(function()
+            AnimalBankEquipConnections[remote] = TrackPersistentConnection(remote.OnClientEvent:Connect(function()
                 task.delay(2, function()
                     if Runtime.Stopped then return end
                     SetTrackerStatus("Animal bank event received; equipping hotbar 1 after 2 seconds.")
                     EquipHotbarOne()
                 end)
-            end)
+            end))
         end
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         for _, remote in ipairs(ReplicatedStorage:GetDescendants()) do
             BindAnimalBankEquip(remote)
         end
-        ReplicatedStorage.DescendantAdded:Connect(function(instance)
+        TrackPersistentConnection(ReplicatedStorage.DescendantAdded:Connect(function(instance)
             BindAnimalBankEquip(instance)
-        end)
+        end))
         local PendingReturnAfterFling = false
         local PendingReturnAfterFlingReason = nil
         function ReturnToPickup(reason)
@@ -4219,10 +4222,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if PendingAnimalPickupWorker then return end
             PendingAnimalPickupWorker = true
             task.spawn(function()
-                while not Runtime.Stopped and AutoPickupEnabled and #PendingAnimalPickups > 0 do
-                    if not PickupRequested and not ReturningAfterPickup and not FlingRecoveryActive then
+                while not Runtime.Stopped and not ScriptShuttingDown and #PendingAnimalPickups > 0 do
+                    if not AutoPickupEnabled then
+                        -- Keep the queue and its de-duplication markers intact while disabled.
+                        task.wait(0.25)
+                    elseif not PickupRequested and not ReturningAfterPickup and not FlingRecoveryActive then
                         local nextPickup = table.remove(PendingAnimalPickups, 1)
-                        PendingAnimalPickupSet[nextPickup] = nil
+                        if nextPickup then PendingAnimalPickupSet[nextPickup] = nil end
                         if nextPickup and nextPickup.Parent then
                             local ok, err = xpcall(function()
                                 EvaluatePickup(nextPickup)
@@ -4244,7 +4250,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         function BindAnimalPickups(folder)
             if not folder or not folder:IsA("Folder") and not folder:IsA("Model") then return end
             AnimalPickups = folder
-            folder.ChildAdded:Connect(function(pickup)
+            TrackPersistentConnection(folder.ChildAdded:Connect(function(pickup)
                 PickupMonitorSeen[pickup] = nil
                 local pickupRarity = tostring(GetPetRarity(pickup) or "Unknown")
                 SetPickupTracking(pickup, "Detected")
@@ -4255,11 +4261,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 PickupMonitorSeen[pickup] = true
                 QueuePendingAnimalPickup(pickup)
-            end)
-            folder.ChildRemoved:Connect(function(pickup)
+            end))
+            TrackPersistentConnection(folder.ChildRemoved:Connect(function(pickup)
                 PickupMonitorSeen[pickup] = nil
                 PendingAnimalPickupSet[pickup] = nil
-            end)
+            end))
             SetTrackerStatus("AnimalPickups folder detected; continuous monitoring is ready.")
         end
         if AnimalPickups then BindAnimalPickups(AnimalPickups) end
@@ -4765,7 +4771,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 ReturnToPickup("Fling recovery pickup confirmed. Returning to saved base position.")
             end)
         end
-        FlingRemoteConnection = CatchFlingRemote.OnClientEvent:Connect(HandleFlingRecovery)
+        FlingRemoteConnection = TrackPersistentConnection(CatchFlingRemote.OnClientEvent:Connect(HandleFlingRecovery))
         CarriedAnimalWatch.Bind = function(folder)
             if not folder or not folder:IsA("Folder") or CarriedAnimalWatch.folder == folder then return end
             CarriedAnimalWatch.folder = folder
@@ -4776,10 +4782,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end
             for _, child in ipairs(folder:GetChildren()) do observeCarriedAnimal(child) end
-            CarriedAnimalWatch.childAdded = folder.ChildAdded:Connect(function(child)
+            CarriedAnimalWatch.childAdded = TrackPersistentConnection(folder.ChildAdded:Connect(function(child)
                 observeCarriedAnimal(child)
-            end)
-            CarriedAnimalWatch.childRemoved = folder.ChildRemoved:Connect(function(child)
+            end))
+            CarriedAnimalWatch.childRemoved = TrackPersistentConnection(folder.ChildRemoved:Connect(function(child)
                 if child ~= CarriedAnimalWatch.model or not CarriedAnimalWatch.seen then return end
                 local removedModel = child
                 CarriedAnimalWatch.model = nil
@@ -4801,18 +4807,18 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     SetTrackerStatus("CarriedAnimal disappeared while away from base; starting fast animal-location recovery.")
                     if HandleFlingRecovery then HandleFlingRecovery("fling", nil, nil, nil, true) end
                 end)
-            end)
+            end))
             SetTrackerStatus("CarriedAnimals folder connected; watching CarriedAnimal presence.")
         end
         local existingCarriedFolder = workspace:FindFirstChild("CarriedAnimals")
         if existingCarriedFolder then CarriedAnimalWatch.Bind(existingCarriedFolder) end
-        AnimalFolderConnection = workspace.ChildAdded:Connect(function(child)
+        AnimalFolderConnection = TrackPersistentConnection(workspace.ChildAdded:Connect(function(child)
             if child.Name == "AnimalPickups" and not AnimalPickups then
                 BindAnimalPickups(child)
             elseif child.Name == "CarriedAnimals" then
                 CarriedAnimalWatch.Bind(child)
             end
-        end)
+        end))
         StopAutoBreak = function(reason, preserveTargetState)
             TouchAutomationProgress(AutoBreakEnabled and "AUTO_BREAK_PAUSED" or "AUTO_BREAK_OFF")
             if MovementConnection then
@@ -5155,9 +5161,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         task.spawn(function()
             while not Runtime.Stopped and not ScriptShuttingDown do
                 task.wait(1)
-                local active = PickupRequested or FlingRecoveryActive
+                -- Fling recovery has its own bounded approach timeouts; do not let the generic
+                -- 20-second watchdog cancel a valid recovery movement phase.
+                local active = not FlingRecoveryActive and (PickupRequested
                     or (not ReturningAfterPickup and AutoBreakEnabled and (CurrentTarget ~= nil or WaitingForPickup or ArrivedAtTarget
-                        or AutomationProgressStage:find("^AUTO_BREAK:") ~= nil))
+                        or AutomationProgressStage:find("^AUTO_BREAK:") ~= nil)))
                 if active and not AutomationWatchdogBusy
                     and os.clock() - LastAutomationProgressAt >= 20 then
                     AutomationWatchdogBusy = true
@@ -5205,7 +5213,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end)
         end
-    elseif index == 6 then
+    elseif index == 5 then
         local ThemeCard = CreateCard(Page, "🎨  Theme Settings", "Choose a color palette for the interface.")
         local ThemeOptions = {
             "Midnight Blue + Cyan",
@@ -5989,10 +5997,40 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end
         end
+        local AuraActionRunning = false
+        local AuraPendingTarget = nil
+        local function QueueAuraAction(targetName)
+            if not targetName or not AuraEnabled or Runtime.Stopped then return end
+            if AuraActionRunning then
+                AuraPendingTarget = targetName
+                return
+            end
+            AuraActionRunning = true
+            task.spawn(function()
+                local nextTarget = targetName
+                while nextTarget and AuraEnabled and not Runtime.Stopped do
+                    local ok, err = xpcall(function()
+                        RunAuraNiBai(nextTarget)
+                    end, debug.traceback)
+                    if not ok then
+                        AddDebugLog("[Auto Boink] Action failed: " .. tostring(err):gsub("[%r\\n]+", " "):sub(1, 180))
+                    end
+                    nextTarget = AuraEnabled and AuraPendingTarget or nil
+                    AuraPendingTarget = nil
+                end
+                AuraActionRunning = false
+                if AuraEnabled and AuraPendingTarget and not Runtime.Stopped then
+                    local pending = AuraPendingTarget
+                    AuraPendingTarget = nil
+                    QueueAuraAction(pending)
+                end
+            end)
+        end
         local AuraToggle = CreateToggle(AuraCard, "", false, function(enabled)
             AuraEnabled = enabled
             if not enabled then
                 AuraWasNearby = false
+                AuraPendingTarget = nil
                 AuraStatus.Text = "Status: OFF"
                 AuraStatus.TextColor3 = Theme.Gray
                 AddDebugLog("[Auto Boink] Proximity tracking disabled.")
@@ -6009,7 +6047,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         AuraStatus.TextColor3 = Theme.Accent
                         if not AuraWasNearby then
                             AddDebugLog("[Auto Boink] Detected " .. nearby[1].Name .. " within 20 studs (" .. string.format("%.1f", nearby[1].Distance) .. " studs).")
-                            task.spawn(RunAuraNiBai, nearby[1].Name)
+                            QueueAuraAction(nearby[1].Name)
                         end
                         AuraWasNearby = true
                     else
@@ -6023,109 +6061,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end)
         AuraToggle.Position = UDim2.new(1, -58, 0, 7)
         AuraToggle.Size = UDim2.fromOffset(48, 24)
-
-    elseif index == 5 then
-        local PickupCard = CreateCard(Page, "🐾  Animal Pickups", "")
-        PickupCard.Size = UDim2.new(1, 0, 0, 230)
-        local pickupTitle = PickupCard:FindFirstChildWhichIsA("TextLabel")
-        if pickupTitle then pickupTitle.Position = UDim2.fromOffset(15, 10) end
-        local PickupStatus = Create("TextLabel", {
-            Parent = PickupCard, Position = UDim2.fromOffset(15, 42),
-            Size = UDim2.new(1, -30, 0, 18), BackgroundTransparency = 1,
-            Text = "Waiting for AnimalPickups...", TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local PickupList = Create("ScrollingFrame", {
-            Parent = PickupCard, Position = UDim2.fromOffset(10, 64),
-            Size = UDim2.new(1, -20, 1, -74), BackgroundColor3 = Theme.SurfaceInput,
-            BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = Theme.Gray,
-            CanvasSize = UDim2.new(0, 0, 0, 0)
-        })
-        AddCorner(PickupList, 6)
-        local PickupLayout = Create("UIListLayout", {Parent = PickupList, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder})
-        Create("UIPadding", {Parent = PickupList, PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)})
-        local function GetPickupConsoleCPS(pickup)
-            local cached = pickup:GetAttribute("BASAE_CPSCheckValue")
-            for _, node in ipairs(pickup:GetDescendants()) do
-                if node.Name == "CashPerSecond" then
-                    if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-                        if node.Text ~= "" then return node.Text end
-                    end
-                    local textNode = node:FindFirstChild("Text", true) or node:FindFirstChild("ContentText", true)
-                    if textNode and (textNode:IsA("TextLabel") or textNode:IsA("TextButton") or textNode:IsA("TextBox")) and textNode.Text ~= "" then
-                        return textNode.Text
-                    end
-                end
-            end
-            if cached and cached ~= "" then return tostring(cached) end
-            return "—"
-        end
-        local function RefreshAnimalPickups()
-            for _, child in ipairs(PickupList:GetChildren()) do
-                if child:IsA("TextLabel") or child:IsA("Frame") then child:Destroy() end
-            end
-            local folder = workspace:FindFirstChild("AnimalPickups")
-            if not folder then
-                PickupStatus.Text = "Waiting for workspace.AnimalPickups..."
-                Create("TextLabel", {
-                    Parent = PickupList, Size = UDim2.new(1, -8, 0, 28),
-                    BackgroundTransparency = 1, Text = "AnimalPickups folder not found.",
-                    TextColor3 = Theme.Gray, Font = Enum.Font.Gotham, TextSize = 9, LayoutOrder = 1
-                })
-                return
-            end
-            local records = {}
-            local qualifiedCount = 0
-            for _, pickup in ipairs(folder:GetChildren()) do
-                if pickup:IsA("Model") then
-                    local qualified = pickup:GetAttribute("BASAE_Qualified")
-                    local weight = pickup:GetAttribute("WeightKg")
-                    local qualifiedText = qualified == true and "Yes" or qualified == false and "No" or "Not checked"
-                    if qualified == true then qualifiedCount += 1 end
-                    table.insert(records, {
-                        name = pickup.Name,
-                        rarity = tostring(GetPetRarity(pickup) or "Unknown"),
-                        mutation = GetPickupMutation(pickup),
-                        cps = GetPickupConsoleCPS(pickup),
-                        kg = weight ~= nil and tostring(weight) or "—",
-                        qualified = qualifiedText
-                    })
-                end
-            end
-            table.sort(records, function(a, b)
-                return a.name:lower() < b.name:lower()
-            end)
-            PickupStatus.Text = string.format("%d animals | %d qualified", #records, qualifiedCount)
-            if #records == 0 then
-                Create("TextLabel", {
-                    Parent = PickupList, Size = UDim2.new(1, -8, 0, 28),
-                    BackgroundTransparency = 1, Text = "No animal models found in AnimalPickups.",
-                    TextColor3 = Theme.Gray, Font = Enum.Font.Gotham, TextSize = 9, LayoutOrder = 1
-                })
-            end
-            for order, record in ipairs(records) do
-                local row = Create("TextLabel", {
-                    Parent = PickupList, Size = UDim2.new(1, -8, 0, 50),
-                    BackgroundColor3 = Theme.Card, BorderSizePixel = 0,
-                    Text = "  " .. record.name .. "  |  " .. record.rarity .. "  |  Mutation = " .. record.mutation .. "  |  " .. record.cps .. " |  " .. record.kg .. " KG  |  Qualified = " .. record.qualified,
-                    TextColor3 = Theme.Text, Font = Enum.Font.Gotham, TextSize = 9,
-                    TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center,
-                    TextWrapped = true, TextTruncate = Enum.TextTruncate.None,
-                    AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order
-                })
-                AddCorner(row, 4)
-            end
-            PickupList.CanvasSize = UDim2.new(0, 0, 0, PickupLayout.AbsoluteContentSize.Y + 10)
-        end
-        PickupLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            PickupList.CanvasSize = UDim2.new(0, 0, 0, PickupLayout.AbsoluteContentSize.Y + 10)
-        end)
-        task.spawn(function()
-            while not Runtime.Stopped and ScreenGui.Parent and Page.Parent do
-                RefreshAnimalPickups()
-                task.wait(2)
-            end
-        end)
 
     else
         local Card1 = CreateCard(Page, name, "This is a reusable UI page. Backend code is not connected.")
@@ -6200,14 +6135,14 @@ end
 
 local function WatchViewportSize(camera)
     if not camera then return end
-    camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepFloatingToggleOnScreen)
+    TrackPersistentConnection(camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepFloatingToggleOnScreen))
 end
 
 WatchViewportSize(workspace.CurrentCamera)
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+TrackPersistentConnection(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
     WatchViewportSize(workspace.CurrentCamera)
     KeepFloatingToggleOnScreen()
-end)
+end))
 
 local function CenterMainWindow()
     local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
@@ -6273,7 +6208,7 @@ FloatingToggle.InputBegan:Connect(function(input)
     end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
+TrackPersistentConnection(UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement
     or (CircleDragInput and input == CircleDragInput) then
         if CircleDragging then
@@ -6309,9 +6244,9 @@ UserInputService.InputChanged:Connect(function(input)
             )
         end
     end
-end)
+end))
 
-UserInputService.InputEnded:Connect(function(input)
+TrackPersistentConnection(UserInputService.InputEnded:Connect(function(input)
     if CircleDragging and (
         input.UserInputType == Enum.UserInputType.MouseButton1
         or input == CircleDragInput
@@ -6329,4 +6264,4 @@ UserInputService.InputEnded:Connect(function(input)
     or input.UserInputType == Enum.UserInputType.Touch then
         WindowDragging = false
     end
-end)
+end))
