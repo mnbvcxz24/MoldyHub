@@ -1075,19 +1075,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
-        local CachedPathsFolder = workspace:FindFirstChild("Paths")
-        local CachedPathFolders = {}
-        local CachedSafeZoneSign
+        local CachedSafeZonePosition
 
-        if CachedPathsFolder then
-            for _, pathObject in ipairs(CachedPathsFolder:GetChildren()) do
-                if pathObject:IsA("Folder") then
-                    local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
-                    if pathNumber then
-                        CachedPathFolders[pathNumber] = pathObject
-                    end
-                end
-            end
+        local function GetPathsFolder()
+            return workspace:FindFirstChild("Paths")
         end
 
         local function RefreshCurrentWorld()
@@ -1105,8 +1096,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Runtime.CurrentWorldFolderName = worldFolderName
             Runtime.CurrentWorldFolder = worldFolderName
                 and workspace:FindFirstChild(worldFolderName) or nil
-            CachedSafeZoneSign = Runtime.CurrentWorldFolder
+            local safeZoneSign = Runtime.CurrentWorldFolder
                 and Runtime.CurrentWorldFolder:FindFirstChild("SafeZoneSign", true) or nil
+            CachedSafeZonePosition = safeZoneSign and safeZoneSign:IsA("BasePart")
+                and safeZoneSign.Position or nil
 
             if Runtime.CurrentWorldValue then
                 Runtime.CurrentWorldValue.Text = "Current World: " .. tostring(Runtime.CurrentWorld or "Unknown")
@@ -1117,10 +1110,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         TrackConnection(LocalPlayer:GetAttributeChangedSignal("World"):Connect(RefreshCurrentWorld))
 
         local function GetActiveWorldPathsFolder()
-            if not CachedPathsFolder or Runtime.CurrentWorld == nil then
-                return nil, nil, nil
+            local pathsFolder = GetPathsFolder()
+            if not pathsFolder or Runtime.CurrentWorld == nil then
+                return nil, Runtime.CurrentWorldFolder, CachedSafeZonePosition
             end
-            return CachedPathsFolder, Runtime.CurrentWorldFolder, CachedSafeZoneSign
+            return pathsFolder, Runtime.CurrentWorldFolder, CachedSafeZonePosition
         end
 
         local function IsPathInActiveWorld(pathObject)
@@ -1137,19 +1131,26 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local function GetPathFolders()
             local results = {}
             local worldNumber = tonumber(Runtime.CurrentWorld)
-            if not CachedPathsFolder or not worldNumber then
+            local pathsFolder = GetPathsFolder()
+            if not pathsFolder or not worldNumber then
                 return results
             end
 
             local firstPath = ((worldNumber - 1) * 10) + 1
             local lastPath = worldNumber * 10
 
-            for pathNumber = firstPath, lastPath do
-                local pathObject = CachedPathFolders[pathNumber]
-                if pathObject and pathObject.Parent == CachedPathsFolder then
+            for _, pathObject in ipairs(pathsFolder:GetChildren()) do
+                local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
+                if pathObject:IsA("Folder") and pathNumber
+                and pathNumber >= firstPath and pathNumber <= lastPath then
                     table.insert(results, pathObject)
                 end
             end
+
+            table.sort(results, function(a, b)
+                return (tonumber(a.Name:match("%d+")) or math.huge)
+                    < (tonumber(b.Name:match("%d+")) or math.huge)
+            end)
 
             return results
         end
@@ -1913,7 +1914,7 @@ end))
             end
         end
         local Jump
-        local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk, jumpWhenStuck)
+        local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk, jumpWhenStuck, forceGlide)
             if token ~= navigationToken or Runtime.Stopped then
                 return false
             end
@@ -1923,7 +1924,7 @@ end))
                 return false
             end
 
-            if forceWalk or MovementMode == "Walk" then
+            if forceWalk or (MovementMode == "Walk" and not forceGlide) then
                 local ridingOffset = navigationRoot ~= root
                     and (root.Position - navigationRoot.Position)
                     or Vector3.zero
@@ -2065,49 +2066,112 @@ end))
                 end
 
                 if horizontalDistance <= finalGlideStop then
-                    -- Fast glide is finished; use a slow, repeated correction so momentum
-                    -- cannot carry the rider past the actual destination.
-                    SetFloating(navigationRoot, false)
-                    local originalWalkSpeed = humanoid.WalkSpeed
-                    humanoid.WalkSpeed = math.min(originalWalkSpeed, 8)
-                    local correctionUntil = os.clock() + 15
-                    local nextCorrection = 0
-                    local corrected = false
+                    -- Retry the controlled drop if the first landing misses the target.
+                    local landingSucceeded = false
+                    for landingAttempt = 1, 3 do
+                        if token ~= navigationToken or Runtime.Stopped
+                        or bossCaughtDetected or nightDetected then
+                            humanoid:MoveTo(root.Position)
+                            RestoreFloating()
+                            return false
+                        end
 
-                    while os.clock() < correctionUntil do
                         navigationRoot = GetNavigationRoot(root)
-                        if bossCaughtDetected or nightDetected
+                        if not navigationRoot or not navigationRoot.Parent then
+                            RestoreFloating()
+                            return false
+                        end
+
+                        local landingTarget = CFrame.new(destination) * navigationRoot.CFrame.Rotation
+                        local dropDistance = (navigationRoot.Position - destination).Magnitude
+                        local landingSpeed = landingAttempt == 1 and math.max(speed, 24)
+                            or math.max(speed * (0.65 / landingAttempt), 12)
+                        local dropDuration = math.clamp(dropDistance / landingSpeed, 0.18, 0.9)
+
+                        if landingAttempt == 1 and Jump then
+                            Jump(humanoid)
+                        end
+
+                        SetFloating(navigationRoot, true)
+                        local landingTween = TweenService:Create(
+                            navigationRoot,
+                            TweenInfo.new(dropDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                            {CFrame = landingTarget}
+                        )
+                        activeNavigationTween = landingTween
+                        landingTween:Play()
+                        local landingState = landingTween.Completed:Wait()
+
+                        if activeNavigationTween == landingTween then
+                            activeNavigationTween = nil
+                        end
+                        SetFloating(navigationRoot, false)
+
+                        if landingState ~= Enum.PlaybackState.Completed
                         or token ~= navigationToken or Runtime.Stopped
-                        or not root.Parent or not humanoid.Parent
-                        or not navigationRoot or not navigationRoot.Parent then
+                        or bossCaughtDetected or nightDetected then
+                            humanoid:MoveTo(root.Position)
+                            RestoreFloating()
+                            return false
+                        end
+
+                        navigationRoot = GetNavigationRoot(root)
+                        if navigationRoot and navigationRoot.Parent
+                        and IsNavigationAtDestination(navigationRoot, destination, 3) then
+                            BrakeAtDestination(root, humanoid, token)
+                            landingSucceeded = true
                             break
                         end
 
-                        if IsNavigationAtDestination(navigationRoot, destination, 2.5) then
-                            corrected = true
-                            break
-                        end
+                        -- Re-approach slowly before the next landing attempt.
+                        local currentRoot = GetNavigationRoot(root)
+                        if currentRoot and currentRoot.Parent then
+                            local delta = destination - currentRoot.Position
+                            local horizontalDelta = Vector3.new(delta.X, 0, delta.Z)
+                            if horizontalDelta.Magnitude > 1 then
+                                local reapproach = destination
+                                    - horizontalDelta.Unit * math.min(4, horizontalDelta.Magnitude)
+                                local reapproachTarget = CFrame.new(
+                                    reapproach.X,
+                                    destination.Y + glideHeight,
+                                    reapproach.Z
+                                ) * currentRoot.CFrame.Rotation
 
-                        if os.clock() >= nextCorrection then
-                            local correctionOffset = root.Position - navigationRoot.Position
-                            humanoid:MoveTo(destination + correctionOffset)
-                            nextCorrection = os.clock() + 0.5
-                        end
+                                SetFloating(currentRoot, true)
+                                local correctionTween = TweenService:Create(
+                                    currentRoot,
+                                    TweenInfo.new(
+                                        math.clamp(horizontalDelta.Magnitude / math.max(speed * 0.5, 12), 0.2, 0.8),
+                                        Enum.EasingStyle.Quad,
+                                        Enum.EasingDirection.Out
+                                    ),
+                                    {CFrame = reapproachTarget}
+                                )
+                                activeNavigationTween = correctionTween
+                                correctionTween:Play()
+                                local correctionState = correctionTween.Completed:Wait()
+                                if activeNavigationTween == correctionTween then
+                                    activeNavigationTween = nil
+                                end
+                                SetFloating(currentRoot, false)
 
-                        RunService.Heartbeat:Wait()
+                                if correctionState ~= Enum.PlaybackState.Completed
+                                or token ~= navigationToken or Runtime.Stopped then
+                                    RestoreFloating()
+                                    return false
+                                end
+                            end
+                        end
                     end
 
-                    humanoid.WalkSpeed = originalWalkSpeed
-                    humanoid:MoveTo(root.Position)
-
-                    if corrected then
-                        BrakeAtDestination(root, humanoid, token)
+                    if landingSucceeded then
                         return true
                     end
 
+                    humanoid:MoveTo(root.Position)
+                    RestoreFloating()
                     return false
                 end
-
                 if horizontalDistance > finalGlideStop then
                     local jumpDistance = math.clamp(Runtime.GlideJumpDistance or 50, 10, 150)
                     local glideDistance = math.min(jumpDistance, horizontalDistance - finalGlideStop)
@@ -2208,6 +2272,19 @@ end))
             Runtime.BossMovementActive = true
             Runtime.BossResumeAutoSteal = AutoStealEnabled
 
+            -- Stop treadmill movement, then jump off when boss movement starts.
+            if treadmillStatus == "Running" then
+                if Runtime.StopTreadmillIdle then
+                    Runtime.StopTreadmillIdle()
+                end
+
+                local character = LocalPlayer.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    Jump(humanoid)
+                end
+            end
+
             if nightDetected then
                 Runtime.NightPending = true
                 nightDetected = false
@@ -2225,10 +2302,6 @@ end))
             if AutoStealEnabled then
                 SetAutoStealEnabled(false)
             end
-            if Runtime.StopTreadmillIdle then
-                Runtime.StopTreadmillIdle()
-            end
-
             SetNavigationStatus("Navigating to Candy Pumpkin")
             return true
         end
@@ -2304,15 +2377,59 @@ end))
                 return false
             end
 
-            local reached = MoveToPosition(root, humanoid, destination, token, true, false, true)
-            if reached and token == navigationToken
-            and Runtime.BossMovementActive and not Runtime.Stopped then
-                SetNavigationStatus("At Candy Pumpkin")
-                return true
+            local navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent then
+                SetNavigationStatus("Navigation root unavailable")
+                return false
             end
 
-            SetNavigationStatus("Failed to reach Candy Pumpkin")
-            return false
+            -- Skip movement when the character/pet is already at the pumpkin.
+            local alreadyInPosition = IsNavigationAtDestination(navigationRoot, destination, 4)
+            if not alreadyInPosition then
+                SetNavigationStatus("Walking to Candy Pumpkin")
+                local reached = MoveToPosition(root, humanoid, destination, token, true, false, false, false)
+                if not reached then
+                    SetNavigationStatus("Failed to reach Candy Pumpkin")
+                    return false
+                end
+            end
+
+            if token ~= navigationToken or not Runtime.BossMovementActive
+            or Runtime.Stopped or not root.Parent or humanoid.Health <= 0 then
+                return false
+            end
+
+            navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent
+            or not IsNavigationAtDestination(navigationRoot, destination, 4) then
+                SetNavigationStatus("Pumpkin position not confirmed")
+                return false
+            end
+
+            -- Briefly anchor the character to stop residual movement before attacking.
+            humanoid:MoveTo(root.Position)
+            humanoid:Move(Vector3.zero, false)
+            local wasAnchored = root.Anchored
+            root.Anchored = true
+            task.wait(1)
+            if root.Parent then
+                root.Anchored = wasAnchored
+            end
+
+            if token ~= navigationToken or not Runtime.BossMovementActive
+            or Runtime.Stopped or not root.Parent or humanoid.Health <= 0 then
+                return false
+            end
+
+            navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent
+            or not IsNavigationAtDestination(navigationRoot, destination, 4) then
+                SetNavigationStatus("Pumpkin position lost")
+                return false
+            end
+
+            SetNavigationStatus("At Candy Pumpkin")
+            return true
         end
 
         Runtime.EndBossMovement = function()
@@ -2468,15 +2585,16 @@ end))
             if Runtime.StopTreadmillIdle then
                 Runtime.StopTreadmillIdle()
             end
-            local token = navigationToken            CancelActiveMovement()
+            local token = navigationToken
+            CancelActiveMovement()
 
             if Runtime.Stopped then
                 SetAutoStealEnabled(false)
-                return            end
+                return
+            end
 
-            local pathsFolder, worldFolder, safeSign = GetActiveWorldPathsFolder()
-            if not safeSign or not safeSign:IsA("BasePart")
-            or not worldFolder or not pathsFolder then
+            local pathsFolder, worldFolder, safeZonePosition = GetActiveWorldPathsFolder()
+            if not safeZonePosition or not worldFolder or not pathsFolder then
                 SetNavigationStatus("World paths unavailable")
                 SetAutoStealEnabled(false)
                 return
@@ -3011,7 +3129,7 @@ end))
                 local approachPosition = destination + approachDirection.Unit * 3.5
                 local petDestination = approachPosition - ridingOffset
                 SetNavigationStatus("Walking to cage")
-                if not MoveToPosition(root, humanoid, petDestination, token, false, true) then
+                if not MoveToPosition(root, humanoid, petDestination, token, false, true, false, true) then
                     if IsPetAtCage() then
                         SetNavigationStatus("Cage nearby")
                         return true
@@ -3035,7 +3153,7 @@ end))
                         task.wait(0.25)
                     else
                         SetNavigationStatus("Returning to safezone")
-                        local safeZoneDestination = safeSign.Position
+                        local safeZoneDestination = safeZonePosition
                         safeZoneNavigationActive = true
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
                         safeZoneNavigationActive = false
@@ -3066,7 +3184,7 @@ end))
             local root = character and character:FindFirstChild("HumanoidRootPart")
             local skipInitialSafeZone = false
             local navigationRoot = root and GetNavigationRoot(root)
-            if safeSign and safeSign:IsA("BasePart")
+            if safeZonePosition
             and navigationRoot and navigationRoot.Parent then
                 for _, cage in ipairs(GetSelectedCages(root)) do
                     local ok, cagePosition = pcall(function()
@@ -3428,7 +3546,7 @@ end))
                         reachedSafeZone = MoveToPosition(
                             root,
                             humanoid,
-                            safeSign.Position,
+                            safeZonePosition,
                             token,
                             false,
                             MovementMode == "Glide"
@@ -3844,6 +3962,12 @@ end))
         local BossScheduleToken = 0
         local WaveResultConnection
 
+        -- Keep the hourly target and post-zero phase independent of listener toggles.
+        local BossNextTargetUnix
+        local BossEventActive = false
+        local BossPostZeroDeadline
+        local BossWaveResultReceived = false
+
         local function SetBossTimer(seconds)
             if seconds == nil then
                 BossTimerValue.Text = "--:--:--"
@@ -4007,39 +4131,78 @@ end))
                 end
 
                 WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
-                    if AutoFightBossEnabled and BossRoutineRunning then
+                    if AutoFightBossEnabled and BossEventActive then
+                        BossWaveResultReceived = true
                         BossFightEnded = true
                     end
                 end))
 
                 -- SAPARI boss waves begin every hour at :15 Philippine time (UTC+8).
-                -- Calculate the next scheduled occurrence, then repeat hourly.
+                -- Keep this target stable across toggles and the post-zero phase.
                 local PH_OFFSET_SECONDS = 8 * 60 * 60
-                local nowPH = DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
-                local nextBossStart = math.floor(nowPH / 3600) * 3600 + (15 * 60)
-                if nowPH >= nextBossStart then
-                    nextBossStart += 3600
+                local function GetNowPH()
+                    return DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
+                end
+
+                if not BossNextTargetUnix then
+                    local nowPH = GetNowPH()
+                    BossNextTargetUnix = math.floor(nowPH / 3600) * 3600 + (15 * 60)
+                    if nowPH >= BossNextTargetUnix then
+                        BossNextTargetUnix += 3600
+                    end
+                end
+
+                -- If the feature is re-enabled during an unfinished event, resume it.
+                if BossEventActive and not BossWaveResultReceived
+                and not BossRoutineRunning then
+                    BossFightEnded = false
+                    StartBossRoutine()
                 end
 
                 while AutoFightBossEnabled and listenerToken == BossListenerToken
                 and scheduleToken == BossScheduleToken and not Runtime.Stopped do
-                    nowPH = DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
-                    local remaining = nextBossStart - nowPH
+                    local nowPH = GetNowPH()
 
-                    if remaining <= 0 then
-                        SetBossTimer(0)
-                        if AutoFightBossEnabled and not BossRoutineRunning then
-                            SetBossStatus("Starting")
-                            StartBossRoutine()
+                    if BossEventActive then
+                        if BossWaveResultReceived then
+                            -- Return to the same precomputed hourly target; do not shift the schedule.
+                            BossEventActive = false
+                            BossPostZeroDeadline = nil
+                            BossWaveResultReceived = false
+                            BossFightEnded = false
+                            if not BossRoutineRunning then
+                                SetBossStatus("Waiting")
+                            end
+                        else
+                            local postZeroRemaining = math.max(0, (BossPostZeroDeadline or nowPH) - nowPH)
+                            SetBossTimer(postZeroRemaining)
+                            if postZeroRemaining <= 0 and not BossRoutineRunning then
+                                SetBossStatus("Waiting for WaveResult")
+                            end
                         end
-                        nextBossStart += 3600
                     else
-                        SetBossTimer(remaining)
-                        if not BossRoutineRunning then
-                            SetBossStatus("Waiting")
+                        local remaining = BossNextTargetUnix - nowPH
+                        if remaining <= 0 then
+                            -- Start the 10-minute post-zero display and advance the fixed hourly target once.
+                            BossEventActive = true
+                            BossPostZeroDeadline = BossNextTargetUnix + 10 * 60
+                            BossNextTargetUnix += 3600
+                            BossWaveResultReceived = false
+                            BossFightEnded = false
+                            SetBossTimer(10 * 60)
+                            SetBossStatus("Starting")
+                            if not BossRoutineRunning then
+                                StartBossRoutine()
+                            end
+                        else
+                            SetBossTimer(remaining)
+                            if not BossRoutineRunning then
+                                SetBossStatus("Waiting")
+                            end
                         end
-                        task.wait(math.min(remaining, 1))
                     end
+
+                    task.wait(1)
                 end
             end)
         end
