@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.236"
+local testver = "Test ver: 1.237"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1171,92 +1171,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AutoPickupToggle.Size = UDim2.fromOffset(48, 24)
         local AutoPickupTitle = AutoPickupCard:FindFirstChildWhichIsA("TextLabel")
         if AutoPickupTitle then AutoPickupTitle.Size = UDim2.new(1, -78, 0, 22) end
-        local AutoFuseCard = CreateCard(AutoRow, "⚙️  Auto Fuse", "UNDER DEVELOPMENT")
-        AutoFuseCard.Position = UDim2.new(0.5, 6, 0, 196)
-        AutoFuseCard.Size = UDim2.new(0.5, -6, 0, 150)
-        local AutoFuseEnabled = false
-        local AutoFuseGeneration = 0
-        local AutoFuseRequirements = {}
-        local AutoFuseStatus = Create("TextLabel", {
-            Name = "AutoFuseStatus",
-            Parent = AutoFuseCard,
-            Position = UDim2.fromOffset(11, 47),
-            Size = UDim2.new(1, -22, 0, 14),
-            BackgroundTransparency = 1,
-            Text = "Status: OFF",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local AutoFuseRequirementLabels = {}
-        for slot = 1, 3 do
-            AutoFuseRequirementLabels[slot] = Create("TextLabel", {
-                Name = "Requirement" .. slot,
-                Parent = AutoFuseCard,
-                Position = UDim2.fromOffset(11, 64 + (slot - 1) * 18),
-                Size = UDim2.new(1, -22, 0, 16),
-                BackgroundTransparency = 1,
-                Text = "Animal " .. slot .. ": loading...",
-                TextColor3 = Theme.Text,
-                Font = Enum.Font.Gotham,
-                TextSize = 10,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextTruncate = Enum.TextTruncate.AtEnd
-            })
-        end
-        function GetAutoFuseRequirement(slot)
-            local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-            local sciFiUI = playerGui and playerGui:FindFirstChild("SciFi UI")
-            local tradeIn = sciFiUI and sciFiUI:FindFirstChild("SciFiTradeInMain")
-            local inputs = tradeIn and tradeIn:FindFirstChild("SacrificeInputs")
-            local input = inputs and inputs:FindFirstChild("Input" .. slot)
-            local empty = input and input:FindFirstChild("Empty")
-            local nameLabel = empty and empty:FindFirstChild("Name")
-            if not nameLabel or not nameLabel:IsA("TextLabel") then return nil end
-            local animalName = nameLabel.Text
-            animalName = animalName:match("^%s*(.-)%s*$")
-            if animalName == "" then return nil end
-            return animalName
-        end
-        function RefreshAutoFuseRequirements()
-            local requirements = {}
-            for slot = 1, 3 do
-                local animalName = GetAutoFuseRequirement(slot)
-                requirements[slot] = animalName
-                AutoFuseRequirementLabels[slot].Text = "Animal " .. slot .. ": " .. (animalName or "not detected")
-                AutoFuseRequirementLabels[slot].TextColor3 = animalName and Theme.Text or Theme.Gray
-            end
-            AutoFuseRequirements = requirements
-            return requirements
-        end
-        local AutoFuseToggle
-        AutoFuseToggle = CreateToggle(AutoFuseCard, "", false, function(enabled)
-            if enabled then
-                AddDebugLog("[Auto Fuse] UNDER DEVELOPMENT - disabled in Deploy.")
-                task.defer(function()
-                    local controller = ToggleControllers[AutoFuseToggle]
-                    if controller then controller.SetEnabled(false, false) end
-                    AutoFuseStatus.Text = "UNDER DEVELOPMENT"
-                    AutoFuseStatus.TextColor3 = Theme.Gray
-                end)
-                return
-            end
-            AutoFuseEnabled = false
-            AutoFuseGeneration += 1
-            AutoFuseStatus.Text = "Status: OFF"
-            AutoFuseStatus.TextColor3 = Theme.Gray
-            AddDebugLog("[Auto Fuse] disabled.")
-        end)
-        AutoFuseToggle.Position = UDim2.new(1, -58, 0, 7)
-        AutoFuseToggle.Size = UDim2.fromOffset(48, 24)
-        task.spawn(function()
-            while not Runtime.Stopped and AutoFuseCard.Parent do
-                RefreshAutoFuseRequirements()
-                task.wait(1)
-            end
-        end)
-        MarkUnderDevelopment(AutoFuseCard)
+        -- Auto Fuse removed: card, polling loop, toggles, and requirement scanning are intentionally disabled.
         local RarityFilterOpen = false
         local RarityOptions = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine", "Celestial", "Inferno", "Void", "Omega", "Spectral", "Ethereal"}
         local SelectedRarities = {}
@@ -1951,14 +1866,17 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local PriorityOptions = {"Highest Luck", "Highest Kg"}
         local PriorityOpen = false
+        local PriorityOptionsFrame
         local PriorityFilterButton = CreateButton(SortFrame, "Highest Luck ▼", function()
             PriorityOpen = not PriorityOpen
-            PriorityOptionsFrame.Visible = PriorityOpen
+            if PriorityOptionsFrame then
+                PriorityOptionsFrame.Visible = PriorityOpen
+            end
         end)
         PriorityFilterButton.Position = UDim2.fromOffset(0, 0)
         PriorityFilterButton.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
         PriorityFilterButton.ZIndex = 100
-        local PriorityOptionsFrame = Create("Frame", {
+        PriorityOptionsFrame = Create("Frame", {
             Name = "PriorityOptions",
             Parent = Card1,
             Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY + AutoBreakControlLayout.Height + 4),
