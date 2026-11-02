@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.235"
+local testver = "Test ver: 1.236"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1108,8 +1108,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local AutoBreakControlLayout = {
             ZoneY = 42,
             EggY = 81,
-            HighLuckY = 109,
-            TitanicY = 141,
+            HighLuckY = 126,
+            TitanicY = 157,
             Height = 22,
             SidePadding = 11
         }
@@ -1928,24 +1928,72 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             PaddingLeft = UDim.new(0, 4),
             PaddingRight = UDim.new(0, 4)
         })
+        Create("TextLabel", {
+            Name = "PriorityFilterLabel",
+            Parent = Card1,
+            Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY - 16),
+            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, 13),
+            BackgroundTransparency = 1,
+            Text = "Priority",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
         SortFrame = Create("Frame", {
             Name = "EggSortOptions",
             Parent = Card1,
             Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY),
-            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, 28),
+            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, 22),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Visible = true
         })
-        local PriorityDropdown = CreateDropdown(SortFrame, "Priority", {"Highest Luck", "Highest Kg"}, function(selection)
-            SortOrder = selection
-            if RefreshEggList then RefreshEggList() end
-            if RefreshEggFilters then RefreshEggFilters() end
-            AddDebugLog("[Auto Break] Priority set to " .. tostring(selection))
+        local PriorityOptions = {"Highest Luck", "Highest Kg"}
+        local PriorityOpen = false
+        local PriorityFilterButton = CreateButton(SortFrame, "Highest Luck ▼", function()
+            PriorityOpen = not PriorityOpen
+            PriorityOptionsFrame.Visible = PriorityOpen
         end)
-        PriorityDropdown.Position = UDim2.fromOffset(0, 0)
-        PriorityDropdown.Size = UDim2.new(1, 0, 0, 28)
-        SortLargestButton = PriorityDropdown
+        PriorityFilterButton.Position = UDim2.fromOffset(0, 0)
+        PriorityFilterButton.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
+        PriorityFilterButton.ZIndex = 100
+        local PriorityOptionsFrame = Create("Frame", {
+            Name = "PriorityOptions",
+            Parent = Card1,
+            Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY + AutoBreakControlLayout.Height + 4),
+            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, #PriorityOptions * 24),
+            BackgroundColor3 = Theme.Selected,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 200
+        })
+        AddCorner(PriorityOptionsFrame, 6)
+        for optionIndex, option in ipairs(PriorityOptions) do
+            local optionButton = Create("TextButton", {
+                Parent = PriorityOptionsFrame,
+                Position = UDim2.fromOffset(0, (optionIndex - 1) * 24),
+                Size = UDim2.new(1, 0, 0, 24),
+                BackgroundTransparency = 1,
+                Text = option,
+                TextColor3 = Theme.SelectedText,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 9,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                ZIndex = 201
+            })
+            optionButton.MouseButton1Click:Connect(function()
+                SortOrder = option
+                PriorityFilterButton.Text = option .. " ▼"
+                PriorityOptionsFrame.Visible = false
+                PriorityOpen = false
+                if RefreshEggList then RefreshEggList() end
+                if RefreshEggFilters then RefreshEggFilters() end
+                AddDebugLog("[Auto Break] Priority set to " .. tostring(option))
+            end)
+        end
+        SortLargestButton = PriorityFilterButton
         SortSmallestButton = nil
         function GetEggTypeName(name)
             return (name:gsub("^%d+:%s*", ""))
@@ -2378,8 +2426,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         UpdateAutoBreakCardHeights()
         function UpdateFilterPanelWithTitanic()
             UpdateFilterPanel()
-            PriorityDropdown.Position = UDim2.fromOffset(0, 0)
-            PriorityDropdown.Size = UDim2.new(1, 0, 0, 28)
+            PriorityFilterButton.Position = UDim2.fromOffset(0, 0)
+            PriorityFilterButton.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
             SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
             UpdateAutoBreakCardHeights()
         end
