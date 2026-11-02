@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.249"
+local testver = "Test ver: 1.250"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -408,6 +408,8 @@ local StatusBarAccent = Create("Frame", {
 })
 AddCorner(StatusBarAccent, 2)
 
+local StatusBarFontSize = 12
+
 local function CreateStatusText(name, position, size, text, color, font, textSize, alignment)
     return Create("TextLabel", {
         Name = name,
@@ -418,7 +420,7 @@ local function CreateStatusText(name, position, size, text, color, font, textSiz
         Text = text,
         TextColor3 = color,
         Font = font or Enum.Font.GothamMedium,
-        TextSize = textSize or 10,
+        TextSize = StatusBarFontSize,
         TextXAlignment = alignment or Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
         TextTruncate = Enum.TextTruncate.AtEnd,
@@ -463,7 +465,7 @@ local BrandText = Create("TextLabel", {
     TextColor3 = Theme.Text,
     RichText = true,
     Font = Enum.Font.GothamBold,
-    TextSize = 12,
+    TextSize = StatusBarFontSize,
     TextScaled = false,
     TextWrapped = false,
     ZIndex = 203
@@ -6197,7 +6199,7 @@ local function ClampMainWindowPosition(x, y)
         return x, y
     end
 
-    local viewport = camera.ViewportSize
+    local viewport = ScreenGui.AbsoluteSize
     local windowSize = Main.AbsoluteSize
     local maxX = math.max(0, viewport.X - windowSize.X)
     local maxY = math.max(0, viewport.Y - windowSize.Y)
