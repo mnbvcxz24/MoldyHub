@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.269"
+local testver = "Test ver: 1.270"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1329,20 +1329,25 @@ local AntiPaloEnabled = false
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if index == 1 then
-        -- MAIN PAGE STATS
-        -- Use the full page width so the two-column metric grid has room to breathe.
+        -- MAIN PAGE DASHBOARD
+        -- Stats and Mastery sit side-by-side in the Main page.
         local StatsCard = CreateCard(Page, "Stats", "")
         StatsCard.Parent = Page
         StatsCard.Position = UDim2.fromOffset(12, 12)
-        StatsCard.Size = UDim2.new(1, -24, 0, 190)
+        StatsCard.Size = UDim2.new(0.58, -16, 0, 190)
+
+        local MasteryCard = CreateCard(Page, "Mastery", "")
+        MasteryCard.Parent = Page
+        MasteryCard.Position = UDim2.new(0.58, 4, 0, 12)
+        MasteryCard.Size = UDim2.new(0.42, -16, 0, 190)
 
         local function CreateStatTile(name, caption, column, row)
-            local xPosition = column == 0 and UDim2.new(0, 11, 0, 0) or UDim2.new(0.5, 5, 0, 0)
+            local xPosition = column == 0 and UDim2.new(0, 9, 0, 0) or UDim2.new(0.5, 4, 0, 0)
             local tile = Create("Frame", {
                 Name = name:gsub("[^%w]", "") .. "Tile",
                 Parent = StatsCard,
                 Position = UDim2.new(xPosition.X.Scale, xPosition.X.Offset, 0, 34 + (row * 48)),
-                Size = UDim2.new(0.5, -17, 0, 42),
+                Size = UDim2.new(0.5, -14, 0, 42),
                 BackgroundColor3 = Theme.SurfaceInput,
                 BorderSizePixel = 0
             })
@@ -1364,26 +1369,26 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Create("TextLabel", {
                 Name = "Caption",
                 Parent = tile,
-                Position = UDim2.fromOffset(9, 5),
-                Size = UDim2.new(1, -18, 0, 11),
+                Position = UDim2.fromOffset(8, 5),
+                Size = UDim2.new(1, -14, 0, 11),
                 BackgroundTransparency = 1,
                 Text = caption,
                 TextColor3 = Theme.Gray,
                 Font = Enum.Font.GothamMedium,
-                TextSize = 8,
+                TextSize = 7,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextTruncate = Enum.TextTruncate.AtEnd
             })
             local value = Create("TextLabel", {
                 Name = "Value",
                 Parent = tile,
-                Position = UDim2.fromOffset(9, 18),
-                Size = UDim2.new(1, -18, 0, 18),
+                Position = UDim2.fromOffset(8, 18),
+                Size = UDim2.new(1, -14, 0, 18),
                 BackgroundTransparency = 1,
                 Text = "—",
                 TextColor3 = Theme.Text,
                 Font = Enum.Font.GothamSemibold,
-                TextSize = 12,
+                TextSize = 11,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextTruncate = Enum.TextTruncate.AtEnd
             })
@@ -1391,11 +1396,26 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 0, 0)
-        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "HIGHEST CASH / S ANIMAL", 1, 0)
+        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 1, 0)
         local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE / S", 0, 1)
         local CashValue = CreateStatTile("Cash", "CASH", 1, 1)
         local SpeedValue = CreateStatTile("Speed", "SPEED", 0, 2)
         local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 1, 2)
+
+        Create("TextLabel", {
+            Name = "MasteryPlaceholder",
+            Parent = MasteryCard,
+            Position = UDim2.fromOffset(11, 38),
+            Size = UDim2.new(1, -22, 0, 42),
+            BackgroundTransparency = 1,
+            Text = "Mastery progress",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top
+        })
 
         task.spawn(function()
             while not Runtime.Stopped and ScreenGui.Parent and StatsCard.Parent do
