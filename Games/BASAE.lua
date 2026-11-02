@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.244"
+local testver = "Test ver: 1.245"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -351,16 +351,27 @@ local StatusBar = Create("Frame", {
 AddCorner(StatusBar, 9)
 AddStroke(StatusBar, Theme.Border, 1)
 
--- Scale the complete bar (including its contents) to fit the current screen.
-local StatusBarUIScale = Create("UIScale", {
+-- Scale the content and resize the outer background frame to match it.
+-- This prevents an oversized empty frame around the status text.
+local StatusBarContent = Create("Frame", {
+    Name = "StatusBarContent",
     Parent = StatusBar,
+    Size = UDim2.fromOffset(500, 34),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ClipsDescendants = true
+})
+local StatusBarUIScale = Create("UIScale", {
+    Parent = StatusBarContent,
     Scale = 0.72
 })
 local function UpdateStatusBarScale()
     local camera = workspace.CurrentCamera
     if not camera then return end
     local viewportWidth = camera.ViewportSize.X
-    StatusBarUIScale.Scale = math.clamp(math.min(0.72, (viewportWidth * 0.88) / 500), 0.35, 0.72)
+    local scale = math.clamp(math.min(0.72, (viewportWidth * 0.88) / 500), 0.35, 0.72)
+    StatusBarUIScale.Scale = scale
+    StatusBar.Size = UDim2.fromOffset(500 * scale, 34 * scale)
 end
 UpdateStatusBarScale()
 
