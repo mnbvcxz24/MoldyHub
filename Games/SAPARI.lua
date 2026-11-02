@@ -2411,17 +2411,15 @@ end))
             Runtime.BossMovementActive = true
             Runtime.BossResumeAutoSteal = AutoStealEnabled
 
-            -- Stop treadmill movement, then jump off when boss movement starts.
-            if treadmillStatus == "Running" then
-                if Runtime.StopTreadmillIdle then
-                    Runtime.StopTreadmillIdle()
-                end
+            -- Stop treadmill movement if active, then always jump before navigating to the boss.
+            if treadmillStatus == "Running" and Runtime.StopTreadmillIdle then
+                Runtime.StopTreadmillIdle()
+            end
 
-                local character = LocalPlayer.Character
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                if humanoid and humanoid.Health > 0 then
-                    Jump(humanoid)
-                end
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                Jump(humanoid)
             end
 
             if nightDetected then
