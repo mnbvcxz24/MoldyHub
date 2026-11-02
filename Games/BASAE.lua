@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.275"
+local testver = "Test ver: 1.276"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -838,36 +838,32 @@ local function CreatePage(pageNumber, pageName)
         Visible = true,
         ClipsDescendants = true
     })
-    Create("UIPadding", {
-        Parent = Page,
-        PaddingTop = UDim.new(0, 10),
-        PaddingBottom = UDim.new(0, 10),
-        PaddingLeft = UDim.new(0, 10),
-        PaddingRight = UDim.new(0, 10)
-    })
+    -- Page children are positioned explicitly; avoid UIPadding adding
+    -- a second, inconsistent inset to manually positioned feature rows.
     local LeftColumn = Create("Frame", {
         Name = "LeftColumn",
         Parent = Page,
-        Size = UDim2.new(0.5, -2.5, 0, 0),
+        Position = UDim2.fromOffset(10, 10),
+        Size = UDim2.new(0.5, -15, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
     local RightColumn = Create("Frame", {
         Name = "RightColumn",
         Parent = Page,
-        Position = UDim2.new(0.5, 2.5, 0, 0),
-        Size = UDim2.new(0.5, -2.5, 0, 0),
+        Position = UDim2.new(0.5, 5, 0, 10),
+        Size = UDim2.new(0.5, -15, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
     local LeftLayout = Create("UIListLayout", {
         Parent = LeftColumn,
-        Padding = UDim.new(0, 5),
+        Padding = UDim.new(0, 10),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     local RightLayout = Create("UIListLayout", {
         Parent = RightColumn,
-        Padding = UDim.new(0, 4),
+        Padding = UDim.new(0, 10),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     PageColumnMap[Page] = {
@@ -888,8 +884,8 @@ local function CreatePage(pageNumber, pageName)
                 contentBottom = math.max(contentBottom, childBottom)
             end
         end
-        -- Account for the page's 10px top and bottom padding.
-        Page.CanvasSize = UDim2.new(0, 0, 0, contentBottom + 20)
+        -- Children already include the 10px top/side inset; reserve 10px below.
+        Page.CanvasSize = UDim2.new(0, 0, 0, contentBottom + 10)
     end
     local function TrackCanvasChild(child)
         if not child:IsA("GuiObject") then return end
@@ -1487,8 +1483,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             LayoutOrder = 1
         })
         local Card1 = CreateCard(AutoRow, "⚡  Auto Break", "")
-        Card1.Position = UDim2.new(0.5, 2.5, 0, 0)
-        Card1.Size = UDim2.new(0.5, -2.5, 0, 190)
+        Card1.Position = UDim2.new(0.5, 5, 0, 0)
+        Card1.Size = UDim2.new(0.5, -5, 0, 190)
         local StartAutoBreak
         local StopAutoBreak
         local StopPickupAutomation
@@ -1537,7 +1533,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         if AutoBreakTitle then AutoBreakTitle.Size = UDim2.new(1, -78, 0, 22) end
         local AutoPickupCard = CreateCard(AutoRow, "🐾  Auto Pickup", "")
         AutoPickupCard.Position = UDim2.new(0, 0, 0, 0)
-        AutoPickupCard.Size = UDim2.new(0.5, -2.5, 0, 316)
+        AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
         local AutoPickupEnabled = false
         local CurrentTarget, ArrivedAtTarget, WaitingForPickup
         local PickupRequested, ReturningAfterPickup, FlingRecoveryActive, ScriptShuttingDown
@@ -2767,14 +2763,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if RefreshEggFilters then RefreshEggFilters() end
         end)
         SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
-        Card1.Size = UDim2.new(0.5, -2.5, 0, 190)
-        AutoPickupCard.Size = UDim2.new(0.5, -2.5, 0, 316)
+        Card1.Size = UDim2.new(0.5, -5, 0, 190)
+        AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
         local function UpdateAutoBreakCardHeights()
             local autoBreakBottom = math.max(AutoBreakControlLayout.TitanicY + AutoBreakControlLayout.Height + 12, 190)
             local pickupBottom = 316
             local sharedHeight = math.max(autoBreakBottom, pickupBottom)
-            Card1.Size = UDim2.new(0.5, -2.5, 0, sharedHeight)
-            AutoPickupCard.Size = UDim2.new(0.5, -2.5, 0, sharedHeight)
+            Card1.Size = UDim2.new(0.5, -5, 0, sharedHeight)
+            AutoPickupCard.Size = UDim2.new(0.5, -5, 0, sharedHeight)
             AutoRow.Size = UDim2.new(1, -20, 0, sharedHeight + 34)
         end
         UpdateAutoBreakCardHeights()
@@ -5454,7 +5450,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local ESPCard = CreateCard(ESPCardsRow, "🥚  Egg ESP", "Displays egg stats.")
         ESPCard.Position = UDim2.new(0, 0, 0, 0)
-        ESPCard.Size = UDim2.new(0.5, -2.5, 0, 100)
+        ESPCard.Size = UDim2.new(0.5, -5, 0, 100)
         ESPCard.LayoutOrder = 1
         local ESPStatus = Create("TextLabel", {
             Parent = ESPCard,
@@ -5603,8 +5599,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         ESPCard.Size = UDim2.new(0.5, -5, 0, 100)
 
         local BackpackESPCard = CreateCard(ESPCardsRow, "Backpack ESP", "Shows larger $/s and KG on inventory cards.")
-        BackpackESPCard.Position = UDim2.new(0.5, 2.5, 0, 0)
-        BackpackESPCard.Size = UDim2.new(0.5, -2.5, 0, 100)
+        BackpackESPCard.Position = UDim2.new(0.5, 5, 0, 0)
+        BackpackESPCard.Size = UDim2.new(0.5, -5, 0, 100)
         BackpackESPCard.LayoutOrder = 2
         local BackpackESPStatus = Create("TextLabel", {
             Parent = BackpackESPCard,
@@ -5865,7 +5861,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local MiscFeatureRow = Create("Frame", {
             Name = "MiscFeatureCardsRow",
             Parent = Page,
-            Position = UDim2.fromOffset(10, 135),
+            Position = UDim2.fromOffset(10, 140),
             Size = UDim2.new(1, -20, 0, 110),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -5873,7 +5869,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local AntiPaloCard = CreateCard(MiscFeatureRow, "🛡️  Anti Knockback", "Prevents knockback and fling.")
         AntiPaloCard.Position = UDim2.new(0, 0, 0, 0)
-        AntiPaloCard.Size = UDim2.new(0.5, -2.5, 0, 100)
+        AntiPaloCard.Size = UDim2.new(0.5, -5, 0, 100)
         AntiPaloCard.LayoutOrder = 1
         local AntiPaloBusy = false
         local AntiPaloStatus = Create("TextLabel", {
@@ -5907,8 +5903,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AntiPaloToggle.Size = UDim2.fromOffset(48, 24)
 
         local AuraCard = CreateCard(MiscFeatureRow, "⚔️  Auto Boink", "Boink any enemy nearby.")
-        AuraCard.Position = UDim2.new(0.5, 2.5, 0, 0)
-        AuraCard.Size = UDim2.new(0.5, -2.5, 0, 100)
+        AuraCard.Position = UDim2.new(0.5, 5, 0, 0)
+        AuraCard.Size = UDim2.new(0.5, -5, 0, 100)
         AuraCard.LayoutOrder = 2
         local AuraStatus = Create("TextLabel", {
             Parent = AuraCard,
