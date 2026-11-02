@@ -2368,15 +2368,59 @@ end))
                 return false
             end
 
-            local reached = MoveToPosition(root, humanoid, destination, token, false, false, true, true)
-            if reached and token == navigationToken
-            and Runtime.BossMovementActive and not Runtime.Stopped then
-                SetNavigationStatus("At Candy Pumpkin")
-                return true
+            local navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent then
+                SetNavigationStatus("Navigation root unavailable")
+                return false
             end
 
-            SetNavigationStatus("Failed to reach Candy Pumpkin")
-            return false
+            -- Skip movement when the character/pet is already at the pumpkin.
+            local alreadyInPosition = IsNavigationAtDestination(navigationRoot, destination, 4)
+            if not alreadyInPosition then
+                SetNavigationStatus("Walking to Candy Pumpkin")
+                local reached = MoveToPosition(root, humanoid, destination, token, true, false, false, false)
+                if not reached then
+                    SetNavigationStatus("Failed to reach Candy Pumpkin")
+                    return false
+                end
+            end
+
+            if token ~= navigationToken or not Runtime.BossMovementActive
+            or Runtime.Stopped or not root.Parent or humanoid.Health <= 0 then
+                return false
+            end
+
+            navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent
+            or not IsNavigationAtDestination(navigationRoot, destination, 4) then
+                SetNavigationStatus("Pumpkin position not confirmed")
+                return false
+            end
+
+            -- Briefly anchor the character to stop residual movement before attacking.
+            humanoid:MoveTo(root.Position)
+            humanoid:Move(Vector3.zero, false)
+            local wasAnchored = root.Anchored
+            root.Anchored = true
+            task.wait(1)
+            if root.Parent then
+                root.Anchored = wasAnchored
+            end
+
+            if token ~= navigationToken or not Runtime.BossMovementActive
+            or Runtime.Stopped or not root.Parent or humanoid.Health <= 0 then
+                return false
+            end
+
+            navigationRoot = GetNavigationRoot(root)
+            if not navigationRoot or not navigationRoot.Parent
+            or not IsNavigationAtDestination(navigationRoot, destination, 4) then
+                SetNavigationStatus("Pumpkin position lost")
+                return false
+            end
+
+            SetNavigationStatus("At Candy Pumpkin")
+            return true
         end
 
         Runtime.EndBossMovement = function()
@@ -3909,6 +3953,12 @@ end))
         local BossScheduleToken = 0
         local WaveResultConnection
 
+        -- Keep the hourly target and post-zero phase independent of listener toggles.
+        local BossNextTargetUnix
+        local BossEventActive = false
+        local BossPostZeroDeadline
+        local BossWaveResultReceived = false
+
         local function SetBossTimer(seconds)
             if seconds == nil then
                 BossTimerValue.Text = "--:--:--"
@@ -4072,39 +4122,78 @@ end))
                 end
 
                 WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
-                    if AutoFightBossEnabled and BossRoutineRunning then
+                    if AutoFightBossEnabled and BossEventActive then
+                        BossWaveResultReceived = true
                         BossFightEnded = true
                     end
                 end))
 
                 -- SAPARI boss waves begin every hour at :15 Philippine time (UTC+8).
-                -- Calculate the next scheduled occurrence, then repeat hourly.
+                -- Keep this target stable across toggles and the post-zero phase.
                 local PH_OFFSET_SECONDS = 8 * 60 * 60
-                local nowPH = DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
-                local nextBossStart = math.floor(nowPH / 3600) * 3600 + (15 * 60)
-                if nowPH >= nextBossStart then
-                    nextBossStart += 3600
+                local function GetNowPH()
+                    return DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
+                end
+
+                if not BossNextTargetUnix then
+                    local nowPH = GetNowPH()
+                    BossNextTargetUnix = math.floor(nowPH / 3600) * 3600 + (15 * 60)
+                    if nowPH >= BossNextTargetUnix then
+                        BossNextTargetUnix += 3600
+                    end
+                end
+
+                -- If the feature is re-enabled during an unfinished event, resume it.
+                if BossEventActive and not BossWaveResultReceived
+                and not BossRoutineRunning then
+                    BossFightEnded = false
+                    StartBossRoutine()
                 end
 
                 while AutoFightBossEnabled and listenerToken == BossListenerToken
                 and scheduleToken == BossScheduleToken and not Runtime.Stopped do
-                    nowPH = DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
-                    local remaining = nextBossStart - nowPH
+                    local nowPH = GetNowPH()
 
-                    if remaining <= 0 then
-                        SetBossTimer(0)
-                        if AutoFightBossEnabled and not BossRoutineRunning then
-                            SetBossStatus("Starting")
-                            StartBossRoutine()
+                    if BossEventActive then
+                        if BossWaveResultReceived then
+                            -- Return to the same precomputed hourly target; do not shift the schedule.
+                            BossEventActive = false
+                            BossPostZeroDeadline = nil
+                            BossWaveResultReceived = false
+                            BossFightEnded = false
+                            if not BossRoutineRunning then
+                                SetBossStatus("Waiting")
+                            end
+                        else
+                            local postZeroRemaining = math.max(0, (BossPostZeroDeadline or nowPH) - nowPH)
+                            SetBossTimer(postZeroRemaining)
+                            if postZeroRemaining <= 0 and not BossRoutineRunning then
+                                SetBossStatus("Waiting for WaveResult")
+                            end
                         end
-                        nextBossStart += 3600
                     else
-                        SetBossTimer(remaining)
-                        if not BossRoutineRunning then
-                            SetBossStatus("Waiting")
+                        local remaining = BossNextTargetUnix - nowPH
+                        if remaining <= 0 then
+                            -- Start the 10-minute post-zero display and advance the fixed hourly target once.
+                            BossEventActive = true
+                            BossPostZeroDeadline = BossNextTargetUnix + 10 * 60
+                            BossNextTargetUnix += 3600
+                            BossWaveResultReceived = false
+                            BossFightEnded = false
+                            SetBossTimer(10 * 60)
+                            SetBossStatus("Starting")
+                            if not BossRoutineRunning then
+                                StartBossRoutine()
+                            end
+                        else
+                            SetBossTimer(remaining)
+                            if not BossRoutineRunning then
+                                SetBossStatus("Waiting")
+                            end
                         end
-                        task.wait(math.min(remaining, 1))
                     end
+
+                    task.wait(1)
                 end
             end)
         end
