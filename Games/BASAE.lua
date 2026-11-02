@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.246"
+local testver = "Test ver: 1.247"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -337,9 +337,19 @@ local function ApplyTheme(themeName)
     end
 end
 -- COMPACT TOP STATUS BAR
+-- Separate lower DisplayOrder keeps this decorative/draggable bar from
+-- intercepting input intended for the main window when they overlap.
+local StatusBarGui = Create("ScreenGui", {
+    Name = "MoldyHubStatusBarGui",
+    Parent = game.CoreGui,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 999998,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global
+})
 local StatusBar = Create("Frame", {
     Name = "MoldyHubStatusBar",
-    Parent = ScreenGui,
+    Parent = StatusBarGui,
     AnchorPoint = Vector2.new(0.5, 0),
     Position = UDim2.new(0.5, 0, 0, 12),
     Size = UDim2.fromOffset(500, 34),
