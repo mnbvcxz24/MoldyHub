@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.268"
+local testver = "Test ver: 1.269"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1330,31 +1330,46 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if index == 1 then
         -- MAIN PAGE STATS
-        -- Values without a confirmed game data source stay as "—" rather than guessing.
+        -- Use the full page width so the two-column metric grid has room to breathe.
         local StatsCard = CreateCard(Page, "Stats", "")
-        StatsCard.Size = UDim2.new(1, 0, 0, 202)
+        StatsCard.Parent = Page
+        StatsCard.Position = UDim2.fromOffset(12, 12)
+        StatsCard.Size = UDim2.new(1, -24, 0, 190)
 
         local function CreateStatTile(name, caption, column, row)
+            local xPosition = column == 0 and UDim2.new(0, 11, 0, 0) or UDim2.new(0.5, 5, 0, 0)
             local tile = Create("Frame", {
                 Name = name:gsub("[^%w]", "") .. "Tile",
                 Parent = StatsCard,
-                Position = UDim2.new(column, column == 0 and 11 or 5, 0, 34 + (row * 50)),
-                Size = UDim2.new(0.5, -16, 0, 44),
-                BackgroundColor3 = Theme.Background,
+                Position = UDim2.new(xPosition.X.Scale, xPosition.X.Offset, 0, 34 + (row * 48)),
+                Size = UDim2.new(0.5, -17, 0, 42),
+                BackgroundColor3 = Theme.SurfaceInput,
                 BorderSizePixel = 0
             })
             AddCorner(tile, 6)
             AddStroke(tile, Theme.Border, 1)
 
+            if column == 0 then
+                local accent = Create("Frame", {
+                    Name = "Accent",
+                    Parent = tile,
+                    Position = UDim2.fromOffset(0, 8),
+                    Size = UDim2.new(0, 2, 1, -16),
+                    BackgroundColor3 = Theme.Accent,
+                    BorderSizePixel = 0
+                })
+                AddCorner(accent, 2)
+            end
+
             Create("TextLabel", {
                 Name = "Caption",
                 Parent = tile,
-                Position = UDim2.fromOffset(8, 5),
-                Size = UDim2.new(1, -16, 0, 11),
+                Position = UDim2.fromOffset(9, 5),
+                Size = UDim2.new(1, -18, 0, 11),
                 BackgroundTransparency = 1,
                 Text = caption,
                 TextColor3 = Theme.Gray,
-                Font = Enum.Font.GothamSemibold,
+                Font = Enum.Font.GothamMedium,
                 TextSize = 8,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextTruncate = Enum.TextTruncate.AtEnd
@@ -1362,13 +1377,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local value = Create("TextLabel", {
                 Name = "Value",
                 Parent = tile,
-                Position = UDim2.fromOffset(8, 18),
-                Size = UDim2.new(1, -16, 0, 19),
+                Position = UDim2.fromOffset(9, 18),
+                Size = UDim2.new(1, -18, 0, 18),
                 BackgroundTransparency = 1,
                 Text = "—",
                 TextColor3 = Theme.Text,
                 Font = Enum.Font.GothamSemibold,
-                TextSize = 11,
+                TextSize = 12,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextTruncate = Enum.TextTruncate.AtEnd
             })
