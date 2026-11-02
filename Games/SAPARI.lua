@@ -4647,12 +4647,12 @@ TopBar.InputBegan:Connect(function(input)
         WindowDragging, WindowDragStart, WindowStartPosition = true, input.Position, Main.Position
     end
 end)
-local CircleDragging, CircleDragInput, CircleDragStart, CircleStartAbsolutePosition = false, nil, nil, nil
+local CircleDragging, CircleDragInput, CircleDragStart, CircleStartPosition = false, nil, nil, nil
 local CircleMoved, CircleDragThreshold = false, 6
 FloatingToggle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         CircleDragging, CircleDragInput, CircleDragStart = true, input, input.Position
-        CircleStartAbsolutePosition, CircleMoved = FloatingToggle.AbsolutePosition, false
+        CircleStartPosition, CircleMoved = FloatingToggle.Position, false
     end
 end)
 TrackConnection(UserInputService.InputChanged:Connect(function(input)
@@ -4661,7 +4661,7 @@ TrackConnection(UserInputService.InputChanged:Connect(function(input)
             local delta = input.Position - CircleDragStart
             if delta.Magnitude > CircleDragThreshold then CircleMoved = true end
             if CircleMoved then
-                local x, y = ClampFloatingTogglePosition(CircleStartAbsolutePosition.X + delta.X, CircleStartAbsolutePosition.Y + delta.Y)
+                local x, y = ClampFloatingTogglePosition(CircleStartPosition.X.Offset + delta.X, CircleStartPosition.Y.Offset + delta.Y)
                 FloatingToggle.Position = UDim2.fromOffset(x, y)
             end
         end
