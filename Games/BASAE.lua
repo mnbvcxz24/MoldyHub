@@ -62,10 +62,9 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "MoldyHub",
-    Subtitle = testver,
+    Subtitle = "Steal a pet and ride it",
     Width = 480,
     Height = 320,
-    SidebarWidth = 108,
     SidebarNames = {
         "Main",
         "Event",
@@ -287,7 +286,10 @@ local ThemePresets = {
         AccentText = Color3.fromRGB(19, 35, 4)
     }
 }
-local ActiveThemeName = "OLED Black + Amber"
+for key, color in pairs(ThemePresets["Black + Electric Blue"]) do
+    Theme[key] = color
+end
+local ActiveThemeName = "Black + Electric Blue"
 -- SCREEN GUI
 local ScreenGui = Create("ScreenGui", {
     Name = "BASAESkripUI",
@@ -326,99 +328,54 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. (string.match(testver, "[%d%.]+") and ("v" .. string.match(testver, "[%d%.]+")) or testver) .. '</font>'
     end
 end
 -- MAIN WINDOW
 local Main = Create("Frame", {
     Name = "Main",
     Parent = ScreenGui,
-    Size = UDim2.fromOffset(
-        UIConfig.Width,
-        UIConfig.Height
-    ),
-    Position = UDim2.new(
-        0.5,
-        -UIConfig.Width / 2,
-        0.5,
-        -UIConfig.Height / 2
-    ),
+    Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
+    Position = UDim2.new(0.5, -UIConfig.Width / 2, 0.5, -UIConfig.Height / 2),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0,
     ClipsDescendants = true
 })
 local MainCorner = AddCorner(Main, 12)
 AddStroke(Main, Theme.Border, 1)
+local UIScale = Create("UIScale", {
+    Parent = Main,
+    Scale = 1
+})
 -- TOP BAR
 local TopBar = Create("Frame", {
     Name = "TopBar",
     Parent = Main,
-    Size = UDim2.new(1, 0, 0, 48),
+    Size = UDim2.new(1, 0, 0, 40),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
 AddCorner(TopBar, 12)
-Create("Frame", {
-    Name = "TopBarCornerCover",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(0, 12),
-    Size = UDim2.new(1, 0, 1, -12),
-    BackgroundColor3 = Theme.Background,
-    BorderSizePixel = 0,
-    ZIndex = 0
-})
--- Title
 local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
-    Position = UDim2.fromOffset(14, 5),
-    Size = UDim2.fromOffset(220, 22),
+    Position = UDim2.fromOffset(14, 0),
+    Size = UDim2.new(1, -100, 1, 0),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. Theme.Accent:ToHex() .. '">' .. (string.match(testver, "[%d%.]+") and ("v" .. string.match(testver, "[%d%.]+")) or testver) .. '</font>',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
     TextSize = 14,
-    TextXAlignment = Enum.TextXAlignment.Left
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center
 })
--- Subtitle
-local Subtitle = Create("TextLabel", {
-    Name = "Subtitle",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(14, 27),
-    Size = UDim2.fromOffset(170, 16),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Subtitle,
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
--- Search
-local SearchBox = Create("TextBox", {
-    Name = "Search",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(10, 36),
-    Size = UDim2.fromOffset(80, 18),
-    BackgroundColor3 = Theme.SurfaceInput,
-    PlaceholderText = "Search...",
-    PlaceholderColor3 = Theme.Gray,
-    Visible = false,
-    Text = "",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    ClearTextOnFocus = false,
-    BorderSizePixel = 0
-})
-AddCorner(SearchBox, 8)
-AddStroke(SearchBox, Theme.Border, 1)
 -- Minimize
 local MinimizeButton = Create("TextButton", {
     Name = "Minimize",
     Parent = TopBar,
-    Position = UDim2.new(1, -52, 0, 16),
-    Size = UDim2.fromOffset(22, 26),
+    Position = UDim2.new(1, -56, 0, 8),
+    Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "-",
     TextColor3 = Theme.Text,
@@ -432,8 +389,8 @@ AddStroke(MinimizeButton, Theme.Border, 1)
 local CloseButton = Create("TextButton", {
     Name = "Close",
     Parent = TopBar,
-    Position = UDim2.new(1, -27, 0, 16),
-    Size = UDim2.fromOffset(22, 26),
+    Position = UDim2.new(1, -28, 0, 8),
+    Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "×",
     TextColor3 = Theme.Text,
@@ -446,7 +403,7 @@ AddStroke(CloseButton, Theme.Border, 1)
 local RestoreButton = Create("TextButton", {
     Name = "Restore",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 0),
+    Position = UDim2.new(1, -36, 0, 11),
     Size = UDim2.fromOffset(36, 36),
     BackgroundColor3 = Theme.Sidebar,
     Text = "B",
@@ -459,68 +416,41 @@ local RestoreButton = Create("TextButton", {
 })
 AddCorner(RestoreButton, 18)
 AddStroke(RestoreButton, Theme.Border, 1)
--- SIDEBAR
-local Sidebar = Create("Frame", {
-    Name = "Sidebar",
+-- HORIZONTAL NAVIGATION
+local NavigationBar = Create("Frame", {
+    Name = "NavigationBar",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 48),
-    Size = UDim2.new(
-        0,
-        UIConfig.SidebarWidth,
-        1,
-        -48
-    ),
+    Position = UDim2.fromOffset(0, 40),
+    Size = UDim2.new(1, 0, 0, 32),
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
-AddCorner(Sidebar, 12)
--- Sidebar title
-local NavigationTitle = Create("TextLabel", {
-    Name = "NavigationTitle",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(8, 12),
-    Size = UDim2.new(1, -16, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "NAVIGATION",
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.GothamBold,
-    TextSize = 9,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
--- Sidebar container
-local SidebarContainer = Create("ScrollingFrame", {
-    Name = "Buttons",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(5, 40),
-    Size = UDim2.new(1, -10, 1, -60),
+local NavigationContainer = Create("ScrollingFrame", {
+    Name = "NavigationButtons",
+    Parent = NavigationBar,
+    Position = UDim2.fromOffset(10, 2),
+    Size = UDim2.new(1, -20, 1, -4),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
-    ScrollBarThickness = 3,
-    ScrollBarImageColor3 = Theme.Gray,
-    ScrollingDirection = Enum.ScrollingDirection.Y,
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 0,
+    ScrollingDirection = Enum.ScrollingDirection.X,
+    AutomaticCanvasSize = Enum.AutomaticSize.X,
     CanvasSize = UDim2.new(0, 0, 0, 0),
     ClipsDescendants = true
 })
 Create("UIListLayout", {
-    Parent = SidebarContainer,
-    Padding = UDim.new(0, 6),
-    SortOrder = Enum.SortOrder.LayoutOrder
+    Parent = NavigationContainer,
+    FillDirection = Enum.FillDirection.Horizontal,
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    VerticalAlignment = Enum.VerticalAlignment.Center
 })
 -- CONTENT AREA
 local Content = Create("Frame", {
     Name = "Content",
     Parent = Main,
-    Position = UDim2.fromOffset(
-        UIConfig.SidebarWidth,
-        48
-    ),
-    Size = UDim2.new(
-        1,
-        -UIConfig.SidebarWidth - 12,
-        1,
-        -60
-    ),
+    Position = UDim2.fromOffset(0, 72),
+    Size = UDim2.new(1, 0, 1, -84),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
@@ -987,41 +917,43 @@ local function CreateSlider(parent, text, minimum, maximum, default, callback)
     end)
     return Holder
 end
--- CREATE SIDEBAR BUTTONS
+-- CREATE HORIZONTAL NAVIGATION BUTTONS
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Button = Create("TextButton", {
-        Name = "SidebarButton_" .. index,
-        Parent = SidebarContainer,
-        Size = UDim2.new(1, -2, 0, 34),
-        BackgroundColor3 = Theme.Sidebar,
-        Text = ({"🏠", "🎉", "✨", "🐾", "⚙️", "🪲"})[index] .. "  " .. name,
+        Name = "NavigationButton_" .. index,
+        Parent = NavigationContainer,
+        Size = UDim2.fromOffset(math.max(62, (#name * 7) + 24), 28),
+        BackgroundTransparency = 1,
+        Text = name,
         TextColor3 = Theme.DarkGray,
         Font = Enum.Font.GothamMedium,
-        TextSize = 9,
+        TextSize = 10,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextXAlignment = Enum.TextXAlignment.Center,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         LayoutOrder = index
     })
-    AddCorner(Button, 7)
-    Button.BackgroundTransparency = 1
-    local ActiveLine = Create("Frame", {Name = "ActiveLine", Parent = Button, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -2, 0.5, 0), Size = UDim2.fromOffset(2, 18), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Visible = index == 1})
-    AddCorner(ActiveLine, 1)
-    local Padding = Create("UIPadding", {
+    local ActiveLine = Create("Frame", {
+        Name = "ActiveLine",
         Parent = Button,
-        PaddingLeft = UDim.new(0, 10)
+        AnchorPoint = Vector2.new(0.5, 1),
+        Position = UDim2.new(0.5, 0, 1, -1),
+        Size = UDim2.new(0.62, 0, 0, 2),
+        BackgroundColor3 = Theme.Accent,
+        BorderSizePixel = 0,
+        Visible = index == 1
     })
+    AddCorner(ActiveLine, 1)
     SidebarButtons[index] = Button
     Button.MouseButton1Click:Connect(function()
         for pageIndex, page in pairs(Pages) do
             page.Visible = pageIndex == index
         end
-        for buttonIndex, sidebarButton in pairs(SidebarButtons) do
+        for buttonIndex, navigationButton in pairs(SidebarButtons) do
             local active = buttonIndex == index
-            sidebarButton.BackgroundTransparency = 1
-            sidebarButton.TextColor3 = active and Theme.Text or Theme.DarkGray
-            local line = sidebarButton:FindFirstChild("ActiveLine")
+            navigationButton.TextColor3 = active and Theme.Text or Theme.DarkGray
+            local line = navigationButton:FindFirstChild("ActiveLine")
             if line then line.Visible = active end
         end
         CurrentPage = index
