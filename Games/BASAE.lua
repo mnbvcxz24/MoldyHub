@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.243"
+local testver = "Test ver: 1.244"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -6173,7 +6173,8 @@ TopBar.InputBegan:Connect(function(input)
     or input.UserInputType == Enum.UserInputType.Touch then
         WindowDragging = true
         WindowDragStart = input.Position
-        WindowStartAbsolutePosition = Main.AbsolutePosition
+        local absolutePosition = Main.AbsolutePosition
+        WindowStartAbsolutePosition = Vector2.new(absolutePosition.X, absolutePosition.Y)
     end
 end)
 
@@ -6215,11 +6216,17 @@ UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement
     or input.UserInputType == Enum.UserInputType.Touch then
         if WindowDragging then
+            -- Apply only this movement step. At a screen edge the window stops,
+            -- and the drag origin follows the pointer so reversing direction
+            -- moves the window immediately without snapping or bouncing.
             local delta = input.Position - WindowDragStart
-            local targetX = WindowStartAbsolutePosition.X + delta.X
-            local targetY = WindowStartAbsolutePosition.Y + delta.Y
+            local currentPosition = Main.AbsolutePosition
+            local targetX = currentPosition.X + delta.X
+            local targetY = currentPosition.Y + delta.Y
             local clampedX, clampedY = ClampMainWindowPosition(targetX, targetY)
             Main.Position = UDim2.fromOffset(clampedX, clampedY)
+            WindowDragStart = input.Position
+            WindowStartAbsolutePosition = Vector2.new(clampedX, clampedY)
         end
     end
 end)
