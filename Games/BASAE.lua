@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.264"
+local testver = "Test ver: 1.265"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2343,76 +2343,64 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return true
         end
 
-        function GetEggLuck(egg)
-            local eggModel = egg and (egg:FindFirstChild("Egg", true) or egg)
-            if not eggModel then return 0 end
-            local info = egg:FindFirstChild("EggInfoUi", true) or eggModel:FindFirstChild("EggInfoUi", true)
-
-            local function isTextObject(node)
-                return node and (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
+        -- Read metadata from the same Egg/EggInfoUi sources used by EggESP.
+        -- EggESP uses WeightBracket for the displayed category.
+        function GetEggESPValue(object, names)
+            if not object then return nil end
+            local nodes = {object}
+            for _, descendant in ipairs(object:GetDescendants()) do
+                table.insert(nodes, descendant)
             end
-
-            local function getNamedDisplayText(object, names)
-                if not object then return nil end
-                local nodes = {object}
-                for _, descendant in ipairs(object:GetDescendants()) do
-                    table.insert(nodes, descendant)
-                end
-                for _, name in ipairs(names) do
-                    for _, node in ipairs(nodes) do
-                        if node.Name == name and isTextObject(node) then
-                            local value = tostring(node.Text or "")
-                            if value:match("%S") then return value end
+            for _, name in ipairs(names) do
+                for _, node in ipairs(nodes) do
+                    local value = node:GetAttribute(name)
+                    if value ~= nil then return tostring(value) end
+                    if node.Name == name then
+                        if node:IsA("ValueBase") then return tostring(node.Value) end
+                        if (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) and node.Text ~= "" then
+                            return node.Text
                         end
                     end
                 end
-                return nil
             end
+            return nil
+        end
 
-            local function getESPValue(object, names)
-                if not object then return nil end
-                local nodes = {object}
-                for _, descendant in ipairs(object:GetDescendants()) do
-                    table.insert(nodes, descendant)
-                end
-                for _, name in ipairs(names) do
-                    for _, node in ipairs(nodes) do
-                        if node.Name == name then
-                            if isTextObject(node) and tostring(node.Text or ""):match("%S") then
-                                return tostring(node.Text)
-                            end
-                            local value = node:GetAttribute(name)
-                            if value ~= nil then return tostring(value) end
-                            if node:IsA("ValueBase") then return tostring(node.Value) end
-                        end
-                        local value = node:GetAttribute(name)
-                        if value ~= nil then return tostring(value) end
-                    end
-                end
-                return nil
-            end
+        function GetEggESPMetadata(egg)
+            if not egg then return nil, nil, nil end
+            -- Match GetEggESPInfo: use the direct child named "Egg", otherwise the outer egg.
+            local eggModel = egg:FindFirstChild("Egg") or egg
+            local info = eggModel:FindFirstChild("EggInfoUi", true)
 
-            -- Prefer the displayed multiplier (for example, "x500.2B") over
-            -- raw attributes that may contain only the unscaled number.
-            local rawLuck
-            if info then
+            local luck = GetEggESPValue(eggModel, {"LuckMulti", "Luck", "LuckMultiplier"})
+                or GetEggESPValue(info, {"LuckMulti", "Luck", "LuckMultiplier"})
+            if not luck and info then
                 local luckList = info:FindFirstChild("LuckMultiList", true)
                 local luckLabel = luckList and luckList:FindFirstChild("LuckMulti", true)
-                if isTextObject(luckLabel) and tostring(luckLabel.Text or ""):match("%S") then
-                    rawLuck = luckLabel.Text
+                if luckLabel and (luckLabel:IsA("TextLabel") or luckLabel:IsA("TextButton")) then
+                    luck = luckLabel.Text
                 end
-                rawLuck = rawLuck or getNamedDisplayText(info, {"LuckMulti", "LuckMultiplier", "Luck"})
             end
-            rawLuck = rawLuck
-                or getNamedDisplayText(eggModel, {"LuckMulti", "LuckMultiplier", "Luck"})
-                or getESPValue(info, {"LuckMulti", "Luck", "LuckMultiplier"})
-                or getESPValue(eggModel, {"LuckMulti", "Luck", "LuckMultiplier"})
-                or GetEggDataValue(egg, "LuckMulti")
-                or GetEggDataValue(egg, "LuckMultiplier")
-                or GetEggDataValue(egg, "Luck")
 
+            local weightKG = GetEggESPValue(eggModel, {"WeightKg"})
+                or GetEggESPValue(info, {"WeightKg"})
+            local category = GetEggESPValue(eggModel, {"WeightBracket"})
+                or GetEggESPValue(info, {"WeightBracket"})
+
+            return luck, weightKG, category
+        end
+
+        function GetEggCategory(egg)
+            local _, _, category = GetEggESPMetadata(egg)
+            if category == nil or tostring(category):match("%S") == nil then return nil end
+            return tostring(category):match("^%s*(.-)%s*$")
+        end
+
+        function GetEggLuck(egg)
+            local rawLuck = GetEggESPMetadata(egg)
             if rawLuck == nil or tostring(rawLuck):match("%S") == nil then return 0 end
 
+            -- Supports displayed values such as x90Qa, x10T and x500.2B.
             local text = tostring(rawLuck)
                 :gsub("^%s*[xX×]%s*", "")
                 :lower()
@@ -4903,9 +4891,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                 and IsEggAvailable(egg) then
                                 local eggName = GetEggTypeName(egg.Name)
                                 if SelectedEggs[eggName] ~= false then
-                                    local category = GetEggDataValue(egg, "Category")
+                                    local category = GetEggCategory(egg)
                                     local isTitanic = category ~= nil
-                                        and tostring(category):lower():find("titanic", 1, true) ~= nil
+                                        and category:lower() == "titanic"
                                     table.insert(priorityCandidates, {
                                         egg = egg,
                                         luck = GetEggLuck(egg),
@@ -5128,13 +5116,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                     and IsEggAvailable(egg) then
                                     local eggName = GetEggTypeName(egg.Name)
                                     if SelectedEggs[eggName] ~= false then
-                                        local category = GetEggDataValue(egg, "Category")
+                                        local category = GetEggCategory(egg)
                                         table.insert(candidates, {
                                             egg = egg,
                                             luck = GetEggLuck(egg),
                                             kg = GetEggWeightKg(egg) or 0,
                                             isTitanic = category ~= nil
-                                                and tostring(category):lower():find("titanic", 1, true) ~= nil
+                                                and category:lower() == "titanic"
                                         })
                                     end
                                 end
