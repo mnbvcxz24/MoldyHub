@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.271"
+local testver = "Test ver: 1.272"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1417,16 +1417,58 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextYAlignment = Enum.TextYAlignment.Top
         })
 
+        local function ReadPlayerStatAttribute(attributeName)
+            local value = LocalPlayer:GetAttribute(attributeName)
+            if value == nil then return "—" end
+            return tostring(value)
+        end
+
+        local function FindOwnedPlot()
+            local plots = workspace:FindFirstChild("Plots")
+            if not plots then return nil end
+            for _, base in ipairs(plots:GetChildren()) do
+                local ownerUserId = base:GetAttribute("userID")
+                if tonumber(ownerUserId) == LocalPlayer.UserId then
+                    return base
+                end
+            end
+            return nil
+        end
+
+        local function ReadHighestPlacedAnimal()
+            local ownedBase = FindOwnedPlot()
+            local placedAnimals = ownedBase and ownedBase:FindFirstChild("PlacedAnimals")
+            if not placedAnimals then return "—" end
+
+            local highestValue = -1
+            local highestDisplay = nil
+            local highestName = nil
+
+            -- Reuse the game's existing animal Cash/s reader.
+            if type(GetPetCPS) ~= "function" then return "—" end
+            for _, animal in ipairs(placedAnimals:GetChildren()) do
+                local cashPerSecond, display = GetPetCPS(animal)
+                if type(cashPerSecond) == "number" and cashPerSecond > highestValue then
+                    highestValue = cashPerSecond
+                    highestDisplay = display
+                    highestName = animal:GetAttribute("AnimalName") or animal.Name
+                end
+            end
+
+            if highestValue < 0 or not highestName then return "—" end
+            local cashText = highestDisplay and tostring(highestDisplay) or tostring(highestValue)
+            return tostring(highestName) .. " (" .. cashText .. ")"
+        end
+
         task.spawn(function()
             while not Runtime.Stopped and ScreenGui.Parent and StatsCard.Parent do
-                local speedText = "—"
-                local character = LocalPlayer.Character
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    speedText = string.format("%.1f", humanoid.WalkSpeed)
-                end
-                SpeedValue.Text = speedText
-                task.wait(0.25)
+                CashValue.Text = ReadPlayerStatAttribute("Cash")
+                CashPerSecondValue.Text = ReadPlayerStatAttribute("CashPerSecond")
+                DiamondsValue.Text = ReadPlayerStatAttribute("Diamonds")
+                SpeedValue.Text = ReadPlayerStatAttribute("SpeedPower")
+                HighestCashAnimalValue.Text = ReadHighestPlacedAnimal()
+                -- Pickaxe damage is intentionally left as "—" until its value is provided.
+                task.wait(0.5)
             end
         end)
     elseif index == 2 then
