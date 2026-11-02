@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.250"
+local testver = "Test ver: 1.251"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -371,8 +371,8 @@ local StatusBarGui = Create("ScreenGui", {
 local StatusBar = Create("Frame", {
     Name = "MoldyHubStatusBar",
     Parent = StatusBarGui,
-    AnchorPoint = Vector2.new(0.5, 0),
-    Position = UDim2.new(0.5, 0, 0, 12),
+    AnchorPoint = Vector2.new(0, 0),
+    Position = UDim2.fromOffset(0, 12),
     Size = UDim2.fromOffset(500, 34),
     BackgroundColor3 = Theme.Card,
     BorderSizePixel = 0,
@@ -396,6 +396,12 @@ local function UpdateStatusBarScale()
     StatusBarUIScale.Scale = math.clamp(math.min(0.60, (viewportWidth * 0.84) / 500), 0.35, 0.60)
 end
 UpdateStatusBarScale()
+do
+    local camera = workspace.CurrentCamera
+    local viewportWidth = camera and camera.ViewportSize.X or 0
+    local scaledWidth = StatusBar.AbsoluteSize.X
+    StatusBar.Position = UDim2.fromOffset(math.max(0, (viewportWidth - scaledWidth) / 2), 12)
+end
 
 local StatusBarAccent = Create("Frame", {
     Name = "AccentLine",
@@ -522,7 +528,6 @@ local StatusBarInputChanged = UserInputService.InputChanged:Connect(function(inp
             StatusBarStartPosition.Y + delta.Y
         )
         StatusBar.Position = UDim2.fromOffset(x, y)
-        StatusBar.AnchorPoint = Vector2.new(0, 0)
     end
 end)
 local StatusBarInputEnded = UserInputService.InputEnded:Connect(function(input)
@@ -538,7 +543,6 @@ end)
 local StatusBarViewportConnection
 local function KeepStatusBarOnScreen()
     local x, y = ClampStatusBarPosition(StatusBar.AbsolutePosition.X, StatusBar.AbsolutePosition.Y)
-    StatusBar.AnchorPoint = Vector2.new(0, 0)
     StatusBar.Position = UDim2.fromOffset(x, y)
 end
 local function ConnectStatusBarViewport(camera)
@@ -6259,13 +6263,10 @@ UserInputService.InputChanged:Connect(function(input)
             -- and the drag origin follows the pointer so reversing direction
             -- moves the window immediately without snapping or bouncing.
             local delta = input.Position - WindowDragStart
-            local currentPosition = Main.AbsolutePosition
-            local targetX = currentPosition.X + delta.X
-            local targetY = currentPosition.Y + delta.Y
+            local targetX = WindowStartAbsolutePosition.X + delta.X
+            local targetY = WindowStartAbsolutePosition.Y + delta.Y
             local clampedX, clampedY = ClampMainWindowPosition(targetX, targetY)
             Main.Position = UDim2.fromOffset(clampedX, clampedY)
-            WindowDragStart = input.Position
-            WindowStartAbsolutePosition = Vector2.new(clampedX, clampedY)
         end
     end
 end)
