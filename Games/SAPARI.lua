@@ -8,7 +8,7 @@ local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.48"
+local deployver = "Deploy ver 1.49"
 local ScriptStartedAt = os.clock()
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.86")
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
@@ -279,6 +279,7 @@ local ScreenGui = Create("ScreenGui", {
     Parent = game.CoreGui,
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
+    DisplayOrder = 999999,
     ZIndexBehavior = Enum.ZIndexBehavior.Global
 })
 local function ApplyTheme(themeName)
