@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.228"
+local testver = "Test ver: 1.229"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -414,7 +414,7 @@ local NavigationContainer = Create("ScrollingFrame", {
 Create("UIListLayout", {
     Parent = NavigationContainer,
     FillDirection = Enum.FillDirection.Horizontal,
-    Padding = UDim.new(0, 8),
+    Padding = UDim.new(0, 3),
     SortOrder = Enum.SortOrder.LayoutOrder,
     VerticalAlignment = Enum.VerticalAlignment.Center
 })
@@ -963,12 +963,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     local Button = Create("TextButton", {
         Name = "NavigationButton_" .. index,
         Parent = NavigationContainer,
-        Size = UDim2.fromOffset(math.max(62, (#name * 7) + 24), 28),
+        Size = UDim2.fromOffset(math.max(48, (#name * 5) + 14), 28),
         BackgroundTransparency = 1,
         Text = name,
         TextColor3 = Theme.DarkGray,
         Font = Enum.Font.GothamMedium,
-        TextSize = 10,
+        TextSize = 9,
         TextTruncate = Enum.TextTruncate.AtEnd,
         TextXAlignment = Enum.TextXAlignment.Center,
         BorderSizePixel = 0,
