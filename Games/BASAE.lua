@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.263"
+local testver = "Test ver: 1.264"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -5102,8 +5102,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     and (MovementConnection ~= nil or ArrivedAtTarget) and CurrentTarget
                     and IsEggAvailable(CurrentTarget)
                     and not FlingRecoveryActive and not PickupRequested
-                    and not ReturningAfterPickup and not WaitingForPickup
-                    and not ArrivedAtTarget then
+                    and not ReturningAfterPickup and not WaitingForPickup then
                     local zoneNames = {}
                     for zoneName, selected in pairs(SelectedZones) do
                         if selected then
