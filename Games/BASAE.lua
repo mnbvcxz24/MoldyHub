@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.234"
+local testver = "Test ver: 1.235"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1104,13 +1104,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local AutoBreakEnabled = false
         local AutoBreakGeneration = 0
         local RefreshEggFilters
-        local HighLuckFilterEnabled = false
-        local TitanicFilterEnabled = false
+        local TitanicPriorityEnabled = false
         local AutoBreakControlLayout = {
             ZoneY = 42,
             EggY = 81,
             HighLuckY = 109,
-            TitanicY = 135,
+            TitanicY = 141,
             Height = 22,
             SidePadding = 11
         }
@@ -1762,7 +1761,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local SelectedZones = {}
         local SelectedEggs = {}
         local PreferredZoneName = nil
-        local SortOrder = "Largest"
+        local SortOrder = "Highest Luck"
         local SortFrame
         local ZoneFilterButton
         local EggFilterButton
@@ -1933,25 +1932,20 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Name = "EggSortOptions",
             Parent = Card1,
             Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY),
-            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, AutoBreakControlLayout.Height),
+            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, 28),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Visible = true
         })
-        local HighestLuckToggle
-        function UpdateSortButtons()
-            SortOrder = HighLuckFilterEnabled and "Highest Luck" or "Default"
-        end
-        HighestLuckToggle = CreateToggle(SortFrame, "Highest Luck Filter", false, function(enabled)
-            HighLuckFilterEnabled = enabled
-            UpdateSortButtons()
+        local PriorityDropdown = CreateDropdown(SortFrame, "Priority", {"Highest Luck", "Highest Kg"}, function(selection)
+            SortOrder = selection
             if RefreshEggList then RefreshEggList() end
             if RefreshEggFilters then RefreshEggFilters() end
-            AddDebugLog("[Auto Break] Highest Luck filter " .. (enabled and "ON" or "OFF"))
+            AddDebugLog("[Auto Break] Priority set to " .. tostring(selection))
         end)
-        HighestLuckToggle.Position = UDim2.fromOffset(0, 0)
-        HighestLuckToggle.Size = UDim2.new(1, 0, 0, 28)
-        SortLargestButton = HighestLuckToggle
+        PriorityDropdown.Position = UDim2.fromOffset(0, 0)
+        PriorityDropdown.Size = UDim2.new(1, 0, 0, 28)
+        SortLargestButton = PriorityDropdown
         SortSmallestButton = nil
         function GetEggTypeName(name)
             return (name:gsub("^%d+:%s*", ""))
@@ -2156,10 +2150,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                 local eggName = GetEggTypeName(egg.Name)
                                 local luck = GetEggLuck(egg)
                                 if not byName[eggName] then
-                                    byName[eggName] = {name = eggName, luck = luck}
+                                    byName[eggName] = {name = eggName, luck = luck, kg = GetEggWeightKg(egg) or 0}
                                     table.insert(records, byName[eggName])
-                                elseif luck > byName[eggName].luck then
-                                    byName[eggName].luck = luck
+                                else
+                                    byName[eggName].luck = math.max(byName[eggName].luck or 0, luck)
+                                    byName[eggName].kg = math.max(byName[eggName].kg or 0, GetEggWeightKg(egg) or 0)
                                 end
                             end
                         end
@@ -2169,6 +2164,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             table.sort(records, function(a, b)
                 if SortOrder == "Highest Luck" and a.luck ~= b.luck then
                     return a.luck > b.luck
+                elseif SortOrder == "Highest Kg" and (a.kg or 0) ~= (b.kg or 0) then
+                    return (a.kg or 0) > (b.kg or 0)
                 end
                 return a.name < b.name
             end)
@@ -2365,10 +2362,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end)
             end
         end
-        UpdateSortButtons()
-        local TitanicPriorityToggle = CreateToggle(Card1, "Titanic Filter", false, function(enabled)
-            TitanicFilterEnabled = enabled
-            AddDebugLog("[Auto Break] TITANIC filter " .. (enabled and "ON" or "OFF"))
+        local TitanicPriorityToggle = CreateToggle(Card1, "Titanic Priority", false, function(enabled)
+            TitanicPriorityEnabled = enabled
+            AddDebugLog("[Auto Break] TITANIC priority " .. (enabled and "ON" or "OFF"))
             if RefreshEggFilters then RefreshEggFilters() end
         end)
         SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
@@ -2385,8 +2381,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         UpdateAutoBreakCardHeights()
         function UpdateFilterPanelWithTitanic()
             UpdateFilterPanel()
-            HighestLuckToggle.Position = UDim2.fromOffset(0, 0)
-            HighestLuckToggle.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
+            PriorityDropdown.Position = UDim2.fromOffset(0, 0)
+            PriorityDropdown.Size = UDim2.new(1, 0, 0, 28)
             SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
             UpdateAutoBreakCardHeights()
         end
