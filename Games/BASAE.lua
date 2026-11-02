@@ -1417,9 +1417,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ScrollingDirection = Enum.ScrollingDirection.Y
         })
-        local MasteryListLayout = Create("UIListLayout", {
+        local MasteryListLayout = Create("UIGridLayout", {
             Parent = MasteryScroll,
-            Padding = UDim.new(0, 5),
+            CellSize = UDim2.new(0.5, -3, 0, 36),
+            CellPadding = UDim2.fromOffset(6, 5),
+            FillDirection = Enum.FillDirection.Horizontal,
+            FillDirectionMaxCells = 2,
             SortOrder = Enum.SortOrder.LayoutOrder
         })
         local MasteryRows = {}
@@ -1457,7 +1460,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     row = Create("Frame", {
                         Name = "MasteryRow_" .. tostring(index),
                         Parent = MasteryScroll,
-                        Size = UDim2.new(1, -4, 0, 36),
+                        Size = UDim2.new(0.5, -3, 0, 36),
                         BackgroundColor3 = Theme.SurfaceInput,
                         BorderSizePixel = 0,
                         LayoutOrder = index
@@ -1477,7 +1480,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         Name = "MasteryName",
                         Parent = row,
                         Position = UDim2.fromOffset(11, 0),
-                        Size = UDim2.new(1, -94, 1, 0),
+                        Size = UDim2.new(1, -68, 1, 0),
                         BackgroundTransparency = 1,
                         TextColor3 = Theme.Text,
                         Font = Enum.Font.GothamMedium,
@@ -1488,8 +1491,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local level = Create("TextLabel", {
                         Name = "MasteryLevel",
                         Parent = row,
-                        Position = UDim2.new(1, -82, 0, 0),
-                        Size = UDim2.fromOffset(72, 36),
+                        Position = UDim2.new(1, -58, 0, 0),
+                        Size = UDim2.fromOffset(48, 36),
                         BackgroundTransparency = 1,
                         TextColor3 = Theme.Accent,
                         Font = Enum.Font.GothamSemibold,
