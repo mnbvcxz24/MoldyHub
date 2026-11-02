@@ -6,7 +6,8 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.226"
+local testver = "Test ver: 1.227"
+local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -67,10 +68,12 @@ local UIConfig = {
     Height = 320,
     SidebarNames = {
         "Main",
+        "Farm",
         "Events",
         "Misc. feature",
         "Pickups",
-        "Settings"
+        "Settings",
+        "Stats"
     }
 }
 -- THEME
@@ -1001,11 +1004,55 @@ end
 local ShutdownAutomation
 local CancelActiveAutomation
 local TouchAutomationProgress
+local MainStatusLabel
 local AntiPaloEnabled = false
 -- CREATE ALL PAGES
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if index == 1 then
+        local StatusCard = CreateCard(Page, "Status", "Current automation activity.")
+        StatusCard.Size = UDim2.new(1, 0, 0, 100)
+        MainStatusLabel = Create("TextLabel", {
+            Name = "MainStatusLabel",
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 43),
+            Size = UDim2.new(1, -22, 0, 45),
+            BackgroundTransparency = 1,
+            Text = "Waiting for automation...",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top
+        })
+        local DurationCard = CreateCard(Page, "Script Duration", "Time elapsed since this script started.")
+        DurationCard.Size = UDim2.new(1, 0, 0, 76)
+        local DurationValue = Create("TextLabel", {
+            Name = "ScriptDurationValue",
+            Parent = DurationCard,
+            Position = UDim2.fromOffset(11, 43),
+            Size = UDim2.new(1, -22, 0, 20),
+            BackgroundTransparency = 1,
+            Text = "00:00:00",
+            TextColor3 = Theme.Accent,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        task.spawn(function()
+            while not Runtime.Stopped and ScreenGui.Parent and DurationValue.Parent do
+                local elapsed = math.max(0, math.floor(os.clock() - ScriptStartedAt))
+                local hours = math.floor(elapsed / 3600)
+                local minutes = math.floor((elapsed % 3600) / 60)
+                local seconds = elapsed % 60
+                DurationValue.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+                task.wait(1)
+            end
+        end)
+        local StatsCard = CreateCard(Page, "Stats", "UI placeholder — stats tracking is not connected yet.")
+        StatsCard.Size = UDim2.new(1, 0, 0, 76)
+    elseif index == 2 then
         local AutoRow = Create("Frame", {
             Name = "AutoControlsRow",
             Parent = Page,
@@ -2851,7 +2898,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return reference == target or reference:IsDescendantOf(target)
         end
         SetTrackerStatus = function(message)
-            AddDebugLog("[Egg Tracker] " .. tostring(message))
+            local statusText = tostring(message)
+            if MainStatusLabel and MainStatusLabel.Parent then
+                MainStatusLabel.Text = statusText
+                MainStatusLabel.TextColor3 = Theme.Accent
+            end
+            AddDebugLog("[Egg Tracker] " .. statusText)
         end
         HitEventConnection = HitEvent.OnClientEvent:Connect(function(eggReference, hitCounter, health)
             local target = CurrentTarget
@@ -4842,7 +4894,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end)
         end
-    elseif index == 5 then
+    elseif index == 6 then
         local ThemeCard = CreateCard(Page, "🎨  Theme Settings", "Choose a color palette for the interface.")
         local ThemeOptions = {
             "Midnight Blue + Cyan",
@@ -5005,7 +5057,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             )
         end)
 
-    elseif index == 2 then
+    elseif index == 3 then
         local CandyCard = CreateCard(Page, "🍬  Auto collect candies", "UNDER DEVELOPMENT")
         CandyCard.Size = UDim2.new(1, 0, 0, 110)
         local CandyInfo = Create("TextLabel", {
@@ -5023,7 +5075,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         MarkUnderDevelopment(CandyCard)
 
-    elseif index == 3 then
+    elseif index == 4 then
         local ESPCardsRow = Create("Frame", {
             Name = "ESPFeatureCardsRow",
             Parent = Page,
@@ -5628,7 +5680,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AuraToggle.Position = UDim2.new(1, -58, 0, 7)
         AuraToggle.Size = UDim2.fromOffset(48, 24)
 
-    elseif index == 4 then
+    elseif index == 5 then
         local PickupCard = CreateCard(Page, "🐾  Animal Pickups", "")
         PickupCard.Size = UDim2.new(1, 0, 0, 230)
         local pickupTitle = PickupCard:FindFirstChildWhichIsA("TextLabel")
@@ -5731,6 +5783,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
         end)
 
+    elseif index == 7 then
+        local StatsPlaceholder = CreateCard(Page, "Stats", "UI placeholder only. No statistics are being collected yet.")
+        StatsPlaceholder.Size = UDim2.new(1, 0, 0, 76)
     else
         local Card1 = CreateCard(Page, name, "This is a reusable UI page. Backend code is not connected.")
         CreateButton(Card1, "Example Button", function()
