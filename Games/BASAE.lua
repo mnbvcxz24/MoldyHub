@@ -6,7 +6,8 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Deploy v1.223"
+local testver = "Test ver: 1.232"
+local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -62,13 +63,13 @@ end
 -- UI CONFIGURATION
 local UIConfig = {
     Title = "MoldyHub",
-    Subtitle = testver,
+    Subtitle = "Steal a pet and ride it",
     Width = 480,
     Height = 320,
-    SidebarWidth = 108,
     SidebarNames = {
         "Main",
-        "Event",
+        "Farm",
+        "Events",
         "Misc. feature",
         "Pickups",
         "Settings"
@@ -287,12 +288,17 @@ local ThemePresets = {
         AccentText = Color3.fromRGB(19, 35, 4)
     }
 }
-local ActiveThemeName = "OLED Black + Amber"
+for key, color in pairs(ThemePresets["Black + Electric Blue"]) do
+    Theme[key] = color
+end
+local ActiveThemeName = "Black + Electric Blue"
 -- SCREEN GUI
 local ScreenGui = Create("ScreenGui", {
     Name = "BASAESkripUI",
     Parent = game.CoreGui,
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 999999,
     ZIndexBehavior = Enum.ZIndexBehavior.Global
 })
 local function ApplyTheme(themeName)
@@ -326,114 +332,54 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
-        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub'
+        titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. (string.match(testver, "[%d%.]+") and ("v" .. string.match(testver, "[%d%.]+")) or testver) .. '</font>'
     end
 end
 -- MAIN WINDOW
 local Main = Create("Frame", {
     Name = "Main",
     Parent = ScreenGui,
-    Size = UDim2.fromOffset(
-        UIConfig.Width,
-        UIConfig.Height
-    ),
-    Position = UDim2.new(
-        0.5,
-        -UIConfig.Width / 2,
-        0.5,
-        -UIConfig.Height / 2
-    ),
+    Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
+    Position = UDim2.new(0.5, -UIConfig.Width / 2, 0.5, -UIConfig.Height / 2),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0,
     ClipsDescendants = true
 })
 local MainCorner = AddCorner(Main, 12)
 AddStroke(Main, Theme.Border, 1)
+local UIScale = Create("UIScale", {
+    Parent = Main,
+    Scale = 1
+})
 -- TOP BAR
 local TopBar = Create("Frame", {
     Name = "TopBar",
     Parent = Main,
-    Size = UDim2.new(1, 0, 0, 48),
+    Size = UDim2.new(1, 0, 0, 40),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
 AddCorner(TopBar, 12)
-Create("Frame", {
-    Name = "TopBarCornerCover",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(0, 12),
-    Size = UDim2.new(1, 0, 1, -12),
-    BackgroundColor3 = Theme.Background,
-    BorderSizePixel = 0,
-    ZIndex = 0
-})
--- Title
 local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
-    Position = UDim2.fromOffset(14, 5),
-    Size = UDim2.fromOffset(220, 22),
+    Position = UDim2.fromOffset(14, 0),
+    Size = UDim2.new(1, -56, 1, 0),
     BackgroundTransparency = 1,
-    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub',
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. Theme.Accent:ToHex() .. '">' .. (string.match(testver, "[%d%.]+") and ("v" .. string.match(testver, "[%d%.]+")) or testver) .. '</font>',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
     TextSize = 14,
-    TextXAlignment = Enum.TextXAlignment.Left
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center
 })
--- Subtitle
-local Subtitle = Create("TextLabel", {
-    Name = "Subtitle",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(14, 27),
-    Size = UDim2.fromOffset(170, 16),
-    BackgroundTransparency = 1,
-    Text = UIConfig.Subtitle,
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
--- Search
-local SearchBox = Create("TextBox", {
-    Name = "Search",
-    Parent = TopBar,
-    Position = UDim2.fromOffset(10, 36),
-    Size = UDim2.fromOffset(80, 18),
-    BackgroundColor3 = Theme.SurfaceInput,
-    PlaceholderText = "Search...",
-    PlaceholderColor3 = Theme.Gray,
-    Visible = false,
-    Text = "",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    ClearTextOnFocus = false,
-    BorderSizePixel = 0
-})
-AddCorner(SearchBox, 8)
-AddStroke(SearchBox, Theme.Border, 1)
--- Minimize
-local MinimizeButton = Create("TextButton", {
-    Name = "Minimize",
-    Parent = TopBar,
-    Position = UDim2.new(1, -52, 0, 16),
-    Size = UDim2.fromOffset(22, 26),
-    BackgroundColor3 = Theme.SurfaceInput,
-    Text = "-",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    BorderSizePixel = 0
-})
-AddCorner(MinimizeButton, 8)
-AddStroke(MinimizeButton, Theme.Border, 1)
 -- Close
 local CloseButton = Create("TextButton", {
     Name = "Close",
     Parent = TopBar,
-    Position = UDim2.new(1, -27, 0, 16),
-    Size = UDim2.fromOffset(22, 26),
+    Position = UDim2.new(1, -28, 0, 8),
+    Size = UDim2.fromOffset(24, 24),
     BackgroundColor3 = Theme.SurfaceInput,
     Text = "×",
     TextColor3 = Theme.Text,
@@ -443,84 +389,41 @@ local CloseButton = Create("TextButton", {
 })
 AddCorner(CloseButton, 8)
 AddStroke(CloseButton, Theme.Border, 1)
-local RestoreButton = Create("TextButton", {
-    Name = "Restore",
+-- HORIZONTAL NAVIGATION
+local NavigationBar = Create("Frame", {
+    Name = "NavigationBar",
     Parent = Main,
-    Position = UDim2.fromOffset(0, 0),
-    Size = UDim2.fromOffset(36, 36),
-    BackgroundColor3 = Theme.Sidebar,
-    Text = "B",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 14,
-    BorderSizePixel = 0,
-    Visible = false,
-    ZIndex = 5
-})
-AddCorner(RestoreButton, 18)
-AddStroke(RestoreButton, Theme.Border, 1)
--- SIDEBAR
-local Sidebar = Create("Frame", {
-    Name = "Sidebar",
-    Parent = Main,
-    Position = UDim2.fromOffset(0, 48),
-    Size = UDim2.new(
-        0,
-        UIConfig.SidebarWidth,
-        1,
-        -48
-    ),
+    Position = UDim2.fromOffset(0, 40),
+    Size = UDim2.new(1, 0, 0, 32),
     BackgroundColor3 = Theme.Sidebar,
     BorderSizePixel = 0
 })
-AddCorner(Sidebar, 12)
--- Sidebar title
-local NavigationTitle = Create("TextLabel", {
-    Name = "NavigationTitle",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(8, 12),
-    Size = UDim2.new(1, -16, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "NAVIGATION",
-    TextColor3 = Theme.Gray,
-    Font = Enum.Font.GothamBold,
-    TextSize = 9,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
--- Sidebar container
-local SidebarContainer = Create("ScrollingFrame", {
-    Name = "Buttons",
-    Parent = Sidebar,
-    Position = UDim2.fromOffset(5, 40),
-    Size = UDim2.new(1, -10, 1, -60),
+local NavigationContainer = Create("ScrollingFrame", {
+    Name = "NavigationButtons",
+    Parent = NavigationBar,
+    Position = UDim2.fromOffset(10, 2),
+    Size = UDim2.new(1, -20, 1, -4),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
-    ScrollBarThickness = 3,
-    ScrollBarImageColor3 = Theme.Gray,
-    ScrollingDirection = Enum.ScrollingDirection.Y,
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 0,
+    ScrollingDirection = Enum.ScrollingDirection.X,
+    AutomaticCanvasSize = Enum.AutomaticSize.X,
     CanvasSize = UDim2.new(0, 0, 0, 0),
     ClipsDescendants = true
 })
 Create("UIListLayout", {
-    Parent = SidebarContainer,
-    Padding = UDim.new(0, 6),
-    SortOrder = Enum.SortOrder.LayoutOrder
+    Parent = NavigationContainer,
+    FillDirection = Enum.FillDirection.Horizontal,
+    Padding = UDim.new(0, 3),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    VerticalAlignment = Enum.VerticalAlignment.Center
 })
 -- CONTENT AREA
 local Content = Create("Frame", {
     Name = "Content",
     Parent = Main,
-    Position = UDim2.fromOffset(
-        UIConfig.SidebarWidth,
-        48
-    ),
-    Size = UDim2.new(
-        1,
-        -UIConfig.SidebarWidth - 12,
-        1,
-        -60
-    ),
+    Position = UDim2.fromOffset(0, 72),
+    Size = UDim2.new(1, 0, 1, -84),
     BackgroundColor3 = Theme.Background,
     BorderSizePixel = 0
 })
@@ -573,6 +476,7 @@ local function AddDebugLog(message)
     end)
 end
 -- CREATE PAGE
+local PageColumnMap = {}
 local function CreatePage(pageNumber, pageName)
     local PageClip = Create("Frame", {
         Name = "PageClip_" .. pageNumber,
@@ -613,29 +517,96 @@ local function CreatePage(pageNumber, pageName)
         Visible = true,
         ClipsDescendants = true
     })
-    local Padding = Create("UIPadding", {
+    Create("UIPadding", {
         Parent = Page,
         PaddingTop = UDim.new(0, 12),
         PaddingBottom = UDim.new(0, 12),
         PaddingLeft = UDim.new(0, 12),
         PaddingRight = UDim.new(0, 12)
     })
-    local Layout = Create("UIListLayout", {
+    local LeftColumn = Create("Frame", {
+        Name = "LeftColumn",
         Parent = Page,
+        Size = UDim2.new(0.5, -4, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    local RightColumn = Create("Frame", {
+        Name = "RightColumn",
+        Parent = Page,
+        Position = UDim2.new(0.5, 4, 0, 0),
+        Size = UDim2.new(0.5, -4, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    local LeftLayout = Create("UIListLayout", {
+        Parent = LeftColumn,
         Padding = UDim.new(0, 8),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
-    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 24)
+    local RightLayout = Create("UIListLayout", {
+        Parent = RightColumn,
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    PageColumnMap[Page] = {
+        Left = LeftColumn,
+        Right = RightColumn,
+        LeftLayout = LeftLayout,
+        RightLayout = RightLayout
+    }
+    local function UpdateCanvas()
+        -- Include both auto-column cards and manually positioned feature rows.
+        local contentBottom = 0
+        for _, child in ipairs(Page:GetChildren()) do
+            if child:IsA("GuiObject") then
+                local childBottom =
+                    child.Position.Y.Scale * Page.AbsoluteSize.Y
+                    + child.Position.Y.Offset
+                    + child.AbsoluteSize.Y
+                contentBottom = math.max(contentBottom, childBottom)
+            end
+        end
+        -- Account for the page's 12px top and bottom padding.
+        Page.CanvasSize = UDim2.new(0, 0, 0, contentBottom + 24)
+    end
+    local function TrackCanvasChild(child)
+        if not child:IsA("GuiObject") then return end
+        child:GetPropertyChangedSignal("Position"):Connect(function()
+            task.defer(UpdateCanvas)
+        end)
+        child:GetPropertyChangedSignal("Size"):Connect(function()
+            task.defer(UpdateCanvas)
+        end)
+        child:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            task.defer(UpdateCanvas)
+        end)
+        task.defer(UpdateCanvas)
+    end
+    for _, child in ipairs(Page:GetChildren()) do
+        TrackCanvasChild(child)
+    end
+    Page.ChildAdded:Connect(TrackCanvasChild)
+    Page:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        task.defer(UpdateCanvas)
     end)
+    LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+    RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+    task.defer(UpdateCanvas)
     Pages[pageNumber] = PageClip
     return Page
 end
 -- CARD
 local function CreateCard(parent, title, description)
+    local columns = PageColumnMap and PageColumnMap[parent]
+    local targetParent = parent
+    if columns then
+        targetParent = columns.LeftLayout.AbsoluteContentSize.Y <= columns.RightLayout.AbsoluteContentSize.Y
+            and columns.Left or columns.Right
+    end
     local Card = Create("Frame", {
         Name = title:gsub("%s+", ""),
-        Parent = parent,
+        Parent = targetParent,
         Size = UDim2.new(1, 0, 0, 110),
         BackgroundColor3 = Theme.Card,
         BorderSizePixel = 0
@@ -987,41 +958,43 @@ local function CreateSlider(parent, text, minimum, maximum, default, callback)
     end)
     return Holder
 end
--- CREATE SIDEBAR BUTTONS
+-- CREATE HORIZONTAL NAVIGATION BUTTONS
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Button = Create("TextButton", {
-        Name = "SidebarButton_" .. index,
-        Parent = SidebarContainer,
-        Size = UDim2.new(1, -2, 0, 34),
-        BackgroundColor3 = Theme.Sidebar,
-        Text = ({"🏠", "🎉", "✨", "🐾", "⚙️", "🪲"})[index] .. "  " .. name,
+        Name = "NavigationButton_" .. index,
+        Parent = NavigationContainer,
+        Size = UDim2.fromOffset(math.max(48, (#name * 5) + 14), 28),
+        BackgroundTransparency = 1,
+        Text = name,
         TextColor3 = Theme.DarkGray,
         Font = Enum.Font.GothamMedium,
         TextSize = 9,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextXAlignment = Enum.TextXAlignment.Center,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         LayoutOrder = index
     })
-    AddCorner(Button, 7)
-    Button.BackgroundTransparency = 1
-    local ActiveLine = Create("Frame", {Name = "ActiveLine", Parent = Button, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -2, 0.5, 0), Size = UDim2.fromOffset(2, 18), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Visible = index == 1})
-    AddCorner(ActiveLine, 1)
-    local Padding = Create("UIPadding", {
+    local ActiveLine = Create("Frame", {
+        Name = "ActiveLine",
         Parent = Button,
-        PaddingLeft = UDim.new(0, 10)
+        AnchorPoint = Vector2.new(0.5, 1),
+        Position = UDim2.new(0.5, 0, 1, -1),
+        Size = UDim2.new(0.62, 0, 0, 2),
+        BackgroundColor3 = Theme.Accent,
+        BorderSizePixel = 0,
+        Visible = index == 1
     })
+    AddCorner(ActiveLine, 1)
     SidebarButtons[index] = Button
     Button.MouseButton1Click:Connect(function()
         for pageIndex, page in pairs(Pages) do
             page.Visible = pageIndex == index
         end
-        for buttonIndex, sidebarButton in pairs(SidebarButtons) do
+        for buttonIndex, navigationButton in pairs(SidebarButtons) do
             local active = buttonIndex == index
-            sidebarButton.BackgroundTransparency = 1
-            sidebarButton.TextColor3 = active and Theme.Text or Theme.DarkGray
-            local line = sidebarButton:FindFirstChild("ActiveLine")
+            navigationButton.TextColor3 = active and Theme.Text or Theme.DarkGray
+            local line = navigationButton:FindFirstChild("ActiveLine")
             if line then line.Visible = active end
         end
         CurrentPage = index
@@ -1035,6 +1008,79 @@ local AntiPaloEnabled = false
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if index == 1 then
+        local StatusCard = CreateCard(Page, "Status", "Status display is UI-only for now.")
+        StatusCard.Size = UDim2.new(1, 0, 0, 132)
+        local GameNameCaption = Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 40),
+            Size = UDim2.new(1, -22, 0, 12),
+            BackgroundTransparency = 1,
+            Text = "GAME",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local GameNameValue = Create("TextLabel", {
+            Name = "GameNameValue",
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 52),
+            Size = UDim2.new(1, -22, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Break and Steal and Egg",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local StatusPlaceholder = Create("TextLabel", {
+            Name = "StatusPlaceholder",
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 72),
+            Size = UDim2.new(1, -22, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Not connected",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local DurationCaption = Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 91),
+            Size = UDim2.new(1, -22, 0, 12),
+            BackgroundTransparency = 1,
+            Text = "DURATION",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local DurationValue = Create("TextLabel", {
+            Name = "ScriptDurationValue",
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 104),
+            Size = UDim2.new(1, -22, 0, 18),
+            BackgroundTransparency = 1,
+            Text = "00:00:00",
+            TextColor3 = Theme.Accent,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        task.spawn(function()
+            while not Runtime.Stopped and ScreenGui.Parent and DurationValue.Parent do
+                local elapsed = math.max(0, math.floor(os.clock() - ScriptStartedAt))
+                local hours = math.floor(elapsed / 3600)
+                local minutes = math.floor((elapsed % 3600) / 60)
+                local seconds = elapsed % 60
+                DurationValue.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+                task.wait(1)
+            end
+        end)
+        local StatsCard = CreateCard(Page, "Stats", "UI placeholder only — stats tracking is not connected yet.")
+        StatsCard.Size = UDim2.new(1, 0, 0, 76)
+    elseif index == 2 then
         local AutoRow = Create("Frame", {
             Name = "AutoControlsRow",
             Parent = Page,
@@ -4871,7 +4917,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end)
         end
-    elseif index == 5 then
+    elseif index == 6 then
         local ThemeCard = CreateCard(Page, "🎨  Theme Settings", "Choose a color palette for the interface.")
         local ThemeOptions = {
             "Midnight Blue + Cyan",
@@ -5018,7 +5064,23 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             item.Row.BackgroundColor3 = item.Name == ActiveThemeName and Theme.Selected or Theme.SurfaceInput
         end
 
-    elseif index == 2 then
+        local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
+        local ScaleOptions = {"50%", "75%", "100%"}
+        CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
+            local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
+            if not scalePercent then return end
+            local oldSize = Main.AbsoluteSize
+            UIScale.Scale = scalePercent / 75
+            local newSize = Main.AbsoluteSize
+            Main.Position = UDim2.new(
+                Main.Position.X.Scale,
+                Main.Position.X.Offset + (oldSize.X - newSize.X) / 2,
+                Main.Position.Y.Scale,
+                Main.Position.Y.Offset + (oldSize.Y - newSize.Y) / 2
+            )
+        end)
+
+    elseif index == 3 then
         local CandyCard = CreateCard(Page, "🍬  Auto collect candies", "UNDER DEVELOPMENT")
         CandyCard.Size = UDim2.new(1, 0, 0, 110)
         local CandyInfo = Create("TextLabel", {
@@ -5036,7 +5098,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         MarkUnderDevelopment(CandyCard)
 
-    elseif index == 3 then
+    elseif index == 4 then
         local ESPCardsRow = Create("Frame", {
             Name = "ESPFeatureCardsRow",
             Parent = Page,
@@ -5458,6 +5520,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local MiscFeatureRow = Create("Frame", {
             Name = "MiscFeatureCardsRow",
             Parent = Page,
+            Position = UDim2.fromOffset(0, 128),
             Size = UDim2.new(1, 0, 0, 110),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -5640,7 +5703,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AuraToggle.Position = UDim2.new(1, -58, 0, 7)
         AuraToggle.Size = UDim2.fromOffset(48, 24)
 
-    elseif index == 4 then
+    elseif index == 5 then
         local PickupCard = CreateCard(Page, "🐾  Animal Pickups", "")
         PickupCard.Size = UDim2.new(1, 0, 0, 230)
         local pickupTitle = PickupCard:FindFirstChildWhichIsA("TextLabel")
@@ -5763,83 +5826,143 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 end
 -- SHOW FIRST PAGE
 Pages[1].Visible = true
-SidebarButtons[1].BackgroundColor3 = Theme.Selected
-SidebarButtons[1].TextColor3 = Theme.SelectedText
--- MINIMIZE
-local Minimized = false
-local function SetMinimized(state)
-    Minimized = state
-    if Minimized then
-        Content.Visible = false
-        Sidebar.Visible = false
-        TopBar.Visible = false
-        RestoreButton.Visible = true
-        MainCorner.CornerRadius = UDim.new(0, 18)
-        Tween(Main, {Size = UDim2.fromOffset(36, 36)})
+SidebarButtons[1].TextColor3 = Theme.Text
+-- FLOATING TOGGLE
+-- The circle is independent from the main window and remains visible at all times.
+local FloatingToggle = Create("TextButton", {
+    Name = "FloatingToggle",
+    Parent = ScreenGui,
+    Position = UDim2.fromOffset(16, 16),
+    Size = UDim2.fromOffset(36, 36),
+    BackgroundColor3 = Theme.Sidebar,
+    Text = "B",
+    TextColor3 = Theme.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    BorderSizePixel = 0,
+    AutoButtonColor = true,
+    Active = true,
+    ZIndex = 100
+})
+AddCorner(FloatingToggle, 18)
+AddStroke(FloatingToggle, Theme.Border, 1)
+
+local function CenterMainWindow()
+    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+    if not viewport then return end
+    Main.Position = UDim2.fromOffset(
+        math.max(0, (viewport.X - UIConfig.Width * UIScale.Scale) / 2),
+        math.max(0, (viewport.Y - UIConfig.Height * UIScale.Scale) / 2)
+    )
+end
+
+local function ToggleMainWindow()
+    if Main.Visible then
+        Main.Visible = false
     else
-        RestoreButton.Visible = false
-        MainCorner.CornerRadius = UDim.new(0, 12)
-        Tween(Main, {Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height)})
-        TopBar.Visible = true
-        Content.Visible = true
-        Sidebar.Visible = true
+        CenterMainWindow()
+        Main.Visible = true
     end
 end
-MinimizeButton.MouseButton1Click:Connect(function()
-    SetMinimized(true)
-end)
-RestoreButton.MouseButton1Click:Connect(function()
-    SetMinimized(false)
-end)
--- CLOSE
+
+-- CLOSE hides the window only. The floating toggle remains available.
 CloseButton.MouseButton1Click:Connect(function()
-    Runtime.Stopped = true
-    if type(RuntimeEnv.__BASAESkripCleanup) == "function" then
-        RuntimeEnv.__BASAESkripCleanup()
-    else
-        if ShutdownAutomation then ShutdownAutomation() end
-        ScreenGui:Destroy()
-    end
+    Main.Visible = false
 end)
--- DRAGGING
-local Dragging = false
-local DragStart
-local StartPosition
+
+-- WINDOW DRAGGING
+local WindowDragging = false
+local WindowDragStart
+local WindowStartAbsolutePosition
+
+local function ClampMainWindowPosition(x, y)
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return x, y
+    end
+
+    local viewport = camera.ViewportSize
+    local windowSize = Main.AbsoluteSize
+    local maxX = math.max(0, viewport.X - windowSize.X)
+    local maxY = math.max(0, viewport.Y - windowSize.Y)
+
+    return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
+end
+
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
-        Dragging = true
-        DragStart = input.Position
-        StartPosition = Main.Position
+        WindowDragging = true
+        WindowDragStart = input.Position
+        WindowStartAbsolutePosition = Main.AbsolutePosition
     end
 end)
-RestoreButton.InputBegan:Connect(function(input)
-    if Minimized and (input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch) then
-        Dragging = true
-        DragStart = input.Position
-        StartPosition = Main.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if not Dragging then
-        return
-    end
-    if input.UserInputType ~= Enum.UserInputType.MouseMovement
-    and input.UserInputType ~= Enum.UserInputType.Touch then
-        return
-    end
-    local Delta = input.Position - DragStart
-    Main.Position = UDim2.new(
-        StartPosition.X.Scale,
-        StartPosition.X.Offset + Delta.X,
-        StartPosition.Y.Scale,
-        StartPosition.Y.Offset + Delta.Y
-    )
-end)
-UserInputService.InputEnded:Connect(function(input)
+
+local CircleDragging = false
+local CircleDragInput
+local CircleDragStart
+local CircleStartPosition
+local CircleMoved = false
+local CircleDragThreshold = 6
+
+FloatingToggle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
-        Dragging = false
+        CircleDragging = true
+        CircleDragInput = input
+        CircleDragStart = input.Position
+        CircleStartPosition = FloatingToggle.Position
+        CircleMoved = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or (CircleDragInput and input == CircleDragInput) then
+        if CircleDragging then
+            local delta = input.Position - CircleDragStart
+            if delta.Magnitude > CircleDragThreshold then
+                CircleMoved = true
+            end
+            if CircleMoved then
+                FloatingToggle.Position = UDim2.new(
+                    CircleStartPosition.X.Scale,
+                    CircleStartPosition.X.Offset + delta.X,
+                    CircleStartPosition.Y.Scale,
+                    CircleStartPosition.Y.Offset + delta.Y
+                )
+            end
+        end
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        if WindowDragging then
+            local delta = input.Position - WindowDragStart
+            local targetX = WindowStartAbsolutePosition.X + delta.X
+            local targetY = WindowStartAbsolutePosition.Y + delta.Y
+            local clampedX, clampedY = ClampMainWindowPosition(targetX, targetY)
+            Main.Position = UDim2.fromOffset(clampedX, clampedY)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if CircleDragging and (
+        input.UserInputType == Enum.UserInputType.MouseButton1
+        or input == CircleDragInput
+    ) then
+        local wasDragged = CircleMoved
+        CircleDragging = false
+        CircleDragInput = nil
+        CircleMoved = false
+        if not wasDragged then
+            ToggleMainWindow()
+        end
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        WindowDragging = false
     end
 end)
