@@ -2064,6 +2064,50 @@ end))
                     return true
                 end
 
+                if horizontalDistance <= finalGlideStop then
+                    -- Fast glide is finished; use a slow, repeated correction so momentum
+                    -- cannot carry the rider past the actual destination.
+                    SetFloating(navigationRoot, false)
+                    local originalWalkSpeed = humanoid.WalkSpeed
+                    humanoid.WalkSpeed = math.min(originalWalkSpeed, 8)
+                    local correctionUntil = os.clock() + 15
+                    local nextCorrection = 0
+                    local corrected = false
+
+                    while os.clock() < correctionUntil do
+                        navigationRoot = GetNavigationRoot(root)
+                        if bossCaughtDetected or nightDetected
+                        or token ~= navigationToken or Runtime.Stopped
+                        or not root.Parent or not humanoid.Parent
+                        or not navigationRoot or not navigationRoot.Parent then
+                            break
+                        end
+
+                        if IsNavigationAtDestination(navigationRoot, destination, 2.5) then
+                            corrected = true
+                            break
+                        end
+
+                        if os.clock() >= nextCorrection then
+                            local correctionOffset = root.Position - navigationRoot.Position
+                            humanoid:MoveTo(destination + correctionOffset)
+                            nextCorrection = os.clock() + 0.5
+                        end
+
+                        RunService.Heartbeat:Wait()
+                    end
+
+                    humanoid.WalkSpeed = originalWalkSpeed
+                    humanoid:MoveTo(root.Position)
+
+                    if corrected then
+                        BrakeAtDestination(root, humanoid, token)
+                        return true
+                    end
+
+                    return false
+                end
+
                 if horizontalDistance > finalGlideStop then
                     local jumpDistance = math.clamp(Runtime.GlideJumpDistance or 50, 10, 150)
                     local glideDistance = math.min(jumpDistance, horizontalDistance - finalGlideStop)
