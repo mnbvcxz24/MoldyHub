@@ -1972,9 +1972,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
             return nil
         end
-        function GetEggWeightBracket(egg)
-            return GetEggDataValue(egg, "WeightBracket")
-        end
         function GetEggWeightKg(egg)
             local raw = GetEggDataValue(egg, "weightKg")
                 or GetEggDataValue(egg, "WeightKg")
@@ -4795,8 +4792,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         local eggsFolder = zone and zone:FindFirstChild("Eggs")
                         if eggsFolder then
                             for _, egg in ipairs(eggsFolder:GetChildren()) do
-                                if egg ~= CurrentTarget
-                                    and (egg:IsA("Model") or egg:IsA("BasePart"))
+                                if (egg:IsA("Model") or egg:IsA("BasePart"))
                                     and egg.Name:lower():find("egg", 1, true)
                                     and IsEggAvailable(egg) then
                                     local eggName = GetEggTypeName(egg.Name)
