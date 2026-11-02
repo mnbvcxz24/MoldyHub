@@ -4248,102 +4248,85 @@ end))
             local listenerToken = BossListenerToken
             local scheduleToken = BossScheduleToken
 
+            -- WaveResult is an optional fight-completion signal. It must never
+            -- block the hourly schedule from starting.
             task.spawn(function()
-                local waveResult
                 while AutoFightBossEnabled and listenerToken == BossListenerToken
                 and scheduleToken == BossScheduleToken and not Runtime.Stopped do
                     local shared = ReplicatedStorage:FindFirstChild("Shared")
                     local remotes = shared and shared:FindFirstChild("Remotes")
-                    waveResult = remotes and remotes:FindFirstChild("WaveResult")
+                    local waveResult = remotes and remotes:FindFirstChild("WaveResult")
 
                     if waveResult and waveResult:IsA("RemoteEvent") then
-                        break
+                        WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
+                            if AutoFightBossEnabled and BossEventActive then
+                                BossWaveResultReceived = true
+                                BossFightEnded = true
+                            end
+                        end))
+                        return
                     end
 
-                    SetBossStatus("WaveResult unavailable - retrying")
                     task.wait(5)
                 end
+            end)
 
-                if not AutoFightBossEnabled or listenerToken ~= BossListenerToken
-                or scheduleToken ~= BossScheduleToken or Runtime.Stopped then
-                    return
+            -- SAPARI boss waves begin every hour at :15 Philippine time (UTC+8).
+            local PH_OFFSET_SECONDS = 8 * 60 * 60
+            local function GetNowPH()
+                return DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
+            end
+
+            if not BossNextTargetUnix then
+                local nowPH = GetNowPH()
+                BossNextTargetUnix = math.floor(nowPH / 3600) * 3600 + (15 * 60)
+                if nowPH >= BossNextTargetUnix then
+                    BossNextTargetUnix += 3600
                 end
+            end
 
-                WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
-                    if AutoFightBossEnabled and BossEventActive then
-                        BossWaveResultReceived = true
-                        BossFightEnded = true
+            -- Resume an unfinished event if the toggle is re-enabled.
+            if BossEventActive and not BossWaveResultReceived and not BossRoutineRunning then
+                BossFightEnded = false
+                SetBossStatus("Fighting")
+                StartBossRoutine()
+            end
+
+            while AutoFightBossEnabled and listenerToken == BossListenerToken
+            and scheduleToken == BossScheduleToken and not Runtime.Stopped do
+                local nowPH = GetNowPH()
+
+                if BossEventActive then
+                    if BossWaveResultReceived then
+                        BossEventActive = false
+                        BossWaveResultReceived = false
+                        BossFightEnded = false
+                        if not BossRoutineRunning then
+                            SetBossStatus("Waiting")
+                        end
                     end
-                end))
-
-                -- SAPARI boss waves begin every hour at :15 Philippine time (UTC+8).
-                -- Keep this target stable across toggles and the post-zero phase.
-                local PH_OFFSET_SECONDS = 8 * 60 * 60
-                local function GetNowPH()
-                    return DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
-                end
-
-                if not BossNextTargetUnix then
-                    local nowPH = GetNowPH()
-                    BossNextTargetUnix = math.floor(nowPH / 3600) * 3600 + (15 * 60)
-                    if nowPH >= BossNextTargetUnix then
+                else
+                    local remaining = BossNextTargetUnix - nowPH
+                    if remaining <= 0 then
+                        BossEventActive = true
                         BossNextTargetUnix += 3600
-                    end
-                end
-
-                -- If the feature is re-enabled during an unfinished event, resume it.
-                if BossEventActive and not BossWaveResultReceived
-                and not BossRoutineRunning then
-                    BossFightEnded = false
-                    StartBossRoutine()
-                end
-
-                while AutoFightBossEnabled and listenerToken == BossListenerToken
-                and scheduleToken == BossScheduleToken and not Runtime.Stopped do
-                    local nowPH = GetNowPH()
-
-                    if BossEventActive then
-                        if BossWaveResultReceived then
-                            -- Return to the same precomputed hourly target; do not shift the schedule.
-                            BossEventActive = false
-                            BossPostZeroDeadline = nil
-                            BossWaveResultReceived = false
-                            BossFightEnded = false
-                            if not BossRoutineRunning then
-                                SetBossStatus("Waiting")
-                            end
-                        else
-                            local postZeroRemaining = math.max(0, (BossPostZeroDeadline or nowPH) - nowPH)
-                            SetBossTimer(postZeroRemaining)
-                            if postZeroRemaining <= 0 and not BossRoutineRunning then
-                                SetBossStatus("Waiting for WaveResult")
-                            end
+                        BossWaveResultReceived = false
+                        BossFightEnded = false
+                        SetBossTimer(nil)
+                        SetBossStatus("Fighting")
+                        if not BossRoutineRunning then
+                            StartBossRoutine()
                         end
                     else
-                        local remaining = BossNextTargetUnix - nowPH
-                        if remaining <= 0 then
-                            -- Start the 10-minute post-zero display and advance the fixed hourly target once.
-                            BossEventActive = true
-                            BossPostZeroDeadline = BossNextTargetUnix + 10 * 60
-                            BossNextTargetUnix += 3600
-                            BossWaveResultReceived = false
-                            BossFightEnded = false
-                            SetBossTimer(10 * 60)
-                            SetBossStatus("Starting")
-                            if not BossRoutineRunning then
-                                StartBossRoutine()
-                            end
-                        else
-                            SetBossTimer(remaining)
-                            if not BossRoutineRunning then
-                                SetBossStatus("Waiting")
-                            end
+                        SetBossTimer(remaining)
+                        if not BossRoutineRunning then
+                            SetBossStatus("Waiting")
                         end
                     end
-
-                    task.wait(1)
                 end
-            end)
+
+                task.wait(1)
+            end
         end
 
         Runtime.StopBossFight = function()
