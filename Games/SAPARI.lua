@@ -2272,8 +2272,12 @@ end))
             Runtime.BossMovementActive = true
             Runtime.BossResumeAutoSteal = AutoStealEnabled
 
-            -- Jump off the treadmill before boss navigation if it was actively running.
+            -- Stop treadmill movement, then jump off when boss movement starts.
             if treadmillStatus == "Running" then
+                if Runtime.StopTreadmillIdle then
+                    Runtime.StopTreadmillIdle()
+                end
+
                 local character = LocalPlayer.Character
                 local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                 if humanoid and humanoid.Health > 0 then
@@ -2298,10 +2302,6 @@ end))
             if AutoStealEnabled then
                 SetAutoStealEnabled(false)
             end
-            if Runtime.StopTreadmillIdle then
-                Runtime.StopTreadmillIdle()
-            end
-
             SetNavigationStatus("Navigating to Candy Pumpkin")
             return true
         end
