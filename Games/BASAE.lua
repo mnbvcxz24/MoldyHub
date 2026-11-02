@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.240"
+local testver = "Test ver: 1.241"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -336,6 +336,224 @@ local function ApplyTheme(themeName)
         titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. (string.match(testver, "[%d%.]+") and ("v" .. string.match(testver, "[%d%.]+")) or testver) .. '</font>'
     end
 end
+-- COMPACT TOP STATUS BAR
+local StatusBar = Create("Frame", {
+    Name = "MoldyHubStatusBar",
+    Parent = ScreenGui,
+    AnchorPoint = Vector2.new(0.5, 0),
+    Position = UDim2.new(0.5, 0, 0, 12),
+    Size = UDim2.fromOffset(500, 34),
+    BackgroundColor3 = Theme.Card,
+    BorderSizePixel = 0,
+    Active = true,
+    ZIndex = 200
+})
+AddCorner(StatusBar, 9)
+AddStroke(StatusBar, Theme.Border, 1)
+
+local StatusBarAccent = Create("Frame", {
+    Name = "AccentLine",
+    Parent = StatusBar,
+    Position = UDim2.fromOffset(12, 0),
+    Size = UDim2.new(1, -24, 0, 2),
+    BackgroundColor3 = Theme.Accent,
+    BorderSizePixel = 0,
+    ZIndex = 202
+})
+AddCorner(StatusBarAccent, 2)
+
+local function CreateStatusText(name, position, size, text, color, font, textSize, alignment)
+    return Create("TextLabel", {
+        Name = name,
+        Parent = StatusBar,
+        Position = position,
+        Size = size,
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = color,
+        Font = font or Enum.Font.GothamMedium,
+        TextSize = textSize or 10,
+        TextXAlignment = alignment or Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 203
+    })
+end
+
+local GameNameLabel = CreateStatusText("GameName", UDim2.fromOffset(10, 3), UDim2.fromOffset(112, 28), "Loading game...", Theme.DarkGray, Enum.Font.GothamMedium, 9, Enum.TextXAlignment.Left)
+local function CreateStatusDivider(x)
+    local divider = Create("Frame", {
+        Parent = StatusBar,
+        Position = UDim2.fromOffset(x, 9),
+        Size = UDim2.fromOffset(1, 16),
+        BackgroundColor3 = Theme.Border,
+        BorderSizePixel = 0,
+        ZIndex = 202
+    })
+    return divider
+end
+CreateStatusDivider(126)
+
+local FPSLabel = CreateStatusText("FPS", UDim2.fromOffset(132, 3), UDim2.fromOffset(58, 28), "0 FPS", Theme.Text, Enum.Font.GothamBold, 10)
+CreateStatusDivider(194)
+
+local BrandBadge = Create("Frame", {
+    Name = "BrandBadge",
+    Parent = StatusBar,
+    Position = UDim2.fromOffset(201, 6),
+    Size = UDim2.fromOffset(102, 22),
+    BackgroundColor3 = Theme.Selected,
+    BorderSizePixel = 0,
+    ZIndex = 202
+})
+AddCorner(BrandBadge, 6)
+Create("TextLabel", {
+    Name = "BrandText",
+    Parent = BrandBadge,
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "MOLDYHUB",
+    TextColor3 = Theme.Accent,
+    Font = Enum.Font.GothamBold,
+    TextSize = 10,
+    ZIndex = 203
+})
+CreateStatusDivider(310)
+
+local PingLabel = CreateStatusText("Ping", UDim2.fromOffset(316, 3), UDim2.fromOffset(66, 28), "-- MS", Theme.DarkGray, Enum.Font.GothamMedium, 10)
+CreateStatusDivider(389)
+
+local DurationLabel = CreateStatusText("Duration", UDim2.fromOffset(395, 3), UDim2.fromOffset(96, 28), "00:00:00", Theme.Text, Enum.Font.GothamMedium, 10)
+
+-- Resolve the actual experience name without blocking UI creation.
+task.spawn(function()
+    local ok, info = pcall(function()
+        return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+    end)
+    if ok and info and type(info.Name) == "string" and info.Name ~= "" then
+        GameNameLabel.Text = info.Name
+    else
+        GameNameLabel.Text = game.Name ~= "" and game.Name or "Roblox Game"
+    end
+end)
+
+local StatusBarDragging = false
+local StatusBarDragInput
+local StatusBarDragStart
+local StatusBarStartPosition
+local function ClampStatusBarPosition(x, y)
+    local camera = workspace.CurrentCamera
+    if not camera then return x, y end
+    local viewport = camera.ViewportSize
+    local size = StatusBar.AbsoluteSize
+    return math.clamp(x, 0, math.max(0, viewport.X - size.X)),
+        math.clamp(y, 0, math.max(0, viewport.Y - size.Y))
+end
+
+StatusBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        StatusBarDragging = true
+        StatusBarDragInput = input
+        StatusBarDragStart = input.Position
+        StatusBarStartPosition = StatusBar.AbsolutePosition
+    end
+end)
+
+local StatusBarInputChanged = UserInputService.InputChanged:Connect(function(input)
+    if not StatusBarDragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or (StatusBarDragInput and input == StatusBarDragInput) then
+        local delta = input.Position - StatusBarDragStart
+        local x, y = ClampStatusBarPosition(
+            StatusBarStartPosition.X + delta.X,
+            StatusBarStartPosition.Y + delta.Y
+        )
+        StatusBar.Position = UDim2.fromOffset(x, y)
+        StatusBar.AnchorPoint = Vector2.new(0, 0)
+    end
+end)
+local StatusBarInputEnded = UserInputService.InputEnded:Connect(function(input)
+    if StatusBarDragging and (
+        input.UserInputType == Enum.UserInputType.MouseButton1
+        or input == StatusBarDragInput
+    ) then
+        StatusBarDragging = false
+        StatusBarDragInput = nil
+    end
+end)
+
+local StatusBarViewportConnection
+local function KeepStatusBarOnScreen()
+    local x, y = ClampStatusBarPosition(StatusBar.AbsolutePosition.X, StatusBar.AbsolutePosition.Y)
+    StatusBar.AnchorPoint = Vector2.new(0, 0)
+    StatusBar.Position = UDim2.fromOffset(x, y)
+end
+local function ConnectStatusBarViewport(camera)
+    if StatusBarViewportConnection then
+        StatusBarViewportConnection:Disconnect()
+        StatusBarViewportConnection = nil
+    end
+    if camera then
+        StatusBarViewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepStatusBarOnScreen)
+    end
+end
+ConnectStatusBarViewport(workspace.CurrentCamera)
+local StatusBarCameraConnection = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    ConnectStatusBarViewport(workspace.CurrentCamera)
+    KeepStatusBarOnScreen()
+end)
+
+local FPSFrames = 0
+local FPSLastUpdate = os.clock()
+local FPSConnection = RunService.RenderStepped:Connect(function()
+    FPSFrames += 1
+    local now = os.clock()
+    local elapsed = now - FPSLastUpdate
+    if elapsed >= 1 then
+        FPSLabel.Text = string.format("%d FPS", math.floor(FPSFrames / elapsed + 0.5))
+        FPSFrames = 0
+        FPSLastUpdate = now
+    end
+end)
+
+task.spawn(function()
+    local stats = game:GetService("Stats")
+    while not Runtime.Stopped and ScreenGui.Parent do
+        local pingText = "--"
+        pcall(function()
+            local item = stats.Network.ServerStatsItem["Data Ping"]
+            local value = item:GetValue()
+            if type(value) == "number" then
+                pingText = tostring(math.floor(value + 0.5))
+            else
+                local formatted = item:GetValueString()
+                local number = string.match(formatted, "[%d%.]+")
+                if number then pingText = tostring(math.floor(tonumber(number) + 0.5)) end
+            end
+        end)
+        PingLabel.Text = pingText .. " MS"
+        local totalSeconds = math.max(0, math.floor(os.clock() - ScriptStartedAt))
+        local hours = math.floor(totalSeconds / 3600)
+        local minutes = math.floor((totalSeconds % 3600) / 60)
+        local seconds = totalSeconds % 60
+        DurationLabel.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+        task.wait(1)
+    end
+end)
+
+table.insert(Runtime.PersistentConnections, StatusBarInputChanged)
+table.insert(Runtime.PersistentConnections, StatusBarInputEnded)
+table.insert(Runtime.PersistentConnections, StatusBarCameraConnection)
+table.insert(Runtime.PersistentConnections, FPSConnection)
+Runtime.Shutdown = function()
+    StatusBarDragging = false
+    if StatusBarViewportConnection then
+        StatusBarViewportConnection:Disconnect()
+        StatusBarViewportConnection = nil
+    end
+end
+
 -- MAIN WINDOW
 local Main = Create("Frame", {
     Name = "Main",
