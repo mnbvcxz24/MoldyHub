@@ -4566,8 +4566,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
             table.sort(selectedZoneNames)
             local target = lockedTarget
-            if not target and (TitanicFilterEnabled or HighLuckFilterEnabled) then
-                local filteredCandidates = {}
+            if not target then
+                local priorityCandidates = {}
                 for _, zoneName in ipairs(selectedZoneNames) do
                     local zone = ZoneBuilds:FindFirstChild(zoneName)
                     local eggsFolder = zone and zone:FindFirstChild("Eggs")
@@ -4578,91 +4578,43 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                 and IsEggAvailable(egg) then
                                 local eggName = GetEggTypeName(egg.Name)
                                 if SelectedEggs[eggName] ~= false then
-                                    local category = GetEggWeightBracket(egg)
-                                    local isTitanic = category ~= nil and tostring(category):lower():find("titanic", 1, true) ~= nil
-                                    local luck = HighLuckFilterEnabled and GetEggLuck(egg) or 0
-                                    if (not TitanicFilterEnabled or isTitanic)
-                                        and (not HighLuckFilterEnabled or luck > 0) then
-                                        table.insert(filteredCandidates, {egg = egg, luck = luck})
-                                    end
+                                    local category = GetEggDataValue(egg, "Category")
+                                    local isTitanic = category ~= nil
+                                        and tostring(category):lower():find("titanic", 1, true) ~= nil
+                                    table.insert(priorityCandidates, {
+                                        egg = egg,
+                                        luck = GetEggLuck(egg),
+                                        kg = GetEggWeightKg(egg) or 0,
+                                        isTitanic = isTitanic
+                                    })
                                 end
                             end
                         end
                     end
                 end
-                table.sort(filteredCandidates, function(a, b)
-                    if HighLuckFilterEnabled and a.luck ~= b.luck then return a.luck > b.luck end
-                    return a.egg.Name < b.egg.Name
-                end)
-                if #filteredCandidates > 0 then
-                    target = filteredCandidates[1].egg
-                    SetTrackerStatus("AUTO BREAK FILTERS: selected " .. target.Name
-                        .. (TitanicFilterEnabled and " | Titanic matched" or "")
-                        .. (HighLuckFilterEnabled and (" | Luck=" .. tostring(filteredCandidates[1].luck)) or ""))
-                else
-                    SetTrackerStatus("Auto Break filters found no matching egg in the selected zones; waiting for a match.")
-                end
-                if not target then
-                    return
-                end
-            end
-            if not target and not TitanicFilterEnabled and not HighLuckFilterEnabled and SortOrder == "Highest Luck" then
-                local luckCandidates = {}
-                local unreadableLuckCount = 0
-                for _, zoneName in ipairs(selectedZoneNames) do
-                    local zone = ZoneBuilds:FindFirstChild(zoneName)
-                    local eggsFolder = zone and zone:FindFirstChild("Eggs")
-                    if eggsFolder then
-                        for _, egg in ipairs(eggsFolder:GetChildren()) do
-                            if (egg:IsA("Model") or egg:IsA("BasePart"))
-                                and egg.Name:lower():find("egg", 1, true)
-                                and IsEggAvailable(egg) then
-                                local eggName = GetEggTypeName(egg.Name)
-                                if SelectedEggs[eggName] ~= false then
-                                    local luck = GetEggLuck(egg)
-                                    if luck > 0 then
-                                        local weightBracket = GetEggWeightBracket(egg)
-                                        local weightKg = GetEggWeightKg(egg)
-                                        local bracketText = weightBracket ~= nil and tostring(weightBracket) or ""
-                                        local isTitanic = bracketText:lower():find("titanic", 1, true) ~= nil
-                                        table.insert(luckCandidates, {
-                                            egg = egg,
-                                            luck = luck,
-                                            weightKg = weightKg or 0,
-                                            isTitanic = isTitanic
-                                        })
-                                    else
-                                        unreadableLuckCount += 1
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-                table.sort(luckCandidates, function(a, b)
-                    if a.luck ~= b.luck then return a.luck > b.luck end
-                    if TitanicFilterEnabled and a.isTitanic ~= b.isTitanic then
+                table.sort(priorityCandidates, function(a, b)
+                    if TitanicPriorityEnabled and a.isTitanic ~= b.isTitanic then
                         return a.isTitanic
                     end
-                    if TitanicFilterEnabled and a.weightKg ~= b.weightKg then
-                        return a.weightKg > b.weightKg
+                    if SortOrder == "Highest Kg" and a.kg ~= b.kg then
+                        return a.kg > b.kg
+                    elseif SortOrder == "Highest Luck" and a.luck ~= b.luck then
+                        return a.luck > b.luck
                     end
                     return a.egg.Name < b.egg.Name
                 end)
-                if #luckCandidates > 0 then
-                    target = luckCandidates[1].egg
-                    SetTrackerStatus("HIGHEST LUCK PRIORITY: selected " .. target.Name
-                        .. " | Luck=" .. tostring(luckCandidates[1].luck)
-                        .. (TitanicFilterEnabled and (" | Size tie-break: " .. (luckCandidates[1].isTitanic and "Titanic" or tostring(luckCandidates[1].weightKg) .. " KG")) or "")
-                        .. " | readable candidates=" .. tostring(#luckCandidates)
-                        .. " | ignored unreadable=" .. tostring(unreadableLuckCount))
-                    AddDebugLog("[Auto Break] Selected " .. target.Name .. " | luck=" .. tostring(luckCandidates[1].luck)
-                        .. " | sizeKG=" .. tostring(luckCandidates[1].weightKg)
-                        .. " | Titanic=" .. tostring(luckCandidates[1].isTitanic)
-                        .. " | candidates=" .. tostring(#luckCandidates))
-                else
-                    SetTrackerStatus("HIGHEST LUCK PRIORITY found no readable values; using the normal Egg Filter selection.")
-                    AddDebugLog("[Auto Break] HighLuck values unavailable; falling back to normal filtered egg selection.")
+                if #priorityCandidates > 0 then
+                    local best = priorityCandidates[1]
+                    target = best.egg
+                    SetTrackerStatus("AUTO BREAK PRIORITY: selected " .. target.Name
+                        .. " | " .. tostring(SortOrder)
+                        .. (TitanicPriorityEnabled and (best.isTitanic and " | Titanic priority matched" or " | No Titanic category match") or ""))
+                    AddDebugLog("[Auto Break] Selected " .. target.Name
+                        .. " | priority=" .. tostring(SortOrder)
+                        .. " | luck=" .. tostring(best.luck)
+                        .. " | kg=" .. tostring(best.kg)
+                        .. " | categoryTitanic=" .. tostring(best.isTitanic)
+                        .. " | candidates=" .. tostring(#priorityCandidates))
                 end
             end
             if not target then
