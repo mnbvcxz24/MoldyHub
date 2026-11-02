@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.252"
+local testver = "Test ver: 1.253"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -499,6 +499,7 @@ local StatusBarDragging = false
 local StatusBarDragInput
 local StatusBarDragStart
 local StatusBarStartPosition
+local StatusBarStartAbsolutePosition
 local function ClampStatusBarPosition(x, y)
     local camera = workspace.CurrentCamera
     if not camera then return x, y end
@@ -514,7 +515,8 @@ StatusBar.InputBegan:Connect(function(input)
         StatusBarDragging = true
         StatusBarDragInput = input
         StatusBarDragStart = input.Position
-        StatusBarStartPosition = StatusBar.AbsolutePosition
+        StatusBarStartPosition = StatusBar.Position
+        StatusBarStartAbsolutePosition = StatusBar.AbsolutePosition
     end
 end)
 
@@ -523,11 +525,17 @@ local StatusBarInputChanged = UserInputService.InputChanged:Connect(function(inp
     if input.UserInputType == Enum.UserInputType.MouseMovement
     or (StatusBarDragInput and input == StatusBarDragInput) then
         local delta = input.Position - StatusBarDragStart
-        local x, y = ClampStatusBarPosition(
-            StatusBarStartPosition.X + delta.X,
-            StatusBarStartPosition.Y + delta.Y
+        local targetX = StatusBarStartAbsolutePosition.X + delta.X
+        local targetY = StatusBarStartAbsolutePosition.Y + delta.Y
+        local x, y = ClampStatusBarPosition(targetX, targetY)
+        local correctionX = x - targetX
+        local correctionY = y - targetY
+        StatusBar.Position = UDim2.new(
+            StatusBarStartPosition.X.Scale,
+            StatusBarStartPosition.X.Offset + delta.X + correctionX,
+            StatusBarStartPosition.Y.Scale,
+            StatusBarStartPosition.Y.Offset + delta.Y + correctionY
         )
-        StatusBar.Position = UDim2.fromOffset(x, y)
     end
 end)
 local StatusBarInputEnded = UserInputService.InputEnded:Connect(function(input)
@@ -537,13 +545,22 @@ local StatusBarInputEnded = UserInputService.InputEnded:Connect(function(input)
     ) then
         StatusBarDragging = false
         StatusBarDragInput = nil
+        StatusBarStartPosition = nil
+        StatusBarStartAbsolutePosition = nil
     end
 end)
 
 local StatusBarViewportConnection
 local function KeepStatusBarOnScreen()
-    local x, y = ClampStatusBarPosition(StatusBar.AbsolutePosition.X, StatusBar.AbsolutePosition.Y)
-    StatusBar.Position = UDim2.fromOffset(x, y)
+    local absolutePosition = StatusBar.AbsolutePosition
+    local x, y = ClampStatusBarPosition(absolutePosition.X, absolutePosition.Y)
+    local correctionX = x - absolutePosition.X
+    local correctionY = y - absolutePosition.Y
+    local position = StatusBar.Position
+    StatusBar.Position = UDim2.new(
+        position.X.Scale, position.X.Offset + correctionX,
+        position.Y.Scale, position.Y.Offset + correctionY
+    )
 end
 local function ConnectStatusBarViewport(camera)
     if StatusBarViewportConnection then
@@ -6195,6 +6212,7 @@ end)
 -- WINDOW DRAGGING
 local WindowDragging = false
 local WindowDragStart
+local WindowStartPosition
 local WindowStartAbsolutePosition
 
 local function ClampMainWindowPosition(x, y)
@@ -6216,6 +6234,7 @@ TopBar.InputBegan:Connect(function(input)
     or input.UserInputType == Enum.UserInputType.Touch then
         WindowDragging = true
         WindowDragStart = input.Position
+        WindowStartPosition = Main.Position
         local absolutePosition = Main.AbsolutePosition
         WindowStartAbsolutePosition = Vector2.new(absolutePosition.X, absolutePosition.Y)
     end
@@ -6266,7 +6285,17 @@ UserInputService.InputChanged:Connect(function(input)
             local targetX = WindowStartAbsolutePosition.X + delta.X
             local targetY = WindowStartAbsolutePosition.Y + delta.Y
             local clampedX, clampedY = ClampMainWindowPosition(targetX, targetY)
-            Main.Position = UDim2.fromOffset(clampedX, clampedY)
+            local correctionX = clampedX - targetX
+            local correctionY = clampedY - targetY
+
+            -- Preserve the original scale components so the first drag movement
+            -- cannot convert a centered window into an offset-only position.
+            Main.Position = UDim2.new(
+                WindowStartPosition.X.Scale,
+                WindowStartPosition.X.Offset + delta.X + correctionX,
+                WindowStartPosition.Y.Scale,
+                WindowStartPosition.Y.Offset + delta.Y + correctionY
+            )
         end
     end
 end)
