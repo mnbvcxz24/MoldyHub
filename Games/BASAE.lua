@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.283"
+local testver = "Test ver: 1.284"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1343,12 +1343,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         MasteryCard.LayoutOrder = 1
 
         local function CreateStatTile(name, caption, column, row)
-            local xPosition = UDim2.new(column / 3, 9 - (column * 6), 0, 34 + (row * 48))
+            local xPosition = UDim2.new(column / 2, 9 - (column * 6), 0, 34 + (row * 48))
             local tile = Create("Frame", {
                 Name = name:gsub("[^%w]", "") .. "Tile",
                 Parent = StatsCard,
                 Position = xPosition,
-                Size = UDim2.new(1 / 3, -6, 0, 42),
+                Size = UDim2.new(1 / 2, -6, 0, 42),
                 BackgroundColor3 = Theme.SurfaceInput,
                 BorderSizePixel = 0
             })
@@ -1398,10 +1398,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 0, 0)
         local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 1, 0)
-        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 2, 0)
-        local CashValue = CreateStatTile("Cash", "CASH", 0, 1)
-        local SpeedValue = CreateStatTile("Speed", "SPEED", 1, 1)
-        local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 2, 1)
+        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 0, 1)
+        local CashValue = CreateStatTile("Cash", "CASH", 1, 1)
+        local SpeedValue = CreateStatTile("Speed", "SPEED", 0, 2)
+        local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 1, 2)
 
         -- Live mastery list: include only entries whose frame names start with "Mastery_".
         local MasteryScroll = Create("ScrollingFrame", {
@@ -1419,10 +1419,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local MasteryListLayout = Create("UIGridLayout", {
             Parent = MasteryScroll,
-            CellSize = UDim2.new(0.5, -3, 0, 36),
-            CellPadding = UDim2.fromOffset(6, 5),
+            CellSize = UDim2.new(1 / 3, -4, 0, 42),
+            CellPadding = UDim2.fromOffset(5, 5),
             FillDirection = Enum.FillDirection.Horizontal,
-            FillDirectionMaxCells = 2,
+            FillDirectionMaxCells = 3,
             SortOrder = Enum.SortOrder.LayoutOrder
         })
         local MasteryRows = {}
@@ -1460,7 +1460,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     row = Create("Frame", {
                         Name = "MasteryRow_" .. tostring(index),
                         Parent = MasteryScroll,
-                        Size = UDim2.new(0.5, -3, 0, 36),
+                        Size = UDim2.new(1 / 3, -4, 0, 42),
                         BackgroundColor3 = Theme.SurfaceInput,
                         BorderSizePixel = 0,
                         LayoutOrder = index
@@ -1479,25 +1479,25 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local title = Create("TextLabel", {
                         Name = "MasteryName",
                         Parent = row,
-                        Position = UDim2.fromOffset(11, 0),
-                        Size = UDim2.new(1, -68, 1, 0),
+                        Position = UDim2.fromOffset(7, 20),
+                        Size = UDim2.new(1, -14, 0, 18),
                         BackgroundTransparency = 1,
                         TextColor3 = Theme.Text,
                         Font = Enum.Font.GothamMedium,
-                        TextSize = 9,
-                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextSize = 8,
+                        TextXAlignment = Enum.TextXAlignment.Center,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
                     local level = Create("TextLabel", {
                         Name = "MasteryLevel",
                         Parent = row,
-                        Position = UDim2.new(1, -58, 0, 0),
-                        Size = UDim2.fromOffset(48, 36),
+                        Position = UDim2.fromOffset(7, 2),
+                        Size = UDim2.new(1, -14, 0, 16),
                         BackgroundTransparency = 1,
                         TextColor3 = Theme.Accent,
                         Font = Enum.Font.GothamSemibold,
                         TextSize = 9,
-                        TextXAlignment = Enum.TextXAlignment.Right,
+                        TextXAlignment = Enum.TextXAlignment.Center,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
                     row:SetAttribute("MasteryKey", item.Key)
