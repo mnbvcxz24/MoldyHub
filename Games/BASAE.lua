@@ -67,7 +67,7 @@ local UIConfig = {
     Height = 320,
     SidebarNames = {
         "Main",
-        "Event",
+        "Events",
         "Misc. feature",
         "Pickups",
         "Settings"
@@ -5695,15 +5695,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 end
 -- SHOW FIRST PAGE
 Pages[1].Visible = true
-SidebarButtons[1].BackgroundColor3 = Theme.Selected
-SidebarButtons[1].TextColor3 = Theme.SelectedText
+SidebarButtons[1].TextColor3 = Theme.Text
 -- MINIMIZE
 local Minimized = false
 local function SetMinimized(state)
     Minimized = state
     if Minimized then
         Content.Visible = false
-        Sidebar.Visible = false
+        NavigationBar.Visible = false
         TopBar.Visible = false
         RestoreButton.Visible = true
         MainCorner.CornerRadius = UDim.new(0, 18)
@@ -5713,8 +5712,8 @@ local function SetMinimized(state)
         MainCorner.CornerRadius = UDim.new(0, 12)
         Tween(Main, {Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height)})
         TopBar.Visible = true
+        NavigationBar.Visible = true
         Content.Visible = true
-        Sidebar.Visible = true
     end
 end
 MinimizeButton.MouseButton1Click:Connect(function()
