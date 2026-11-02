@@ -3711,7 +3711,7 @@ end))
         })
     elseif name == "Events" then
         local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "")
-        AutoFightBossCard.Size = UDim2.new(1, 0, 0, 84)
+        AutoFightBossCard.Size = UDim2.new(1, 0, 0, 104)
         local BossCardTitle = AutoFightBossCard:FindFirstChildWhichIsA("TextLabel")
         if BossCardTitle then
             BossCardTitle.TextSize = 10
@@ -3720,8 +3720,8 @@ end))
 
         local BossStatusRow = Create("Frame", {
             Parent = AutoFightBossCard,
-            Position = UDim2.fromOffset(11, 29),
-            Size = UDim2.new(1, -22, 0, 18),
+            Position = UDim2.fromOffset(11, 27),
+            Size = UDim2.new(1, -22, 0, 17),
             BackgroundTransparency = 1
         })
         local BossStatusDot = Create("Frame", {
@@ -3755,9 +3755,38 @@ end))
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Right
         })
+        local BossTimerRow = Create("Frame", {
+            Parent = AutoFightBossCard,
+            Position = UDim2.fromOffset(11, 47),
+            Size = UDim2.new(1, -22, 0, 17),
+            BackgroundTransparency = 1
+        })
+        Create("TextLabel", {
+            Parent = BossTimerRow,
+            Position = UDim2.fromOffset(18, 0),
+            Size = UDim2.fromOffset(72, 17),
+            BackgroundTransparency = 1,
+            Text = "Next wave",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local BossTimerValue = Create("TextLabel", {
+            Parent = BossTimerRow,
+            Position = UDim2.fromOffset(90, 0),
+            Size = UDim2.new(1, -90, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "--:--:--",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+
         Create("Frame", {
             Parent = AutoFightBossCard,
-            Position = UDim2.fromOffset(11, 50),
+            Position = UDim2.fromOffset(11, 68),
             Size = UDim2.new(1, -22, 0, 1),
             BackgroundColor3 = Theme.Border,
             BorderSizePixel = 0
@@ -3770,6 +3799,20 @@ end))
         local BossListenerToken = 0
         local BossScheduleToken = 0
         local WaveResultConnection
+
+        local function SetBossTimer(seconds)
+            if seconds == nil then
+                BossTimerValue.Text = "--:--:--"
+                return
+            end
+
+            seconds = math.max(0, math.floor(seconds))
+            local hours = math.floor(seconds / 3600)
+            local minutes = math.floor((seconds % 3600) / 60)
+            local remainingSeconds = seconds % 60
+            BossTimerValue.Text = string.format("%02d:%02d:%02d",
+                hours, minutes, remainingSeconds)
+        end
 
         local function SetBossStatus(status)
             BossStatusValue.Text = status
@@ -3802,6 +3845,9 @@ end))
                 Runtime.EndBossMovement()
             end
             SetBossStatus(AutoFightBossEnabled and "Waiting" or "Disabled")
+            if not AutoFightBossEnabled then
+                SetBossTimer(nil)
+            end
         end
 
         local function StartBossRoutine()
@@ -3937,14 +3983,17 @@ end))
                     local remaining = nextBossStart - nowPH
 
                     if remaining <= 0 then
+                        SetBossTimer(0)
                         if AutoFightBossEnabled and not BossRoutineRunning then
-                            SetBossStatus("Boss wave scheduled - starting")
+                            SetBossStatus("Starting")
                             StartBossRoutine()
                         end
                         nextBossStart += 3600
                     else
-                        SetBossStatus(string.format("Next boss wave in %dm %02ds",
-                            math.floor(remaining / 60), remaining % 60))
+                        SetBossTimer(remaining)
+                        if not BossRoutineRunning then
+                            SetBossStatus("Waiting")
+                        end
                         task.wait(math.min(remaining, 1))
                     end
                 end
@@ -3967,7 +4016,7 @@ end))
                 StopBossRoutine()
             end
         end)
-        AutoFightBossToggle.Position = UDim2.fromOffset(11, 54)
+        AutoFightBossToggle.Position = UDim2.fromOffset(11, 72)
         AutoFightBossToggle.Size = UDim2.new(1, -22, 0, 22)
     elseif name == "Misc. feature" then
         local AntiAFKCard = CreateCard(Page, "Anti AFK", "")
