@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.239"
+local testver = "Test ver: 1.240"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -5836,7 +5836,7 @@ SidebarButtons[1].TextColor3 = Theme.Text
 local FloatingToggle = Create("TextButton", {
     Name = "FloatingToggle",
     Parent = ScreenGui,
-    Position = UDim2.fromOffset(16, 16),
+    Position = UDim2.new(1, -52, 0, 16),
     Size = UDim2.fromOffset(36, 36),
     BackgroundColor3 = Theme.Sidebar,
     Text = "B",
@@ -5850,6 +5850,47 @@ local FloatingToggle = Create("TextButton", {
 })
 AddCorner(FloatingToggle, 18)
 AddStroke(FloatingToggle, Theme.Border, 1)
+
+local function GetFloatingToggleBounds()
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return 0, 0
+    end
+    local viewport = camera.ViewportSize
+    local buttonSize = FloatingToggle.AbsoluteSize
+    return math.max(0, viewport.X - buttonSize.X), math.max(0, viewport.Y - buttonSize.Y)
+end
+
+local function ClampFloatingTogglePosition(x, y)
+    local maxX, maxY = GetFloatingToggleBounds()
+    return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
+end
+
+local function PositionFloatingToggleUpperRight()
+    local maxX = GetFloatingToggleBounds()
+    FloatingToggle.Position = UDim2.fromOffset(math.max(0, maxX - 16), 16)
+end
+
+PositionFloatingToggleUpperRight()
+
+local function KeepFloatingToggleOnScreen()
+    local clampedX, clampedY = ClampFloatingTogglePosition(
+        FloatingToggle.AbsolutePosition.X,
+        FloatingToggle.AbsolutePosition.Y
+    )
+    FloatingToggle.Position = UDim2.fromOffset(clampedX, clampedY)
+end
+
+local function WatchViewportSize(camera)
+    if not camera then return end
+    camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepFloatingToggleOnScreen)
+end
+
+WatchViewportSize(workspace.CurrentCamera)
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    WatchViewportSize(workspace.CurrentCamera)
+    KeepFloatingToggleOnScreen()
+end)
 
 local function CenterMainWindow()
     local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
@@ -5905,7 +5946,7 @@ end)
 local CircleDragging = false
 local CircleDragInput
 local CircleDragStart
-local CircleStartPosition
+local CircleStartAbsolutePosition
 local CircleMoved = false
 local CircleDragThreshold = 6
 
@@ -5915,7 +5956,7 @@ FloatingToggle.InputBegan:Connect(function(input)
         CircleDragging = true
         CircleDragInput = input
         CircleDragStart = input.Position
-        CircleStartPosition = FloatingToggle.Position
+        CircleStartAbsolutePosition = FloatingToggle.AbsolutePosition
         CircleMoved = false
     end
 end)
@@ -5929,12 +5970,10 @@ UserInputService.InputChanged:Connect(function(input)
                 CircleMoved = true
             end
             if CircleMoved then
-                FloatingToggle.Position = UDim2.new(
-                    CircleStartPosition.X.Scale,
-                    CircleStartPosition.X.Offset + delta.X,
-                    CircleStartPosition.Y.Scale,
-                    CircleStartPosition.Y.Offset + delta.Y
-                )
+                local targetX = CircleStartAbsolutePosition.X + delta.X
+                local targetY = CircleStartAbsolutePosition.Y + delta.Y
+                local clampedX, clampedY = ClampFloatingTogglePosition(targetX, targetY)
+                FloatingToggle.Position = UDim2.fromOffset(clampedX, clampedY)
             end
         end
     end
