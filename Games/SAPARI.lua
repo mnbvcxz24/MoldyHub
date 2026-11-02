@@ -1075,19 +1075,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
 
-        local CachedPathsFolder = workspace:FindFirstChild("Paths")
-        local CachedPathFolders = {}
-        local CachedSafeZoneSign
+        local CachedSafeZonePosition
 
-        if CachedPathsFolder then
-            for _, pathObject in ipairs(CachedPathsFolder:GetChildren()) do
-                if pathObject:IsA("Folder") then
-                    local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
-                    if pathNumber then
-                        CachedPathFolders[pathNumber] = pathObject
-                    end
-                end
-            end
+        local function GetPathsFolder()
+            return workspace:FindFirstChild("Paths")
         end
 
         local function RefreshCurrentWorld()
@@ -1105,8 +1096,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Runtime.CurrentWorldFolderName = worldFolderName
             Runtime.CurrentWorldFolder = worldFolderName
                 and workspace:FindFirstChild(worldFolderName) or nil
-            CachedSafeZoneSign = Runtime.CurrentWorldFolder
+            local safeZoneSign = Runtime.CurrentWorldFolder
                 and Runtime.CurrentWorldFolder:FindFirstChild("SafeZoneSign", true) or nil
+            CachedSafeZonePosition = safeZoneSign and safeZoneSign:IsA("BasePart")
+                and safeZoneSign.Position or nil
 
             if Runtime.CurrentWorldValue then
                 Runtime.CurrentWorldValue.Text = "Current World: " .. tostring(Runtime.CurrentWorld or "Unknown")
@@ -1117,10 +1110,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         TrackConnection(LocalPlayer:GetAttributeChangedSignal("World"):Connect(RefreshCurrentWorld))
 
         local function GetActiveWorldPathsFolder()
-            if not CachedPathsFolder or Runtime.CurrentWorld == nil then
-                return nil, nil, nil
+            local pathsFolder = GetPathsFolder()
+            if not pathsFolder or Runtime.CurrentWorld == nil then
+                return nil, Runtime.CurrentWorldFolder, CachedSafeZonePosition
             end
-            return CachedPathsFolder, Runtime.CurrentWorldFolder, CachedSafeZoneSign
+            return pathsFolder, Runtime.CurrentWorldFolder, CachedSafeZonePosition
         end
 
         local function IsPathInActiveWorld(pathObject)
@@ -1137,19 +1131,26 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local function GetPathFolders()
             local results = {}
             local worldNumber = tonumber(Runtime.CurrentWorld)
-            if not CachedPathsFolder or not worldNumber then
+            local pathsFolder = GetPathsFolder()
+            if not pathsFolder or not worldNumber then
                 return results
             end
 
             local firstPath = ((worldNumber - 1) * 10) + 1
             local lastPath = worldNumber * 10
 
-            for pathNumber = firstPath, lastPath do
-                local pathObject = CachedPathFolders[pathNumber]
-                if pathObject and pathObject.Parent == CachedPathsFolder then
+            for _, pathObject in ipairs(pathsFolder:GetChildren()) do
+                local pathNumber = tonumber(pathObject.Name:match("^Path(%d+)$"))
+                if pathObject:IsA("Folder") and pathNumber
+                and pathNumber >= firstPath and pathNumber <= lastPath then
                     table.insert(results, pathObject)
                 end
             end
+
+            table.sort(results, function(a, b)
+                return (tonumber(a.Name:match("%d+")) or math.huge)
+                    < (tonumber(b.Name:match("%d+")) or math.huge)
+            end)
 
             return results
         end
@@ -2065,51 +2066,112 @@ end))
                 end
 
                 if horizontalDistance <= finalGlideStop then
-                    -- Finish with a controlled drop onto the target instead of walking corrections.
-                    local dropOffset = root.Position - navigationRoot.Position
-                    local landingPosition = destination
-                    local landingTarget = CFrame.new(landingPosition) * navigationRoot.CFrame.Rotation
-                    local dropDistance = (navigationRoot.Position - landingPosition).Magnitude
-                    local dropDuration = math.clamp(dropDistance / math.max(speed, 24), 0.12, 0.65)
+                    -- Retry the controlled drop if the first landing misses the target.
+                    local landingSucceeded = false
+                    for landingAttempt = 1, 3 do
+                        if token ~= navigationToken or Runtime.Stopped
+                        or bossCaughtDetected or nightDetected then
+                            humanoid:MoveTo(root.Position)
+                            RestoreFloating()
+                            return false
+                        end
 
-                    if Jump then
-                        Jump(humanoid)
+                        navigationRoot = GetNavigationRoot(root)
+                        if not navigationRoot or not navigationRoot.Parent then
+                            RestoreFloating()
+                            return false
+                        end
+
+                        local landingTarget = CFrame.new(destination) * navigationRoot.CFrame.Rotation
+                        local dropDistance = (navigationRoot.Position - destination).Magnitude
+                        local landingSpeed = landingAttempt == 1 and math.max(speed, 24)
+                            or math.max(speed * (0.65 / landingAttempt), 12)
+                        local dropDuration = math.clamp(dropDistance / landingSpeed, 0.18, 0.9)
+
+                        if landingAttempt == 1 and Jump then
+                            Jump(humanoid)
+                        end
+
+                        SetFloating(navigationRoot, true)
+                        local landingTween = TweenService:Create(
+                            navigationRoot,
+                            TweenInfo.new(dropDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                            {CFrame = landingTarget}
+                        )
+                        activeNavigationTween = landingTween
+                        landingTween:Play()
+                        local landingState = landingTween.Completed:Wait()
+
+                        if activeNavigationTween == landingTween then
+                            activeNavigationTween = nil
+                        end
+                        SetFloating(navigationRoot, false)
+
+                        if landingState ~= Enum.PlaybackState.Completed
+                        or token ~= navigationToken or Runtime.Stopped
+                        or bossCaughtDetected or nightDetected then
+                            humanoid:MoveTo(root.Position)
+                            RestoreFloating()
+                            return false
+                        end
+
+                        navigationRoot = GetNavigationRoot(root)
+                        if navigationRoot and navigationRoot.Parent
+                        and IsNavigationAtDestination(navigationRoot, destination, 3) then
+                            BrakeAtDestination(root, humanoid, token)
+                            landingSucceeded = true
+                            break
+                        end
+
+                        -- Re-approach slowly before the next landing attempt.
+                        local currentRoot = GetNavigationRoot(root)
+                        if currentRoot and currentRoot.Parent then
+                            local delta = destination - currentRoot.Position
+                            local horizontalDelta = Vector3.new(delta.X, 0, delta.Z)
+                            if horizontalDelta.Magnitude > 1 then
+                                local reapproach = destination
+                                    - horizontalDelta.Unit * math.min(4, horizontalDelta.Magnitude)
+                                local reapproachTarget = CFrame.new(
+                                    reapproach.X,
+                                    destination.Y + glideHeight,
+                                    reapproach.Z
+                                ) * currentRoot.CFrame.Rotation
+
+                                SetFloating(currentRoot, true)
+                                local correctionTween = TweenService:Create(
+                                    currentRoot,
+                                    TweenInfo.new(
+                                        math.clamp(horizontalDelta.Magnitude / math.max(speed * 0.5, 12), 0.2, 0.8),
+                                        Enum.EasingStyle.Quad,
+                                        Enum.EasingDirection.Out
+                                    ),
+                                    {CFrame = reapproachTarget}
+                                )
+                                activeNavigationTween = correctionTween
+                                correctionTween:Play()
+                                local correctionState = correctionTween.Completed:Wait()
+                                if activeNavigationTween == correctionTween then
+                                    activeNavigationTween = nil
+                                end
+                                SetFloating(currentRoot, false)
+
+                                if correctionState ~= Enum.PlaybackState.Completed
+                                or token ~= navigationToken or Runtime.Stopped then
+                                    RestoreFloating()
+                                    return false
+                                end
+                            end
+                        end
                     end
 
-                    SetFloating(navigationRoot, true)
-                    local landingTween = TweenService:Create(
-                        navigationRoot,
-                        TweenInfo.new(dropDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-                        {CFrame = landingTarget}
-                    )
-                    activeNavigationTween = landingTween
-                    landingTween:Play()
-                    local landingState = landingTween.Completed:Wait()
-
-                    if activeNavigationTween == landingTween then
-                        activeNavigationTween = nil
-                    end
-
-                    SetFloating(navigationRoot, false)
-
-                    if landingState ~= Enum.PlaybackState.Completed
-                    or token ~= navigationToken or Runtime.Stopped
-                    or bossCaughtDetected or nightDetected then
-                        humanoid:MoveTo(root.Position)
-                        return false
-                    end
-
-                    navigationRoot = GetNavigationRoot(root)
-                    if navigationRoot and navigationRoot.Parent
-                    and IsNavigationAtDestination(navigationRoot, destination, 3) then
-                        BrakeAtDestination(root, humanoid, token)
+                    if landingSucceeded then
                         return true
                     end
 
-                    humanoid:MoveTo(destination + dropOffset)
+                    humanoid:MoveTo(root.Position)
+                    RestoreFloating()
                     return false
                 end
-
                 if horizontalDistance > finalGlideStop then
                     local jumpDistance = math.clamp(Runtime.GlideJumpDistance or 50, 10, 150)
                     local glideDistance = math.min(jumpDistance, horizontalDistance - finalGlideStop)
@@ -2470,15 +2532,15 @@ end))
             if Runtime.StopTreadmillIdle then
                 Runtime.StopTreadmillIdle()
             end
-            local token = navigationToken            CancelActiveMovement()
+            local token = navigationToken
+            CancelActiveMovement()
 
             if Runtime.Stopped then
                 SetAutoStealEnabled(false)
                 return            end
 
-            local pathsFolder, worldFolder, safeSign = GetActiveWorldPathsFolder()
-            if not safeSign or not safeSign:IsA("BasePart")
-            or not worldFolder or not pathsFolder then
+            local pathsFolder, worldFolder, safeZonePosition = GetActiveWorldPathsFolder()
+            if not safeZonePosition or not worldFolder or not pathsFolder then
                 SetNavigationStatus("World paths unavailable")
                 SetAutoStealEnabled(false)
                 return
@@ -3037,7 +3099,7 @@ end))
                         task.wait(0.25)
                     else
                         SetNavigationStatus("Returning to safezone")
-                        local safeZoneDestination = safeSign.Position
+                        local safeZoneDestination = safeZonePosition
                         safeZoneNavigationActive = true
                         local reachedSafeZone = MoveToPosition(root, humanoid, safeZoneDestination, token, true)
                         safeZoneNavigationActive = false
@@ -3068,7 +3130,7 @@ end))
             local root = character and character:FindFirstChild("HumanoidRootPart")
             local skipInitialSafeZone = false
             local navigationRoot = root and GetNavigationRoot(root)
-            if safeSign and safeSign:IsA("BasePart")
+            if safeZonePosition
             and navigationRoot and navigationRoot.Parent then
                 for _, cage in ipairs(GetSelectedCages(root)) do
                     local ok, cagePosition = pcall(function()
@@ -3430,7 +3492,7 @@ end))
                         reachedSafeZone = MoveToPosition(
                             root,
                             humanoid,
-                            safeSign.Position,
+                            safeZonePosition,
                             token,
                             false,
                             MovementMode == "Glide"
