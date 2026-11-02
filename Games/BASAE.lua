@@ -295,6 +295,8 @@ local ScreenGui = Create("ScreenGui", {
     Name = "BASAESkripUI",
     Parent = game.CoreGui,
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 999999,
     ZIndexBehavior = Enum.ZIndexBehavior.Global
 })
 local function ApplyTheme(themeName)
