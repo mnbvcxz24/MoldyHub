@@ -4643,6 +4643,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 else
                     SetTrackerStatus("Auto Break filters found no matching egg in the selected zones; waiting for a match.")
                 end
+                if not target then
+                    return
+                end
             end
             if not target and not TitanicFilterEnabled and not HighLuckFilterEnabled and SortOrder == "Highest Luck" then
                 local luckCandidates = {}
@@ -4958,6 +4961,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 return
             end
             AddDebugLog("[Auto Break] Refreshing target immediately for updated egg filters.")
+            CurrentTarget = nil
             task.defer(function()
                 if AutoBreakEnabled and not FlingRecoveryActive and not PickupRequested
                     and not ReturningAfterPickup and not WaitingForPickup then
