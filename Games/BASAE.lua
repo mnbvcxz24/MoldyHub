@@ -4769,13 +4769,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         task.spawn(function()
             while not Runtime.Stopped and not ScriptShuttingDown do
                 task.wait(1.5)
-                if AutoBreakEnabled and HighLuckFilterEnabled
+                if AutoBreakEnabled and (SortOrder == "Highest Luck" or SortOrder == "Highest Kg" or TitanicPriorityEnabled)
                     and MovementConnection ~= nil and CurrentTarget
                     and IsEggAvailable(CurrentTarget)
                     and not FlingRecoveryActive and not PickupRequested
                     and not ReturningAfterPickup and not WaitingForPickup
                     and not ArrivedAtTarget then
-                    local currentLuck = GetEggLuck(CurrentTarget)
                     local zoneNames = {}
                     for zoneName, selected in pairs(SelectedZones) do
                         if selected then
@@ -4790,8 +4789,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         end
                     end
                     table.sort(zoneNames)
-                    local bestEgg = nil
-                    local bestLuck = currentLuck
+                    local candidates = {}
                     for _, zoneName in ipairs(zoneNames) do
                         local zone = ZoneBuilds:FindFirstChild(zoneName)
                         local eggsFolder = zone and zone:FindFirstChild("Eggs")
@@ -4803,20 +4801,34 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                     and IsEggAvailable(egg) then
                                     local eggName = GetEggTypeName(egg.Name)
                                     if SelectedEggs[eggName] ~= false then
-                                        local luck = GetEggLuck(egg)
-                                        if luck > bestLuck then
-                                            bestLuck = luck
-                                            bestEgg = egg
-                                        end
+                                        local category = GetEggDataValue(egg, "Category")
+                                        table.insert(candidates, {
+                                            egg = egg,
+                                            luck = GetEggLuck(egg),
+                                            kg = GetEggWeightKg(egg) or 0,
+                                            isTitanic = category ~= nil
+                                                and tostring(category):lower():find("titanic", 1, true) ~= nil
+                                        })
                                     end
                                 end
                             end
                         end
                     end
-                    if bestEgg then
-                        AddDebugLog("[Auto Break] Higher luck egg found while moving: "
-                            .. bestEgg.Name .. " | Luck=" .. tostring(bestLuck)
-                            .. " > current=" .. tostring(currentLuck) .. "; switching target.")
+                    table.sort(candidates, function(a, b)
+                        if TitanicPriorityEnabled and a.isTitanic ~= b.isTitanic then
+                            return a.isTitanic
+                        end
+                        if SortOrder == "Highest Kg" and a.kg ~= b.kg then
+                            return a.kg > b.kg
+                        elseif SortOrder == "Highest Luck" and a.luck ~= b.luck then
+                            return a.luck > b.luck
+                        end
+                        return a.egg.Name < b.egg.Name
+                    end)
+                    if #candidates > 0 and candidates[1].egg ~= CurrentTarget then
+                        AddDebugLog("[Auto Break] Better priority target found while moving: "
+                            .. candidates[1].egg.Name .. " | priority=" .. tostring(SortOrder)
+                            .. "; switching target.")
                         CurrentTarget = nil
                         StartAutoBreak(true)
                     end
@@ -5047,7 +5059,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Position = UDim2.fromOffset(11, 47),
             Size = UDim2.new(1, -82, 0, 14),
             BackgroundTransparency = 1,
-            Text = "Status: ENABLED",
+            Text = "Status: Enabled",
             TextColor3 = Theme.Accent,
             Font = Enum.Font.Gotham,
             TextSize = 9,
@@ -5055,7 +5067,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local AntiAFKToggle = CreateToggle(AntiAFKCard, "", true, function(enabled)
             AntiAFKEnabled = enabled
-            AntiAFKStatus.Text = "Status: " .. (enabled and "ENABLED" or "DISABLED")
+            AntiAFKStatus.Text = "Status: " .. (enabled and "Enabled" or "Disabled")
             AntiAFKStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
         end)
         AntiAFKToggle.Position = UDim2.new(1, -58, 0, 7)
