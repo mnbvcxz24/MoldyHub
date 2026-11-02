@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.265"
+local testver = "Test ver: 1.266"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -5090,73 +5090,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 humanoid:Move(offset.Unit, false)
             end)
         end
-        task.spawn(function()
-            while not Runtime.Stopped and not ScriptShuttingDown do
-                task.wait(1.5)
-                if AutoBreakEnabled and (SortOrder == "Highest Luck" or SortOrder == "Highest Kg" or TitanicPriorityEnabled)
-                    and (MovementConnection ~= nil or ArrivedAtTarget) and CurrentTarget
-                    and IsEggAvailable(CurrentTarget)
-                    and not FlingRecoveryActive and not PickupRequested
-                    and not ReturningAfterPickup and not WaitingForPickup then
-                    local zoneNames = {}
-                    for zoneName, selected in pairs(SelectedZones) do
-                        if selected then
-                            table.insert(zoneNames, zoneName)
-                        end
-                    end
-                    if #zoneNames == 0 then
-                        for _, zone in ipairs(ZoneBuilds:GetChildren()) do
-                            if zone:IsA("Model") then
-                                table.insert(zoneNames, zone.Name)
-                            end
-                        end
-                    end
-                    table.sort(zoneNames)
-                    local candidates = {}
-                    for _, zoneName in ipairs(zoneNames) do
-                        local zone = ZoneBuilds:FindFirstChild(zoneName)
-                        local eggsFolder = zone and zone:FindFirstChild("Eggs")
-                        if eggsFolder then
-                            for _, egg in ipairs(eggsFolder:GetChildren()) do
-                                if (egg:IsA("Model") or egg:IsA("BasePart"))
-                                    and egg.Name:lower():find("egg", 1, true)
-                                    and IsEggAvailable(egg) then
-                                    local eggName = GetEggTypeName(egg.Name)
-                                    if SelectedEggs[eggName] ~= false then
-                                        local category = GetEggCategory(egg)
-                                        table.insert(candidates, {
-                                            egg = egg,
-                                            luck = GetEggLuck(egg),
-                                            kg = GetEggWeightKg(egg) or 0,
-                                            isTitanic = category ~= nil
-                                                and category:lower() == "titanic"
-                                        })
-                                    end
-                                end
-                            end
-                        end
-                    end
-                    table.sort(candidates, function(a, b)
-                        if TitanicPriorityEnabled and a.isTitanic ~= b.isTitanic then
-                            return a.isTitanic
-                        end
-                        if SortOrder == "Highest Kg" and a.kg ~= b.kg then
-                            return a.kg > b.kg
-                        elseif SortOrder == "Highest Luck" and a.luck ~= b.luck then
-                            return a.luck > b.luck
-                        end
-                        return a.egg.Name < b.egg.Name
-                    end)
-                    if #candidates > 0 and candidates[1].egg ~= CurrentTarget then
-                        AddDebugLog("[Auto Break] Better priority target found while moving: "
-                            .. candidates[1].egg.Name .. " | priority=" .. tostring(SortOrder)
-                            .. "; switching target.")
-                        CurrentTarget = nil
-                        StartAutoBreak(true)
-                    end
-                end
-            end
-        end)
+        -- Target selection is intentionally scan-once and lock-until-complete.
+        -- Do not periodically rescan or replace a live target based on changing metadata.
         task.spawn(function()
             while not Runtime.Stopped and not ScriptShuttingDown do
                 task.wait(1)
@@ -5199,16 +5134,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end)
         RefreshEggFilters = function()
             if not AutoBreakEnabled then return end
+            if CurrentTarget and IsEggAvailable(CurrentTarget) then
+                AddDebugLog("[Auto Break] Filter changed; current egg remains locked until its HP reaches 0.")
+                return
+            end
             if FlingRecoveryActive or PickupRequested or ReturningAfterPickup or WaitingForPickup then
                 AddDebugLog("[Auto Break] Filter changed; will apply after the current pickup/recovery finishes.")
                 return
             end
-            AddDebugLog("[Auto Break] Refreshing target immediately for updated egg filters.")
-            CurrentTarget = nil
+            AddDebugLog("[Auto Break] No active target; scanning with the updated egg filters.")
             task.defer(function()
-                if AutoBreakEnabled and not FlingRecoveryActive and not PickupRequested
-                    and not ReturningAfterPickup and not WaitingForPickup then
-                    StartAutoBreak(true)
+                if AutoBreakEnabled and not CurrentTarget and not FlingRecoveryActive
+                    and not PickupRequested and not ReturningAfterPickup and not WaitingForPickup then
+                    StartAutoBreak()
                 end
             end)
         end
