@@ -3768,7 +3768,7 @@ end))
         local BossFightEnded = false
         local BossRoutineToken = 0
         local BossListenerToken = 0
-        local WaveMobsConnection
+        local BossScheduleToken = 0
         local WaveResultConnection
 
         local function SetBossStatus(status)
@@ -3787,10 +3787,7 @@ end))
 
         local function DisconnectBossListeners()
             BossListenerToken += 1
-            if WaveMobsConnection then
-                WaveMobsConnection:Disconnect()
-                WaveMobsConnection = nil
-            end
+            BossScheduleToken += 1
             if WaveResultConnection then
                 WaveResultConnection:Disconnect()
                 WaveResultConnection = nil
@@ -3896,42 +3893,60 @@ end))
         local function ConnectBossListeners()
             DisconnectBossListeners()
             local listenerToken = BossListenerToken
+            local scheduleToken = BossScheduleToken
 
             task.spawn(function()
+                local waveResult
                 while AutoFightBossEnabled and listenerToken == BossListenerToken
-                and not Runtime.Stopped do
-                    local waveMobs = workspace:FindFirstChild("WaveMobs")
+                and scheduleToken == BossScheduleToken and not Runtime.Stopped do
                     local shared = ReplicatedStorage:FindFirstChild("Shared")
                     local remotes = shared and shared:FindFirstChild("Remotes")
-                    local waveResult = remotes and remotes:FindFirstChild("WaveResult")
+                    waveResult = remotes and remotes:FindFirstChild("WaveResult")
 
-                    if waveMobs and waveMobs:IsA("Folder")
-                    and waveResult and waveResult:IsA("RemoteEvent") then
-                        if listenerToken ~= BossListenerToken or not AutoFightBossEnabled
-                        or Runtime.Stopped then
-                            return
-                        end
-
-                        WaveMobsConnection = TrackConnection(waveMobs.ChildAdded:Connect(function()
-                            if AutoFightBossEnabled and not BossRoutineRunning then
-                                StartBossRoutine()
-                            end
-                        end))
-                        WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
-                            if AutoFightBossEnabled and BossRoutineRunning then
-                                BossFightEnded = true
-                            end
-                        end))
-
-                        if #waveMobs:GetChildren() > 0 and AutoFightBossEnabled
-                        and not BossRoutineRunning then
-                            StartBossRoutine()
-                        end
-                        return
+                    if waveResult and waveResult:IsA("RemoteEvent") then
+                        break
                     end
 
-                    SetBossStatus("WaveMobs / WaveResult unavailable - retrying")
+                    SetBossStatus("WaveResult unavailable - retrying")
                     task.wait(5)
+                end
+
+                if not AutoFightBossEnabled or listenerToken ~= BossListenerToken
+                or scheduleToken ~= BossScheduleToken or Runtime.Stopped then
+                    return
+                end
+
+                WaveResultConnection = TrackConnection(waveResult.OnClientEvent:Connect(function()
+                    if AutoFightBossEnabled and BossRoutineRunning then
+                        BossFightEnded = true
+                    end
+                end))
+
+                -- SAPARI boss waves begin every hour at :15 Philippine time (UTC+8).
+                -- Calculate the next scheduled occurrence, then repeat hourly.
+                local PH_OFFSET_SECONDS = 8 * 60 * 60
+                local nowPH = DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
+                local nextBossStart = math.floor(nowPH / 3600) * 3600 + (15 * 60)
+                if nowPH >= nextBossStart then
+                    nextBossStart += 3600
+                end
+
+                while AutoFightBossEnabled and listenerToken == BossListenerToken
+                and scheduleToken == BossScheduleToken and not Runtime.Stopped do
+                    nowPH = DateTime.now().UnixTimestamp + PH_OFFSET_SECONDS
+                    local remaining = nextBossStart - nowPH
+
+                    if remaining <= 0 then
+                        if AutoFightBossEnabled and not BossRoutineRunning then
+                            SetBossStatus("Boss wave scheduled - starting")
+                            StartBossRoutine()
+                        end
+                        nextBossStart += 3600
+                    else
+                        SetBossStatus(string.format("Next boss wave in %dm %02ds",
+                            math.floor(remaining / 60), remaining % 60))
+                        task.wait(math.min(remaining, 1))
+                    end
                 end
             end)
         end
