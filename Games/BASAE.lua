@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.285"
+local testver = "Test ver: 1.286"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1342,13 +1342,33 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         MasteryCard.Size = UDim2.new(1, 0, 0, 190)
         MasteryCard.LayoutOrder = 1
 
-        local function CreateStatTile(name, caption, column, row)
-            local xPosition = UDim2.new(column / 2, 12 + (column * 4), 0, 38 + (row * 48))
+        -- Keep all stat tiles inside a content area inset evenly from the card edges.
+        local StatsContent = Create("Frame", {
+            Name = "StatsContent",
+            Parent = StatsCard,
+            Position = UDim2.fromOffset(9, 36),
+            Size = UDim2.new(1, -18, 1, -44),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0
+        })
+        Create("UIGridLayout", {
+            Parent = StatsContent,
+            CellSize = UDim2.new(0.5, -4, 0, 42),
+            CellPadding = UDim2.fromOffset(8, 6),
+            FillDirection = Enum.FillDirection.Horizontal,
+            FillDirectionMaxCells = 2,
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local function CreateStatTile(name, caption, layoutOrder)
             local tile = Create("Frame", {
                 Name = name:gsub("[^%w]", "") .. "Tile",
-                Parent = StatsCard,
-                Position = xPosition,
-                Size = UDim2.new(1 / 2, -16, 0, 42),
+                Parent = StatsContent,
+                Size = UDim2.new(0.5, -4, 0, 42),
+                BackgroundColor3 = Theme.SurfaceInput,
+                BorderSizePixel = 0,
+                LayoutOrder = layoutOrder
+            })
                 BackgroundColor3 = Theme.SurfaceInput,
                 BorderSizePixel = 0
             })
@@ -1396,19 +1416,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             return value
         end
 
-        local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 0, 0)
-        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 1, 0)
-        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 0, 1)
-        local CashValue = CreateStatTile("Cash", "CASH", 1, 1)
-        local SpeedValue = CreateStatTile("Speed", "SPEED", 0, 2)
-        local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 1, 2)
+        local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 1)
+        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 2)
+        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 3)
+        local CashValue = CreateStatTile("Cash", "CASH", 4)
+        local SpeedValue = CreateStatTile("Speed", "SPEED", 5)
+        local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 6)
 
         -- Live mastery list: include only entries whose frame names start with "Mastery_".
         local MasteryScroll = Create("ScrollingFrame", {
             Name = "MasteryScroll",
             Parent = MasteryCard,
-            Position = UDim2.fromOffset(12, 38),
-            Size = UDim2.new(1, -24, 1, -48),
+            Position = UDim2.fromOffset(9, 36),
+            Size = UDim2.new(1, -18, 1, -44),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
@@ -1419,8 +1439,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local MasteryListLayout = Create("UIGridLayout", {
             Parent = MasteryScroll,
-            CellSize = UDim2.new(1 / 3, -12, 0, 42),
-            CellPadding = UDim2.fromOffset(7, 7),
+            CellSize = UDim2.new(1 / 3, -4, 0, 42),
+            CellPadding = UDim2.fromOffset(6, 6),
             FillDirection = Enum.FillDirection.Horizontal,
             FillDirectionMaxCells = 3,
             SortOrder = Enum.SortOrder.LayoutOrder
@@ -1460,7 +1480,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     row = Create("Frame", {
                         Name = "MasteryRow_" .. tostring(index),
                         Parent = MasteryScroll,
-                        Size = UDim2.new(1 / 3, -12, 0, 42),
+                        Size = UDim2.new(1 / 3, -4, 0, 42),
                         BackgroundColor3 = Theme.SurfaceInput,
                         BorderSizePixel = 0,
                         LayoutOrder = index
