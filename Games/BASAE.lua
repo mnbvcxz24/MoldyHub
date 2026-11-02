@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.256"
+local testver = "Test ver: 1.257"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -462,8 +462,10 @@ end
 local GameNameLabel = CreateStatusText("GameName", UDim2.fromOffset(10, 3), UDim2.fromOffset(112, 28), "Loading game...", Theme.DarkGray, Enum.Font.GothamMedium, 9, Enum.TextXAlignment.Left)
 GameNameLabel.TextScaled = true
 GameNameLabel.TextWrapped = false
+-- Let the full experience name shrink to fit instead of cutting it off.
+GameNameLabel.TextTruncate = Enum.TextTruncate.None
 local GameNameTextConstraint = Instance.new("UITextSizeConstraint")
-GameNameTextConstraint.MinTextSize = 6
+GameNameTextConstraint.MinTextSize = 4
 GameNameTextConstraint.MaxTextSize = 9
 GameNameTextConstraint.Parent = GameNameLabel
 local function CreateStatusDivider(x)
