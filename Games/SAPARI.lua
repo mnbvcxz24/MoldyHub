@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
 local deployver = "Deploy ver 1.47"
+local ScriptStartedAt = os.clock()
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.86")
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -43,6 +44,8 @@ RuntimeEnv.__StealAPetAndRideItCleanup = function()
     pcall(function()
         local oldUI = game.CoreGui:FindFirstChild("StealAPetAndRideItUI")
         if oldUI then oldUI:Destroy() end
+        local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+        if oldStatusBar then oldStatusBar:Destroy() end
     end)
 end
 -- UI CONFIGURATION
@@ -112,6 +115,8 @@ end
 pcall(function()
     local oldUI = game.CoreGui:FindFirstChild("StealAPetAndRideItUI")
     if oldUI then oldUI:Destroy() end
+    local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    if oldStatusBar then oldStatusBar:Destroy() end
 end)
 -- THEME PRESETS
 local ThemePresets = {
@@ -309,7 +314,174 @@ local function ApplyTheme(themeName)
     if titleLabel and titleLabel:IsA("TextLabel") then
         titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. displayVersion .. '</font>'
     end
+    local statusGui = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    if statusGui then
+        local statusBar = statusGui:FindFirstChild("MoldyHubStatusBar", true)
+        local brandBadge = statusGui:FindFirstChild("BrandBadge", true)
+        local brandText = statusGui:FindFirstChild("BrandText", true)
+        local accentLine = statusGui:FindFirstChild("AccentLine", true)
+        if statusBar then
+            statusBar.BackgroundColor3 = selectedTheme.Card
+            local outline = statusBar:FindFirstChildOfClass("UIStroke")
+            if outline then outline.Color = selectedTheme.Border end
+        end
+        if accentLine then accentLine.BackgroundColor3 = selectedTheme.Accent end
+        for _, divider in ipairs(statusGui:GetDescendants()) do
+            if divider:IsA("Frame") and divider.Name == "StatusDivider" then divider.BackgroundColor3 = selectedTheme.Border end
+        end
+        if brandBadge then
+            brandBadge.BackgroundColor3 = selectedTheme.Selected
+            local outline = brandBadge:FindFirstChildOfClass("UIStroke")
+            if outline then outline.Color = selectedTheme.Border end
+        end
+        if brandText then
+            brandText.RichText = true
+            brandText.TextColor3 = selectedTheme.Text
+            brandText.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font><font color="#' .. selectedTheme.Text:ToHex() .. '">Hub</font>'
+        end
+        local gameName = statusGui:FindFirstChild("GameName", true)
+        local fps = statusGui:FindFirstChild("FPS", true)
+        local ping = statusGui:FindFirstChild("Ping", true)
+        local duration = statusGui:FindFirstChild("Duration", true)
+        if gameName then gameName.TextColor3 = selectedTheme.DarkGray end
+        if fps then fps.TextColor3 = selectedTheme.Text end
+        if ping then ping.TextColor3 = selectedTheme.DarkGray end
+        if duration then duration.TextColor3 = selectedTheme.Text end
+    end
 end
+-- COMPACT TOP STATUS BAR
+local StatusBarGui = Create("ScreenGui", {
+    Name = "MoldyHubStatusBarGui", Parent = game.CoreGui, ResetOnSpawn = false,
+    IgnoreGuiInset = true, DisplayOrder = 999998, ZIndexBehavior = Enum.ZIndexBehavior.Global
+})
+local StatusBar = Create("Frame", {
+    Name = "MoldyHubStatusBar", Parent = StatusBarGui, AnchorPoint = Vector2.new(0, 0),
+    Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(500, 34),
+    BackgroundColor3 = Theme.Card, BorderSizePixel = 0, Active = true, ZIndex = 200
+})
+AddCorner(StatusBar, 9)
+AddStroke(StatusBar, Theme.Border, 1)
+local StatusBarUIScale = Create("UIScale", {Parent = StatusBar, Scale = 0.60})
+local function UpdateStatusBarScale()
+    local camera = workspace.CurrentCamera
+    if camera then StatusBarUIScale.Scale = math.clamp(math.min(0.60, (camera.ViewportSize.X * 0.84) / 500), 0.35, 0.60) end
+end
+UpdateStatusBarScale()
+do
+    local camera = workspace.CurrentCamera
+    local width = camera and camera.ViewportSize.X or 0
+    StatusBar.Position = UDim2.fromOffset(math.max(0, (width - StatusBar.AbsoluteSize.X) / 2), 0)
+end
+local StatusBarAccent = Create("Frame", {
+    Name = "AccentLine", Parent = StatusBar, Position = UDim2.fromOffset(12, 0),
+    Size = UDim2.new(1, -24, 0, 2), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, ZIndex = 202
+})
+AddCorner(StatusBarAccent, 2)
+local function CreateStatusText(name, position, size, value, color, font, textSize, alignment)
+    return Create("TextLabel", {
+        Name = name, Parent = StatusBar, Position = position, Size = size, BackgroundTransparency = 1,
+        Text = value, TextColor3 = color, Font = font or Enum.Font.GothamMedium, TextSize = textSize or 12,
+        TextXAlignment = alignment or Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
+        TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 203
+    })
+end
+local GameNameLabel = CreateStatusText("GameName", UDim2.fromOffset(10, 3), UDim2.fromOffset(112, 28), "Loading game...", Theme.DarkGray, Enum.Font.GothamBold, 10, Enum.TextXAlignment.Left)
+GameNameLabel.TextScaled, GameNameLabel.TextWrapped = true, false
+local GameNameTextConstraint = Instance.new("UITextSizeConstraint")
+GameNameTextConstraint.MinTextSize, GameNameTextConstraint.MaxTextSize = 5, 10
+GameNameTextConstraint.Parent = GameNameLabel
+local function CreateStatusDivider(x)
+    return Create("Frame", {
+        Name = "StatusDivider", Parent = StatusBar, Position = UDim2.fromOffset(x, 9),
+        Size = UDim2.fromOffset(1, 16), BackgroundColor3 = Theme.Border, BorderSizePixel = 0, ZIndex = 202
+    })
+end
+CreateStatusDivider(126)
+local FPSLabel = CreateStatusText("FPS", UDim2.fromOffset(132, 3), UDim2.fromOffset(58, 28), "0 FPS", Theme.Text, Enum.Font.GothamBold, 10)
+CreateStatusDivider(194)
+local BrandBadge = Create("Frame", {
+    Name = "BrandBadge", Parent = StatusBar, Position = UDim2.fromOffset(201, 5),
+    Size = UDim2.fromOffset(102, 24), BackgroundColor3 = Theme.Selected, BorderSizePixel = 0, ZIndex = 202
+})
+AddCorner(BrandBadge, 12)
+AddStroke(BrandBadge, Theme.Border, 1)
+local BrandText = Create("TextLabel", {
+    Name = "BrandText", Parent = BrandBadge, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font><font color="#' .. Theme.Text:ToHex() .. '">Hub</font>',
+    TextColor3 = Theme.Text, RichText = true, Font = Enum.Font.GothamBold, TextSize = 12,
+    TextScaled = false, TextWrapped = false, ZIndex = 203
+})
+CreateStatusDivider(310)
+local PingLabel = CreateStatusText("Ping", UDim2.fromOffset(316, 3), UDim2.fromOffset(66, 28), "-- MS", Theme.DarkGray, Enum.Font.GothamBold, 10)
+CreateStatusDivider(389)
+local DurationLabel = CreateStatusText("Duration", UDim2.fromOffset(395, 3), UDim2.fromOffset(96, 28), "00:00:00", Theme.Text, Enum.Font.GothamBold, 10)
+task.spawn(function()
+    local ok, info = pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId) end)
+    if ok and info and type(info.Name) == "string" and info.Name ~= "" then GameNameLabel.Text = info.Name
+    else GameNameLabel.Text = game.Name ~= "" and game.Name or "Roblox Game" end
+end)
+local StatusBarDragging, StatusBarDragInput, StatusBarDragStart, StatusBarStartPosition = false, nil, nil, nil
+StatusBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        StatusBarDragging, StatusBarDragInput, StatusBarDragStart, StatusBarStartPosition = true, input, input.Position, StatusBar.Position
+    end
+end)
+local StatusBarInputChanged = UserInputService.InputChanged:Connect(function(input)
+    if StatusBarDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or (StatusBarDragInput and input == StatusBarDragInput)) then
+        local delta = input.Position - StatusBarDragStart
+        StatusBar.Position = UDim2.new(StatusBarStartPosition.X.Scale, StatusBarStartPosition.X.Offset + delta.X,
+            StatusBarStartPosition.Y.Scale, StatusBarStartPosition.Y.Offset + delta.Y)
+    end
+end)
+local StatusBarInputEnded = UserInputService.InputEnded:Connect(function(input)
+    if StatusBarDragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == StatusBarDragInput) then
+        StatusBarDragging, StatusBarDragInput, StatusBarDragStart, StatusBarStartPosition = false, nil, nil, nil
+    end
+end)
+local StatusBarViewportConnection
+local function ConnectStatusBarViewport(camera)
+    if StatusBarViewportConnection then StatusBarViewportConnection:Disconnect(); StatusBarViewportConnection = nil end
+    if camera then StatusBarViewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateStatusBarScale) end
+end
+ConnectStatusBarViewport(workspace.CurrentCamera)
+local StatusBarCameraConnection = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function() ConnectStatusBarViewport(workspace.CurrentCamera) end)
+local FPSFrames, FPSLastUpdate = 0, os.clock()
+local FPSConnection = RunService.RenderStepped:Connect(function()
+    FPSFrames += 1
+    local now = os.clock()
+    if now - FPSLastUpdate >= 1 then
+        FPSLabel.Text = string.format("%d FPS", math.floor(FPSFrames / (now - FPSLastUpdate) + 0.5))
+        FPSFrames, FPSLastUpdate = 0, now
+    end
+end)
+task.spawn(function()
+    local stats = game:GetService("Stats")
+    while not Runtime.Stopped and ScreenGui.Parent do
+        local ping = "--"
+        pcall(function()
+            local item = stats.Network.ServerStatsItem["Data Ping"]
+            local value = item:GetValue()
+            if type(value) == "number" then ping = tostring(math.floor(value + 0.5))
+            else
+                local number = string.match(item:GetValueString(), "[%d%.]+")
+                if number then ping = tostring(math.floor(tonumber(number) + 0.5)) end
+            end
+        end)
+        PingLabel.Text = ping .. " MS"
+        local elapsed = math.max(0, math.floor(os.clock() - ScriptStartedAt))
+        DurationLabel.Text = string.format("%02d:%02d:%02d", math.floor(elapsed / 3600), math.floor((elapsed % 3600) / 60), elapsed % 60)
+        task.wait(1)
+    end
+end)
+TrackConnection(StatusBarInputChanged)
+TrackConnection(StatusBarInputEnded)
+TrackConnection(StatusBarCameraConnection)
+TrackConnection(FPSConnection)
+Runtime.Shutdown = function()
+    StatusBarDragging = false
+    if StatusBarViewportConnection then StatusBarViewportConnection:Disconnect(); StatusBarViewportConnection = nil end
+end
+
 -- MAIN WINDOW
 local Main = Create("Frame", {
     Name = "Main",
@@ -347,7 +519,7 @@ local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
     Position = UDim2.fromOffset(14, 0),
-    Size = UDim2.new(1, -100, 1, 0),
+    Size = UDim2.new(1, -56, 1, 0),
     BackgroundTransparency = 1,
     Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. Theme.Accent:ToHex() .. '">' .. displayVersion .. '</font>',
     RichText = true,
@@ -357,52 +529,15 @@ local Title = Create("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Left,
     TextYAlignment = Enum.TextYAlignment.Center
 })
--- Minimize
-local MinimizeButton = Create("TextButton", {
-    Name = "Minimize",
-    Parent = TopBar,
-    Position = UDim2.new(1, -56, 0, 8),
-    Size = UDim2.fromOffset(24, 24),
-    BackgroundColor3 = Theme.SurfaceInput,
-    Text = "-",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    BorderSizePixel = 0
-})
-AddCorner(MinimizeButton, 8)
-AddStroke(MinimizeButton, Theme.Border, 1)
 -- Close
 local CloseButton = Create("TextButton", {
-    Name = "Close",
-    Parent = TopBar,
-    Position = UDim2.new(1, -28, 0, 8),
-    Size = UDim2.fromOffset(24, 24),
-    BackgroundColor3 = Theme.SurfaceInput,
-    Text = "×",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 15,
-    BorderSizePixel = 0
+    Name = "Close", Parent = TopBar, Position = UDim2.new(1, -28, 0, 8),
+    Size = UDim2.fromOffset(24, 24), BackgroundColor3 = Theme.SurfaceInput,
+    Text = "×", TextColor3 = Theme.Text, Font = Enum.Font.GothamBold,
+    TextSize = 15, BorderSizePixel = 0
 })
 AddCorner(CloseButton, 8)
 AddStroke(CloseButton, Theme.Border, 1)
-local RestoreButton = Create("TextButton", {
-    Name = "Restore",
-    Parent = Main,
-    Position = UDim2.new(1, -36, 0, 11),
-    Size = UDim2.fromOffset(36, 36),
-    BackgroundColor3 = Theme.Sidebar,
-    Text = "S",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 14,
-    BorderSizePixel = 0,
-    Visible = false,
-    ZIndex = 5
-})
-AddCorner(RestoreButton, 18)
-AddStroke(RestoreButton, Theme.Border, 1)
 -- HORIZONTAL NAVIGATION
 local NavigationBar = Create("Frame", {
     Name = "NavigationBar",
@@ -4468,137 +4603,77 @@ end
 -- SHOW FIRST PAGE
 Pages[1].Visible = true
 SidebarButtons[1].TextColor3 = Theme.Text
--- WINDOW CONTROLS
-local Minimized = false
-local IsAnimating = false
-local ExpandedPosition = Main.Position
-local MinimizedSize = UDim2.fromOffset(36, 36)
-local MinimizedTopOffset = 11
-local AnimationInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-local function SetMinimized(state)
-    if IsAnimating or Minimized == state then return end
-    IsAnimating = true
-
-    if state then
-        ExpandedPosition = Main.Position
-        Minimized = true
-
-        RestoreButton.Position = UDim2.fromOffset(0, 0)
-        RestoreButton.Visible = true
-        Content.Visible = false
-        NavigationBar.Visible = false
-        TopBar.Visible = false
-
-        local expandedWidth = Main.AbsoluteSize.X
-        local minimizedWidth = MinimizedSize.X.Offset * UIScale.Scale
-        local minimizedPosition = UDim2.new(
-            ExpandedPosition.X.Scale,
-            ExpandedPosition.X.Offset + expandedWidth - minimizedWidth,
-            ExpandedPosition.Y.Scale,
-            ExpandedPosition.Y.Offset + MinimizedTopOffset
-        )
-
-        local mainTween = TweenService:Create(Main, AnimationInfo, {
-            Size = MinimizedSize,
-            Position = minimizedPosition
-        })
-        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
-            CornerRadius = UDim.new(0, 18)
-        })
-
-        mainTween:Play()
-        cornerTween:Play()
-        mainTween.Completed:Wait()
-    else
-        Minimized = false
-
-        RestoreButton.Position = UDim2.fromOffset(0, 0)
-        RestoreButton.Visible = true
-
-        local mainTween = TweenService:Create(Main, AnimationInfo, {
-            Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
-            Position = ExpandedPosition
-        })
-        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
-            CornerRadius = UDim.new(0, 12)
-        })
-
-        mainTween:Play()
-        cornerTween:Play()
-        mainTween.Completed:Wait()
-
-        Content.Visible = true
-        NavigationBar.Visible = true
-        TopBar.Visible = true
-        RestoreButton.Visible = false
-        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
-    end
-
-    IsAnimating = false
+-- FLOATING TOGGLE
+local FloatingToggle = Create("TextButton", {
+    Name = "FloatingToggle", Parent = ScreenGui, Position = UDim2.new(1, -52, 0, 16),
+    Size = UDim2.fromOffset(36, 36), BackgroundColor3 = Theme.Sidebar, Text = "B",
+    TextColor3 = Theme.Text, Font = Enum.Font.GothamBold, TextSize = 14,
+    BorderSizePixel = 0, AutoButtonColor = true, Active = true, ZIndex = 100
+})
+AddCorner(FloatingToggle, 18)
+AddStroke(FloatingToggle, Theme.Border, 1)
+local function GetFloatingToggleBounds()
+    local camera = workspace.CurrentCamera
+    if not camera then return 0, 0 end
+    local viewport, size = camera.ViewportSize, FloatingToggle.AbsoluteSize
+    return math.max(0, viewport.X - size.X), math.max(0, viewport.Y - size.Y)
 end
-TrackConnection(MinimizeButton.MouseButton1Click:Connect(function()
-    SetMinimized(true)
+local function ClampFloatingTogglePosition(x, y)
+    local maxX, maxY = GetFloatingToggleBounds()
+    return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
+end
+local function KeepFloatingToggleOnScreen()
+    local x, y = ClampFloatingTogglePosition(FloatingToggle.AbsolutePosition.X, FloatingToggle.AbsolutePosition.Y)
+    FloatingToggle.Position = UDim2.fromOffset(x, y)
+end
+local function WatchViewportSize(camera)
+    if camera then TrackConnection(camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepFloatingToggleOnScreen)) end
+end
+WatchViewportSize(workspace.CurrentCamera)
+TrackConnection(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    WatchViewportSize(workspace.CurrentCamera)
+    KeepFloatingToggleOnScreen()
 end))
-TrackConnection(RestoreButton.MouseButton1Click:Connect(function()
-    SetMinimized(false)
-end))
-TrackConnection(CloseButton.MouseButton1Click:Connect(function()
-    if type(RuntimeEnv.__StealAPetAndRideItCleanup) == "function" then
-        RuntimeEnv.__StealAPetAndRideItCleanup()
-    else
-        Runtime.Stopped = true
-        if Runtime.StopNavigation then
-            Runtime.StopNavigation()
-        end
-        ScreenGui:Destroy()
+local function ToggleMainWindow() Main.Visible = not Main.Visible end
+TrackConnection(CloseButton.MouseButton1Click:Connect(function() Main.Visible = false end))
+local WindowDragging, WindowDragStart, WindowStartPosition = false, nil, nil
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        WindowDragging, WindowDragStart, WindowStartPosition = true, input.Position, Main.Position
     end
-end))
--- WINDOW DRAGGING
-local Dragging = false
-local DragStart
-local StartPosition
-TrackConnection(TopBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        Dragging = true
-        DragStart = input.Position
-        StartPosition = Main.Position
+end)
+local CircleDragging, CircleDragInput, CircleDragStart, CircleStartAbsolutePosition = false, nil, nil, nil
+local CircleMoved, CircleDragThreshold = false, 6
+FloatingToggle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        CircleDragging, CircleDragInput, CircleDragStart = true, input, input.Position
+        CircleStartAbsolutePosition, CircleMoved = FloatingToggle.AbsolutePosition, false
     end
-end))
-TrackConnection(RestoreButton.InputBegan:Connect(function(input)
-    if Minimized and (input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch) then
-        Dragging = true
-        DragStart = input.Position
-        StartPosition = Main.Position
-    end
-end))
+end)
 TrackConnection(UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType ~= Enum.UserInputType.MouseMovement
-    and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
-    if Dragging then
-        local Delta = input.Position - DragStart
-        Main.Position = UDim2.new(
-            StartPosition.X.Scale,
-            StartPosition.X.Offset + Delta.X,
-            StartPosition.Y.Scale,
-            StartPosition.Y.Offset + Delta.Y
-        )
+    if input.UserInputType == Enum.UserInputType.MouseMovement or (CircleDragInput and input == CircleDragInput) then
+        if CircleDragging then
+            local delta = input.Position - CircleDragStart
+            if delta.Magnitude > CircleDragThreshold then CircleMoved = true end
+            if CircleMoved then
+                local x, y = ClampFloatingTogglePosition(CircleStartAbsolutePosition.X + delta.X, CircleStartAbsolutePosition.Y + delta.Y)
+                FloatingToggle.Position = UDim2.fromOffset(x, y)
+            end
+        end
+    end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if WindowDragging then
+            local delta = input.Position - WindowDragStart
+            Main.Position = UDim2.new(WindowStartPosition.X.Scale, WindowStartPosition.X.Offset + delta.X,
+                WindowStartPosition.Y.Scale, WindowStartPosition.Y.Offset + delta.Y)
+        end
     end
 end))
 TrackConnection(UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        if Dragging and Minimized then
-            ExpandedPosition = UDim2.new(
-                Main.Position.X.Scale,
-                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset) * UIScale.Scale,
-                Main.Position.Y.Scale,
-                Main.Position.Y.Offset - MinimizedTopOffset
-            )
-        end
-        Dragging = false
+    if CircleDragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == CircleDragInput) then
+        local moved = CircleMoved
+        CircleDragging, CircleDragInput, CircleMoved = false, nil, false
+        if not moved then ToggleMainWindow() end
     end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then WindowDragging = false end
 end))
