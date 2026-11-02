@@ -6,7 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.225"
+local testver = "Test ver: 1.226"
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
@@ -362,7 +362,7 @@ local Title = Create("TextLabel", {
     Name = "Title",
     Parent = TopBar,
     Position = UDim2.fromOffset(14, 0),
-    Size = UDim2.new(1, -100, 1, 0),
+    Size = UDim2.new(1, -56, 1, 0),
     BackgroundTransparency = 1,
     Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. Theme.Accent:ToHex() .. '">' .. (string.match(testver, "[%d%.]+") and ("v" .. string.match(testver, "[%d%.]+")) or testver) .. '</font>',
     RichText = true,
@@ -372,21 +372,6 @@ local Title = Create("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Left,
     TextYAlignment = Enum.TextYAlignment.Center
 })
--- Minimize
-local MinimizeButton = Create("TextButton", {
-    Name = "Minimize",
-    Parent = TopBar,
-    Position = UDim2.new(1, -56, 0, 8),
-    Size = UDim2.fromOffset(24, 24),
-    BackgroundColor3 = Theme.SurfaceInput,
-    Text = "-",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    BorderSizePixel = 0
-})
-AddCorner(MinimizeButton, 8)
-AddStroke(MinimizeButton, Theme.Border, 1)
 -- Close
 local CloseButton = Create("TextButton", {
     Name = "Close",
@@ -402,22 +387,6 @@ local CloseButton = Create("TextButton", {
 })
 AddCorner(CloseButton, 8)
 AddStroke(CloseButton, Theme.Border, 1)
-local RestoreButton = Create("TextButton", {
-    Name = "Restore",
-    Parent = Main,
-    Position = UDim2.new(1, -36, 0, 11),
-    Size = UDim2.fromOffset(36, 36),
-    BackgroundColor3 = Theme.Sidebar,
-    Text = "B",
-    TextColor3 = Theme.Text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 14,
-    BorderSizePixel = 0,
-    Visible = false,
-    ZIndex = 5
-})
-AddCorner(RestoreButton, 18)
-AddStroke(RestoreButton, Theme.Border, 1)
 -- HORIZONTAL NAVIGATION
 local NavigationBar = Create("Frame", {
     Name = "NavigationBar",
@@ -5783,132 +5752,130 @@ end
 -- SHOW FIRST PAGE
 Pages[1].Visible = true
 SidebarButtons[1].TextColor3 = Theme.Text
--- WINDOW CONTROLS
-local Minimized = false
-local IsAnimating = false
-local ExpandedPosition = Main.Position
-local MinimizedSize = UDim2.fromOffset(36, 36)
-local MinimizedTopOffset = 11
-local AnimationInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- FLOATING TOGGLE
+-- The circle is independent from the main window and remains visible at all times.
+local FloatingToggle = Create("TextButton", {
+    Name = "FloatingToggle",
+    Parent = ScreenGui,
+    Position = UDim2.fromOffset(16, 16),
+    Size = UDim2.fromOffset(36, 36),
+    BackgroundColor3 = Theme.Sidebar,
+    Text = "B",
+    TextColor3 = Theme.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    BorderSizePixel = 0,
+    AutoButtonColor = true,
+    Active = true,
+    ZIndex = 100
+})
+AddCorner(FloatingToggle, 18)
+AddStroke(FloatingToggle, Theme.Border, 1)
 
-local function SetMinimized(state)
-    if IsAnimating or Minimized == state then return end
-    IsAnimating = true
-
-    if state then
-        ExpandedPosition = Main.Position
-        Minimized = true
-
-        RestoreButton.Position = UDim2.fromOffset(0, 0)
-        RestoreButton.Visible = true
-        Content.Visible = false
-        NavigationBar.Visible = false
-        TopBar.Visible = false
-
-        local expandedWidth = Main.AbsoluteSize.X
-        local minimizedWidth = MinimizedSize.X.Offset * UIScale.Scale
-        local minimizedPosition = UDim2.new(
-            ExpandedPosition.X.Scale,
-            ExpandedPosition.X.Offset + expandedWidth - minimizedWidth,
-            ExpandedPosition.Y.Scale,
-            ExpandedPosition.Y.Offset + MinimizedTopOffset
-        )
-
-        local mainTween = TweenService:Create(Main, AnimationInfo, {
-            Size = MinimizedSize,
-            Position = minimizedPosition
-        })
-        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
-            CornerRadius = UDim.new(0, 18)
-        })
-        mainTween:Play()
-        cornerTween:Play()
-        mainTween.Completed:Wait()
-    else
-        Minimized = false
-        RestoreButton.Position = UDim2.fromOffset(0, 0)
-        RestoreButton.Visible = true
-
-        local mainTween = TweenService:Create(Main, AnimationInfo, {
-            Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
-            Position = ExpandedPosition
-        })
-        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
-            CornerRadius = UDim.new(0, 12)
-        })
-        mainTween:Play()
-        cornerTween:Play()
-        mainTween.Completed:Wait()
-
-        Content.Visible = true
-        NavigationBar.Visible = true
-        TopBar.Visible = true
-        RestoreButton.Visible = false
-        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
-    end
-    IsAnimating = false
+local function CenterMainWindow()
+    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+    if not viewport then return end
+    Main.Position = UDim2.fromOffset(
+        math.max(0, (viewport.X - UIConfig.Width * UIScale.Scale) / 2),
+        math.max(0, (viewport.Y - UIConfig.Height * UIScale.Scale) / 2)
+    )
 end
 
-MinimizeButton.MouseButton1Click:Connect(function()
-    SetMinimized(true)
-end)
-RestoreButton.MouseButton1Click:Connect(function()
-    SetMinimized(false)
-end)
--- CLOSE
-CloseButton.MouseButton1Click:Connect(function()
-    Runtime.Stopped = true
-    if type(RuntimeEnv.__BASAESkripCleanup) == "function" then
-        RuntimeEnv.__BASAESkripCleanup()
+local function ToggleMainWindow()
+    if Main.Visible then
+        Main.Visible = false
     else
-        if ShutdownAutomation then ShutdownAutomation() end
-        ScreenGui:Destroy()
+        CenterMainWindow()
+        Main.Visible = true
     end
+end
+
+-- CLOSE hides the window only. The floating toggle remains available.
+CloseButton.MouseButton1Click:Connect(function()
+    Main.Visible = false
 end)
+
 -- WINDOW DRAGGING
-local Dragging = false
-local DragStart
-local StartPosition
+local WindowDragging = false
+local WindowDragStart
+local WindowStartPosition
+
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
-        Dragging = true
-        DragStart = input.Position
-        StartPosition = Main.Position
+        WindowDragging = true
+        WindowDragStart = input.Position
+        WindowStartPosition = Main.Position
     end
 end)
-RestoreButton.InputBegan:Connect(function(input)
-    if Minimized and (input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch) then
-        Dragging = true
-        DragStart = input.Position
-        StartPosition = Main.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType ~= Enum.UserInputType.MouseMovement
-    and input.UserInputType ~= Enum.UserInputType.Touch then return end
-    if Dragging then
-        local Delta = input.Position - DragStart
-        Main.Position = UDim2.new(
-            StartPosition.X.Scale,
-            StartPosition.X.Offset + Delta.X,
-            StartPosition.Y.Scale,
-            StartPosition.Y.Offset + Delta.Y
-        )
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
+
+local CircleDragging = false
+local CircleDragInput
+local CircleDragStart
+local CircleStartPosition
+local CircleMoved = false
+local CircleDragThreshold = 6
+
+FloatingToggle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
-        if Dragging and Minimized then
-            ExpandedPosition = UDim2.new(
-                Main.Position.X.Scale,
-                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset) * UIScale.Scale,
-                Main.Position.Y.Scale,
-                Main.Position.Y.Offset - MinimizedTopOffset
+        CircleDragging = true
+        CircleDragInput = input
+        CircleDragStart = input.Position
+        CircleStartPosition = FloatingToggle.Position
+        CircleMoved = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or (CircleDragInput and input == CircleDragInput) then
+        if CircleDragging then
+            local delta = input.Position - CircleDragStart
+            if delta.Magnitude > CircleDragThreshold then
+                CircleMoved = true
+            end
+            if CircleMoved then
+                FloatingToggle.Position = UDim2.new(
+                    CircleStartPosition.X.Scale,
+                    CircleStartPosition.X.Offset + delta.X,
+                    CircleStartPosition.Y.Scale,
+                    CircleStartPosition.Y.Offset + delta.Y
+                )
+            end
+        end
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        if WindowDragging then
+            local delta = input.Position - WindowDragStart
+            Main.Position = UDim2.new(
+                WindowStartPosition.X.Scale,
+                WindowStartPosition.X.Offset + delta.X,
+                WindowStartPosition.Y.Scale,
+                WindowStartPosition.Y.Offset + delta.Y
             )
         end
-        Dragging = false
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if CircleDragging and (
+        input.UserInputType == Enum.UserInputType.MouseButton1
+        or input == CircleDragInput
+    ) then
+        local wasDragged = CircleMoved
+        CircleDragging = false
+        CircleDragInput = nil
+        CircleMoved = false
+        if not wasDragged then
+            ToggleMainWindow()
+        end
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        WindowDragging = false
     end
 end)
