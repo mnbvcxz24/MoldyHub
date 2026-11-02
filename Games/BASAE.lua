@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.278"
+local testver = "Test ver: 1.279"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1403,20 +1403,117 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local SpeedValue = CreateStatTile("Speed", "SPEED", 0, 2)
         local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 1, 2)
 
-        Create("TextLabel", {
-            Name = "MasteryPlaceholder",
+        -- Live mastery list: include only entries whose frame names start with "Mastery_".
+        local MasteryScroll = Create("ScrollingFrame", {
+            Name = "MasteryScroll",
             Parent = MasteryCard,
-            Position = UDim2.fromOffset(11, 38),
-            Size = UDim2.new(1, -22, 0, 42),
+            Position = UDim2.fromOffset(9, 36),
+            Size = UDim2.new(1, -18, 1, -43),
             BackgroundTransparency = 1,
-            Text = "Mastery progress",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextWrapped = true,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextYAlignment = Enum.TextYAlignment.Top
+            BorderSizePixel = 0,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Theme.Accent,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollingDirection = Enum.ScrollingDirection.Y
         })
+        local MasteryListLayout = Create("UIListLayout", {
+            Parent = MasteryScroll,
+            Padding = UDim.new(0, 5),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        local MasteryRows = {}
+
+        local function RefreshMasteryRows()
+            local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+            local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
+            local frames = mainGui and mainGui:FindFirstChild("Frames")
+            local mastery = frames and frames:FindFirstChild("Mastery")
+            local masteryList = mastery and mastery:FindFirstChild("MasteryList")
+            if not masteryList then return end
+
+            local found = {}
+            for _, masteryFrame in ipairs(masteryList:GetChildren()) do
+                if masteryFrame:IsA("Frame") and masteryFrame.Name:sub(1, 8) == "Mastery_" then
+                    local container = masteryFrame:FindFirstChild("Container")
+                    local nameLabel = container and container:FindFirstChild("Title")
+                    local levelLabel = container and container:FindFirstChild("LevelNumber")
+                    if nameLabel and levelLabel and nameLabel:IsA("TextLabel") and levelLabel:IsA("TextLabel") then
+                        table.insert(found, {
+                            Key = masteryFrame.Name,
+                            Name = nameLabel.Text,
+                            Level = levelLabel.Text
+                        })
+                    end
+                end
+            end
+            table.sort(found, function(a, b) return a.Name < b.Name end)
+
+            local activeKeys = {}
+            for index, item in ipairs(found) do
+                activeKeys[item.Key] = true
+                local row = MasteryRows[item.Key]
+                if not row then
+                    row = Create("Frame", {
+                        Name = "MasteryRow_" .. tostring(index),
+                        Parent = MasteryScroll,
+                        Size = UDim2.new(1, -4, 0, 29),
+                        BackgroundColor3 = Theme.SurfaceInput,
+                        BorderSizePixel = 0,
+                        LayoutOrder = index
+                    })
+                    AddCorner(row, 5)
+                    AddStroke(row, Theme.Border, 1)
+                    local accent = Create("Frame", {
+                        Name = "Accent",
+                        Parent = row,
+                        Position = UDim2.fromOffset(0, 6),
+                        Size = UDim2.new(0, 2, 1, -12),
+                        BackgroundColor3 = Theme.Accent,
+                        BorderSizePixel = 0
+                    })
+                    AddCorner(accent, 2)
+                    local title = Create("TextLabel", {
+                        Name = "MasteryName",
+                        Parent = row,
+                        Position = UDim2.fromOffset(9, 0),
+                        Size = UDim2.new(1, -82, 1, 0),
+                        BackgroundTransparency = 1,
+                        TextColor3 = Theme.Text,
+                        Font = Enum.Font.GothamMedium,
+                        TextSize = 9,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd
+                    })
+                    local level = Create("TextLabel", {
+                        Name = "MasteryLevel",
+                        Parent = row,
+                        Position = UDim2.new(1, -70, 0, 0),
+                        Size = UDim2.fromOffset(62, 29),
+                        BackgroundTransparency = 1,
+                        TextColor3 = Theme.Accent,
+                        Font = Enum.Font.GothamSemibold,
+                        TextSize = 9,
+                        TextXAlignment = Enum.TextXAlignment.Right,
+                        TextTruncate = Enum.TextTruncate.AtEnd
+                    })
+                    row:SetAttribute("MasteryKey", item.Key)
+                    MasteryRows[item.Key] = row
+                end
+                row.LayoutOrder = index
+                local title = row:FindFirstChild("MasteryName")
+                local level = row:FindFirstChild("MasteryLevel")
+                if title then title.Text = item.Name end
+                if level then level.Text = item.Level end
+            end
+
+            for key, row in pairs(MasteryRows) do
+                if not activeKeys[key] then
+                    row:Destroy()
+                    MasteryRows[key] = nil
+                end
+            end
+        end
 
         local function ReadPlayerStatAttribute(attributeName)
             local value = LocalPlayer:GetAttribute(attributeName)
@@ -1468,6 +1565,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 DiamondsValue.Text = ReadPlayerStatAttribute("Diamonds")
                 SpeedValue.Text = ReadPlayerStatAttribute("SpeedPower")
                 HighestCashAnimalValue.Text = ReadHighestPlacedAnimal()
+                RefreshMasteryRows()
                 -- Pickaxe damage is intentionally left as "—" until its value is provided.
                 task.wait(0.5)
             end
