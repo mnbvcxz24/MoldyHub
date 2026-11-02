@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.279"
+local testver = "Test ver: 1.280"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1457,7 +1457,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     row = Create("Frame", {
                         Name = "MasteryRow_" .. tostring(index),
                         Parent = MasteryScroll,
-                        Size = UDim2.new(1, -4, 0, 29),
+                        Size = UDim2.new(1, -4, 0, 36),
                         BackgroundColor3 = Theme.SurfaceInput,
                         BorderSizePixel = 0,
                         LayoutOrder = index
@@ -1467,8 +1467,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local accent = Create("Frame", {
                         Name = "Accent",
                         Parent = row,
-                        Position = UDim2.fromOffset(0, 6),
-                        Size = UDim2.new(0, 2, 1, -12),
+                        Position = UDim2.fromOffset(0, 7),
+                        Size = UDim2.new(0, 3, 1, -14),
                         BackgroundColor3 = Theme.Accent,
                         BorderSizePixel = 0
                     })
@@ -1476,8 +1476,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local title = Create("TextLabel", {
                         Name = "MasteryName",
                         Parent = row,
-                        Position = UDim2.fromOffset(9, 0),
-                        Size = UDim2.new(1, -82, 1, 0),
+                        Position = UDim2.fromOffset(11, 0),
+                        Size = UDim2.new(1, -94, 1, 0),
                         BackgroundTransparency = 1,
                         TextColor3 = Theme.Text,
                         Font = Enum.Font.GothamMedium,
@@ -1488,8 +1488,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local level = Create("TextLabel", {
                         Name = "MasteryLevel",
                         Parent = row,
-                        Position = UDim2.new(1, -70, 0, 0),
-                        Size = UDim2.fromOffset(62, 29),
+                        Position = UDim2.new(1, -82, 0, 0),
+                        Size = UDim2.fromOffset(72, 36),
                         BackgroundTransparency = 1,
                         TextColor3 = Theme.Accent,
                         Font = Enum.Font.GothamSemibold,
@@ -1504,7 +1504,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 local title = row:FindFirstChild("MasteryName")
                 local level = row:FindFirstChild("MasteryLevel")
                 if title then title.Text = item.Name end
-                if level then level.Text = item.Level end
+                if level then level.Text = "LEVEL " .. item.Level end
             end
 
             for key, row in pairs(MasteryRows) do
