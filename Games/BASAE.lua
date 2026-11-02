@@ -1050,8 +1050,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 task.wait(1)
             end
         end)
-        local StatsCard = CreateCard(Page, "Stats", "UI placeholder — stats tracking is not connected yet.")
-        StatsCard.Size = UDim2.new(1, 0, 0, 76)
     elseif index == 2 then
         local AutoRow = Create("Frame", {
             Name = "AutoControlsRow",
