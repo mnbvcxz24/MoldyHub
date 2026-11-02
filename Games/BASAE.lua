@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.286"
+local testver = "Test ver: 1.287"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1547,10 +1547,16 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local function FindOwnedPlot()
             local plots = workspace:FindFirstChild("Plots")
             if not plots then return nil end
-            for _, base in ipairs(plots:GetChildren()) do
-                local ownerUserId = base:GetAttribute("userID")
-                if tonumber(ownerUserId) == LocalPlayer.UserId then
-                    return base
+
+            -- The player plot is one of Base_1 through Base_7.
+            -- Match the userID attribute so another player's placed animals are ignored.
+            for baseIndex = 1, 7 do
+                local base = plots:FindFirstChild("Base_" .. tostring(baseIndex))
+                if base then
+                    local ownerUserId = base:GetAttribute("userID")
+                    if tonumber(ownerUserId) == LocalPlayer.UserId then
+                        return base
+                    end
                 end
             end
             return nil
