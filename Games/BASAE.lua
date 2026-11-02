@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.267"
+local testver = "Test ver: 1.268"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1329,78 +1329,71 @@ local AntiPaloEnabled = false
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if index == 1 then
-        local StatusCard = CreateCard(Page, "Status", "Status display is UI-only for now.")
-        StatusCard.Size = UDim2.new(1, 0, 0, 132)
-        local GameNameCaption = Create("TextLabel", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 40),
-            Size = UDim2.new(1, -22, 0, 12),
-            BackgroundTransparency = 1,
-            Text = "GAME",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.GothamSemibold,
-            TextSize = 8,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local GameNameValue = Create("TextLabel", {
-            Name = "GameNameValue",
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 52),
-            Size = UDim2.new(1, -22, 0, 16),
-            BackgroundTransparency = 1,
-            Text = "Break and Steal and Egg",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.GothamSemibold,
-            TextSize = 10,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local StatusPlaceholder = Create("TextLabel", {
-            Name = "StatusPlaceholder",
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 72),
-            Size = UDim2.new(1, -22, 0, 14),
-            BackgroundTransparency = 1,
-            Text = "Not connected",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local DurationCaption = Create("TextLabel", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 91),
-            Size = UDim2.new(1, -22, 0, 12),
-            BackgroundTransparency = 1,
-            Text = "DURATION",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.GothamSemibold,
-            TextSize = 8,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local DurationValue = Create("TextLabel", {
-            Name = "ScriptDurationValue",
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 104),
-            Size = UDim2.new(1, -22, 0, 18),
-            BackgroundTransparency = 1,
-            Text = "00:00:00",
-            TextColor3 = Theme.Accent,
-            Font = Enum.Font.GothamSemibold,
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
+        -- MAIN PAGE STATS
+        -- Values without a confirmed game data source stay as "—" rather than guessing.
+        local StatsCard = CreateCard(Page, "Stats", "")
+        StatsCard.Size = UDim2.new(1, 0, 0, 202)
+
+        local function CreateStatTile(name, caption, column, row)
+            local tile = Create("Frame", {
+                Name = name:gsub("[^%w]", "") .. "Tile",
+                Parent = StatsCard,
+                Position = UDim2.new(column, column == 0 and 11 or 5, 0, 34 + (row * 50)),
+                Size = UDim2.new(0.5, -16, 0, 44),
+                BackgroundColor3 = Theme.Background,
+                BorderSizePixel = 0
+            })
+            AddCorner(tile, 6)
+            AddStroke(tile, Theme.Border, 1)
+
+            Create("TextLabel", {
+                Name = "Caption",
+                Parent = tile,
+                Position = UDim2.fromOffset(8, 5),
+                Size = UDim2.new(1, -16, 0, 11),
+                BackgroundTransparency = 1,
+                Text = caption,
+                TextColor3 = Theme.Gray,
+                Font = Enum.Font.GothamSemibold,
+                TextSize = 8,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd
+            })
+            local value = Create("TextLabel", {
+                Name = "Value",
+                Parent = tile,
+                Position = UDim2.fromOffset(8, 18),
+                Size = UDim2.new(1, -16, 0, 19),
+                BackgroundTransparency = 1,
+                Text = "—",
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.GothamSemibold,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd
+            })
+            return value
+        end
+
+        local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 0, 0)
+        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "HIGHEST CASH / S ANIMAL", 1, 0)
+        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE / S", 0, 1)
+        local CashValue = CreateStatTile("Cash", "CASH", 1, 1)
+        local SpeedValue = CreateStatTile("Speed", "SPEED", 0, 2)
+        local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 1, 2)
+
         task.spawn(function()
-            while not Runtime.Stopped and ScreenGui.Parent and DurationValue.Parent do
-                local elapsed = math.max(0, math.floor(os.clock() - ScriptStartedAt))
-                local hours = math.floor(elapsed / 3600)
-                local minutes = math.floor((elapsed % 3600) / 60)
-                local seconds = elapsed % 60
-                DurationValue.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
-                task.wait(1)
+            while not Runtime.Stopped and ScreenGui.Parent and StatsCard.Parent do
+                local speedText = "—"
+                local character = LocalPlayer.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    speedText = string.format("%.1f", humanoid.WalkSpeed)
+                end
+                SpeedValue.Text = speedText
+                task.wait(0.25)
             end
         end)
-        local StatsCard = CreateCard(Page, "Stats", "UI placeholder only — stats tracking is not connected yet.")
-        StatsCard.Size = UDim2.new(1, 0, 0, 76)
     elseif index == 2 then
         local AutoRow = Create("Frame", {
             Name = "AutoControlsRow",
