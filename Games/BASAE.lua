@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.234"
+local testver = "Test ver: 1.240"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1104,13 +1104,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local AutoBreakEnabled = false
         local AutoBreakGeneration = 0
         local RefreshEggFilters
-        local HighLuckFilterEnabled = false
-        local TitanicFilterEnabled = false
+        local TitanicPriorityEnabled = false
         local AutoBreakControlLayout = {
             ZoneY = 42,
             EggY = 81,
-            HighLuckY = 109,
-            TitanicY = 135,
+            HighLuckY = 126,
+            TitanicY = 157,
             Height = 22,
             SidePadding = 11
         }
@@ -1172,92 +1171,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AutoPickupToggle.Size = UDim2.fromOffset(48, 24)
         local AutoPickupTitle = AutoPickupCard:FindFirstChildWhichIsA("TextLabel")
         if AutoPickupTitle then AutoPickupTitle.Size = UDim2.new(1, -78, 0, 22) end
-        local AutoFuseCard = CreateCard(AutoRow, "⚙️  Auto Fuse", "UNDER DEVELOPMENT")
-        AutoFuseCard.Position = UDim2.new(0.5, 6, 0, 196)
-        AutoFuseCard.Size = UDim2.new(0.5, -6, 0, 150)
-        local AutoFuseEnabled = false
-        local AutoFuseGeneration = 0
-        local AutoFuseRequirements = {}
-        local AutoFuseStatus = Create("TextLabel", {
-            Name = "AutoFuseStatus",
-            Parent = AutoFuseCard,
-            Position = UDim2.fromOffset(11, 47),
-            Size = UDim2.new(1, -22, 0, 14),
-            BackgroundTransparency = 1,
-            Text = "Status: OFF",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local AutoFuseRequirementLabels = {}
-        for slot = 1, 3 do
-            AutoFuseRequirementLabels[slot] = Create("TextLabel", {
-                Name = "Requirement" .. slot,
-                Parent = AutoFuseCard,
-                Position = UDim2.fromOffset(11, 64 + (slot - 1) * 18),
-                Size = UDim2.new(1, -22, 0, 16),
-                BackgroundTransparency = 1,
-                Text = "Animal " .. slot .. ": loading...",
-                TextColor3 = Theme.Text,
-                Font = Enum.Font.Gotham,
-                TextSize = 10,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextTruncate = Enum.TextTruncate.AtEnd
-            })
-        end
-        function GetAutoFuseRequirement(slot)
-            local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-            local sciFiUI = playerGui and playerGui:FindFirstChild("SciFi UI")
-            local tradeIn = sciFiUI and sciFiUI:FindFirstChild("SciFiTradeInMain")
-            local inputs = tradeIn and tradeIn:FindFirstChild("SacrificeInputs")
-            local input = inputs and inputs:FindFirstChild("Input" .. slot)
-            local empty = input and input:FindFirstChild("Empty")
-            local nameLabel = empty and empty:FindFirstChild("Name")
-            if not nameLabel or not nameLabel:IsA("TextLabel") then return nil end
-            local animalName = nameLabel.Text
-            animalName = animalName:match("^%s*(.-)%s*$")
-            if animalName == "" then return nil end
-            return animalName
-        end
-        function RefreshAutoFuseRequirements()
-            local requirements = {}
-            for slot = 1, 3 do
-                local animalName = GetAutoFuseRequirement(slot)
-                requirements[slot] = animalName
-                AutoFuseRequirementLabels[slot].Text = "Animal " .. slot .. ": " .. (animalName or "not detected")
-                AutoFuseRequirementLabels[slot].TextColor3 = animalName and Theme.Text or Theme.Gray
-            end
-            AutoFuseRequirements = requirements
-            return requirements
-        end
-        local AutoFuseToggle
-        AutoFuseToggle = CreateToggle(AutoFuseCard, "", false, function(enabled)
-            if enabled then
-                AddDebugLog("[Auto Fuse] UNDER DEVELOPMENT - disabled in Deploy.")
-                task.defer(function()
-                    local controller = ToggleControllers[AutoFuseToggle]
-                    if controller then controller.SetEnabled(false, false) end
-                    AutoFuseStatus.Text = "UNDER DEVELOPMENT"
-                    AutoFuseStatus.TextColor3 = Theme.Gray
-                end)
-                return
-            end
-            AutoFuseEnabled = false
-            AutoFuseGeneration += 1
-            AutoFuseStatus.Text = "Status: OFF"
-            AutoFuseStatus.TextColor3 = Theme.Gray
-            AddDebugLog("[Auto Fuse] disabled.")
-        end)
-        AutoFuseToggle.Position = UDim2.new(1, -58, 0, 7)
-        AutoFuseToggle.Size = UDim2.fromOffset(48, 24)
-        task.spawn(function()
-            while not Runtime.Stopped and AutoFuseCard.Parent do
-                RefreshAutoFuseRequirements()
-                task.wait(1)
-            end
-        end)
-        MarkUnderDevelopment(AutoFuseCard)
+        -- Auto Fuse removed: card, polling loop, toggles, and requirement scanning are intentionally disabled.
         local RarityFilterOpen = false
         local RarityOptions = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine", "Celestial", "Inferno", "Void", "Omega", "Spectral", "Ethereal"}
         local SelectedRarities = {}
@@ -1762,7 +1676,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local SelectedZones = {}
         local SelectedEggs = {}
         local PreferredZoneName = nil
-        local SortOrder = "Largest"
+        local SortOrder = "Highest Luck"
         local SortFrame
         local ZoneFilterButton
         local EggFilterButton
@@ -1868,6 +1782,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             UpdateFilterPanel()
         end)
         SetAutoBreakControl(ZoneFilterButton, AutoBreakControlLayout.ZoneY)
+        ZoneFilterButton.TextSize = 9
+        ZoneFilterButton.Font = Enum.Font.GothamMedium
+        ZoneFilterButton.BackgroundColor3 = Theme.Selected
         EggFilterButton = CreateButton(Card1, "Eggs ▼", function()
             EggFilterOpen = not EggFilterOpen
             ZoneFilterOpen = false
@@ -1875,6 +1792,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             UpdateFilterPanel()
         end)
         SetAutoBreakControl(EggFilterButton, AutoBreakControlLayout.EggY)
+        EggFilterButton.TextSize = 9
+        EggFilterButton.Font = Enum.Font.GothamMedium
+        EggFilterButton.BackgroundColor3 = Theme.Selected
         ZoneList = Create("ScrollingFrame", {
             Name = "ZoneFilterList",
             Parent = Card1,
@@ -1929,29 +1849,107 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             PaddingLeft = UDim.new(0, 4),
             PaddingRight = UDim.new(0, 4)
         })
+        Create("TextLabel", {
+            Name = "PriorityFilterLabel",
+            Parent = Card1,
+            Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY - 16),
+            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, 13),
+            BackgroundTransparency = 1,
+            Text = "Priority",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
         SortFrame = Create("Frame", {
             Name = "EggSortOptions",
             Parent = Card1,
             Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY),
-            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, AutoBreakControlLayout.Height),
+            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, 22),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Visible = true
         })
-        local HighestLuckToggle
-        function UpdateSortButtons()
-            SortOrder = HighLuckFilterEnabled and "Highest Luck" or "Default"
-        end
-        HighestLuckToggle = CreateToggle(SortFrame, "Highest Luck Filter", false, function(enabled)
-            HighLuckFilterEnabled = enabled
-            UpdateSortButtons()
-            if RefreshEggList then RefreshEggList() end
-            if RefreshEggFilters then RefreshEggFilters() end
-            AddDebugLog("[Auto Break] Highest Luck filter " .. (enabled and "ON" or "OFF"))
+        local PriorityOptions = {"Highest Luck", "Highest Kg"}
+        local PriorityOpen = false
+        local PriorityOptionsFrame
+        local PriorityFilterButton = CreateButton(SortFrame, "Highest Luck ▼", function()
+            PriorityOpen = not PriorityOpen
+            if PriorityOptionsFrame then
+                PriorityOptionsFrame.Visible = PriorityOpen
+            end
         end)
-        HighestLuckToggle.Position = UDim2.fromOffset(0, 0)
-        HighestLuckToggle.Size = UDim2.new(1, 0, 0, 28)
-        SortLargestButton = HighestLuckToggle
+        PriorityFilterButton.Position = UDim2.fromOffset(0, 0)
+        PriorityFilterButton.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
+        PriorityFilterButton.TextSize = 9
+        PriorityFilterButton.Font = Enum.Font.GothamMedium
+        PriorityFilterButton.BackgroundColor3 = Theme.Selected
+        PriorityFilterButton.ZIndex = 100
+        PriorityOptionsFrame = Create("Frame", {
+            Name = "PriorityOptions",
+            Parent = Card1,
+            Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY + AutoBreakControlLayout.Height + 4),
+            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, #PriorityOptions * 28 + 8),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 200
+        })
+        AddCorner(PriorityOptionsFrame, 6)
+        local PriorityOptionsLayout = Create("UIListLayout", {
+            Parent = PriorityOptionsFrame,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        Create("UIPadding", {
+            Parent = PriorityOptionsFrame,
+            PaddingTop = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4),
+            PaddingLeft = UDim.new(0, 4),
+            PaddingRight = UDim.new(0, 4)
+        })
+        for optionIndex, option in ipairs(PriorityOptions) do
+            local optionButton = Create("TextButton", {
+                Parent = PriorityOptionsFrame,
+                Position = UDim2.fromOffset(0, 0),
+                Size = UDim2.new(1, -8, 0, 24),
+                BackgroundColor3 = SortOrder == option and Theme.Selected or Theme.Card,
+                Text = option,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 9,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                LayoutOrder = optionIndex,
+                ZIndex = 201
+            })
+            AddCorner(optionButton, 5)
+            optionButton.MouseEnter:Connect(function()
+                if SortOrder ~= option then
+                    Tween(optionButton, {BackgroundColor3 = Theme.Selected})
+                end
+            end)
+            optionButton.MouseLeave:Connect(function()
+                if SortOrder ~= option then
+                    Tween(optionButton, {BackgroundColor3 = Theme.Card})
+                end
+            end)
+            optionButton.MouseButton1Click:Connect(function()
+                SortOrder = option
+                PriorityFilterButton.Text = option .. " ▼"
+                for _, child in ipairs(PriorityOptionsFrame:GetChildren()) do
+                    if child:IsA("TextButton") then
+                        child.BackgroundColor3 = child == optionButton and Theme.Selected or Theme.Card
+                    end
+                end
+                PriorityOptionsFrame.Visible = false
+                PriorityOpen = false
+                if RefreshEggList then RefreshEggList() end
+                if RefreshEggFilters then RefreshEggFilters() end
+                AddDebugLog("[Auto Break] Priority set to " .. tostring(option))
+            end)
+        end
+        SortLargestButton = PriorityFilterButton
         SortSmallestButton = nil
         function GetEggTypeName(name)
             return (name:gsub("^%d+:%s*", ""))
@@ -1977,9 +1975,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 if value ~= nil then return value end
             end
             return nil
-        end
-        function GetEggWeightBracket(egg)
-            return GetEggDataValue(egg, "WeightBracket")
         end
         function GetEggWeightKg(egg)
             local raw = GetEggDataValue(egg, "weightKg")
@@ -2156,10 +2151,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                 local eggName = GetEggTypeName(egg.Name)
                                 local luck = GetEggLuck(egg)
                                 if not byName[eggName] then
-                                    byName[eggName] = {name = eggName, luck = luck}
+                                    byName[eggName] = {name = eggName, luck = luck, kg = GetEggWeightKg(egg) or 0}
                                     table.insert(records, byName[eggName])
-                                elseif luck > byName[eggName].luck then
-                                    byName[eggName].luck = luck
+                                else
+                                    byName[eggName].luck = math.max(byName[eggName].luck or 0, luck)
+                                    byName[eggName].kg = math.max(byName[eggName].kg or 0, GetEggWeightKg(egg) or 0)
                                 end
                             end
                         end
@@ -2169,6 +2165,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             table.sort(records, function(a, b)
                 if SortOrder == "Highest Luck" and a.luck ~= b.luck then
                     return a.luck > b.luck
+                elseif SortOrder == "Highest Kg" and (a.kg or 0) ~= (b.kg or 0) then
+                    return (a.kg or 0) > (b.kg or 0)
                 end
                 return a.name < b.name
             end)
@@ -2365,10 +2363,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end)
             end
         end
-        UpdateSortButtons()
-        local TitanicPriorityToggle = CreateToggle(Card1, "Titanic Filter", false, function(enabled)
-            TitanicFilterEnabled = enabled
-            AddDebugLog("[Auto Break] TITANIC filter " .. (enabled and "ON" or "OFF"))
+        local TitanicPriorityToggle = CreateToggle(Card1, "Titanic Priority", false, function(enabled)
+            TitanicPriorityEnabled = enabled
+            AddDebugLog("[Auto Break] TITANIC priority " .. (enabled and "ON" or "OFF"))
             if RefreshEggFilters then RefreshEggFilters() end
         end)
         SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
@@ -2385,8 +2382,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         UpdateAutoBreakCardHeights()
         function UpdateFilterPanelWithTitanic()
             UpdateFilterPanel()
-            HighestLuckToggle.Position = UDim2.fromOffset(0, 0)
-            HighestLuckToggle.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
+            PriorityFilterButton.Position = UDim2.fromOffset(0, 0)
+            PriorityFilterButton.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
             SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
             UpdateAutoBreakCardHeights()
         end
@@ -4566,8 +4563,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
             table.sort(selectedZoneNames)
             local target = lockedTarget
-            if not target and (TitanicFilterEnabled or HighLuckFilterEnabled) then
-                local filteredCandidates = {}
+            if not target then
+                local priorityCandidates = {}
                 for _, zoneName in ipairs(selectedZoneNames) do
                     local zone = ZoneBuilds:FindFirstChild(zoneName)
                     local eggsFolder = zone and zone:FindFirstChild("Eggs")
@@ -4578,91 +4575,43 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                 and IsEggAvailable(egg) then
                                 local eggName = GetEggTypeName(egg.Name)
                                 if SelectedEggs[eggName] ~= false then
-                                    local category = GetEggWeightBracket(egg)
-                                    local isTitanic = category ~= nil and tostring(category):lower():find("titanic", 1, true) ~= nil
-                                    local luck = HighLuckFilterEnabled and GetEggLuck(egg) or 0
-                                    if (not TitanicFilterEnabled or isTitanic)
-                                        and (not HighLuckFilterEnabled or luck > 0) then
-                                        table.insert(filteredCandidates, {egg = egg, luck = luck})
-                                    end
+                                    local category = GetEggDataValue(egg, "Category")
+                                    local isTitanic = category ~= nil
+                                        and tostring(category):lower():find("titanic", 1, true) ~= nil
+                                    table.insert(priorityCandidates, {
+                                        egg = egg,
+                                        luck = GetEggLuck(egg),
+                                        kg = GetEggWeightKg(egg) or 0,
+                                        isTitanic = isTitanic
+                                    })
                                 end
                             end
                         end
                     end
                 end
-                table.sort(filteredCandidates, function(a, b)
-                    if HighLuckFilterEnabled and a.luck ~= b.luck then return a.luck > b.luck end
-                    return a.egg.Name < b.egg.Name
-                end)
-                if #filteredCandidates > 0 then
-                    target = filteredCandidates[1].egg
-                    SetTrackerStatus("AUTO BREAK FILTERS: selected " .. target.Name
-                        .. (TitanicFilterEnabled and " | Titanic matched" or "")
-                        .. (HighLuckFilterEnabled and (" | Luck=" .. tostring(filteredCandidates[1].luck)) or ""))
-                else
-                    SetTrackerStatus("Auto Break filters found no matching egg in the selected zones; waiting for a match.")
-                end
-                if not target then
-                    return
-                end
-            end
-            if not target and not TitanicFilterEnabled and not HighLuckFilterEnabled and SortOrder == "Highest Luck" then
-                local luckCandidates = {}
-                local unreadableLuckCount = 0
-                for _, zoneName in ipairs(selectedZoneNames) do
-                    local zone = ZoneBuilds:FindFirstChild(zoneName)
-                    local eggsFolder = zone and zone:FindFirstChild("Eggs")
-                    if eggsFolder then
-                        for _, egg in ipairs(eggsFolder:GetChildren()) do
-                            if (egg:IsA("Model") or egg:IsA("BasePart"))
-                                and egg.Name:lower():find("egg", 1, true)
-                                and IsEggAvailable(egg) then
-                                local eggName = GetEggTypeName(egg.Name)
-                                if SelectedEggs[eggName] ~= false then
-                                    local luck = GetEggLuck(egg)
-                                    if luck > 0 then
-                                        local weightBracket = GetEggWeightBracket(egg)
-                                        local weightKg = GetEggWeightKg(egg)
-                                        local bracketText = weightBracket ~= nil and tostring(weightBracket) or ""
-                                        local isTitanic = bracketText:lower():find("titanic", 1, true) ~= nil
-                                        table.insert(luckCandidates, {
-                                            egg = egg,
-                                            luck = luck,
-                                            weightKg = weightKg or 0,
-                                            isTitanic = isTitanic
-                                        })
-                                    else
-                                        unreadableLuckCount += 1
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-                table.sort(luckCandidates, function(a, b)
-                    if a.luck ~= b.luck then return a.luck > b.luck end
-                    if TitanicFilterEnabled and a.isTitanic ~= b.isTitanic then
+                table.sort(priorityCandidates, function(a, b)
+                    if TitanicPriorityEnabled and a.isTitanic ~= b.isTitanic then
                         return a.isTitanic
                     end
-                    if TitanicFilterEnabled and a.weightKg ~= b.weightKg then
-                        return a.weightKg > b.weightKg
+                    if SortOrder == "Highest Kg" and a.kg ~= b.kg then
+                        return a.kg > b.kg
+                    elseif SortOrder == "Highest Luck" and a.luck ~= b.luck then
+                        return a.luck > b.luck
                     end
                     return a.egg.Name < b.egg.Name
                 end)
-                if #luckCandidates > 0 then
-                    target = luckCandidates[1].egg
-                    SetTrackerStatus("HIGHEST LUCK PRIORITY: selected " .. target.Name
-                        .. " | Luck=" .. tostring(luckCandidates[1].luck)
-                        .. (TitanicFilterEnabled and (" | Size tie-break: " .. (luckCandidates[1].isTitanic and "Titanic" or tostring(luckCandidates[1].weightKg) .. " KG")) or "")
-                        .. " | readable candidates=" .. tostring(#luckCandidates)
-                        .. " | ignored unreadable=" .. tostring(unreadableLuckCount))
-                    AddDebugLog("[Auto Break] Selected " .. target.Name .. " | luck=" .. tostring(luckCandidates[1].luck)
-                        .. " | sizeKG=" .. tostring(luckCandidates[1].weightKg)
-                        .. " | Titanic=" .. tostring(luckCandidates[1].isTitanic)
-                        .. " | candidates=" .. tostring(#luckCandidates))
-                else
-                    SetTrackerStatus("HIGHEST LUCK PRIORITY found no readable values; using the normal Egg Filter selection.")
-                    AddDebugLog("[Auto Break] HighLuck values unavailable; falling back to normal filtered egg selection.")
+                if #priorityCandidates > 0 then
+                    local best = priorityCandidates[1]
+                    target = best.egg
+                    SetTrackerStatus("AUTO BREAK PRIORITY: selected " .. target.Name
+                        .. " | " .. tostring(SortOrder)
+                        .. (TitanicPriorityEnabled and (best.isTitanic and " | Titanic priority matched" or " | No Titanic category match") or ""))
+                    AddDebugLog("[Auto Break] Selected " .. target.Name
+                        .. " | priority=" .. tostring(SortOrder)
+                        .. " | luck=" .. tostring(best.luck)
+                        .. " | kg=" .. tostring(best.kg)
+                        .. " | categoryTitanic=" .. tostring(best.isTitanic)
+                        .. " | candidates=" .. tostring(#priorityCandidates))
                 end
             end
             if not target then
@@ -4821,13 +4770,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         task.spawn(function()
             while not Runtime.Stopped and not ScriptShuttingDown do
                 task.wait(1.5)
-                if AutoBreakEnabled and HighLuckFilterEnabled
+                if AutoBreakEnabled and (SortOrder == "Highest Luck" or SortOrder == "Highest Kg" or TitanicPriorityEnabled)
                     and MovementConnection ~= nil and CurrentTarget
                     and IsEggAvailable(CurrentTarget)
                     and not FlingRecoveryActive and not PickupRequested
                     and not ReturningAfterPickup and not WaitingForPickup
                     and not ArrivedAtTarget then
-                    local currentLuck = GetEggLuck(CurrentTarget)
                     local zoneNames = {}
                     for zoneName, selected in pairs(SelectedZones) do
                         if selected then
@@ -4842,33 +4790,45 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         end
                     end
                     table.sort(zoneNames)
-                    local bestEgg = nil
-                    local bestLuck = currentLuck
+                    local candidates = {}
                     for _, zoneName in ipairs(zoneNames) do
                         local zone = ZoneBuilds:FindFirstChild(zoneName)
                         local eggsFolder = zone and zone:FindFirstChild("Eggs")
                         if eggsFolder then
                             for _, egg in ipairs(eggsFolder:GetChildren()) do
-                                if egg ~= CurrentTarget
-                                    and (egg:IsA("Model") or egg:IsA("BasePart"))
+                                if (egg:IsA("Model") or egg:IsA("BasePart"))
                                     and egg.Name:lower():find("egg", 1, true)
                                     and IsEggAvailable(egg) then
                                     local eggName = GetEggTypeName(egg.Name)
                                     if SelectedEggs[eggName] ~= false then
-                                        local luck = GetEggLuck(egg)
-                                        if luck > bestLuck then
-                                            bestLuck = luck
-                                            bestEgg = egg
-                                        end
+                                        local category = GetEggDataValue(egg, "Category")
+                                        table.insert(candidates, {
+                                            egg = egg,
+                                            luck = GetEggLuck(egg),
+                                            kg = GetEggWeightKg(egg) or 0,
+                                            isTitanic = category ~= nil
+                                                and tostring(category):lower():find("titanic", 1, true) ~= nil
+                                        })
                                     end
                                 end
                             end
                         end
                     end
-                    if bestEgg then
-                        AddDebugLog("[Auto Break] Higher luck egg found while moving: "
-                            .. bestEgg.Name .. " | Luck=" .. tostring(bestLuck)
-                            .. " > current=" .. tostring(currentLuck) .. "; switching target.")
+                    table.sort(candidates, function(a, b)
+                        if TitanicPriorityEnabled and a.isTitanic ~= b.isTitanic then
+                            return a.isTitanic
+                        end
+                        if SortOrder == "Highest Kg" and a.kg ~= b.kg then
+                            return a.kg > b.kg
+                        elseif SortOrder == "Highest Luck" and a.luck ~= b.luck then
+                            return a.luck > b.luck
+                        end
+                        return a.egg.Name < b.egg.Name
+                    end)
+                    if #candidates > 0 and candidates[1].egg ~= CurrentTarget then
+                        AddDebugLog("[Auto Break] Better priority target found while moving: "
+                            .. candidates[1].egg.Name .. " | priority=" .. tostring(SortOrder)
+                            .. "; switching target.")
                         CurrentTarget = nil
                         StartAutoBreak(true)
                     end
@@ -5099,7 +5059,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Position = UDim2.fromOffset(11, 47),
             Size = UDim2.new(1, -82, 0, 14),
             BackgroundTransparency = 1,
-            Text = "Status: ENABLED",
+            Text = "Status: Enabled",
             TextColor3 = Theme.Accent,
             Font = Enum.Font.Gotham,
             TextSize = 9,
@@ -5107,7 +5067,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local AntiAFKToggle = CreateToggle(AntiAFKCard, "", true, function(enabled)
             AntiAFKEnabled = enabled
-            AntiAFKStatus.Text = "Status: " .. (enabled and "ENABLED" or "DISABLED")
+            AntiAFKStatus.Text = "Status: " .. (enabled and "Enabled" or "Disabled")
             AntiAFKStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
         end)
         AntiAFKToggle.Position = UDim2.new(1, -58, 0, 7)
@@ -5876,7 +5836,7 @@ SidebarButtons[1].TextColor3 = Theme.Text
 local FloatingToggle = Create("TextButton", {
     Name = "FloatingToggle",
     Parent = ScreenGui,
-    Position = UDim2.fromOffset(16, 16),
+    Position = UDim2.new(1, -52, 0, 16),
     Size = UDim2.fromOffset(36, 36),
     BackgroundColor3 = Theme.Sidebar,
     Text = "B",
@@ -5890,6 +5850,47 @@ local FloatingToggle = Create("TextButton", {
 })
 AddCorner(FloatingToggle, 18)
 AddStroke(FloatingToggle, Theme.Border, 1)
+
+local function GetFloatingToggleBounds()
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return 0, 0
+    end
+    local viewport = camera.ViewportSize
+    local buttonSize = FloatingToggle.AbsoluteSize
+    return math.max(0, viewport.X - buttonSize.X), math.max(0, viewport.Y - buttonSize.Y)
+end
+
+local function ClampFloatingTogglePosition(x, y)
+    local maxX, maxY = GetFloatingToggleBounds()
+    return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
+end
+
+local function PositionFloatingToggleUpperRight()
+    local maxX = GetFloatingToggleBounds()
+    FloatingToggle.Position = UDim2.fromOffset(math.max(0, maxX - 16), 16)
+end
+
+PositionFloatingToggleUpperRight()
+
+local function KeepFloatingToggleOnScreen()
+    local clampedX, clampedY = ClampFloatingTogglePosition(
+        FloatingToggle.AbsolutePosition.X,
+        FloatingToggle.AbsolutePosition.Y
+    )
+    FloatingToggle.Position = UDim2.fromOffset(clampedX, clampedY)
+end
+
+local function WatchViewportSize(camera)
+    if not camera then return end
+    camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepFloatingToggleOnScreen)
+end
+
+WatchViewportSize(workspace.CurrentCamera)
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    WatchViewportSize(workspace.CurrentCamera)
+    KeepFloatingToggleOnScreen()
+end)
 
 local function CenterMainWindow()
     local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
@@ -5945,7 +5946,7 @@ end)
 local CircleDragging = false
 local CircleDragInput
 local CircleDragStart
-local CircleStartPosition
+local CircleStartAbsolutePosition
 local CircleMoved = false
 local CircleDragThreshold = 6
 
@@ -5955,7 +5956,7 @@ FloatingToggle.InputBegan:Connect(function(input)
         CircleDragging = true
         CircleDragInput = input
         CircleDragStart = input.Position
-        CircleStartPosition = FloatingToggle.Position
+        CircleStartAbsolutePosition = FloatingToggle.AbsolutePosition
         CircleMoved = false
     end
 end)
@@ -5969,12 +5970,10 @@ UserInputService.InputChanged:Connect(function(input)
                 CircleMoved = true
             end
             if CircleMoved then
-                FloatingToggle.Position = UDim2.new(
-                    CircleStartPosition.X.Scale,
-                    CircleStartPosition.X.Offset + delta.X,
-                    CircleStartPosition.Y.Scale,
-                    CircleStartPosition.Y.Offset + delta.Y
-                )
+                local targetX = CircleStartAbsolutePosition.X + delta.X
+                local targetY = CircleStartAbsolutePosition.Y + delta.Y
+                local clampedX, clampedY = ClampFloatingTogglePosition(targetX, targetY)
+                FloatingToggle.Position = UDim2.fromOffset(clampedX, clampedY)
             end
         end
     end
