@@ -505,6 +505,7 @@ local function AddDebugLog(message)
     end)
 end
 -- CREATE PAGE
+local PageColumnMap = {}
 local function CreatePage(pageNumber, pageName)
     local PageClip = Create("Frame", {
         Name = "PageClip_" .. pageNumber,
@@ -545,29 +546,64 @@ local function CreatePage(pageNumber, pageName)
         Visible = true,
         ClipsDescendants = true
     })
-    local Padding = Create("UIPadding", {
+    Create("UIPadding", {
         Parent = Page,
         PaddingTop = UDim.new(0, 12),
         PaddingBottom = UDim.new(0, 12),
         PaddingLeft = UDim.new(0, 12),
         PaddingRight = UDim.new(0, 12)
     })
-    local Layout = Create("UIListLayout", {
+    local LeftColumn = Create("Frame", {
+        Name = "LeftColumn",
         Parent = Page,
+        Size = UDim2.new(0.5, -4, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    local RightColumn = Create("Frame", {
+        Name = "RightColumn",
+        Parent = Page,
+        Position = UDim2.new(0.5, 4, 0, 0),
+        Size = UDim2.new(0.5, -4, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    local LeftLayout = Create("UIListLayout", {
+        Parent = LeftColumn,
         Padding = UDim.new(0, 8),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
-    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 24)
-    end)
+    local RightLayout = Create("UIListLayout", {
+        Parent = RightColumn,
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    PageColumnMap[Page] = {
+        Left = LeftColumn,
+        Right = RightColumn,
+        LeftLayout = LeftLayout,
+        RightLayout = RightLayout
+    }
+    local function UpdateCanvas()
+        local contentHeight = math.max(LeftLayout.AbsoluteContentSize.Y, RightLayout.AbsoluteContentSize.Y)
+        Page.CanvasSize = UDim2.new(0, 0, 0, contentHeight + 24)
+    end
+    LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+    RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
     Pages[pageNumber] = PageClip
     return Page
 end
 -- CARD
 local function CreateCard(parent, title, description)
+    local columns = PageColumnMap and PageColumnMap[parent]
+    local targetParent = parent
+    if columns then
+        targetParent = columns.LeftLayout.AbsoluteContentSize.Y <= columns.RightLayout.AbsoluteContentSize.Y
+            and columns.Left or columns.Right
+    end
     local Card = Create("Frame", {
         Name = title:gsub("%s+", ""),
-        Parent = parent,
+        Parent = targetParent,
         Size = UDim2.new(1, 0, 0, 110),
         BackgroundColor3 = Theme.Card,
         BorderSizePixel = 0
@@ -5714,26 +5750,72 @@ end
 -- SHOW FIRST PAGE
 Pages[1].Visible = true
 SidebarButtons[1].TextColor3 = Theme.Text
--- MINIMIZE
+-- WINDOW CONTROLS
 local Minimized = false
+local IsAnimating = false
+local ExpandedPosition = Main.Position
+local MinimizedSize = UDim2.fromOffset(36, 36)
+local MinimizedTopOffset = 11
+local AnimationInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
 local function SetMinimized(state)
-    Minimized = state
-    if Minimized then
+    if IsAnimating or Minimized == state then return end
+    IsAnimating = true
+
+    if state then
+        ExpandedPosition = Main.Position
+        Minimized = true
+
+        RestoreButton.Position = UDim2.fromOffset(0, 0)
+        RestoreButton.Visible = true
         Content.Visible = false
         NavigationBar.Visible = false
         TopBar.Visible = false
-        RestoreButton.Visible = true
-        MainCorner.CornerRadius = UDim.new(0, 18)
-        Tween(Main, {Size = UDim2.fromOffset(36, 36)})
+
+        local expandedWidth = Main.AbsoluteSize.X
+        local minimizedWidth = MinimizedSize.X.Offset * UIScale.Scale
+        local minimizedPosition = UDim2.new(
+            ExpandedPosition.X.Scale,
+            ExpandedPosition.X.Offset + expandedWidth - minimizedWidth,
+            ExpandedPosition.Y.Scale,
+            ExpandedPosition.Y.Offset + MinimizedTopOffset
+        )
+
+        local mainTween = TweenService:Create(Main, AnimationInfo, {
+            Size = MinimizedSize,
+            Position = minimizedPosition
+        })
+        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
+            CornerRadius = UDim.new(0, 18)
+        })
+        mainTween:Play()
+        cornerTween:Play()
+        mainTween.Completed:Wait()
     else
-        RestoreButton.Visible = false
-        MainCorner.CornerRadius = UDim.new(0, 12)
-        Tween(Main, {Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height)})
-        TopBar.Visible = true
-        NavigationBar.Visible = true
+        Minimized = false
+        RestoreButton.Position = UDim2.fromOffset(0, 0)
+        RestoreButton.Visible = true
+
+        local mainTween = TweenService:Create(Main, AnimationInfo, {
+            Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height),
+            Position = ExpandedPosition
+        })
+        local cornerTween = TweenService:Create(MainCorner, AnimationInfo, {
+            CornerRadius = UDim.new(0, 12)
+        })
+        mainTween:Play()
+        cornerTween:Play()
+        mainTween.Completed:Wait()
+
         Content.Visible = true
+        NavigationBar.Visible = true
+        TopBar.Visible = true
+        RestoreButton.Visible = false
+        RestoreButton.Position = UDim2.new(1, -RestoreButton.Size.X.Offset, 0, MinimizedTopOffset)
     end
+    IsAnimating = false
 end
+
 MinimizeButton.MouseButton1Click:Connect(function()
     SetMinimized(true)
 end)
@@ -5750,7 +5832,7 @@ CloseButton.MouseButton1Click:Connect(function()
         ScreenGui:Destroy()
     end
 end)
--- DRAGGING
+-- WINDOW DRAGGING
 local Dragging = false
 local DragStart
 local StartPosition
@@ -5771,24 +5853,29 @@ RestoreButton.InputBegan:Connect(function(input)
     end
 end)
 UserInputService.InputChanged:Connect(function(input)
-    if not Dragging then
-        return
-    end
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
-    and input.UserInputType ~= Enum.UserInputType.Touch then
-        return
+    and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    if Dragging then
+        local Delta = input.Position - DragStart
+        Main.Position = UDim2.new(
+            StartPosition.X.Scale,
+            StartPosition.X.Offset + Delta.X,
+            StartPosition.Y.Scale,
+            StartPosition.Y.Offset + Delta.Y
+        )
     end
-    local Delta = input.Position - DragStart
-    Main.Position = UDim2.new(
-        StartPosition.X.Scale,
-        StartPosition.X.Offset + Delta.X,
-        StartPosition.Y.Scale,
-        StartPosition.Y.Offset + Delta.Y
-    )
 end)
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
+        if Dragging and Minimized then
+            ExpandedPosition = UDim2.new(
+                Main.Position.X.Scale,
+                Main.Position.X.Offset - (UIConfig.Width - MinimizedSize.X.Offset) * UIScale.Scale,
+                Main.Position.Y.Scale,
+                Main.Position.Y.Offset - MinimizedTopOffset
+            )
+        end
         Dragging = false
     end
 end)
