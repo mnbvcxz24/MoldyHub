@@ -7,13 +7,13 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.240"
+local testver = "Test ver: 1.260"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
 end
-local Runtime = {Stopped = false}
+local Runtime = {Stopped = false, PersistentConnections = {}, BoundRenderSteps = {}}
 RuntimeEnv.__BASAECleanup = function()
     Runtime.Stopped = true
     pcall(function()
@@ -38,6 +38,8 @@ RuntimeEnv.__BASAECleanup = function()
     pcall(function()
         local oldUI = game.CoreGui:FindFirstChild("BASAESkripUI")
         if oldUI then oldUI:Destroy() end
+        local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+        if oldStatusBar then oldStatusBar:Destroy() end
     end)
     pcall(function()
         local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -128,6 +130,8 @@ end
 pcall(function()
     local oldUI = game.CoreGui:FindFirstChild("BASAESkripUI")
     if oldUI then oldUI:Destroy() end
+    local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    if oldStatusBar then oldStatusBar:Destroy() end
 end)
 pcall(function()
     local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -333,9 +337,322 @@ local function ApplyTheme(themeName)
     end
     local titleLabel = ScreenGui:FindFirstChild("Title", true)
     if titleLabel and titleLabel:IsA("TextLabel") then
+        titleLabel.RichText = true
         titleLabel.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font>Hub <font face="Gotham" size="9" color="#' .. selectedTheme.Accent:ToHex() .. '">' .. (string.match(testver, "[%d%.]+") and ("v" .. string.match(testver, "[%d%.]+")) or testver) .. '</font>'
     end
+
+    -- The status bar uses a separate ScreenGui for input priority, so update
+    -- its badge explicitly whenever the user changes the theme.
+    local statusGui = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    if statusGui then
+        local statusBar = statusGui:FindFirstChild("MoldyHubStatusBar", true)
+        local brandBadge = statusGui:FindFirstChild("BrandBadge", true)
+        local brandText = statusGui:FindFirstChild("BrandText", true)
+        local accentLine = statusGui:FindFirstChild("AccentLine", true)
+        if statusBar then
+            statusBar.BackgroundColor3 = selectedTheme.Card
+            local outline = statusBar:FindFirstChildOfClass("UIStroke")
+            if outline then outline.Color = selectedTheme.Border end
+        end
+        if accentLine then
+            accentLine.BackgroundColor3 = selectedTheme.Accent
+        end
+        for _, divider in ipairs(statusGui:GetDescendants()) do
+            if divider:IsA("Frame") and divider.Name == "StatusDivider" then
+                divider.BackgroundColor3 = selectedTheme.Border
+            end
+        end
+        if brandBadge then
+            brandBadge.BackgroundColor3 = selectedTheme.Selected
+            local outline = brandBadge:FindFirstChildOfClass("UIStroke")
+            if outline then outline.Color = selectedTheme.Border end
+        end
+        if brandText then
+            brandText.RichText = true
+            brandText.TextColor3 = selectedTheme.Text
+            brandText.Text = '<font color="#' .. selectedTheme.Accent:ToHex() .. '">Moldy</font><font color="#' .. selectedTheme.Text:ToHex() .. '">Hub</font>'
+        end
+        local gameName = statusGui:FindFirstChild("GameName", true)
+        local fps = statusGui:FindFirstChild("FPS", true)
+        local ping = statusGui:FindFirstChild("Ping", true)
+        local duration = statusGui:FindFirstChild("Duration", true)
+        if gameName then gameName.TextColor3 = selectedTheme.DarkGray end
+        if fps then fps.TextColor3 = selectedTheme.Text end
+        if ping then ping.TextColor3 = selectedTheme.DarkGray end
+        if duration then duration.TextColor3 = selectedTheme.Text end
+    end
 end
+-- COMPACT TOP STATUS BAR
+-- Separate lower DisplayOrder keeps this decorative/draggable bar from
+-- intercepting input intended for the main window when they overlap.
+local StatusBarGui = Create("ScreenGui", {
+    Name = "MoldyHubStatusBarGui",
+    Parent = game.CoreGui,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 999998,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global
+})
+local StatusBar = Create("Frame", {
+    Name = "MoldyHubStatusBar",
+    Parent = StatusBarGui,
+    AnchorPoint = Vector2.new(0, 0),
+    Position = UDim2.fromOffset(0, 0),
+    Size = UDim2.fromOffset(500, 34),
+    BackgroundColor3 = Theme.Card,
+    BorderSizePixel = 0,
+    Active = true,
+    ZIndex = 200
+})
+AddCorner(StatusBar, 9)
+local StatusBarStroke = AddStroke(StatusBar, Theme.Border, 1)
+
+-- Scale the entire status bar as one unit so the frame, padding,
+-- dividers, badge, and every text label stay aligned inside the border.
+local StatusBarUIScale = Create("UIScale", {
+    Parent = StatusBar,
+    Scale = 0.60
+})
+local function UpdateStatusBarScale()
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    local viewportWidth = camera.ViewportSize.X
+    -- Keep a little breathing room from both screen edges.
+    StatusBarUIScale.Scale = math.clamp(math.min(0.60, (viewportWidth * 0.84) / 500), 0.35, 0.60)
+end
+UpdateStatusBarScale()
+do
+    local camera = workspace.CurrentCamera
+    local viewportWidth = camera and camera.ViewportSize.X or 0
+    local scaledWidth = StatusBar.AbsoluteSize.X
+    StatusBar.Position = UDim2.fromOffset(math.max(0, (viewportWidth - scaledWidth) / 2), 0)
+end
+
+local StatusBarAccent = Create("Frame", {
+    Name = "AccentLine",
+    Parent = StatusBar,
+    Position = UDim2.fromOffset(12, 0),
+    Size = UDim2.new(1, -24, 0, 2),
+    BackgroundColor3 = Theme.Accent,
+    BorderSizePixel = 0,
+    ZIndex = 202
+})
+AddCorner(StatusBarAccent, 2)
+
+local StatusBarFontSize = 12
+
+local function CreateStatusText(name, position, size, text, color, font, textSize, alignment)
+    return Create("TextLabel", {
+        Name = name,
+        Parent = StatusBar,
+        Position = position,
+        Size = size,
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = color,
+        Font = font or Enum.Font.GothamMedium,
+        TextSize = textSize or StatusBarFontSize,
+        TextXAlignment = alignment or Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 203
+    })
+end
+
+local GameNameLabel = CreateStatusText("GameName", UDim2.fromOffset(10, 3), UDim2.fromOffset(112, 28), "Loading game...", Theme.DarkGray, Enum.Font.GothamBold, 10, Enum.TextXAlignment.Left)
+GameNameLabel.TextScaled = true
+GameNameLabel.TextWrapped = false
+-- Keep long game names inside their own slot; scale down first, then truncate
+-- rather than allowing the text to overlap the FPS section.
+GameNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+local GameNameTextConstraint = Instance.new("UITextSizeConstraint")
+GameNameTextConstraint.MinTextSize = 5
+GameNameTextConstraint.MaxTextSize = 10
+GameNameTextConstraint.Parent = GameNameLabel
+local function CreateStatusDivider(x)
+    local divider = Create("Frame", {
+        Name = "StatusDivider",
+        Parent = StatusBar,
+        Position = UDim2.fromOffset(x, 9),
+        Size = UDim2.fromOffset(1, 16),
+        BackgroundColor3 = Theme.Border,
+        BorderSizePixel = 0,
+        ZIndex = 202
+    })
+    return divider
+end
+CreateStatusDivider(126)
+
+local FPSLabel = CreateStatusText("FPS", UDim2.fromOffset(132, 3), UDim2.fromOffset(58, 28), "0 FPS", Theme.Text, Enum.Font.GothamBold, 10)
+CreateStatusDivider(194)
+
+local BrandBadge = Create("Frame", {
+    Name = "BrandBadge",
+    Parent = StatusBar,
+    Position = UDim2.fromOffset(201, 5),
+    Size = UDim2.fromOffset(102, 24),
+    BackgroundColor3 = Theme.Selected,
+    BorderSizePixel = 0,
+    ZIndex = 202
+})
+AddCorner(BrandBadge, 12)
+local BrandBadgeStroke = AddStroke(BrandBadge, Theme.Border, 1)
+local BrandText = Create("TextLabel", {
+    Name = "BrandText",
+    Parent = BrandBadge,
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font><font color="#' .. Theme.Text:ToHex() .. '">Hub</font>',
+    TextColor3 = Theme.Text,
+    RichText = true,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextScaled = false,
+    TextWrapped = false,
+    ZIndex = 203
+})
+CreateStatusDivider(310)
+
+local PingLabel = CreateStatusText("Ping", UDim2.fromOffset(316, 3), UDim2.fromOffset(66, 28), "-- MS", Theme.DarkGray, Enum.Font.GothamBold, 10)
+CreateStatusDivider(389)
+
+local DurationLabel = CreateStatusText("Duration", UDim2.fromOffset(395, 3), UDim2.fromOffset(96, 28), "00:00:00", Theme.Text, Enum.Font.GothamBold, 10)
+
+-- Resolve the actual experience name without blocking UI creation.
+task.spawn(function()
+    local ok, info = pcall(function()
+        return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+    end)
+    if ok and info and type(info.Name) == "string" and info.Name ~= "" then
+        GameNameLabel.Text = info.Name
+    else
+        GameNameLabel.Text = game.Name ~= "" and game.Name or "Roblox Game"
+    end
+end)
+
+local StatusBarDragging = false
+local StatusBarDragInput
+local StatusBarDragStart
+local StatusBarStartPosition
+local StatusBarStartAbsolutePosition
+-- The status bar is intentionally unrestricted: it can be dragged over
+-- Roblox's top bar, chat, menu, and every other CoreGui area.
+local function ClampStatusBarPosition(x, y)
+    return x, y
+end
+
+StatusBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        StatusBarDragging = true
+        StatusBarDragInput = input
+        StatusBarDragStart = input.Position
+        StatusBarStartPosition = StatusBar.Position
+        StatusBarStartAbsolutePosition = StatusBar.AbsolutePosition
+    end
+end)
+
+local StatusBarInputChanged = UserInputService.InputChanged:Connect(function(input)
+    if not StatusBarDragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or (StatusBarDragInput and input == StatusBarDragInput) then
+        local delta = input.Position - StatusBarDragStart
+        local targetX = StatusBarStartAbsolutePosition.X + delta.X
+        local targetY = StatusBarStartAbsolutePosition.Y + delta.Y
+        -- No edge clamp: allow dragging across the full screen and over Roblox UI.
+        StatusBar.Position = UDim2.new(
+            StatusBarStartPosition.X.Scale,
+            StatusBarStartPosition.X.Offset + delta.X,
+            StatusBarStartPosition.Y.Scale,
+            StatusBarStartPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+local StatusBarInputEnded = UserInputService.InputEnded:Connect(function(input)
+    if StatusBarDragging and (
+        input.UserInputType == Enum.UserInputType.MouseButton1
+        or input == StatusBarDragInput
+    ) then
+        StatusBarDragging = false
+        StatusBarDragInput = nil
+        StatusBarStartPosition = nil
+        StatusBarStartAbsolutePosition = nil
+    end
+end)
+
+local StatusBarViewportConnection
+local function KeepStatusBarOnScreen()
+    -- Intentionally do not reposition the bar on viewport changes.
+    -- Its position is user-controlled and may overlap Roblox CoreGui.
+end
+local function ConnectStatusBarViewport(camera)
+    if StatusBarViewportConnection then
+        StatusBarViewportConnection:Disconnect()
+        StatusBarViewportConnection = nil
+    end
+    if camera then
+        StatusBarViewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            UpdateStatusBarScale()
+            KeepStatusBarOnScreen()
+        end)
+    end
+end
+ConnectStatusBarViewport(workspace.CurrentCamera)
+local StatusBarCameraConnection = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    ConnectStatusBarViewport(workspace.CurrentCamera)
+    KeepStatusBarOnScreen()
+end)
+
+local FPSFrames = 0
+local FPSLastUpdate = os.clock()
+local FPSConnection = RunService.RenderStepped:Connect(function()
+    FPSFrames += 1
+    local now = os.clock()
+    local elapsed = now - FPSLastUpdate
+    if elapsed >= 1 then
+        FPSLabel.Text = string.format("%d FPS", math.floor(FPSFrames / elapsed + 0.5))
+        FPSFrames = 0
+        FPSLastUpdate = now
+    end
+end)
+
+task.spawn(function()
+    local stats = game:GetService("Stats")
+    while not Runtime.Stopped and ScreenGui.Parent do
+        local pingText = "--"
+        pcall(function()
+            local item = stats.Network.ServerStatsItem["Data Ping"]
+            local value = item:GetValue()
+            if type(value) == "number" then
+                pingText = tostring(math.floor(value + 0.5))
+            else
+                local formatted = item:GetValueString()
+                local number = string.match(formatted, "[%d%.]+")
+                if number then pingText = tostring(math.floor(tonumber(number) + 0.5)) end
+            end
+        end)
+        PingLabel.Text = pingText .. " MS"
+        local totalSeconds = math.max(0, math.floor(os.clock() - ScriptStartedAt))
+        local hours = math.floor(totalSeconds / 3600)
+        local minutes = math.floor((totalSeconds % 3600) / 60)
+        local seconds = totalSeconds % 60
+        DurationLabel.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+        task.wait(1)
+    end
+end)
+
+table.insert(Runtime.PersistentConnections, StatusBarInputChanged)
+table.insert(Runtime.PersistentConnections, StatusBarInputEnded)
+table.insert(Runtime.PersistentConnections, StatusBarCameraConnection)
+table.insert(Runtime.PersistentConnections, FPSConnection)
+Runtime.Shutdown = function()
+    StatusBarDragging = false
+    if StatusBarViewportConnection then
+        StatusBarViewportConnection:Disconnect()
+        StatusBarViewportConnection = nil
+    end
+end
+
 -- MAIN WINDOW
 local Main = Create("Frame", {
     Name = "Main",
@@ -5905,7 +6222,7 @@ local function ToggleMainWindow()
     if Main.Visible then
         Main.Visible = false
     else
-        CenterMainWindow()
+        -- Reopen at the last position; only the first launch uses the centered default.
         Main.Visible = true
     end
 end
@@ -5918,20 +6235,13 @@ end)
 -- WINDOW DRAGGING
 local WindowDragging = false
 local WindowDragStart
+local WindowStartPosition
 local WindowStartAbsolutePosition
 
+-- No edge clamp: the main window can be dragged over Roblox's
+-- top bar, chat, menu, and every other CoreGui area.
 local function ClampMainWindowPosition(x, y)
-    local camera = workspace.CurrentCamera
-    if not camera then
-        return x, y
-    end
-
-    local viewport = camera.ViewportSize
-    local windowSize = Main.AbsoluteSize
-    local maxX = math.max(0, viewport.X - windowSize.X)
-    local maxY = math.max(0, viewport.Y - windowSize.Y)
-
-    return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
+    return x, y
 end
 
 TopBar.InputBegan:Connect(function(input)
@@ -5939,7 +6249,9 @@ TopBar.InputBegan:Connect(function(input)
     or input.UserInputType == Enum.UserInputType.Touch then
         WindowDragging = true
         WindowDragStart = input.Position
-        WindowStartAbsolutePosition = Main.AbsolutePosition
+        WindowStartPosition = Main.Position
+        local absolutePosition = Main.AbsolutePosition
+        WindowStartAbsolutePosition = Vector2.new(absolutePosition.X, absolutePosition.Y)
     end
 end)
 
@@ -5981,11 +6293,20 @@ UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement
     or input.UserInputType == Enum.UserInputType.Touch then
         if WindowDragging then
+            -- Apply only this movement step. At a screen edge the window stops,
+            -- and the drag origin follows the pointer so reversing direction
+            -- moves the window immediately without snapping or bouncing.
             local delta = input.Position - WindowDragStart
             local targetX = WindowStartAbsolutePosition.X + delta.X
             local targetY = WindowStartAbsolutePosition.Y + delta.Y
-            local clampedX, clampedY = ClampMainWindowPosition(targetX, targetY)
-            Main.Position = UDim2.fromOffset(clampedX, clampedY)
+            -- No edge clamp: let the window travel freely over all Roblox UI.
+            -- Preserve the original scale components to avoid a first-drag jump.
+            Main.Position = UDim2.new(
+                WindowStartPosition.X.Scale,
+                WindowStartPosition.X.Offset + delta.X,
+                WindowStartPosition.Y.Scale,
+                WindowStartPosition.Y.Offset + delta.Y
+            )
         end
     end
 end)
