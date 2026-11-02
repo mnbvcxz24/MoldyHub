@@ -2537,7 +2537,8 @@ end))
 
             if Runtime.Stopped then
                 SetAutoStealEnabled(false)
-                return            end
+                return
+            end
 
             local pathsFolder, worldFolder, safeZonePosition = GetActiveWorldPathsFolder()
             if not safeZonePosition or not worldFolder or not pathsFolder then
