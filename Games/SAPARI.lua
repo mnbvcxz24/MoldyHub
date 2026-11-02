@@ -1913,7 +1913,7 @@ end))
             end
         end
         local Jump
-        local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk, jumpWhenStuck)
+        local function MoveToPosition(root, humanoid, destination, token, forceWalk, startWithWalk, jumpWhenStuck, forceGlide)
             if token ~= navigationToken or Runtime.Stopped then
                 return false
             end
@@ -1923,7 +1923,7 @@ end))
                 return false
             end
 
-            if forceWalk or MovementMode == "Walk" then
+            if forceWalk or (MovementMode == "Walk" and not forceGlide) then
                 local ridingOffset = navigationRoot ~= root
                     and (root.Position - navigationRoot.Position)
                     or Vector3.zero
@@ -2065,46 +2065,48 @@ end))
                 end
 
                 if horizontalDistance <= finalGlideStop then
-                    -- Fast glide is finished; use a slow, repeated correction so momentum
-                    -- cannot carry the rider past the actual destination.
-                    SetFloating(navigationRoot, false)
-                    local originalWalkSpeed = humanoid.WalkSpeed
-                    humanoid.WalkSpeed = math.min(originalWalkSpeed, 8)
-                    local correctionUntil = os.clock() + 15
-                    local nextCorrection = 0
-                    local corrected = false
+                    -- Finish with a controlled drop onto the target instead of walking corrections.
+                    local dropOffset = root.Position - navigationRoot.Position
+                    local landingPosition = destination
+                    local landingTarget = CFrame.new(landingPosition) * navigationRoot.CFrame.Rotation
+                    local dropDistance = (navigationRoot.Position - landingPosition).Magnitude
+                    local dropDuration = math.clamp(dropDistance / math.max(speed, 24), 0.12, 0.65)
 
-                    while os.clock() < correctionUntil do
-                        navigationRoot = GetNavigationRoot(root)
-                        if bossCaughtDetected or nightDetected
-                        or token ~= navigationToken or Runtime.Stopped
-                        or not root.Parent or not humanoid.Parent
-                        or not navigationRoot or not navigationRoot.Parent then
-                            break
-                        end
-
-                        if IsNavigationAtDestination(navigationRoot, destination, 2.5) then
-                            corrected = true
-                            break
-                        end
-
-                        if os.clock() >= nextCorrection then
-                            local correctionOffset = root.Position - navigationRoot.Position
-                            humanoid:MoveTo(destination + correctionOffset)
-                            nextCorrection = os.clock() + 0.5
-                        end
-
-                        RunService.Heartbeat:Wait()
+                    if Jump then
+                        Jump(humanoid)
                     end
 
-                    humanoid.WalkSpeed = originalWalkSpeed
-                    humanoid:MoveTo(root.Position)
+                    SetFloating(navigationRoot, true)
+                    local landingTween = TweenService:Create(
+                        navigationRoot,
+                        TweenInfo.new(dropDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                        {CFrame = landingTarget}
+                    )
+                    activeNavigationTween = landingTween
+                    landingTween:Play()
+                    local landingState = landingTween.Completed:Wait()
 
-                    if corrected then
+                    if activeNavigationTween == landingTween then
+                        activeNavigationTween = nil
+                    end
+
+                    SetFloating(navigationRoot, false)
+
+                    if landingState ~= Enum.PlaybackState.Completed
+                    or token ~= navigationToken or Runtime.Stopped
+                    or bossCaughtDetected or nightDetected then
+                        humanoid:MoveTo(root.Position)
+                        return false
+                    end
+
+                    navigationRoot = GetNavigationRoot(root)
+                    if navigationRoot and navigationRoot.Parent
+                    and IsNavigationAtDestination(navigationRoot, destination, 3) then
                         BrakeAtDestination(root, humanoid, token)
                         return true
                     end
 
+                    humanoid:MoveTo(destination + dropOffset)
                     return false
                 end
 
@@ -2304,7 +2306,7 @@ end))
                 return false
             end
 
-            local reached = MoveToPosition(root, humanoid, destination, token, true, false, true)
+            local reached = MoveToPosition(root, humanoid, destination, token, false, false, true, true)
             if reached and token == navigationToken
             and Runtime.BossMovementActive and not Runtime.Stopped then
                 SetNavigationStatus("At Candy Pumpkin")
@@ -3011,7 +3013,7 @@ end))
                 local approachPosition = destination + approachDirection.Unit * 3.5
                 local petDestination = approachPosition - ridingOffset
                 SetNavigationStatus("Walking to cage")
-                if not MoveToPosition(root, humanoid, petDestination, token, false, true) then
+                if not MoveToPosition(root, humanoid, petDestination, token, false, true, false, true) then
                     if IsPetAtCage() then
                         SetNavigationStatus("Cage nearby")
                         return true
