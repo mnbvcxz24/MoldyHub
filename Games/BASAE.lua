@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.238"
+local testver = "Test ver: 1.239"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1889,30 +1889,59 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Name = "PriorityOptions",
             Parent = Card1,
             Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY + AutoBreakControlLayout.Height + 4),
-            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, #PriorityOptions * 24),
-            BackgroundColor3 = Theme.Selected,
+            Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, #PriorityOptions * 28 + 8),
+            BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 200
         })
         AddCorner(PriorityOptionsFrame, 6)
+        local PriorityOptionsLayout = Create("UIListLayout", {
+            Parent = PriorityOptionsFrame,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        Create("UIPadding", {
+            Parent = PriorityOptionsFrame,
+            PaddingTop = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4),
+            PaddingLeft = UDim.new(0, 4),
+            PaddingRight = UDim.new(0, 4)
+        })
         for optionIndex, option in ipairs(PriorityOptions) do
             local optionButton = Create("TextButton", {
                 Parent = PriorityOptionsFrame,
-                Position = UDim2.fromOffset(0, (optionIndex - 1) * 24),
-                Size = UDim2.new(1, 0, 0, 24),
-                BackgroundTransparency = 1,
+                Position = UDim2.fromOffset(0, 0),
+                Size = UDim2.new(1, -8, 0, 24),
+                BackgroundColor3 = SortOrder == option and Theme.Selected or Theme.Card,
                 Text = option,
-                TextColor3 = Theme.SelectedText,
+                TextColor3 = Theme.Text,
                 Font = Enum.Font.GothamMedium,
                 TextSize = 9,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
+                LayoutOrder = optionIndex,
                 ZIndex = 201
             })
+            AddCorner(optionButton, 5)
+            optionButton.MouseEnter:Connect(function()
+                if SortOrder ~= option then
+                    Tween(optionButton, {BackgroundColor3 = Theme.Selected})
+                end
+            end)
+            optionButton.MouseLeave:Connect(function()
+                if SortOrder ~= option then
+                    Tween(optionButton, {BackgroundColor3 = Theme.Card})
+                end
+            end)
             optionButton.MouseButton1Click:Connect(function()
                 SortOrder = option
                 PriorityFilterButton.Text = option .. " ▼"
+                for _, child in ipairs(PriorityOptionsFrame:GetChildren()) do
+                    if child:IsA("TextButton") then
+                        child.BackgroundColor3 = child == optionButton and Theme.Selected or Theme.Card
+                    end
+                end
                 PriorityOptionsFrame.Visible = false
                 PriorityOpen = false
                 if RefreshEggList then RefreshEggList() end
