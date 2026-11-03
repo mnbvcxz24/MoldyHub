@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.308"
+local testver = "Test ver: 1.309"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1487,8 +1487,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local accent = Create("Frame", {
                         Name = "Accent",
                         Parent = row,
-                        Position = UDim2.fromOffset(0, 7),
-                        Size = UDim2.new(0, 3, 1, -14),
+                        Position = UDim2.fromOffset(0, 8),
+                        Size = UDim2.new(0, 2, 1, -16),
                         BackgroundColor3 = Theme.Accent,
                         BorderSizePixel = 0
                     })
