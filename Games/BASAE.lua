@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.309"
+local testver = "Test ver: 1.310"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1783,7 +1783,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 RarityList.Size = UDim2.new(1, -22, 0, 140)
             end
             if PickupZoneList then PickupZoneList.Visible = false end
-            RarityFilterButton.Text = RarityFilterOpen and "Rarity ▲" or "Rarity ▼"
+            UpdateRarityFilterButtonText()
             RarityList.Visible = RarityFilterOpen
             if ZoneList then ZoneList.Visible = false end
             if EggFilterList then EggFilterList.Visible = false end
@@ -1814,11 +1814,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 PickupZoneList.Size = UDim2.new(1, -22, 0, 140)
                 PickupZoneList.Visible = ZoneFilterOpen
             end
-            local count = 0
-            for _, selected in pairs(SelectedPickupZones) do
-                if selected then count += 1 end
-            end
-            PickupZoneButton.Text = ZoneFilterOpen and "Zone ▲" or (count == 0 and "Zone: All ▼" or string.format("Zone: %d ▼", count))
+            UpdatePickupZoneButtonText()
         end)
         PickupZoneButton.Name = "AutoPickupZoneFilterButton"
         PickupZoneButton.Position = UDim2.fromOffset(11, 85)
@@ -2244,11 +2240,44 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 })
                 RarityButton.MouseButton1Click:Connect(function()
                     SelectedRarities[rarityName] = not SelectedRarities[rarityName] or nil
+                    UpdateRarityFilterButtonText()
                     RefreshRarityList()
                 end)
             end
         end
         RefreshRarityList()
+        local function UpdateRarityFilterButtonText()
+            local selected = {}
+            for _, rarityName in ipairs(RarityOptions) do
+                if SelectedRarities[rarityName] then
+                    table.insert(selected, rarityName)
+                end
+            end
+            local summary = #selected > 0 and table.concat(selected, ", ") or "All"
+            RarityFilterButton.Text = "Rarity: " .. summary .. (RarityFilterOpen and " ▲" or " ▼")
+            RarityFilterButton.TextSize = 8
+            RarityFilterButton.TextXAlignment = Enum.TextXAlignment.Left
+        end
+        local function UpdatePickupZoneButtonText()
+            local selected = {}
+            for zoneName, enabled in pairs(SelectedPickupZones) do
+                if enabled then
+                    local zoneNumber = zoneName:match("%d+")
+                    table.insert(selected, zoneNumber or zoneName)
+                end
+            end
+            table.sort(selected, function(a, b)
+                local an, bn = tonumber(a), tonumber(b)
+                if an and bn then return an > bn end
+                if an then return true end
+                if bn then return false end
+                return a < b
+            end)
+            local summary = #selected > 0 and table.concat(selected, ", ") or "All"
+            PickupZoneButton.Text = "Zone: " .. summary .. (ZoneFilterOpen and " ▲" or " ▼")
+            PickupZoneButton.TextSize = 8
+            PickupZoneButton.TextXAlignment = Enum.TextXAlignment.Left
+        end
         local function RefreshPickupZoneList()
             for _, item in ipairs(PickupZoneList:GetChildren()) do
                 if item:IsA("TextButton") then item:Destroy() end
@@ -2302,7 +2331,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             allButton.MouseButton1Click:Connect(function()
                 table.clear(SelectedPickupZones)
                 RefreshPickupZoneList()
-                PickupZoneButton.Text = "Zone: All ▼"
+                UpdatePickupZoneButtonText()
             end)
             for index, zone in ipairs(zones) do
                 local zoneName = zone.Name
@@ -2337,11 +2366,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         SelectedPickupZones[zoneName] = true
                     end
                     RefreshPickupZoneList()
-                    local count = 0
-                    for _, enabled in pairs(SelectedPickupZones) do
-                        if enabled then count += 1 end
-                    end
-                    PickupZoneButton.Text = count == 0 and "Zone: All ▼" or string.format("Zone: %d ▼", count)
+                    UpdatePickupZoneButtonText()
                 end)
             end
             PickupZoneList.CanvasSize = UDim2.new(0, 0, 0, PickupZoneLayout.AbsoluteContentSize.Y + 10)
