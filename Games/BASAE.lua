@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.299"
+local testver = "Test ver: 1.300"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2065,34 +2065,67 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 and string.format("[Auto Pickup] Coins/second minimum set to %s %s/s.", tostring(CPSFilter.amount), CPSFilter.unit)
                 or "[Auto Pickup] Coins/second filter OFF.")
         end)
+        local function CreatePickupCheckbox(parent, labelText, yPosition, callback)
+            local Checkbox = Create("TextButton", {
+                Parent = parent,
+                Position = UDim2.fromOffset(11, yPosition),
+                Size = UDim2.fromOffset(24, 22),
+                BackgroundTransparency = 1,
+                Text = "[ ]",
+                TextColor3 = Theme.Gray,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BorderSizePixel = 0,
+                AutoButtonColor = false
+            })
+            local Label = Create("TextButton", {
+                Parent = parent,
+                Position = UDim2.fromOffset(35, yPosition),
+                Size = UDim2.new(1, -46, 0, 22),
+                BackgroundTransparency = 1,
+                Text = labelText,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BorderSizePixel = 0,
+                AutoButtonColor = false
+            })
+            local Enabled = false
+            local function SetEnabled(value)
+                Enabled = value
+                Checkbox.Text = Enabled and "[x]" or "[ ]"
+                Checkbox.TextColor3 = Enabled and Theme.Accent or Theme.Gray
+                if callback then callback(Enabled) end
+            end
+            local function Toggle()
+                SetEnabled(not Enabled)
+            end
+            Checkbox.MouseButton1Click:Connect(Toggle)
+            Label.MouseButton1Click:Connect(Toggle)
+            return Checkbox
+        end
         local HighestCashEnabled = false
-        local HighestCashToggle = CreateToggle(AutoPickupCard, "Above Lowest $/s", false, function(enabled)
+        local HighestCashToggle = CreatePickupCheckbox(AutoPickupCard, "Steal above your lowest $/s", 205, function(enabled)
             HighestCashEnabled = enabled
             AddDebugLog("[Auto Pickup] " .. (enabled and "Lowest placed CPS filter ON." or "Lowest placed CPS filter OFF."))
         end)
-        HighestCashToggle.Position = UDim2.fromOffset(11, 205)
-        HighestCashToggle.Size = UDim2.new(1, -22, 0, 22)
         local UnindexedOnlyEnabled = false
-        local UnindexedOnlyToggle = CreateToggle(AutoPickupCard, "Unindexed Animals", false, function(enabled)
+        local UnindexedOnlyToggle = CreatePickupCheckbox(AutoPickupCard, "Unindexed Animals", 231, function(enabled)
             UnindexedOnlyEnabled = enabled
             AddDebugLog("[Auto Pickup] " .. (enabled and "Unindexed-only verification ON." or "Unindexed-only verification OFF."))
         end)
-        UnindexedOnlyToggle.Position = UDim2.fromOffset(11, 231)
-        UnindexedOnlyToggle.Size = UDim2.new(1, -22, 0, 22)
         local DropInZone1Enabled = false
-        local DropInZone1Toggle = CreateToggle(AutoPickupCard, "Drop in Zone 1", false, function(enabled)
+        local DropInZone1Toggle = CreatePickupCheckbox(AutoPickupCard, "Drop in Zone 1", 257, function(enabled)
             DropInZone1Enabled = enabled
             AddDebugLog("[Auto Pickup] Drop in Zone 1 " .. (enabled and "ON." or "OFF."))
         end)
-        DropInZone1Toggle.Position = UDim2.fromOffset(11, 257)
-        DropInZone1Toggle.Size = UDim2.new(1, -22, 0, 22)
         local PickUpWithMutationEnabled = false
-        local PickUpWithMutationToggle = CreateToggle(AutoPickupCard, "With Mutation", false, function(enabled)
+        local PickUpWithMutationToggle = CreatePickupCheckbox(AutoPickupCard, "With Mutation", 283, function(enabled)
             PickUpWithMutationEnabled = enabled
             AddDebugLog("[Auto Pickup] With Mutation " .. (enabled and "ON." or "OFF."))
         end)
-        PickUpWithMutationToggle.Position = UDim2.fromOffset(11, 283)
-        PickUpWithMutationToggle.Size = UDim2.new(1, -22, 0, 22)
         RarityList = Create("ScrollingFrame", {
             Name = "RarityFilterContainer",
             Parent = AutoPickupCard,
