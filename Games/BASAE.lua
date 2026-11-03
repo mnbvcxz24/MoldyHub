@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.287"
+local testver = "Test ver: 1.288"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1368,9 +1368,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 BackgroundColor3 = Theme.SurfaceInput,
                 BorderSizePixel = 0,
                 LayoutOrder = layoutOrder
-            })
-                BackgroundColor3 = Theme.SurfaceInput,
-                BorderSizePixel = 0
             })
             AddCorner(tile, 6)
             AddStroke(tile, Theme.Border, 1)
@@ -3132,9 +3129,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             if humanoid then humanoid:Move(Vector3.zero, false) end
         end
+        local PreviousShutdown = Runtime.Shutdown
         Runtime.Shutdown = function()
             if ShutdownAutomation then
                 ShutdownAutomation()
+            end
+            if type(PreviousShutdown) == "function" then
+                PreviousShutdown()
             end
         end
         function ClearPickupLock(token)
