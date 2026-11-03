@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.295"
+local testver = "Test ver: 1.296"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1440,6 +1440,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local MasteryRows = {}
 
         local function RefreshMasteryRows()
+            -- Read mastery entries from the local player's actual game UI.
+            -- Descendant lookups tolerate Container/label nesting changes.
             local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
             local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
             local frames = mainGui and mainGui:FindFirstChild("Frames")
@@ -1448,16 +1450,20 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if not masteryList then return end
 
             local found = {}
-            for _, masteryFrame in ipairs(masteryList:GetChildren()) do
-                if masteryFrame:IsA("Frame") and masteryFrame.Name:sub(1, 8) == "Mastery_" then
-                    local container = masteryFrame:FindFirstChild("Container")
-                    local nameLabel = container and container:FindFirstChild("Title")
-                    local levelLabel = container and container:FindFirstChild("LevelNumber")
-                    if nameLabel and levelLabel and nameLabel:IsA("TextLabel") and levelLabel:IsA("TextLabel") then
+            for _, masteryEntry in ipairs(masteryList:GetChildren()) do
+                local nameLabel = masteryEntry:FindFirstChild("Title", true)
+                local levelLabel = masteryEntry:FindFirstChild("LevelNumber", true)
+
+                if nameLabel and levelLabel
+                    and (nameLabel:IsA("TextLabel") or nameLabel:IsA("TextButton") or nameLabel:IsA("TextBox"))
+                    and (levelLabel:IsA("TextLabel") or levelLabel:IsA("TextButton") or levelLabel:IsA("TextBox")) then
+                    local entryName = tostring(nameLabel.Text or "")
+                    local entryLevel = tostring(levelLabel.Text or "")
+                    if entryName ~= "" and entryLevel ~= "" then
                         table.insert(found, {
-                            Key = masteryFrame.Name,
-                            Name = nameLabel.Text,
-                            Level = levelLabel.Text
+                            Key = masteryEntry:GetFullName(),
+                            Name = entryName,
+                            Level = entryLevel
                         })
                     end
                 end
@@ -1488,7 +1494,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         BorderSizePixel = 0
                     })
                     AddCorner(accent, 2)
-                    local title = Create("TextLabel", {
+                    Create("TextLabel", {
                         Name = "MasteryName",
                         Parent = row,
                         Position = UDim2.fromOffset(6, 21),
@@ -1500,7 +1506,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         TextXAlignment = Enum.TextXAlignment.Center,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
-                    local level = Create("TextLabel", {
+                    Create("TextLabel", {
                         Name = "MasteryLevel",
                         Parent = row,
                         Position = UDim2.fromOffset(6, 3),
@@ -1512,14 +1518,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         TextXAlignment = Enum.TextXAlignment.Center,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
-                    row:SetAttribute("MasteryKey", item.Key)
                     MasteryRows[item.Key] = row
                 end
                 row.LayoutOrder = index
                 local title = row:FindFirstChild("MasteryName")
                 local level = row:FindFirstChild("MasteryLevel")
                 if title then title.Text = item.Name end
-                if level then level.Text = "LEVEL " .. item.Level end
+                if level then
+                    local levelText = item.Level
+                    if not levelText:upper():find("LEVEL", 1, true) then
+                        levelText = "LEVEL " .. levelText
+                    end
+                    level.Text = levelText
+                end
             end
 
             for key, row in pairs(MasteryRows) do
