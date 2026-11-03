@@ -823,7 +823,6 @@ for index, name in ipairs(TabNames) do
             skillEnabled.V = checked
             startSkillLoop("V", checked)
         end)
-    elseif index == 5 then
         local heightCard = CreateCard(left, "Movement", 64)
         Create("TextLabel", {
             Parent = heightCard,
@@ -869,6 +868,7 @@ for index, name in ipairs(TabNames) do
             end
         end)
 
+    elseif index == 5 then
         local antiAfkConnection
         local card = CreateCard(left, "Anti AFK", 64)
         CreateToggle(card, "Anti AFK", 34, function(enabled)
