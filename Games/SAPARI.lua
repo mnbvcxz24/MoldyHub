@@ -8,7 +8,7 @@ local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local deployver = "Deploy ver 1.2"
+local deployver = "Deploy ver 1.49"
 local ScriptStartedAt = os.clock()
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.86")
 local PreviousRuntimeCleanup = RuntimeEnv.__StealAPetAndRideItCleanup
@@ -58,7 +58,6 @@ local UIConfig = {
     SidebarNames = {
         "Main",
         "Farm",
-        "Events",
         "Misc. feature",
         "Settings"
     }
@@ -1036,8 +1035,252 @@ end
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if name == "Main" then
-        CreateCard(Page, "Sample Card 1", "Placeholder content for the Main page.")
-        CreateCard(Page, "Sample Card 2", "Placeholder content for the Main page.")
+        local StatusCard = CreateCard(Page, "Status", "")
+        StatusCard.Parent = Page
+        StatusCard.Position = UDim2.fromOffset(12, 12)
+        StatusCard.Size = UDim2.new(1, -24, 0, 160)
+        StatusCard.AutomaticSize = Enum.AutomaticSize.None
+
+        local StatusCardTitle = StatusCard:FindFirstChildWhichIsA("TextLabel")
+        if StatusCardTitle then
+            StatusCardTitle.TextSize = 10
+        end
+        local ActivityRow = Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 34),
+            Size = UDim2.new(1, -22, 0, 20),
+            BackgroundTransparency = 1
+        })
+        StatusDot = Create("Frame", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(1, 6),
+            Size = UDim2.fromOffset(8, 8),
+            BackgroundColor3 = Theme.Gray,
+            BorderSizePixel = 0
+        })
+        AddCorner(StatusDot, 8)
+
+        Create("TextLabel", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(16, 0),
+            Size = UDim2.fromOffset(42, 20),
+            BackgroundTransparency = 1,
+            Text = "Activity",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        StatusValue = Create("TextLabel", {
+            Parent = ActivityRow,
+            Position = UDim2.fromOffset(60, 0),
+            Size = UDim2.new(1, -60, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Idle",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 10,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+
+        Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 60),
+            Size = UDim2.new(1, -22, 0, 1),
+            BackgroundColor3 = Theme.Border,
+            BorderSizePixel = 0
+        })
+
+        Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 68),
+            Size = UDim2.fromOffset(104, 18),
+            BackgroundTransparency = 1,
+            Text = "CURRENT WORLD",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        local CurrentWorldValue = Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.new(1, -130, 0, 68),
+            Size = UDim2.fromOffset(119, 18),
+            BackgroundTransparency = 1,
+            Text = "WORLD " .. tostring(Runtime.CurrentWorld or "UNKNOWN"),
+            TextColor3 = Theme.Accent,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+        Runtime.CurrentWorldValue = CurrentWorldValue
+
+        Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 92),
+            Size = UDim2.new(1, -22, 0, 1),
+            BackgroundColor3 = Theme.Border,
+            BorderSizePixel = 0
+        })
+
+        local NewCagesAccent = Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 101),
+            Size = UDim2.fromOffset(3, 10),
+            BackgroundColor3 = Theme.Accent,
+            BorderSizePixel = 0
+        })
+        AddCorner(NewCagesAccent, 3)
+
+        Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(20, 97),
+            Size = UDim2.fromOffset(100, 18),
+            BackgroundTransparency = 1,
+            Text = "NEW CAGES",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        local NewCagesCount = Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.new(1, -92, 0, 97),
+            Size = UDim2.fromOffset(81, 18),
+            BackgroundTransparency = 1,
+            Text = "0 ADDED",
+            TextColor3 = Theme.Accent,
+            Font = Enum.Font.GothamBold,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+
+        Create("Frame", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 119),
+            Size = UDim2.new(1, -22, 0, 1),
+            BackgroundColor3 = Theme.Border,
+            BorderSizePixel = 0
+        })
+
+        local CageCountsLabel = Create("TextLabel", {
+            Parent = StatusCard,
+            Position = UDim2.fromOffset(11, 126),
+            Size = UDim2.new(1, -22, 0, 18),
+            BackgroundTransparency = 1,
+            Text = "Watching for new cages...",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top
+        })
+
+        local function RenderNewCageCounts(newCages)
+            local counts = {}
+            local totalNewCages = 0
+
+            for cage in pairs(newCages) do
+                if cage.Parent then
+                    totalNewCages = totalNewCages + 1
+                    local kind = cage:GetAttribute("Kind") or cage:GetAttribute("CageKind")
+                    local path = cage:GetAttribute("Path")
+
+                    if kind ~= nil or path ~= nil then
+                        local entryName = tostring(kind or "Unknown")
+                            .. " (Path " .. tostring(path or "Unknown") .. ")"
+                        counts[entryName] = (counts[entryName] or 0) + 1
+                    end
+                end
+            end
+
+            local lines = {}
+            for entryName, count in pairs(counts) do
+                lines[#lines + 1] = "•  " .. entryName .. "    × " .. tostring(count)
+            end
+            table.sort(lines)
+
+            if #lines == 0 then
+                lines[1] = "No new cages"
+            end
+
+            NewCagesCount.Text = tostring(totalNewCages) .. " ADDED"
+            CageCountsLabel.Text = table.concat(lines, "\n")
+            local labelHeight = #lines * 14
+            CageCountsLabel.Size = UDim2.new(1, -22, 0, labelHeight)
+            StatusCard.Size = UDim2.new(1, -24, 0, math.max(148, 126 + labelHeight + 12))
+            Page.CanvasSize = UDim2.new(0, 0, 0, StatusCard.Size.Y.Offset + 24)
+        end
+
+        task.spawn(function()
+            local cagesFolder = LocalPlayer:WaitForChild("Cages", 10)
+            if not cagesFolder or Runtime.Stopped then
+                CageCountsLabel.Text = "Cages folder unavailable"
+                return
+            end
+
+            -- Snapshot every cage that exists at startup. These are the baseline
+            -- and should not appear in the new-cage status.
+            local baselineCages = {}
+            for _, cage in ipairs(cagesFolder:GetChildren()) do
+                baselineCages[cage] = true
+            end
+
+            local newCages = {}
+            local watchedCages = {}
+
+            local function WatchNewCage(cage)
+                if watchedCages[cage] then
+                    return
+                end
+
+                newCages[cage] = true
+                watchedCages[cage] = {}
+
+                for _, attributeName in ipairs({"Kind", "CageKind", "Path"}) do
+                    watchedCages[cage][#watchedCages[cage] + 1] =
+                        TrackConnection(cage:GetAttributeChangedSignal(attributeName):Connect(function()
+                            RenderNewCageCounts(newCages)
+                        end))
+                end
+
+                RenderNewCageCounts(newCages)
+            end
+
+            local function UnwatchNewCage(cage)
+                local connections = watchedCages[cage]
+                if connections then
+                    for _, connection in ipairs(connections) do
+                        if connection.Connected then
+                            connection:Disconnect()
+                        end
+                    end
+                end
+
+                watchedCages[cage] = nil
+                newCages[cage] = nil
+                RenderNewCageCounts(newCages)
+            end
+
+            TrackConnection(cagesFolder.ChildAdded:Connect(function(cage)
+                if not baselineCages[cage] then
+                    WatchNewCage(cage)
+                end
+            end))
+
+            TrackConnection(cagesFolder.ChildRemoved:Connect(function(cage)
+                if newCages[cage] then
+                    UnwatchNewCage(cage)
+                end
+                baselineCages[cage] = nil
+            end))
+
+            RenderNewCageCounts(newCages)
+        end)
     elseif name == "Farm" then
         local AutoCard = CreateCard(Page, "Auto Steal", "")
         AutoCard.Parent = PageColumnMap[Page].Left
@@ -1242,7 +1485,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 and safeZoneSign.Position or nil
 
             if Runtime.CurrentWorldValue then
-                Runtime.CurrentWorldValue.Text = "Current World: " .. tostring(Runtime.CurrentWorld or "Unknown")
+                Runtime.CurrentWorldValue.Text = "WORLD " .. tostring(Runtime.CurrentWorld or "UNKNOWN")
             end
         end
 
@@ -3918,98 +4161,7 @@ end))
         StatusRow.Visible = true
         StatusDivider.Visible = true
 
-        local StatusCard = CreateCard(Page, "Status", "")
-        StatusCard.Size = UDim2.new(1, 0, 0, 148)
-
-        local StatusCardTitle = StatusCard:FindFirstChildWhichIsA("TextLabel")
-        if StatusCardTitle then
-            StatusCardTitle.TextSize = 10
-        end
-        local ActivityRow = Create("Frame", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 34),
-            Size = UDim2.new(1, -22, 0, 20),
-            BackgroundTransparency = 1
-        })
-        StatusDot = Create("Frame", {
-            Parent = ActivityRow,
-            Position = UDim2.fromOffset(1, 6),
-            Size = UDim2.fromOffset(8, 8),
-            BackgroundColor3 = Theme.Gray,
-            BorderSizePixel = 0
-        })
-        AddCorner(StatusDot, 8)
-
-        Create("TextLabel", {
-            Parent = ActivityRow,
-            Position = UDim2.fromOffset(16, 0),
-            Size = UDim2.fromOffset(42, 20),
-            BackgroundTransparency = 1,
-            Text = "Activity",
-            TextColor3 = Theme.DarkGray,
-            Font = Enum.Font.Gotham,
-            TextSize = 10,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-
-        StatusValue = Create("TextLabel", {
-            Parent = ActivityRow,
-            Position = UDim2.fromOffset(60, 0),
-            Size = UDim2.new(1, -60, 1, 0),
-            BackgroundTransparency = 1,
-            Text = "Idle",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.GothamMedium,
-            TextSize = 10,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            TextXAlignment = Enum.TextXAlignment.Right
-        })
-
-        Create("Frame", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 62),
-            Size = UDim2.new(1, -22, 0, 1),
-            BackgroundColor3 = Theme.Border,
-            BorderSizePixel = 0
-        })
-
-        local CurrentWorldValue = Create("TextLabel", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 70),
-            Size = UDim2.new(1, -22, 0, 16),
-            BackgroundTransparency = 1,
-            Text = "Current World: " .. tostring(Runtime.CurrentWorld or "Unknown"),
-            TextColor3 = Theme.DarkGray,
-            Font = Enum.Font.GothamMedium,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        Runtime.CurrentWorldValue = CurrentWorldValue
-
-        Create("TextLabel", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 91),
-            Size = UDim2.new(1, -22, 0, 16),
-            BackgroundTransparency = 1,
-            Text = "RareCage - 2",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-
-        Create("TextLabel", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 112),
-            Size = UDim2.new(1, -22, 0, 16),
-            BackgroundTransparency = 1,
-            Text = "DivineCage - 5",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-    elseif name == "Events" then
+        -- Auto Fight Boss is grouped under Farm.
         local AutoFightBossCard = CreateCard(Page, "Auto Fight Boss", "")
         AutoFightBossCard.Size = UDim2.new(1, 0, 0, 104)
         local BossCardTitle = AutoFightBossCard:FindFirstChildWhichIsA("TextLabel")
