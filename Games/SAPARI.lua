@@ -4258,6 +4258,7 @@ end))
         local BossNextTargetUnix
         local BossEventActive = false
         local BossPostZeroDeadline
+        local BossFightDeadline
         local BossWaveResultReceived = false
 
         local function SetBossTimer(seconds)
@@ -4450,8 +4451,15 @@ end))
                 local nowPH = GetNowPH()
 
                 if BossEventActive then
-                    if BossWaveResultReceived then
+                    if BossFightDeadline and nowPH >= BossFightDeadline then
+                        -- Fallback when WaveResult is missing or never fires.
                         BossEventActive = false
+                        BossFightDeadline = nil
+                        BossWaveResultReceived = false
+                        StopBossRoutine()
+                    elseif BossWaveResultReceived then
+                        BossEventActive = false
+                        BossFightDeadline = nil
                         BossWaveResultReceived = false
                         BossFightEnded = false
                         if not BossRoutineRunning then
@@ -4462,6 +4470,7 @@ end))
                     local remaining = BossNextTargetUnix - nowPH
                     if remaining <= 0 then
                         BossEventActive = true
+                        BossFightDeadline = nowPH + (5 * 60)
                         BossNextTargetUnix += 3600
                         BossWaveResultReceived = false
                         BossFightEnded = false
