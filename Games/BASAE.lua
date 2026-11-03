@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.304"
+local testver = "Test ver: 1.305"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2076,7 +2076,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 AutoButtonColor = false
             })
             AddCorner(Checkbox, 3)
-            AddStroke(Checkbox, Theme.Gray, 2)
+            AddStroke(Checkbox, Theme.Border, 2)
             local CheckIcon = Create("TextLabel", {
                 Parent = Checkbox,
                 Size = UDim2.fromScale(1, 1),
