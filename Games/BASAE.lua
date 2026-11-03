@@ -2198,37 +2198,14 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     AutoButtonColor = false, ZIndex = 101
                 })
                 AddCorner(RarityButton, 4)
+                AddStroke(RarityButton, selected and Theme.Accent or Theme.Border, 1)
                 Create("TextLabel", {
                     Parent = RarityButton, Position = UDim2.fromOffset(7, 0),
-                    Size = UDim2.new(1, -28, 1, 0), BackgroundTransparency = 1,
+                    Size = UDim2.new(1, -14, 1, 0), BackgroundTransparency = 1,
                     Text = rarityName, TextColor3 = Theme.Text,
                     Font = Enum.Font.Gotham, TextSize = 9,
                     TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 102
                 })
-                local RarityCheckbox = Create("Frame", {
-                    Name = "Checkbox",
-                    Parent = RarityButton,
-                    AnchorPoint = Vector2.new(1, 0.5),
-                    Position = UDim2.new(1, -7, 0.5, 0),
-                    Size = UDim2.fromOffset(12, 12),
-                    BackgroundColor3 = selected and Theme.Accent or Theme.SurfaceInput,
-                    BorderSizePixel = 0,
-                    ZIndex = 102
-                })
-                AddCorner(RarityCheckbox, 3)
-                AddStroke(RarityCheckbox, selected and Theme.Accent or Theme.Text, 1)
-                if selected then
-                    Create("TextLabel", {
-                        Parent = RarityCheckbox,
-                        Size = UDim2.fromScale(1, 1),
-                        BackgroundTransparency = 1,
-                        Text = "✓",
-                        TextColor3 = Theme.Text,
-                        Font = Enum.Font.GothamBold,
-                        TextSize = 9,
-                        ZIndex = 103
-                    })
-                end
                 RarityButton.MouseButton1Click:Connect(function()
                     SelectedRarities[rarityName] = not SelectedRarities[rarityName] or nil
                     RefreshRarityList()
