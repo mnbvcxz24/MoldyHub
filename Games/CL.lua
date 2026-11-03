@@ -668,11 +668,30 @@ for index, name in ipairs(TabNames) do
                 while thisLoop == m1LoopId and autoFarmEnabled and useM1Enabled do
                     local character = LocalPlayer.Character
                     local root = character and character:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        pcall(function()
-                            basicAttack:FireServer(root.CFrame)
-                        end)
+                    local enemies = workspace:FindFirstChild("Enemies")
+
+                    if root and enemies then
+                        for _, enemy in ipairs(enemies:GetChildren()) do
+                            if thisLoop ~= m1LoopId or not autoFarmEnabled or not useM1Enabled then
+                                break
+                            end
+
+                            local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+                            local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
+
+                            if humanoid and humanoid.Health > 0 and enemyRoot then
+                                pcall(function()
+                                    basicAttack:FireServer(
+                                        root.CFrame,
+                                        nil,
+                                        enemyRoot.Position,
+                                        0
+                                    )
+                                end)
+                            end
+                        end
                     end
+
                     task.wait(0.5)
                 end
             end)
