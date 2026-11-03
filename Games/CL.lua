@@ -369,9 +369,41 @@ for index, name in ipairs(TabNames) do
     Pages[index] = page
     if index == 2 then
         -- Farm tab: one card, matching BASAE's compact card style.
+        local autoFarmEnabled = false
+        local useM1Enabled = false
+        local m1LoopId = 0
+        local basicAttack = game:GetService("ReplicatedStorage")
+            :WaitForChild("WK_Remotes")
+            :WaitForChild("BasicAttack")
+
+        local function updateM1Loop()
+            m1LoopId = m1LoopId + 1
+            local thisLoop = m1LoopId
+            if not (autoFarmEnabled and useM1Enabled) then return end
+
+            task.spawn(function()
+                while thisLoop == m1LoopId and autoFarmEnabled and useM1Enabled do
+                    local character = LocalPlayer.Character
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        pcall(function()
+                            basicAttack:FireServer(root.CFrame)
+                        end)
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        end
+
         local card = CreateCard(left, "Auto farm", 150)
-        CreateToggle(card, "Auto farm", 34)
-        CreateCheckbox(card, "Use M1", 65)
+        CreateToggle(card, "Auto farm", 34, function(enabled)
+            autoFarmEnabled = enabled
+            updateM1Loop()
+        end)
+        CreateCheckbox(card, "Use M1", 65, function(checked)
+            useM1Enabled = checked
+            updateM1Loop()
+        end)
         CreateCheckbox(card, "Use C", 87)
         CreateCheckbox(card, "Use X", 109)
         CreateCheckbox(card, "Use Z", 131)
