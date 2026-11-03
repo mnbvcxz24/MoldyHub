@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.306"
+local testver = "Test ver: 1.307"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -321,14 +321,9 @@ local function ApplyTheme(themeName)
     end
     ActiveThemeName = themeName
     local colorProperties = {"BackgroundColor3", "TextColor3", "TextStrokeColor3", "ImageColor3", "ScrollBarImageColor3", "Color"}
-    for _, checkbox in ipairs(ScreenGui:GetDescendants()) do
-        if checkbox:IsA("TextButton") and checkbox.Name == "PickupOptionCheckbox" then
-            local checkboxStroke = checkbox:FindFirstChildOfClass("UIStroke")
-            if checkboxStroke then
-                checkboxStroke.Color = selectedTheme.Accent
-                checkboxStroke.Thickness = 2
-                checkboxStroke.Transparency = 0
-            end
+    for _, checkboxBorder in ipairs(ScreenGui:GetDescendants()) do
+        if checkboxBorder:IsA("Frame") and checkboxBorder.Name == "PickupOptionCheckboxBorder" then
+            checkboxBorder.BackgroundColor3 = selectedTheme.Accent
         end
     end
     for _, object in ipairs(ScreenGui:GetDescendants()) do
@@ -2076,18 +2071,28 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 or "[Auto Pickup] Coins/second filter OFF.")
         end)
         local function CreatePickupCheckbox(parent, labelText, yPosition, callback)
-            local Checkbox = Create("TextButton", {
+            local CheckboxBorder = Create("Frame", {
                 Parent = parent,
+                Name = "PickupOptionCheckboxBorder",
+                Position = UDim2.new(1, -32, 0, yPosition + 2),
+                Size = UDim2.fromOffset(18, 18),
+                BackgroundColor3 = Theme.Accent,
+                BorderSizePixel = 0,
+                ZIndex = 2
+            })
+            AddCorner(CheckboxBorder, 4)
+            local Checkbox = Create("TextButton", {
+                Parent = CheckboxBorder,
                 Name = "PickupOptionCheckbox",
-                Position = UDim2.new(1, -30, 0, yPosition + 4),
+                Position = UDim2.fromOffset(2, 2),
                 Size = UDim2.fromOffset(14, 14),
                 BackgroundColor3 = Theme.SurfaceInput,
                 Text = "",
                 BorderSizePixel = 0,
-                AutoButtonColor = false
+                AutoButtonColor = false,
+                ZIndex = 3
             })
             AddCorner(Checkbox, 3)
-            AddStroke(Checkbox, Theme.Accent, 2)
             local CheckIcon = Create("TextLabel", {
                 Parent = Checkbox,
                 Size = UDim2.fromScale(1, 1),
