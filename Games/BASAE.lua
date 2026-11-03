@@ -3896,7 +3896,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 SetPickupTracking(pickup, cps >= 0 and "CPS checked (second scan)" or "CPS read failed", cpsText)
                 if CPSFilter.amount > 0 and cps >= 0 then
-                    local scales = {K = 1e3, M = 1e6, B = 1e9, T = 1e12}
+                    local scales = {K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15}
                     local minimumCPS = CPSFilter.amount * (scales[CPSFilter.unit] or 1)
                     cpsPriorityPickup = cps >= minimumCPS
                 end
