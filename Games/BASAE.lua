@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.289"
+local testver = "Test ver: 1.290"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1420,26 +1420,22 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local SpeedValue = CreateStatTile("Speed", "SPEED", 5)
         local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 6)
 
-        -- Live mastery list: include only entries whose frame names start with "Mastery_".
-        local MasteryScroll = Create("ScrollingFrame", {
-            Name = "MasteryScroll",
+        -- Fixed mastery grid: three compact columns, matching the Stats tile sizing.
+        local MasteryContent = Create("Frame", {
+            Name = "MasteryContent",
             Parent = MasteryCard,
             Position = UDim2.fromOffset(9, 36),
             Size = UDim2.new(1, -18, 1, -44),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            ScrollBarThickness = 3,
-            ScrollBarImageColor3 = Theme.Accent,
-            CanvasSize = UDim2.new(0, 0, 0, 0),
-            AutomaticCanvasSize = Enum.AutomaticSize.Y,
-            ScrollingDirection = Enum.ScrollingDirection.Y
+            ClipsDescendants = true
         })
         local MasteryListLayout = Create("UIGridLayout", {
-            Parent = MasteryScroll,
-            CellSize = UDim2.new(0.5, -4, 0, 46),
-            CellPadding = UDim2.fromOffset(8, 6),
+            Parent = MasteryContent,
+            CellSize = UDim2.new(1 / 3, -4, 0, 42),
+            CellPadding = UDim2.fromOffset(6, 6),
             FillDirection = Enum.FillDirection.Horizontal,
-            FillDirectionMaxCells = 2,
+            FillDirectionMaxCells = 3,
             SortOrder = Enum.SortOrder.LayoutOrder
         })
         local MasteryRows = {}
@@ -1476,8 +1472,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 if not row then
                     row = Create("Frame", {
                         Name = "MasteryRow_" .. tostring(index),
-                        Parent = MasteryScroll,
-                        Size = UDim2.new(0.5, -4, 0, 46),
+                        Parent = MasteryContent,
+                        Size = UDim2.new(1 / 3, -4, 0, 42),
                         BackgroundColor3 = Theme.SurfaceInput,
                         BorderSizePixel = 0,
                         LayoutOrder = index
@@ -1496,8 +1492,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local title = Create("TextLabel", {
                         Name = "MasteryName",
                         Parent = row,
-                        Position = UDim2.fromOffset(6, 24),
-                        Size = UDim2.new(1, -12, 0, 17),
+                        Position = UDim2.fromOffset(6, 21),
+                        Size = UDim2.new(1, -12, 0, 16),
                         BackgroundTransparency = 1,
                         TextColor3 = Theme.Text,
                         Font = Enum.Font.GothamMedium,
