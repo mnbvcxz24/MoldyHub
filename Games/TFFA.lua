@@ -49,7 +49,7 @@ local UIConfig = {
     Height = 320,
     SidebarNames = {
         "Main",
-        "Farm",
+        "Auto",
         "Events",
         "Misc. feature",
         "Settings"
@@ -1309,9 +1309,15 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    local ToggleCard = CreateCard(Page, "Toggle Template", "A reusable toggle control.")
-    ToggleCard.Size = UDim2.new(1, 0, 0, 110)
-    CreateToggle(ToggleCard, "Enable feature", false)
+    if name == "Auto" then
+        local AutoThrowCard = CreateCard(Page, "Auto Throw", "Toggle Auto Throw on or off.")
+        AutoThrowCard.Size = UDim2.new(1, 0, 0, 110)
+        CreateToggle(AutoThrowCard, "Enable Auto Throw", false)
+    else
+        local ToggleCard = CreateCard(Page, "Toggle Template", "A reusable toggle control.")
+        ToggleCard.Size = UDim2.new(1, 0, 0, 110)
+        CreateToggle(ToggleCard, "Enable feature", false)
+    end
 
     local ButtonCard = CreateCard(Page, "Button Template", "A reusable action button.")
     ButtonCard.Size = UDim2.new(1, 0, 0, 110)
