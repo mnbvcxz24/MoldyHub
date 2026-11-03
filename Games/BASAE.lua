@@ -2079,7 +2079,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 AutoButtonColor = false
             })
             AddCorner(Checkbox, 3)
-            AddStroke(Checkbox, Theme.Text, 1.5)
+            AddStroke(Checkbox, Theme.Gray, 2)
             local Label = Create("TextButton", {
                 Parent = parent,
                 Position = UDim2.fromOffset(11, yPosition),
@@ -2198,13 +2198,22 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     AutoButtonColor = false, ZIndex = 101
                 })
                 AddCorner(RarityButton, 4)
-                AddStroke(RarityButton, selected and Theme.Accent or Theme.Border, 1)
                 Create("TextLabel", {
                     Parent = RarityButton, Position = UDim2.fromOffset(7, 0),
-                    Size = UDim2.new(1, -14, 1, 0), BackgroundTransparency = 1,
+                    Size = UDim2.new(1, -28, 1, 0), BackgroundTransparency = 1,
                     Text = rarityName, TextColor3 = Theme.Text,
                     Font = Enum.Font.Gotham, TextSize = 9,
                     TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 102
+                })
+                Create("TextLabel", {
+                    Parent = RarityButton, AnchorPoint = Vector2.new(1, 0.5),
+                    Position = UDim2.new(1, -7, 0.5, 0),
+                    Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 1,
+                    Text = selected and "✓" or "○",
+                    TextColor3 = selected and Theme.Accent or Theme.Gray,
+                    Font = Enum.Font.GothamBold, TextSize = 10,
+                    TextXAlignment = Enum.TextXAlignment.Center,
+                    TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 102
                 })
                 RarityButton.MouseButton1Click:Connect(function()
                     SelectedRarities[rarityName] = not SelectedRarities[rarityName] or nil
