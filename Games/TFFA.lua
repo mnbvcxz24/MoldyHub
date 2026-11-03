@@ -1357,17 +1357,7 @@ local function RunAutoThrow()
         end
         if not IsCurrentRun() then return end
 
-        local matchesExpectedResult = type(startResult) == "table"
-            and startResult.Ok == true
-            and startResult.Saved == 0
-            and startResult.FoodIndex == 2
-            and startResult.MaxArea == 1
-            and startResult.Power == 78
-            and startResult.SuperOffer == false
-
-        if not matchesExpectedResult then
-            return
-        end
+        -- Continue after Throw_Start returns; do not inspect its response data.
 
         local throwResolve = remotes:FindFirstChild("Throw_Resolve")
         if not throwResolve or not throwResolve:IsA("RemoteFunction") then
