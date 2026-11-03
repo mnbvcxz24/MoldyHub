@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.290"
+local testver = "Test ver: 1.291"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1427,8 +1427,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             Position = UDim2.fromOffset(9, 36),
             Size = UDim2.new(1, -18, 1, -44),
             BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ClipsDescendants = true
+            BorderSizePixel = 0
         })
         local MasteryListLayout = Create("UIGridLayout", {
             Parent = MasteryContent,
