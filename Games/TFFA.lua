@@ -1336,9 +1336,30 @@ local function RunAutoThrow()
             return
         end
 
-        character:PivotTo(targetCFrame + Vector3.new(0, 3, 0))
-        task.wait(0.25)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then
+            warn("[TFFA] Auto Throw stopped: Humanoid not found.")
+            return
+        end
+
+        -- Walk normally to StarterArea; do not teleport the character.
+        local reachedTarget = false
+        local moveFinishedConnection = humanoid.MoveToFinished:Connect(function(reached)
+            reachedTarget = reached
+        end)
+        humanoid:MoveTo(targetCFrame.Position)
+
+        local walkStartedAt = os.clock()
+        while IsCurrentRun() and not reachedTarget and os.clock() - walkStartedAt < 30 do
+            task.wait(0.1)
+        end
+        moveFinishedConnection:Disconnect()
+
         if not IsCurrentRun() then return end
+        if not reachedTarget then
+            warn("[TFFA] Auto Throw stopped: could not reach StarterArea.")
+            return
+        end
 
         local replicatedStorage = game:GetService("ReplicatedStorage")
         local remotes = replicatedStorage:FindFirstChild("Remotes")
