@@ -214,8 +214,8 @@ local function CreateCard(parent, title, height)
     Stroke(card, Theme.Border, 1)
     Create("TextLabel", {
         Parent = card,
-        Position = UDim2.fromOffset(11, 8),
-        Size = UDim2.new(1, -22, 0, 18),
+        Position = UDim2.fromOffset(12, 8),
+        Size = UDim2.new(1, -24, 0, 18),
         BackgroundTransparency = 1,
         Text = title,
         TextColor3 = Theme.Text,
@@ -395,7 +395,7 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
-        local card = CreateCard(left, "Auto farm", 150)
+        local card = CreateCard(left, "Auto farm", 162)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
             updateM1Loop()
