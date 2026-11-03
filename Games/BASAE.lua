@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.316"
+local testver = "Test ver: 1.317"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2884,8 +2884,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 if bn then return false end
                 return a < b
             end)
-            local zoneSummary = #selectedZones > 0 and table.concat(selectedZones, ", ") or "All"
-            ZoneFilterButton.Text = "Zones: " .. zoneSummary .. (ZoneFilterOpen and " ▲" or " ▼")
+            local zoneSummary = #selectedZones > 0 and table.concat(selectedZones, ", ") or "None"
+            ZoneFilterButton.Text = "Zone: " .. zoneSummary .. (ZoneFilterOpen and " ▲" or " ▼")
             ZoneFilterButton.TextSize = 8
             ZoneFilterButton.TextXAlignment = Enum.TextXAlignment.Center
 
@@ -5310,13 +5310,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             for zoneName, selected in pairs(SelectedZones) do
                 if selected then
                     table.insert(selectedZoneNames, zoneName)
-                end
-            end
-            if #selectedZoneNames == 0 then
-                for _, zone in ipairs(ZoneBuilds:GetChildren()) do
-                    if zone:IsA("Model") then
-                        table.insert(selectedZoneNames, zone.Name)
-                    end
                 end
             end
             table.sort(selectedZoneNames)
