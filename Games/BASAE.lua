@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.297"
+local testver = "Test ver: 1.298"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1530,6 +1530,49 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
         end
 
+        local function FormatCompactStat(value)
+            if value == nil then return "—" end
+
+            local raw = tostring(value)
+            local cleaned = raw:gsub(",", ""):gsub("%s+", "")
+            local numberText, suffix = cleaned:match("^([%d%.]+)([%a]*)$")
+            local number = tonumber(numberText)
+            if not number then return raw end
+
+            local scales = {
+                k = 1e3,
+                m = 1e6,
+                b = 1e9,
+                t = 1e12,
+                qa = 1e15,
+                q = 1e15,
+                qi = 1e18
+            }
+            local existingScale = scales[(suffix or ""):lower()]
+            if suffix and suffix ~= "" then
+                if not existingScale then return raw end
+                number *= existingScale
+            end
+
+            local divisor, compactSuffix
+            if number >= 1e18 then
+                divisor, compactSuffix = 1e18, "Qi"
+            elseif number >= 1e15 then
+                divisor, compactSuffix = 1e15, "Qa"
+            elseif number >= 1e12 then
+                divisor, compactSuffix = 1e12, "T"
+            elseif number >= 1e9 then
+                divisor, compactSuffix = 1e9, "B"
+            else
+                return raw
+            end
+
+            local compact = string.format("%.2f", number / divisor)
+                :gsub("0+$", "")
+                :gsub("%.$", "")
+            return compact .. compactSuffix
+        end
+
         local function ReadPlayerStatAttribute(attributeName)
             local value = LocalPlayer:GetAttribute(attributeName)
             if value == nil then return "—" end
@@ -1607,9 +1650,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         task.spawn(function()
             while not Runtime.Stopped and ScreenGui.Parent and StatsCard.Parent do
                 CashValue.Text = ReadPlayerStatAttribute("Cash")
-                CashPerSecondValue.Text = ReadPlayerStatAttribute("CashPerSecond")
+                CashPerSecondValue.Text = FormatCompactStat(LocalPlayer:GetAttribute("CashPerSecond"))
                 DiamondsValue.Text = ReadPlayerStatAttribute("Diamonds")
-                SpeedValue.Text = ReadPlayerStatAttribute("SpeedPower")
+                SpeedValue.Text = FormatCompactStat(LocalPlayer:GetAttribute("SpeedPower"))
 
                 -- Refresh Mastery independently so a Stats reader error cannot stop it.
                 pcall(RefreshMasteryRows)
