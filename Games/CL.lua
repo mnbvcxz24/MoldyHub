@@ -117,11 +117,13 @@ CloseButton.MouseButton1Click:Connect(function()
     Main.Visible = false
 end)
 
--- BASAE-style floating minimize circle. It remains available when the window is hidden.
+-- Floating toggle uses a right-edge anchor so its initial position does not
+-- depend on AbsoluteSize being ready during script startup.
 local FloatingToggle = Create("TextButton", {
     Name = "FloatingToggle",
     Parent = ScreenGui,
-    Position = UDim2.new(1, -52, 0, 16),
+    AnchorPoint = Vector2.new(1, 0),
+    Position = UDim2.new(1, -16, 0, 16),
     Size = UDim2.fromOffset(36, 36),
     BackgroundColor3 = Theme.Sidebar,
     Text = "B",
@@ -149,15 +151,13 @@ local function ClampFloatingTogglePosition(x, y)
     return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
 end
 
-local function PositionFloatingToggleUpperRight()
-    local maxX = GetFloatingToggleBounds()
-    FloatingToggle.Position = UDim2.fromOffset(math.max(0, maxX - 16), 16)
+local function SetFloatingToggleTopLeft(x, y)
+    x, y = ClampFloatingTogglePosition(x, y)
+    FloatingToggle.Position = UDim2.fromOffset(x + FloatingToggle.AbsoluteSize.X, y)
 end
-PositionFloatingToggleUpperRight()
 
 local function KeepFloatingToggleOnScreen()
-    local x, y = ClampFloatingTogglePosition(FloatingToggle.AbsolutePosition.X, FloatingToggle.AbsolutePosition.Y)
-    FloatingToggle.Position = UDim2.fromOffset(x, y)
+    SetFloatingToggleTopLeft(FloatingToggle.AbsolutePosition.X, FloatingToggle.AbsolutePosition.Y)
 end
 
 local function WatchFloatingToggleViewport(camera)
@@ -187,8 +187,7 @@ UserInputService.InputChanged:Connect(function(input)
         local delta = input.Position - CircleDragStart
         if delta.Magnitude > 6 then CircleMoved = true end
         if CircleMoved then
-            local x, y = ClampFloatingTogglePosition(CircleStartPosition.X + delta.X, CircleStartPosition.Y + delta.Y)
-            FloatingToggle.Position = UDim2.fromOffset(x, y)
+            SetFloatingToggleTopLeft(CircleStartPosition.X + delta.X, CircleStartPosition.Y + delta.Y)
         end
     end
 end)
