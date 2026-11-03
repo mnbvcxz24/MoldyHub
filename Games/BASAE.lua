@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.302"
+local testver = "Test ver: 1.303"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2073,6 +2073,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 BackgroundColor3 = Theme.SurfaceInput,
                 Text = "",
                 TextColor3 = Theme.Text,
+                TextStrokeTransparency = 1,
                 Font = Enum.Font.GothamBold,
                 TextSize = 10,
                 BorderSizePixel = 0,
