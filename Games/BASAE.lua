@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.292"
+local testver = "Test ver: 1.293"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1414,7 +1414,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 1)
-        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S", 2)
+        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 2)
         local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 3)
         local CashValue = CreateStatTile("Cash", "CASH", 4)
         local SpeedValue = CreateStatTile("Speed", "SPEED", 5)
@@ -1540,8 +1540,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local plots = workspace:FindFirstChild("Plots")
             if not plots then return nil end
 
-            -- The player plot is one of Base_1 through Base_7.
-            -- Match the userID attribute so another player's placed animals are ignored.
+            -- Prefer the owner attribute, but also support the game's visible
+            -- "Your Base" marker in case userID is missing or stored differently.
             for baseIndex = 1, 7 do
                 local base = plots:FindFirstChild("Base_" .. tostring(baseIndex))
                 if base then
@@ -1549,9 +1549,39 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     if tonumber(ownerUserId) == LocalPlayer.UserId then
                         return base
                     end
+                    local hitbox = base:FindFirstChild("Hitbox")
+                    local playerInfo = hitbox and hitbox:FindFirstChild("PlayerInfoUi")
+                    local nameLabel = playerInfo and playerInfo:FindFirstChild("Name")
+                    if nameLabel and nameLabel:IsA("TextLabel") and nameLabel.Text == "Your Base" then
+                        return base
+                    end
                 end
             end
             return nil
+        end
+
+        local function ReadPlacedAnimalCPS(animal)
+            -- Exact placed-animal hierarchy:
+            -- RootPart.AnimalOverheadAttachment.AnimalOverhead.CashPerSecond.CashPerSecond
+            local rootPart = animal and animal:FindFirstChild("RootPart")
+            local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
+            local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+            local cpsContainer = overhead and overhead:FindFirstChild("CashPerSecond")
+            local cpsLabel = cpsContainer and cpsContainer:FindFirstChild("CashPerSecond")
+
+            if cpsLabel and (cpsLabel:IsA("TextLabel") or cpsLabel:IsA("TextButton") or cpsLabel:IsA("TextBox")) then
+                local display = cpsLabel.Text
+                local numericValue = ParseCPS(display)
+                if numericValue >= 0 then
+                    return numericValue, display
+                end
+            end
+
+            -- Keep the general reader as a fallback for alternate animal layouts.
+            if type(GetPetCPS) == "function" then
+                return GetPetCPS(animal)
+            end
+            return -1, nil
         end
 
         local function ReadHighestPlacedAnimal()
@@ -1561,16 +1591,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
             local highestValue = -1
             local highestDisplay = nil
-            local highestName = nil
 
-            -- Reuse the game's existing animal Cash/s reader.
-            if type(GetPetCPS) ~= "function" then return "—" end
             for _, animal in ipairs(placedAnimals:GetChildren()) do
-                local cashPerSecond, display = GetPetCPS(animal)
+                local cashPerSecond, display = ReadPlacedAnimalCPS(animal)
                 if type(cashPerSecond) == "number" and cashPerSecond > highestValue then
                     highestValue = cashPerSecond
                     highestDisplay = display
-                    highestName = animal:GetAttribute("AnimalName") or animal.Name
                 end
             end
 
