@@ -623,6 +623,8 @@ for index, name in ipairs(TabNames) do
     end)
 end
 
+local floatingHeight = 30
+
 for index, name in ipairs(TabNames) do
     local page, left, right = CreatePage(index)
     Pages[index] = page
@@ -729,7 +731,7 @@ for index, name in ipairs(TabNames) do
                 end
                 if not root:GetAttribute("CLAutoFarmFloatActive") then
                     root:SetAttribute("CLAutoFarmFloatActive", true)
-                    root.CFrame = root.CFrame + Vector3.new(0, 30, 0)
+                    root.CFrame = root.CFrame + Vector3.new(0, floatingHeight, 0)
                 end
                 root.Anchored = true
             else
@@ -784,7 +786,7 @@ for index, name in ipairs(TabNames) do
             if autoFarmEnabled then
                 local root = character:WaitForChild("HumanoidRootPart", 5)
                 if root and autoFarmEnabled then
-                    root.CFrame = root.CFrame + Vector3.new(0, 30, 0)
+                    root.CFrame = root.CFrame + Vector3.new(0, floatingHeight, 0)
                     root.Anchored = true
                     root:SetAttribute("CLAutoFarmFloatActive", true)
                     root:SetAttribute("CLAutoFarmOriginalAnchored", false)
@@ -822,6 +824,51 @@ for index, name in ipairs(TabNames) do
             startSkillLoop("V", checked)
         end)
     elseif index == 5 then
+        local heightCard = CreateCard(left, "Movement", 64)
+        Create("TextLabel", {
+            Parent = heightCard,
+            Position = UDim2.fromOffset(12, 34),
+            Size = UDim2.new(1, -112, 0, 22),
+            BackgroundTransparency = 1,
+            Text = "Floating height (studs)",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local heightInput = Create("TextBox", {
+            Parent = heightCard,
+            Position = UDim2.new(1, -88, 0, 32),
+            Size = UDim2.fromOffset(76, 26),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            Text = tostring(floatingHeight),
+            PlaceholderText = "30",
+            TextColor3 = Theme.Text,
+            PlaceholderColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            ClearTextOnFocus = false
+        })
+        Corner(heightInput, 5)
+        Stroke(heightInput, Theme.Border, 1)
+        heightInput.FocusLost:Connect(function()
+            local enteredHeight = tonumber(heightInput.Text)
+            if enteredHeight and enteredHeight > 0 and enteredHeight <= 500 then
+                local previousHeight = floatingHeight
+                floatingHeight = enteredHeight
+                heightInput.Text = tostring(floatingHeight)
+
+                local character = LocalPlayer.Character
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+                if root and root:GetAttribute("CLAutoFarmFloatActive") then
+                    root.CFrame = root.CFrame + Vector3.new(0, floatingHeight - previousHeight, 0)
+                end
+            else
+                heightInput.Text = tostring(floatingHeight)
+            end
+        end)
+
         local antiAfkConnection
         local card = CreateCard(left, "Anti AFK", 64)
         CreateToggle(card, "Anti AFK", 34, function(enabled)
