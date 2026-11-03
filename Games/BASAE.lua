@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.310"
+local testver = "Test ver: 1.311"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1770,6 +1770,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local PickupZoneButton
         local RarityList
         local RarityFilterButton
+        local UpdateRarityFilterButtonText, UpdatePickupZoneButtonText
         local ZoneFilterOpen = false
         local EggFilterOpen = false
         local ZoneList
@@ -2246,7 +2247,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end
         end
         RefreshRarityList()
-        local function UpdateRarityFilterButtonText()
+        UpdateRarityFilterButtonText = function()
             local selected = {}
             for _, rarityName in ipairs(RarityOptions) do
                 if SelectedRarities[rarityName] then
@@ -2258,7 +2259,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             RarityFilterButton.TextSize = 8
             RarityFilterButton.TextXAlignment = Enum.TextXAlignment.Left
         end
-        local function UpdatePickupZoneButtonText()
+        UpdatePickupZoneButtonText = function()
             local selected = {}
             for zoneName, enabled in pairs(SelectedPickupZones) do
                 if enabled then
