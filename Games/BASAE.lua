@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.291"
+local testver = "Test ver: 1.292"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1414,7 +1414,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
 
         local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 1)
-        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 2)
+        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S", 2)
         local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 3)
         local CashValue = CreateStatTile("Cash", "CASH", 4)
         local SpeedValue = CreateStatTile("Speed", "SPEED", 5)
@@ -1574,9 +1574,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end
 
-            if highestValue < 0 or not highestName then return "—" end
-            local cashText = highestDisplay and tostring(highestDisplay) or tostring(highestValue)
-            return tostring(highestName) .. " (" .. cashText .. ")"
+            if highestValue < 0 then return "—" end
+            return highestDisplay and tostring(highestDisplay) or tostring(highestValue)
         end
 
         task.spawn(function()
@@ -3570,11 +3569,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local value = ParseCPS(object.Text)
                     if value >= 0 then return value, object.Text end
                 end
-                for _, childName in ipairs({"Text", "ContentText"}) do
+                for _, childName in ipairs({"Text", "ContentText", "CashPerSecond"}) do
                     local child = object:FindFirstChild(childName, true)
                     if child and (child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox")) then
                         local value = ParseCPS(child.Text)
                         if value >= 0 then return value, child.Text end
+                    end
+                end
+                -- Some overheads nest the actual TextLabel one level deeper:
+                -- AnimalOverhead.CashPerSecond.CashPerSecond.
+                for _, descendant in ipairs(object:GetDescendants()) do
+                    if descendant:IsA("TextLabel") or descendant:IsA("TextButton") or descendant:IsA("TextBox") then
+                        local value = ParseCPS(descendant.Text)
+                        if value >= 0 then return value, descendant.Text end
                     end
                 end
                 return -1, nil
