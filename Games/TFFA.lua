@@ -1343,21 +1343,10 @@ local function RunAutoThrow()
         local replicatedStorage = game:GetService("ReplicatedStorage")
         local remotes = replicatedStorage:FindFirstChild("Remotes")
         local throwStart = remotes and remotes:FindFirstChild("Throw_Start")
-        if not throwStart or not throwStart:IsA("RemoteFunction") then
-            warn("[TFFA] Auto Throw stopped: Throw_Start RemoteFunction not found.")
+        if not throwStart or not throwStart:IsA("RemoteEvent") then
+            warn("[TFFA] Auto Throw stopped: Throw_Start RemoteEvent not found.")
             return
         end
-
-        local invokeOk, startResult = pcall(function()
-            return throwStart:InvokeServer()
-        end)
-        if not invokeOk then
-            warn("[TFFA] Throw_Start failed: " .. tostring(startResult))
-            return
-        end
-        if not IsCurrentRun() then return end
-
-        -- Continue after Throw_Start returns; do not inspect its response data.
 
         local throwResolve = remotes:FindFirstChild("Throw_Resolve")
         if not throwResolve or not throwResolve:IsA("RemoteFunction") then
@@ -1365,13 +1354,35 @@ local function RunAutoThrow()
             return
         end
 
-        local resolveOk, resolveError = pcall(function()
-            throwResolve:InvokeServer(1)
+        -- Listen for the server's Throw_Start signal; never invoke Throw_Start ourselves.
+        local receivedConnection
+        receivedConnection = throwStart.OnClientEvent:Connect(function()
+            if receivedConnection then
+                receivedConnection:Disconnect()
+                receivedConnection = nil
+            end
+            if not IsCurrentRun() then return end
+
+            task.wait(2)
+            if not IsCurrentRun() then return end
+
+            local resolveOk, resolveError = pcall(function()
+                throwResolve:InvokeServer(1)
+            end)
+            if not resolveOk then
+                warn("[TFFA] Throw_Resolve failed: " .. tostring(resolveError))
+            end
+            -- One response only; ignore any later Throw_Start signals.
         end)
-        if not resolveOk then
-            warn("[TFFA] Throw_Resolve failed: " .. tostring(resolveError))
+
+        -- Disconnect the listener if Auto Throw is disabled or this run is replaced.
+        while receivedConnection and IsCurrentRun() do
+            task.wait(0.1)
         end
-        -- Intentionally one-shot: do not call Throw_Start or Throw_Resolve again.
+        if receivedConnection then
+            receivedConnection:Disconnect()
+            receivedConnection = nil
+        end
     end)
 end
 
