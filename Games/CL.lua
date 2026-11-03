@@ -631,9 +631,92 @@ for index, name in ipairs(TabNames) do
         local autoFarmEnabled = false
         local useM1Enabled = false
         local m1LoopId = 0
-        local basicAttack = game:GetService("ReplicatedStorage")
+        local skillLoopIds = {C = 0, X = 0, Z = 0, V = 0}
+        local skillEnabled = {C = false, X = false, Z = false, V = false}
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local basicAttack = ReplicatedStorage
             :WaitForChild("WK_Remotes")
             :WaitForChild("BasicAttack")
+        local castSkill = ReplicatedStorage
+            :WaitForChild("WK_Remotes")
+            :WaitForChild("CastSkill")
+        local SkillsModule = ReplicatedStorage
+            :WaitForChild("Shared")
+            :WaitForChild("Config")
+            :WaitForChild("Skills")
+        local SkillsConfig
+        local skillsOk, skillsResult = pcall(require, SkillsModule)
+        if skillsOk and type(skillsResult) == "table" then
+            SkillsConfig = skillsResult
+        else
+            warn("[CL Auto farm] Unable to load Skills config:", skillsResult)
+        end
+
+        local AbilityRail = LocalPlayer:WaitForChild("PlayerGui")
+            :WaitForChild("WK_HUD")
+            :WaitForChild("Right Column")
+            :WaitForChild("Ability Rail")
+            :WaitForChild("MainFrame")
+            :WaitForChild("Abilities")
+            :WaitForChild("Abilities")
+
+        local function findSkillByDisplayName(displayName, slot)
+            if not SkillsConfig or type(displayName) ~= "string" or displayName == "" then
+                return nil
+            end
+
+            for key, skill in pairs(SkillsConfig) do
+                if type(skill) == "table"
+                    and skill.DisplayName == displayName
+                    and tostring(skill.Slot) == slot then
+                    return tostring(skill.Id or key), skill
+                end
+            end
+            return nil
+        end
+
+        local function getAbilitySkill(slot)
+            local slotFrame = AbilityRail:FindFirstChild("Slot_" .. slot)
+            local left = slotFrame and slotFrame:FindFirstChild("left")
+            local nameLabel = left and left:FindFirstChild("name")
+            local displayName = nameLabel and nameLabel.Text
+            if not displayName or displayName == "" then return nil end
+            return findSkillByDisplayName(displayName, slot)
+        end
+
+        local function startSkillLoop(slot, enabled)
+            skillLoopIds[slot] = skillLoopIds[slot] + 1
+            local thisLoop = skillLoopIds[slot]
+            if not (enabled and autoFarmEnabled) then return end
+
+            task.spawn(function()
+                while thisLoop == skillLoopIds[slot] and autoFarmEnabled do
+                    local skillId, skillData = getAbilitySkill(slot)
+                    local character = LocalPlayer.Character
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    local enemies = workspace:FindFirstChild("Enemies")
+
+                    if skillId and skillData and root and enemies then
+                        for _, enemy in ipairs(enemies:GetChildren()) do
+                            if thisLoop ~= skillLoopIds[slot] or not autoFarmEnabled then
+                                break
+                            end
+
+                            local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+                            local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
+                            if humanoid and humanoid.Health > 0 and enemyRoot then
+                                pcall(function()
+                                    castSkill:FireServer(skillId, root.CFrame, enemyRoot.Position)
+                                end)
+                            end
+                        end
+                        task.wait(math.max(tonumber(skillData.Cooldown) or 1, 0.1))
+                    else
+                        task.wait(0.5)
+                    end
+                end
+            end)
+        end
 
         local function setFarmFloat(enabled)
             local character = LocalPlayer.Character
@@ -709,19 +792,35 @@ for index, name in ipairs(TabNames) do
             end
         end)
 
-        local card = CreateCard(left, "Auto farm", 162)
+        local card = CreateCard(left, "Auto farm", 184)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
             setFarmFloat(enabled)
             updateM1Loop()
+            for _, slot in ipairs({"C", "X", "Z", "V"}) do
+                startSkillLoop(slot, enabled and skillEnabled[slot] == true)
+            end
         end)
         CreateCheckbox(card, "Use M1", 65, function(checked)
             useM1Enabled = checked
             updateM1Loop()
         end)
-        CreateCheckbox(card, "Use C", 87)
-        CreateCheckbox(card, "Use X", 109)
-        CreateCheckbox(card, "Use Z", 131)
+        CreateCheckbox(card, "Use C", 87, function(checked)
+            skillEnabled.C = checked
+            startSkillLoop("C", checked)
+        end)
+        CreateCheckbox(card, "Use X", 109, function(checked)
+            skillEnabled.X = checked
+            startSkillLoop("X", checked)
+        end)
+        CreateCheckbox(card, "Use Z", 131, function(checked)
+            skillEnabled.Z = checked
+            startSkillLoop("Z", checked)
+        end)
+        CreateCheckbox(card, "Use V", 153, function(checked)
+            skillEnabled.V = checked
+            startSkillLoop("V", checked)
+        end)
     end
 end
 
