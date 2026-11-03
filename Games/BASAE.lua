@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.293"
+local testver = "Test ver: 1.294"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1626,7 +1626,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             BorderSizePixel = 0,
             LayoutOrder = 1
         })
-        local Card1 = CreateCard(AutoRow, "⚡  Auto Break", "")
+        local Card1 = CreateCard(AutoRow, "Auto Break", "")
         Card1.Position = UDim2.new(0.5, 5, 0, 0)
         Card1.Size = UDim2.new(0.5, -5, 0, 190)
         local StartAutoBreak
@@ -1675,7 +1675,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AutoBreakToggle.Size = UDim2.fromOffset(48, 24)
         local AutoBreakTitle = Card1:FindFirstChildWhichIsA("TextLabel")
         if AutoBreakTitle then AutoBreakTitle.Size = UDim2.new(1, -78, 0, 22) end
-        local AutoPickupCard = CreateCard(AutoRow, "🐾  Auto Pickup", "")
+        local AutoPickupCard = CreateCard(AutoRow, "Auto Pickup", "")
         AutoPickupCard.Position = UDim2.new(0, 0, 0, 0)
         AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
         local AutoPickupEnabled = false
@@ -1784,12 +1784,24 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextXAlignment = Enum.TextXAlignment.Left
         })
         Create("TextLabel", {
+            Name = "KGUnitLabel",
+            Parent = AutoPickupCard,
+            Position = UDim2.new(1, -63, 0, 111),
+            Size = UDim2.fromOffset(52, 13),
+            BackgroundTransparency = 1,
+            Text = "Unit",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Center
+        })
+        Create("TextLabel", {
             Name = "KGThresholdLabel",
             Parent = AutoPickupCard,
             Position = UDim2.fromOffset(11, 111),
             Size = UDim2.new(1, -22, 0, 13),
             BackgroundTransparency = 1,
-            Text = "Weight Threshold (KG) · Unit",
+            Text = "Weight Threshold",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.GothamMedium,
             TextSize = 9,
@@ -1814,7 +1826,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AddStroke(KGThresholdInput, Theme.Border, 1)
         local KGUnitButton
         local KGUnitState = {options = {"K", "M", "B", "T"}, open = false, list = nil}
-        KGUnitButton = CreateButton(AutoPickupCard, "KG: K ▼", function()
+        KGUnitButton = CreateButton(AutoPickupCard, "K ▼", function()
             KGUnitState.open = not KGUnitState.open
             RarityFilterOpen = false
             ZoneFilterOpen = false
@@ -1823,7 +1835,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if ZoneList then ZoneList.Visible = false end
             if EggFilterList then EggFilterList.Visible = false end
             if KGUnitState.list then KGUnitState.list.Visible = KGUnitState.open end
-            KGUnitButton.Text = KGUnitState.open and "KG: " .. KGThresholdUnit .. " ▲" or "KG: " .. KGThresholdUnit .. " ▼"
+            KGUnitButton.Text = KGUnitState.open and KGThresholdUnit .. " ▲" or KGThresholdUnit .. " ▼"
         end)
         KGUnitButton.Name = "KGUnitFilterButton"
         KGUnitButton.Position = UDim2.new(1, -63, 0, 126)
@@ -1870,7 +1882,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AddCorner(unitButton, 4)
             unitButton.MouseButton1Click:Connect(function()
                 KGThresholdUnit = unit
-                KGUnitButton.Text = "KG: " .. unit .. " ▼"
+                KGUnitButton.Text = unit .. " ▼"
                 KGUnitState.open = false
                 KGUnitState.list.Visible = false
                 for _, child in ipairs(KGUnitState.list:GetChildren()) do
@@ -1891,12 +1903,24 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end)
         local CPSFilter = {amount = 0, unit = "K", options = {"K", "M", "B", "T"}, open = false}
         Create("TextLabel", {
+            Name = "CPSUnitLabel",
+            Parent = AutoPickupCard,
+            Position = UDim2.new(1, -63, 0, 154),
+            Size = UDim2.fromOffset(52, 13),
+            BackgroundTransparency = 1,
+            Text = "Unit",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Center
+        })
+        Create("TextLabel", {
             Name = "CPSFilterLabel",
             Parent = AutoPickupCard,
             Position = UDim2.fromOffset(11, 154),
             Size = UDim2.new(1, -22, 0, 13),
             BackgroundTransparency = 1,
-            Text = "Coins per Second Threshold · Unit",
+            Text = "Coins per Second Threshold",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.GothamMedium,
             TextSize = 9,
@@ -1920,7 +1944,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         AddCorner(CPSFilter.input, 5)
         AddStroke(CPSFilter.input, Theme.Border, 1)
-        CPSFilter.button = CreateButton(AutoPickupCard, "Unit: K ▼", function()
+        CPSFilter.button = CreateButton(AutoPickupCard, "K ▼", function()
             CPSFilter.open = not CPSFilter.open
             RarityFilterOpen = false
             ZoneFilterOpen = false
@@ -1930,7 +1954,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if EggFilterList then EggFilterList.Visible = false end
             if KGUnitState.list then KGUnitState.list.Visible = false; KGUnitState.open = false end
             CPSFilter.list.Visible = CPSFilter.open
-            CPSFilter.button.Text = CPSFilter.open and "Unit: " .. CPSFilter.unit .. " ▲" or "Unit: " .. CPSFilter.unit .. " ▼"
+            CPSFilter.button.Text = CPSFilter.open and CPSFilter.unit .. " ▲" or CPSFilter.unit .. " ▼"
         end)
         CPSFilter.button.Name = "CPSUnitFilterButton"
         CPSFilter.button.Position = UDim2.new(1, -63, 0, 169)
@@ -1973,7 +1997,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AddCorner(unitButton, 4)
             unitButton.MouseButton1Click:Connect(function()
                 CPSFilter.unit = unit
-                CPSFilter.button.Text = "Unit: " .. unit .. " ▼"
+                CPSFilter.button.Text = unit .. " ▼"
                 CPSFilter.open = false
                 CPSFilter.list.Visible = false
                 for _, child in ipairs(CPSFilter.list:GetChildren()) do
@@ -5381,7 +5405,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
     elseif index == 5 then
-        local ThemeCard = CreateCard(Page, "🎨  Theme Settings", "Choose a color palette for the interface.")
+        local ThemeCard = CreateCard(Page, "Theme Settings", "Choose a color palette for the interface.")
         local ThemeOptions = {
             "Midnight Blue + Cyan",
             "Black + Purple",
@@ -5543,7 +5567,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             )
         end)
 
-        local AntiAFKCard = CreateCard(Page, "🛡️  Anti AFK", "")
+        local AntiAFKCard = CreateCard(Page, "️  Anti AFK", "")
         AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
         local AntiAFKEnabled = true
         local AntiAFKStatus = Create("TextLabel", {
@@ -5577,7 +5601,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         table.insert(Runtime.PersistentConnections, AntiAFKConnection)
 
     elseif index == 3 then
-        local CandyCard = CreateCard(Page, "🍬  Auto collect candies", "UNDER DEVELOPMENT")
+        local CandyCard = CreateCard(Page, "Auto collect candies", "UNDER DEVELOPMENT")
         CandyCard.Size = UDim2.new(1, 0, 0, 110)
         local CandyInfo = Create("TextLabel", {
             Parent = CandyCard,
@@ -5604,7 +5628,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             BorderSizePixel = 0,
             LayoutOrder = 0
         })
-        local ESPCard = CreateCard(ESPCardsRow, "🥚  Egg ESP", "Displays egg stats.")
+        local ESPCard = CreateCard(ESPCardsRow, "Egg ESP", "Displays egg stats.")
         ESPCard.Position = UDim2.new(0, 0, 0, 0)
         ESPCard.Size = UDim2.new(0.5, -5, 0, 100)
         ESPCard.LayoutOrder = 1
@@ -6023,7 +6047,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             BorderSizePixel = 0,
             LayoutOrder = 1
         })
-        local AntiPaloCard = CreateCard(MiscFeatureRow, "🛡️  Anti Knockback", "Prevents knockback and fling.")
+        local AntiPaloCard = CreateCard(MiscFeatureRow, "️  Anti Knockback", "Prevents knockback and fling.")
         AntiPaloCard.Position = UDim2.new(0, 0, 0, 0)
         AntiPaloCard.Size = UDim2.new(0.5, -5, 0, 100)
         AntiPaloCard.LayoutOrder = 1
@@ -6058,7 +6082,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AntiPaloToggle.Position = UDim2.new(1, -58, 0, 7)
         AntiPaloToggle.Size = UDim2.fromOffset(48, 24)
 
-        local AuraCard = CreateCard(MiscFeatureRow, "⚔️  Auto Boink", "Boink any enemy nearby.")
+        local AuraCard = CreateCard(MiscFeatureRow, "️  Auto Boink", "Boink any enemy nearby.")
         AuraCard.Position = UDim2.new(0.5, 5, 0, 0)
         AuraCard.Size = UDim2.new(0.5, -5, 0, 100)
         AuraCard.LayoutOrder = 2
@@ -6235,11 +6259,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         CreateButton(Card1, "Example Button", function()
             -- Put your actual function here.
         end)
-        local Card2 = CreateCard(Page, "🎨  Example Settings", "Example controls that only change the UI state.")
+        local Card2 = CreateCard(Page, "Example Settings", "Example controls that only change the UI state.")
         CreateToggle(Card2, "Example Toggle", false, function(state)
             -- state = true / false
         end)
-        local Card3 = CreateCard(Page, "🎛️  Example Options", "Dropdown and slider examples.")
+        local Card3 = CreateCard(Page, "️  Example Options", "Dropdown and slider examples.")
         CreateDropdown(Card3, "Mode", {"Option 1", "Option 2", "Option 3"}, function(selection)
             -- selection contains the selected option.
         end)
