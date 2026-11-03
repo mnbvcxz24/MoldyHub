@@ -1290,46 +1290,15 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     end)
 end
 
--- CREATE UI-ONLY TEMPLATE CARDS
+-- CREATE PAGES; KEEP ONLY THE AUTO THROW CARD
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
-
-    local StatusCard = CreateCard(Page, "Status Template", "A reusable status display card.")
-    StatusCard.Size = UDim2.new(1, 0, 0, 110)
-    Create("TextLabel", {
-        Name = "TemplateStatus",
-        Parent = StatusCard,
-        Position = UDim2.fromOffset(11, 66),
-        Size = UDim2.new(1, -22, 0, 20),
-        BackgroundTransparency = 1,
-        Text = "Status: Waiting",
-        TextColor3 = Theme.Accent,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
 
     if name == "Auto" then
         local AutoThrowCard = CreateCard(Page, "Auto Throw", "Toggle Auto Throw on or off.")
         AutoThrowCard.Size = UDim2.new(1, 0, 0, 110)
         CreateToggle(AutoThrowCard, "Enable Auto Throw", false)
-    else
-        local ToggleCard = CreateCard(Page, "Toggle Template", "A reusable toggle control.")
-        ToggleCard.Size = UDim2.new(1, 0, 0, 110)
-        CreateToggle(ToggleCard, "Enable feature", false)
     end
-
-    local ButtonCard = CreateCard(Page, "Button Template", "A reusable action button.")
-    ButtonCard.Size = UDim2.new(1, 0, 0, 110)
-    CreateButton(ButtonCard, "Example Button", nil)
-
-    local DropdownCard = CreateCard(Page, "Dropdown Template", "A reusable option selector.")
-    DropdownCard.Size = UDim2.new(1, 0, 0, 110)
-    CreateDropdown(DropdownCard, "Mode", {"Option 1", "Option 2", "Option 3"}, nil)
-
-    local SliderCard = CreateCard(Page, "Slider Template", "A reusable value slider.")
-    SliderCard.Size = UDim2.new(1, 0, 0, 140)
-    CreateSlider(SliderCard, "Example Value", 0, 100, 50, nil)
 end
 
 -- SHOW FIRST PAGE
