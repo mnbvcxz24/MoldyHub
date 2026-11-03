@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.298"
+local testver = "Test ver: 1.299"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1649,7 +1649,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         task.spawn(function()
             while not Runtime.Stopped and ScreenGui.Parent and StatsCard.Parent do
-                CashValue.Text = ReadPlayerStatAttribute("Cash")
+                CashValue.Text = FormatCompactStat(LocalPlayer:GetAttribute("Cash"))
                 CashPerSecondValue.Text = FormatCompactStat(LocalPlayer:GetAttribute("CashPerSecond"))
                 DiamondsValue.Text = ReadPlayerStatAttribute("Diamonds")
                 SpeedValue.Text = FormatCompactStat(LocalPlayer:GetAttribute("SpeedPower"))
