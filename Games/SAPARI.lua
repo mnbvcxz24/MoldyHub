@@ -1032,6 +1032,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 end
 
 -- CREATE TEMPLATE PAGES
+-- Shared by the Main status card and the Farm activity controllers.
+local StatusValue
+local StatusDot
+
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if name == "Main" then
@@ -1310,8 +1314,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local AutoTreadmillEnabled = false
         local AutoTreadmillStatusValue
         local AutoTreadmillStatusDot
-        local StatusValue
-        local StatusDot
         local AutoStealStatusValue
         local AutoStealStatusDot
 
@@ -2191,6 +2193,9 @@ end))
             if StatusValue then
                 StatusValue.Text = message
                 StatusValue.TextColor3 = Theme.Accent
+            end
+            if StatusDot then
+                StatusDot.BackgroundColor3 = Theme.Accent
             end
         end
         Runtime.SetMainActivity = SetNavigationStatus
