@@ -729,7 +729,7 @@ for index, name in ipairs(TabNames) do
                 end
                 if not root:GetAttribute("CLAutoFarmFloatActive") then
                     root:SetAttribute("CLAutoFarmFloatActive", true)
-                    root.CFrame = root.CFrame + Vector3.new(0, 15, 0)
+                    root.CFrame = root.CFrame + Vector3.new(0, 30, 0)
                 end
                 root.Anchored = true
             else
@@ -784,7 +784,7 @@ for index, name in ipairs(TabNames) do
             if autoFarmEnabled then
                 local root = character:WaitForChild("HumanoidRootPart", 5)
                 if root and autoFarmEnabled then
-                    root.CFrame = root.CFrame + Vector3.new(0, 15, 0)
+                    root.CFrame = root.CFrame + Vector3.new(0, 30, 0)
                     root.Anchored = true
                     root:SetAttribute("CLAutoFarmFloatActive", true)
                     root:SetAttribute("CLAutoFarmOriginalAnchored", false)
@@ -820,6 +820,25 @@ for index, name in ipairs(TabNames) do
         CreateCheckbox(card, "Use V", 153, function(checked)
             skillEnabled.V = checked
             startSkillLoop("V", checked)
+        end)
+    elseif index == 5 then
+        local antiAfkConnection
+        local card = CreateCard(left, "Anti AFK", 64)
+        CreateToggle(card, "Anti AFK", 34, function(enabled)
+            if antiAfkConnection then
+                antiAfkConnection:Disconnect()
+                antiAfkConnection = nil
+            end
+
+            if enabled then
+                local VirtualUser = game:GetService("VirtualUser")
+                antiAfkConnection = LocalPlayer.Idled:Connect(function()
+                    pcall(function()
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton2(Vector2.new())
+                    end)
+                end)
+            end
         end)
     end
 end
