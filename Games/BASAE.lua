@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.300"
+local testver = "Test ver: 1.301"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -1724,7 +1724,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AutoBreakToggle.Size = UDim2.fromOffset(48, 24)
         local AutoBreakTitle = Card1:FindFirstChildWhichIsA("TextLabel")
         if AutoBreakTitle then AutoBreakTitle.Size = UDim2.new(1, -78, 0, 22) end
-        local AutoPickupCard = CreateCard(AutoRow, "Auto Pickup", "")
+        local AutoPickupCard = CreateCard(AutoRow, "Auto Steal", "")
         AutoPickupCard.Position = UDim2.new(0, 0, 0, 0)
         AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
         local AutoPickupEnabled = false
@@ -2068,21 +2068,22 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local function CreatePickupCheckbox(parent, labelText, yPosition, callback)
             local Checkbox = Create("TextButton", {
                 Parent = parent,
-                Position = UDim2.fromOffset(11, yPosition),
-                Size = UDim2.fromOffset(24, 22),
-                BackgroundTransparency = 1,
-                Text = "[ ]",
-                TextColor3 = Theme.Gray,
-                Font = Enum.Font.GothamMedium,
+                Position = UDim2.new(1, -30, 0, yPosition + 4),
+                Size = UDim2.fromOffset(14, 14),
+                BackgroundColor3 = Theme.SurfaceInput,
+                Text = "",
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.GothamBold,
                 TextSize = 10,
-                TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
                 AutoButtonColor = false
             })
+            AddCorner(Checkbox, 3)
+            AddStroke(Checkbox, Theme.Gray, 1)
             local Label = Create("TextButton", {
                 Parent = parent,
-                Position = UDim2.fromOffset(35, yPosition),
-                Size = UDim2.new(1, -46, 0, 22),
+                Position = UDim2.fromOffset(11, yPosition),
+                Size = UDim2.new(1, -55, 0, 22),
                 BackgroundTransparency = 1,
                 Text = labelText,
                 TextColor3 = Theme.Text,
@@ -2095,8 +2096,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local Enabled = false
             local function SetEnabled(value)
                 Enabled = value
-                Checkbox.Text = Enabled and "[x]" or "[ ]"
-                Checkbox.TextColor3 = Enabled and Theme.Accent or Theme.Gray
+                Checkbox.Text = Enabled and "✓" or ""
+                Checkbox.BackgroundColor3 = Enabled and Theme.Accent or Theme.SurfaceInput
+                Checkbox.TextColor3 = Theme.Text
                 if callback then callback(Enabled) end
             end
             local function Toggle()
@@ -2112,17 +2114,17 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AddDebugLog("[Auto Pickup] " .. (enabled and "Lowest placed CPS filter ON." or "Lowest placed CPS filter OFF."))
         end)
         local UnindexedOnlyEnabled = false
-        local UnindexedOnlyToggle = CreatePickupCheckbox(AutoPickupCard, "Unindexed Animals", 231, function(enabled)
+        local UnindexedOnlyToggle = CreatePickupCheckbox(AutoPickupCard, "Steal not Index Animals", 231, function(enabled)
             UnindexedOnlyEnabled = enabled
             AddDebugLog("[Auto Pickup] " .. (enabled and "Unindexed-only verification ON." or "Unindexed-only verification OFF."))
         end)
         local DropInZone1Enabled = false
-        local DropInZone1Toggle = CreatePickupCheckbox(AutoPickupCard, "Drop in Zone 1", 257, function(enabled)
+        local DropInZone1Toggle = CreatePickupCheckbox(AutoPickupCard, "Drop the animal in Zone 1", 257, function(enabled)
             DropInZone1Enabled = enabled
             AddDebugLog("[Auto Pickup] Drop in Zone 1 " .. (enabled and "ON." or "OFF."))
         end)
         local PickUpWithMutationEnabled = false
-        local PickUpWithMutationToggle = CreatePickupCheckbox(AutoPickupCard, "With Mutation", 283, function(enabled)
+        local PickUpWithMutationToggle = CreatePickupCheckbox(AutoPickupCard, "Steal animal with mutation", 283, function(enabled)
             PickUpWithMutationEnabled = enabled
             AddDebugLog("[Auto Pickup] With Mutation " .. (enabled and "ON." or "OFF."))
         end)
