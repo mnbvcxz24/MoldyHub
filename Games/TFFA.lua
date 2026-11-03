@@ -36,7 +36,7 @@ RuntimeEnv.__TFFACleanup = function()
     pcall(function()
         local oldUI = game.CoreGui:FindFirstChild("TFFAUI")
         if oldUI then oldUI:Destroy() end
-        local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+        local oldStatusBar = game.CoreGui:FindFirstChild("TFFAStatusBarGui")
         if oldStatusBar then oldStatusBar:Destroy() end
     end)
 end
@@ -107,7 +107,7 @@ end
 pcall(function()
     local oldUI = game.CoreGui:FindFirstChild("TFFAUI")
     if oldUI then oldUI:Destroy() end
-    local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    local oldStatusBar = game.CoreGui:FindFirstChild("TFFAStatusBarGui")
     if oldStatusBar then oldStatusBar:Destroy() end
 end)
 -- THEME PRESETS
@@ -318,7 +318,7 @@ local function ApplyTheme(themeName)
 
     -- The status bar uses a separate ScreenGui for input priority, so update
     -- its badge explicitly whenever the user changes the theme.
-    local statusGui = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    local statusGui = game.CoreGui:FindFirstChild("TFFAStatusBarGui")
     if statusGui then
         local statusBar = statusGui:FindFirstChild("MoldyHubStatusBar", true)
         local brandBadge = statusGui:FindFirstChild("BrandBadge", true)
@@ -361,7 +361,7 @@ end
 -- Separate lower DisplayOrder keeps this decorative/draggable bar from
 -- intercepting input intended for the main window when they overlap.
 local StatusBarGui = Create("ScreenGui", {
-    Name = "MoldyHubStatusBarGui",
+    Name = "TFFAStatusBarGui",
     Parent = game.CoreGui,
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
