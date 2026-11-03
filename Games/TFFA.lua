@@ -1290,6 +1290,110 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     end)
 end
 
+-- AUTO THROW: ONE-SHOT SEQUENCE (NO LOOP)
+local AutoThrowActive = false
+local AutoThrowRunId = 0
+
+local function GetStarterAreaCFrame(starterArea)
+    if not starterArea then
+        return nil
+    end
+
+    if starterArea:IsA("BasePart") then
+        return starterArea.CFrame
+    elseif starterArea:IsA("Model") then
+        return starterArea:GetPivot()
+    end
+
+    return nil
+end
+
+local function RunAutoThrow()
+    AutoThrowRunId += 1
+    local thisRunId = AutoThrowRunId
+    AutoThrowActive = true
+
+    task.spawn(function()
+        local function IsCurrentRun()
+            return AutoThrowActive and AutoThrowRunId == thisRunId and not Runtime.Stopped
+        end
+
+        local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        if not IsCurrentRun() then return end
+
+        local root = character:FindFirstChild("HumanoidRootPart")
+            or character:WaitForChild("HumanoidRootPart", 10)
+        if not root then
+            warn("[TFFA] Auto Throw stopped: HumanoidRootPart not found.")
+            return
+        end
+        if not IsCurrentRun() then return end
+
+        local starterArea = workspace:FindFirstChild("StarterArea")
+        local targetCFrame = GetStarterAreaCFrame(starterArea)
+        if not targetCFrame then
+            warn("[TFFA] Auto Throw stopped: workspace.StarterArea is missing or is not a Part/Model.")
+            return
+        end
+
+        character:PivotTo(targetCFrame + Vector3.new(0, 3, 0))
+        task.wait(0.25)
+        if not IsCurrentRun() then return end
+
+        local replicatedStorage = game:GetService("ReplicatedStorage")
+        local remotes = replicatedStorage:FindFirstChild("Remotes")
+        local throwStart = remotes and remotes:FindFirstChild("Throw_Start")
+        if not throwStart or not throwStart:IsA("RemoteFunction") then
+            warn("[TFFA] Auto Throw stopped: Throw_Start RemoteFunction not found.")
+            return
+        end
+
+        local invokeOk, startResult = pcall(function()
+            return throwStart:InvokeServer()
+        end)
+        if not invokeOk then
+            warn("[TFFA] Throw_Start failed: " .. tostring(startResult))
+            return
+        end
+        if not IsCurrentRun() then return end
+
+        local matchesExpectedResult = type(startResult) == "table"
+            and startResult.Ok == true
+            and startResult.Saved == 0
+            and startResult.FoodIndex == 2
+            and startResult.MaxArea == 1
+            and startResult.Power == 78
+            and startResult.SuperOffer == false
+
+        if not matchesExpectedResult then
+            return
+        end
+
+        local throwResolve = remotes:FindFirstChild("Throw_Resolve")
+        if not throwResolve or not throwResolve:IsA("RemoteFunction") then
+            warn("[TFFA] Auto Throw stopped: Throw_Resolve RemoteFunction not found.")
+            return
+        end
+
+        local resolveOk, resolveError = pcall(function()
+            throwResolve:InvokeServer(1)
+        end)
+        if not resolveOk then
+            warn("[TFFA] Throw_Resolve failed: " .. tostring(resolveError))
+        end
+        -- Intentionally one-shot: do not call Throw_Start or Throw_Resolve again.
+    end)
+end
+
+local function SetAutoThrowEnabled(enabled)
+    if enabled then
+        RunAutoThrow()
+    else
+        AutoThrowActive = false
+        AutoThrowRunId += 1
+    end
+end
+
 -- CREATE PAGES; KEEP ONLY THE AUTO THROW CARD
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
@@ -1297,7 +1401,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     if name == "Auto" then
         local AutoThrowCard = CreateCard(Page, "Auto Throw", "Toggle Auto Throw on or off.")
         AutoThrowCard.Size = UDim2.new(1, 0, 0, 110)
-        CreateToggle(AutoThrowCard, "Enable Auto Throw", false)
+        CreateToggle(AutoThrowCard, "Enable Auto Throw", false, SetAutoThrowEnabled)
     end
 end
 
