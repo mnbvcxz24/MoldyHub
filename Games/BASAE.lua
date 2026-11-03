@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.312"
+local testver = "Test ver: 1.313"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2375,6 +2375,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         RefreshPickupZoneList()
         local SelectedZones = {}
         local SelectedEggs = {}
+        local UpdateAutoBreakFilterButtonTexts
         local PreferredZoneName = nil
         local SortOrder = "Highest Luck"
         local SortFrame
@@ -2447,8 +2448,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 EggFilterList.Position = UDim2.new(0, EggFilterButton.Position.X.Offset, 0, EggFilterButton.Position.Y.Offset + EggFilterButton.AbsoluteSize.Y + 4)
                 EggFilterList.Size = UDim2.new(1, -22, 0, 140)
             end
-            ZoneFilterButton.Text = ZoneFilterOpen and "Zones ▲" or "Zones ▼"
-            EggFilterButton.Text = EggFilterOpen and "Eggs ▲" or "Eggs ▼"
+            UpdateAutoBreakFilterButtonTexts()
             RarityFilterButton.Text = RarityFilterOpen and "Rarity ▲" or "Rarity ▼"
         end
         Create("TextLabel", {
@@ -2870,6 +2870,44 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
             return records
         end
+        UpdateAutoBreakFilterButtonTexts = function()
+            local selectedZones = {}
+            for zoneName, enabled in pairs(SelectedZones) do
+                if enabled then
+                    table.insert(selectedZones, zoneName:match("%d+") or zoneName)
+                end
+            end
+            table.sort(selectedZones, function(a, b)
+                local an, bn = tonumber(a), tonumber(b)
+                if an and bn then return an > bn end
+                if an then return true end
+                if bn then return false end
+                return a < b
+            end)
+            local zoneSummary = #selectedZones > 0 and table.concat(selectedZones, ", ") or "All"
+            ZoneFilterButton.Text = "Zones: " .. zoneSummary .. (ZoneFilterOpen and " ▲" or " ▼")
+            ZoneFilterButton.TextSize = 8
+            ZoneFilterButton.TextXAlignment = Enum.TextXAlignment.Center
+
+            local records = GetEggRecords()
+            local selectedEggs = {}
+            for _, record in ipairs(records) do
+                if SelectedEggs[record.name] ~= false then
+                    table.insert(selectedEggs, record.name)
+                end
+            end
+            local eggSummary
+            if #selectedEggs == #records then
+                eggSummary = #records == 0 and "None" or "All"
+            elseif #selectedEggs == 0 then
+                eggSummary = "None"
+            else
+                eggSummary = table.concat(selectedEggs, ", ")
+            end
+            EggFilterButton.Text = "Eggs: " .. eggSummary .. (EggFilterOpen and " ▲" or " ▼")
+            EggFilterButton.TextSize = 8
+            EggFilterButton.TextXAlignment = Enum.TextXAlignment.Center
+        end
         local RefreshEggList
         function RefreshZoneList()
             for _, item in ipairs(ZoneList:GetChildren()) do
@@ -3065,12 +3103,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end)
             end
         end
-        local TitanicPriorityToggle = CreateToggle(Card1, "Titanic Priority", false, function(enabled)
+        local TitanicPriorityToggle = CreatePickupCheckbox(Card1, "Titanic Priority", AutoBreakControlLayout.TitanicY, function(enabled)
             TitanicPriorityEnabled = enabled
             AddDebugLog("[Auto Break] TITANIC priority " .. (enabled and "ON" or "OFF"))
             if RefreshEggFilters then RefreshEggFilters() end
         end)
-        SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
         Card1.Size = UDim2.new(0.5, -5, 0, 190)
         AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
         local function UpdateAutoBreakCardHeights()
