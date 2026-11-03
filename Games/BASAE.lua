@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.314"
+local testver = "Test ver: 1.315"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -3132,6 +3132,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         EggFilterButton.MouseButton1Click:Connect(UpdateFilterPanelWithTitanic)
         RefreshZoneList()
         RefreshEggList()
+        UpdateAutoBreakFilterButtonTexts()
         TrackPersistentConnection(ZoneBuilds.ChildAdded:Connect(function()
             RefreshZoneList()
             RefreshEggList()
