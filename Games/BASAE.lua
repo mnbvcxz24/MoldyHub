@@ -1441,54 +1441,21 @@ for index, name in ipairs(UIConfig.SidebarNames) do
 
         local function RefreshMasteryRows()
             local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-            if not playerGui then return end
-
-            -- The game may rebuild or nest the Mastery UI differently after updates.
-            -- Search recursively so the dashboard does not depend on one exact path.
-            local mainGui = playerGui:FindFirstChild("MainGUI", true)
-            local masteryList = nil
-            if mainGui then
-                local mastery = mainGui:FindFirstChild("Mastery", true)
-                masteryList = mastery and mastery:FindFirstChild("MasteryList", true)
-                if not masteryList then
-                    masteryList = mainGui:FindFirstChild("MasteryList", true)
-                end
-            end
-            if not masteryList then
-                masteryList = playerGui:FindFirstChild("MasteryList", true)
-            end
+            local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
+            local frames = mainGui and mainGui:FindFirstChild("Frames")
+            local mastery = frames and frames:FindFirstChild("Mastery")
+            local masteryList = mastery and mastery:FindFirstChild("MasteryList")
             if not masteryList then return end
 
             local found = {}
-            for _, masteryFrame in ipairs(masteryList:GetDescendants()) do
+            for _, masteryFrame in ipairs(masteryList:GetChildren()) do
                 if masteryFrame:IsA("Frame") and masteryFrame.Name:sub(1, 8) == "Mastery_" then
-                    local container = masteryFrame:FindFirstChild("Container", true)
-                    local nameLabel = container and (
-                        container:FindFirstChild("Title", true)
-                        or container:FindFirstChild("Name", true)
-                        or container:FindFirstChild("MasteryName", true)
-                    )
-                    local levelLabel = container and (
-                        container:FindFirstChild("LevelNumber", true)
-                        or container:FindFirstChild("Level", true)
-                        or container:FindFirstChild("LevelText", true)
-                    )
-                    if not nameLabel then
-                        nameLabel = masteryFrame:FindFirstChild("Title", true)
-                            or masteryFrame:FindFirstChild("Name", true)
-                            or masteryFrame:FindFirstChild("MasteryName", true)
-                    end
-                    if not levelLabel then
-                        levelLabel = masteryFrame:FindFirstChild("LevelNumber", true)
-                            or masteryFrame:FindFirstChild("Level", true)
-                            or masteryFrame:FindFirstChild("LevelText", true)
-                    end
-
-                    if nameLabel and levelLabel
-                        and nameLabel:IsA("TextLabel")
-                        and levelLabel:IsA("TextLabel") then
+                    local container = masteryFrame:FindFirstChild("Container")
+                    local nameLabel = container and container:FindFirstChild("Title")
+                    local levelLabel = container and container:FindFirstChild("LevelNumber")
+                    if nameLabel and levelLabel and nameLabel:IsA("TextLabel") and levelLabel:IsA("TextLabel") then
                         table.insert(found, {
-                            Key = masteryFrame:GetFullName(),
+                            Key = masteryFrame.Name,
                             Name = nameLabel.Text,
                             Level = levelLabel.Text
                         })
@@ -1521,7 +1488,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         BorderSizePixel = 0
                     })
                     AddCorner(accent, 2)
-                    Create("TextLabel", {
+                    local title = Create("TextLabel", {
                         Name = "MasteryName",
                         Parent = row,
                         Position = UDim2.fromOffset(6, 21),
@@ -1533,7 +1500,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         TextXAlignment = Enum.TextXAlignment.Center,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
-                    Create("TextLabel", {
+                    local level = Create("TextLabel", {
                         Name = "MasteryLevel",
                         Parent = row,
                         Position = UDim2.fromOffset(6, 3),
@@ -1545,6 +1512,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         TextXAlignment = Enum.TextXAlignment.Center,
                         TextTruncate = Enum.TextTruncate.AtEnd
                     })
+                    row:SetAttribute("MasteryKey", item.Key)
                     MasteryRows[item.Key] = row
                 end
                 row.LayoutOrder = index
