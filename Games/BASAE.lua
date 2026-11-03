@@ -2079,7 +2079,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 AutoButtonColor = false
             })
             AddCorner(Checkbox, 3)
-            AddStroke(Checkbox, Theme.Gray, 2)
             local Label = Create("TextButton", {
                 Parent = parent,
                 Position = UDim2.fromOffset(11, yPosition),
