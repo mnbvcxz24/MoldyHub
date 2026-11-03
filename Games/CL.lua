@@ -5,11 +5,14 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
 local old = game.CoreGui:FindFirstChild(UI_NAME)
 if old then old:Destroy() end
+local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+if oldStatusBar then oldStatusBar:Destroy() end
 
 local Theme = {
     Background = Color3.fromRGB(10, 12, 18),
@@ -111,7 +114,263 @@ local CloseButton = Create("TextButton", {
 Corner(CloseButton, 8)
 Stroke(CloseButton, Theme.Border, 1)
 CloseButton.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
+    Main.Visible = false
+end)
+
+-- BASAE-style floating minimize circle. It remains available when the window is hidden.
+local FloatingToggle = Create("TextButton", {
+    Name = "FloatingToggle",
+    Parent = ScreenGui,
+    Position = UDim2.new(1, -52, 0, 16),
+    Size = UDim2.fromOffset(36, 36),
+    BackgroundColor3 = Theme.Sidebar,
+    Text = "B",
+    TextColor3 = Theme.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    BorderSizePixel = 0,
+    AutoButtonColor = true,
+    Active = true,
+    ZIndex = 100
+})
+Corner(FloatingToggle, 18)
+Stroke(FloatingToggle, Theme.Border, 1)
+
+local function GetFloatingToggleBounds()
+    local camera = workspace.CurrentCamera
+    if not camera then return 0, 0 end
+    local viewport = camera.ViewportSize
+    local buttonSize = FloatingToggle.AbsoluteSize
+    return math.max(0, viewport.X - buttonSize.X), math.max(0, viewport.Y - buttonSize.Y)
+end
+
+local function ClampFloatingTogglePosition(x, y)
+    local maxX, maxY = GetFloatingToggleBounds()
+    return math.clamp(x, 0, maxX), math.clamp(y, 0, maxY)
+end
+
+local function PositionFloatingToggleUpperRight()
+    local maxX = GetFloatingToggleBounds()
+    FloatingToggle.Position = UDim2.fromOffset(math.max(0, maxX - 16), 16)
+end
+PositionFloatingToggleUpperRight()
+
+local function KeepFloatingToggleOnScreen()
+    local x, y = ClampFloatingTogglePosition(FloatingToggle.AbsolutePosition.X, FloatingToggle.AbsolutePosition.Y)
+    FloatingToggle.Position = UDim2.fromOffset(x, y)
+end
+
+local function WatchFloatingToggleViewport(camera)
+    if camera then
+        camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepFloatingToggleOnScreen)
+    end
+end
+WatchFloatingToggleViewport(workspace.CurrentCamera)
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    WatchFloatingToggleViewport(workspace.CurrentCamera)
+    KeepFloatingToggleOnScreen()
+end)
+
+local CircleDragging, CircleDragInput, CircleDragStart, CircleStartPosition, CircleMoved = false, nil, nil, nil, false
+FloatingToggle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        CircleDragging = true
+        CircleDragInput = input
+        CircleDragStart = input.Position
+        CircleStartPosition = FloatingToggle.AbsolutePosition
+        CircleMoved = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if not CircleDragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input == CircleDragInput then
+        local delta = input.Position - CircleDragStart
+        if delta.Magnitude > 6 then CircleMoved = true end
+        if CircleMoved then
+            local x, y = ClampFloatingTogglePosition(CircleStartPosition.X + delta.X, CircleStartPosition.Y + delta.Y)
+            FloatingToggle.Position = UDim2.fromOffset(x, y)
+        end
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if CircleDragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == CircleDragInput) then
+        local wasDragged = CircleMoved
+        CircleDragging, CircleDragInput, CircleMoved = false, nil, false
+        if not wasDragged then Main.Visible = not Main.Visible end
+    end
+end)
+
+-- BASAE-style compact game / FPS / brand / ping / runtime status bar.
+local StatusBarGui = Create("ScreenGui", {
+    Name = "MoldyHubStatusBarGui",
+    Parent = game.CoreGui,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 999998,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global
+})
+local StatusBar = Create("Frame", {
+    Name = "MoldyHubStatusBar",
+    Parent = StatusBarGui,
+    Position = UDim2.fromOffset(0, 0),
+    Size = UDim2.fromOffset(500, 34),
+    BackgroundColor3 = Theme.Card,
+    BorderSizePixel = 0,
+    Active = true,
+    ZIndex = 200
+})
+Corner(StatusBar, 9)
+Stroke(StatusBar, Theme.Border, 1)
+local StatusBarScale = Create("UIScale", {Parent = StatusBar, Scale = 0.60})
+local function UpdateStatusBarScale()
+    local camera = workspace.CurrentCamera
+    if camera then
+        StatusBarScale.Scale = math.clamp(math.min(0.60, (camera.ViewportSize.X * 0.84) / 500), 0.35, 0.60)
+    end
+end
+local function CenterStatusBarInitially()
+    local camera = workspace.CurrentCamera
+    local width = camera and camera.ViewportSize.X or 0
+    StatusBar.Position = UDim2.fromOffset(math.max(0, (width - StatusBar.AbsoluteSize.X) / 2), 0)
+end
+UpdateStatusBarScale()
+CenterStatusBarInitially()
+local accentLine = Create("Frame", {
+    Parent = StatusBar,
+    Position = UDim2.fromOffset(12, 0),
+    Size = UDim2.new(1, -24, 0, 2),
+    BackgroundColor3 = Theme.Accent,
+    BorderSizePixel = 0,
+    ZIndex = 202
+})
+Corner(accentLine, 2)
+local function CreateStatusText(name, position, size, value, color, font, textSize, alignment)
+    return Create("TextLabel", {
+        Name = name,
+        Parent = StatusBar,
+        Position = position,
+        Size = size,
+        BackgroundTransparency = 1,
+        Text = value,
+        TextColor3 = color,
+        Font = font or Enum.Font.GothamMedium,
+        TextSize = textSize or 12,
+        TextXAlignment = alignment or Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 203
+    })
+end
+local GameNameLabel = CreateStatusText("GameName", UDim2.fromOffset(10, 3), UDim2.fromOffset(112, 28), "Loading game...", Theme.DarkGray, Enum.Font.GothamBold, 10, Enum.TextXAlignment.Left)
+GameNameLabel.TextScaled = true
+GameNameLabel.TextWrapped = false
+local nameConstraint = Instance.new("UITextSizeConstraint")
+nameConstraint.MinTextSize = 5
+nameConstraint.MaxTextSize = 10
+nameConstraint.Parent = GameNameLabel
+local function CreateStatusDivider(x)
+    Create("Frame", {
+        Parent = StatusBar,
+        Position = UDim2.fromOffset(x, 9),
+        Size = UDim2.fromOffset(1, 16),
+        BackgroundColor3 = Theme.Border,
+        BorderSizePixel = 0,
+        ZIndex = 202
+    })
+end
+CreateStatusDivider(126)
+local FPSLabel = CreateStatusText("FPS", UDim2.fromOffset(132, 3), UDim2.fromOffset(58, 28), "0 FPS", Theme.Text, Enum.Font.GothamBold, 10)
+CreateStatusDivider(194)
+local BrandBadge = Create("Frame", {
+    Parent = StatusBar,
+    Position = UDim2.fromOffset(201, 5),
+    Size = UDim2.fromOffset(102, 24),
+    BackgroundColor3 = Theme.Selected,
+    BorderSizePixel = 0,
+    ZIndex = 202
+})
+Corner(BrandBadge, 12)
+Stroke(BrandBadge, Theme.Border, 1)
+Create("TextLabel", {
+    Parent = BrandBadge,
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    Text = '<font color="#' .. Theme.Accent:ToHex() .. '">Moldy</font><font color="#' .. Theme.Text:ToHex() .. '">Hub</font>',
+    TextColor3 = Theme.Text,
+    RichText = true,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    ZIndex = 203
+})
+CreateStatusDivider(310)
+local PingLabel = CreateStatusText("Ping", UDim2.fromOffset(316, 3), UDim2.fromOffset(66, 28), "-- MS", Theme.DarkGray, Enum.Font.GothamBold, 10)
+CreateStatusDivider(389)
+local DurationLabel = CreateStatusText("Duration", UDim2.fromOffset(395, 3), UDim2.fromOffset(96, 28), "00:00:00", Theme.Text, Enum.Font.GothamBold, 10)
+task.spawn(function()
+    local ok, info = pcall(function()
+        return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+    end)
+    GameNameLabel.Text = ok and info and type(info.Name) == "string" and info.Name ~= "" and info.Name or (game.Name ~= "" and game.Name or "Roblox Game")
+end)
+local StatusBarDragging, StatusBarDragInput, StatusBarDragStart, StatusBarStartPosition, StatusBarStartAbsolute = false, nil, nil, nil, nil
+StatusBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        StatusBarDragging = true
+        StatusBarDragInput = input
+        StatusBarDragStart = input.Position
+        StatusBarStartPosition = StatusBar.Position
+        StatusBarStartAbsolute = StatusBar.AbsolutePosition
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if StatusBarDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input == StatusBarDragInput) then
+        local delta = input.Position - StatusBarDragStart
+        StatusBar.Position = UDim2.new(StatusBarStartPosition.X.Scale, StatusBarStartPosition.X.Offset + delta.X,
+            StatusBarStartPosition.Y.Scale, StatusBarStartPosition.Y.Offset + delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if StatusBarDragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == StatusBarDragInput) then
+        StatusBarDragging, StatusBarDragInput = false, nil
+    end
+end)
+local FPSFrames, FPSLastUpdate = 0, os.clock()
+RunService.RenderStepped:Connect(function()
+    FPSFrames = FPSFrames + 1
+    local now = os.clock()
+    local elapsed = now - FPSLastUpdate
+    if elapsed >= 1 then
+        FPSLabel.Text = string.format("%d FPS", math.floor(FPSFrames / elapsed + 0.5))
+        FPSFrames, FPSLastUpdate = 0, now
+    end
+end)
+local ScriptStartedAt = os.clock()
+task.spawn(function()
+    local stats = game:GetService("Stats")
+    while StatusBarGui.Parent do
+        local ping = "--"
+        pcall(function()
+            local item = stats.Network.ServerStatsItem["Data Ping"]
+            local value = item:GetValue()
+            if type(value) == "number" then
+                ping = tostring(math.floor(value + 0.5))
+            else
+                local number = string.match(item:GetValueString(), "[%d%.]+")
+                if number then ping = tostring(math.floor(tonumber(number) + 0.5)) end
+            end
+        end)
+        PingLabel.Text = ping .. " MS"
+        local total = math.max(0, math.floor(os.clock() - ScriptStartedAt))
+        DurationLabel.Text = string.format("%02d:%02d:%02d", math.floor(total / 3600), math.floor((total % 3600) / 60), total % 60)
+        task.wait(1)
+    end
+end)
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    UpdateStatusBarScale()
+end)
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    WatchFloatingToggleViewport(workspace.CurrentCamera)
+    KeepFloatingToggleOnScreen()
 end)
 
 local NavigationBar = Create("Frame", {
