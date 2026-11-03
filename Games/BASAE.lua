@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.267"
+local testver = "Deploy ver: 1.2"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -321,6 +321,11 @@ local function ApplyTheme(themeName)
     end
     ActiveThemeName = themeName
     local colorProperties = {"BackgroundColor3", "TextColor3", "TextStrokeColor3", "ImageColor3", "ScrollBarImageColor3", "Color"}
+    for _, checkboxBorder in ipairs(ScreenGui:GetDescendants()) do
+        if checkboxBorder:IsA("Frame") and checkboxBorder.Name == "PickupOptionCheckboxBorder" then
+            checkboxBorder.BackgroundColor3 = selectedTheme.Accent
+        end
+    end
     for _, object in ipairs(ScreenGui:GetDescendants()) do
         for _, property in ipairs(colorProperties) do
             local ok, currentColor = pcall(function()
@@ -838,36 +843,32 @@ local function CreatePage(pageNumber, pageName)
         Visible = true,
         ClipsDescendants = true
     })
-    Create("UIPadding", {
-        Parent = Page,
-        PaddingTop = UDim.new(0, 12),
-        PaddingBottom = UDim.new(0, 12),
-        PaddingLeft = UDim.new(0, 12),
-        PaddingRight = UDim.new(0, 12)
-    })
+    -- Page children are positioned explicitly; avoid UIPadding adding
+    -- a second, inconsistent inset to manually positioned feature rows.
     local LeftColumn = Create("Frame", {
         Name = "LeftColumn",
         Parent = Page,
-        Size = UDim2.new(0.5, -4, 0, 0),
+        Position = UDim2.fromOffset(10, 10),
+        Size = UDim2.new(0.5, -15, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
     local RightColumn = Create("Frame", {
         Name = "RightColumn",
         Parent = Page,
-        Position = UDim2.new(0.5, 4, 0, 0),
-        Size = UDim2.new(0.5, -4, 0, 0),
+        Position = UDim2.new(0.5, 5, 0, 10),
+        Size = UDim2.new(0.5, -15, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
     local LeftLayout = Create("UIListLayout", {
         Parent = LeftColumn,
-        Padding = UDim.new(0, 8),
+        Padding = UDim.new(0, 10),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     local RightLayout = Create("UIListLayout", {
         Parent = RightColumn,
-        Padding = UDim.new(0, 8),
+        Padding = UDim.new(0, 10),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     PageColumnMap[Page] = {
@@ -888,8 +889,8 @@ local function CreatePage(pageNumber, pageName)
                 contentBottom = math.max(contentBottom, childBottom)
             end
         end
-        -- Account for the page's 12px top and bottom padding.
-        Page.CanvasSize = UDim2.new(0, 0, 0, contentBottom + 24)
+        -- Children already include the 10px top/side inset; reserve 10px below.
+        Page.CanvasSize = UDim2.new(0, 0, 0, contentBottom + 10)
     end
     local function TrackCanvasChild(child)
         if not child:IsA("GuiObject") then return end
@@ -1329,90 +1330,359 @@ local AntiPaloEnabled = false
 for index, name in ipairs(UIConfig.SidebarNames) do
     local Page = CreatePage(index, name)
     if index == 1 then
-        local StatusCard = CreateCard(Page, "Status", "Status display is UI-only for now.")
-        StatusCard.Size = UDim2.new(1, 0, 0, 132)
-        local GameNameCaption = Create("TextLabel", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 40),
-            Size = UDim2.new(1, -22, 0, 12),
+        -- MAIN PAGE DASHBOARD
+        -- Use the same padded two-column card layout as every other page.
+        -- The page itself supplies the 12px outer margin; the column layout
+        -- supplies the shared 8px inter-card gap.
+        local MainPageColumns = PageColumnMap[Page]
+        local StatsCard = CreateCard(Page, "Stats", "")
+        StatsCard.Parent = MainPageColumns.Left
+        StatsCard.Position = UDim2.new(0, 0, 0, 0)
+        StatsCard.Size = UDim2.new(1, 0, 0, 190)
+        StatsCard.LayoutOrder = 1
+
+        local MasteryCard = CreateCard(Page, "Mastery", "")
+        MasteryCard.Parent = MainPageColumns.Right
+        MasteryCard.Position = UDim2.new(0, 0, 0, 0)
+        MasteryCard.Size = UDim2.new(1, 0, 0, 190)
+        MasteryCard.LayoutOrder = 1
+
+        -- Keep all stat tiles inside a content area inset evenly from the card edges.
+        local StatsContent = Create("Frame", {
+            Name = "StatsContent",
+            Parent = StatsCard,
+            Position = UDim2.fromOffset(9, 36),
+            Size = UDim2.new(1, -18, 1, -44),
             BackgroundTransparency = 1,
-            Text = "GAME",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.GothamSemibold,
-            TextSize = 8,
-            TextXAlignment = Enum.TextXAlignment.Left
+            BorderSizePixel = 0
         })
-        local GameNameValue = Create("TextLabel", {
-            Name = "GameNameValue",
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 52),
-            Size = UDim2.new(1, -22, 0, 16),
+        Create("UIGridLayout", {
+            Parent = StatsContent,
+            CellSize = UDim2.new(0.5, -4, 0, 42),
+            CellPadding = UDim2.fromOffset(8, 6),
+            FillDirection = Enum.FillDirection.Horizontal,
+            FillDirectionMaxCells = 2,
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local function CreateStatTile(name, caption, layoutOrder)
+            local tile = Create("Frame", {
+                Name = name:gsub("[^%w]", "") .. "Tile",
+                Parent = StatsContent,
+                Size = UDim2.new(0.5, -4, 0, 42),
+                BackgroundColor3 = Theme.SurfaceInput,
+                BorderSizePixel = 0,
+                LayoutOrder = layoutOrder
+            })
+            AddCorner(tile, 6)
+            AddStroke(tile, Theme.Border, 1)
+
+            do
+                local accent = Create("Frame", {
+                    Name = "Accent",
+                    Parent = tile,
+                    Position = UDim2.fromOffset(0, 8),
+                    Size = UDim2.new(0, 2, 1, -16),
+                    BackgroundColor3 = Theme.Accent,
+                    BorderSizePixel = 0
+                })
+                AddCorner(accent, 2)
+            end
+
+            Create("TextLabel", {
+                Name = "Caption",
+                Parent = tile,
+                Position = UDim2.fromOffset(10, 5),
+                Size = UDim2.new(1, -18, 0, 11),
+                BackgroundTransparency = 1,
+                Text = caption,
+                TextColor3 = Theme.Gray,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 7,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd
+            })
+            local value = Create("TextLabel", {
+                Name = "Value",
+                Parent = tile,
+                Position = UDim2.fromOffset(10, 18),
+                Size = UDim2.new(1, -18, 0, 18),
+                BackgroundTransparency = 1,
+                Text = "—",
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.GothamSemibold,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd
+            })
+            return value
+        end
+
+        local CashPerSecondValue = CreateStatTile("CashPerSecond", "CASH / S", 1)
+        local HighestCashAnimalValue = CreateStatTile("HighestCashAnimal", "TOP CASH / S ANIMAL", 2)
+        local PickaxeDamageValue = CreateStatTile("PickaxeDamage", "PICKAXE DAMAGE", 3)
+        local CashValue = CreateStatTile("Cash", "CASH", 4)
+        local SpeedValue = CreateStatTile("Speed", "SPEED", 5)
+        local DiamondsValue = CreateStatTile("Diamonds", "DIAMONDS", 6)
+
+        -- Fixed mastery grid: three compact columns, matching the Stats tile sizing.
+        local MasteryContent = Create("Frame", {
+            Name = "MasteryContent",
+            Parent = MasteryCard,
+            Position = UDim2.fromOffset(9, 36),
+            Size = UDim2.new(1, -18, 1, -44),
             BackgroundTransparency = 1,
-            Text = "Break and Steal and Egg",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.GothamSemibold,
-            TextSize = 10,
-            TextXAlignment = Enum.TextXAlignment.Left
+            BorderSizePixel = 0
         })
-        local StatusPlaceholder = Create("TextLabel", {
-            Name = "StatusPlaceholder",
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 72),
-            Size = UDim2.new(1, -22, 0, 14),
-            BackgroundTransparency = 1,
-            Text = "Not connected",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
+        local MasteryListLayout = Create("UIGridLayout", {
+            Parent = MasteryContent,
+            CellSize = UDim2.new(1 / 3, -4, 0, 42),
+            CellPadding = UDim2.fromOffset(6, 6),
+            FillDirection = Enum.FillDirection.Horizontal,
+            FillDirectionMaxCells = 3,
+            SortOrder = Enum.SortOrder.LayoutOrder
         })
-        local DurationCaption = Create("TextLabel", {
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 91),
-            Size = UDim2.new(1, -22, 0, 12),
-            BackgroundTransparency = 1,
-            Text = "DURATION",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.GothamSemibold,
-            TextSize = 8,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local DurationValue = Create("TextLabel", {
-            Name = "ScriptDurationValue",
-            Parent = StatusCard,
-            Position = UDim2.fromOffset(11, 104),
-            Size = UDim2.new(1, -22, 0, 18),
-            BackgroundTransparency = 1,
-            Text = "00:00:00",
-            TextColor3 = Theme.Accent,
-            Font = Enum.Font.GothamSemibold,
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
+        local MasteryRows = {}
+
+        local function RefreshMasteryRows()
+            local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+            local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
+            local frames = mainGui and mainGui:FindFirstChild("Frames")
+            local mastery = frames and frames:FindFirstChild("Mastery")
+            local masteryList = mastery and mastery:FindFirstChild("MasteryList")
+            if not masteryList then return end
+
+            local found = {}
+            for _, masteryFrame in ipairs(masteryList:GetChildren()) do
+                if masteryFrame:IsA("Frame") and masteryFrame.Name:sub(1, 8) == "Mastery_" then
+                    local container = masteryFrame:FindFirstChild("Container")
+                    local nameLabel = container and container:FindFirstChild("Title")
+                    local levelLabel = container and container:FindFirstChild("LevelNumber")
+                    if nameLabel and levelLabel and nameLabel:IsA("TextLabel") and levelLabel:IsA("TextLabel") then
+                        table.insert(found, {
+                            Key = masteryFrame.Name,
+                            Name = nameLabel.Text,
+                            Level = levelLabel.Text
+                        })
+                    end
+                end
+            end
+            table.sort(found, function(a, b) return a.Name < b.Name end)
+
+            local activeKeys = {}
+            for index, item in ipairs(found) do
+                activeKeys[item.Key] = true
+                local row = MasteryRows[item.Key]
+                if not row then
+                    row = Create("Frame", {
+                        Name = "MasteryRow_" .. tostring(index),
+                        Parent = MasteryContent,
+                        Size = UDim2.new(1 / 3, -4, 0, 42),
+                        BackgroundColor3 = Theme.SurfaceInput,
+                        BorderSizePixel = 0,
+                        LayoutOrder = index
+                    })
+                    AddCorner(row, 5)
+                    AddStroke(row, Theme.Border, 1)
+                    local accent = Create("Frame", {
+                        Name = "Accent",
+                        Parent = row,
+                        Position = UDim2.fromOffset(0, 8),
+                        Size = UDim2.new(0, 2, 1, -16),
+                        BackgroundColor3 = Theme.Accent,
+                        BorderSizePixel = 0
+                    })
+                    AddCorner(accent, 2)
+                    local title = Create("TextLabel", {
+                        Name = "MasteryName",
+                        Parent = row,
+                        Position = UDim2.fromOffset(6, 21),
+                        Size = UDim2.new(1, -12, 0, 16),
+                        BackgroundTransparency = 1,
+                        TextColor3 = Theme.Text,
+                        Font = Enum.Font.GothamMedium,
+                        TextSize = 8,
+                        TextXAlignment = Enum.TextXAlignment.Center,
+                        TextTruncate = Enum.TextTruncate.AtEnd
+                    })
+                    local level = Create("TextLabel", {
+                        Name = "MasteryLevel",
+                        Parent = row,
+                        Position = UDim2.fromOffset(6, 3),
+                        Size = UDim2.new(1, -12, 0, 16),
+                        BackgroundTransparency = 1,
+                        TextColor3 = Theme.Accent,
+                        Font = Enum.Font.GothamSemibold,
+                        TextSize = 9,
+                        TextXAlignment = Enum.TextXAlignment.Center,
+                        TextTruncate = Enum.TextTruncate.AtEnd
+                    })
+                    row:SetAttribute("MasteryKey", item.Key)
+                    MasteryRows[item.Key] = row
+                end
+                row.LayoutOrder = index
+                local title = row:FindFirstChild("MasteryName")
+                local level = row:FindFirstChild("MasteryLevel")
+                if title then title.Text = item.Name end
+                if level then level.Text = "LEVEL " .. item.Level end
+            end
+
+            for key, row in pairs(MasteryRows) do
+                if not activeKeys[key] then
+                    row:Destroy()
+                    MasteryRows[key] = nil
+                end
+            end
+        end
+
+        local function FormatCompactStat(value)
+            if value == nil then return "—" end
+
+            local raw = tostring(value)
+            local cleaned = raw:gsub(",", ""):gsub("%s+", "")
+            local numberText, suffix = cleaned:match("^([%d%.]+)([%a]*)$")
+            local number = tonumber(numberText)
+            if not number then return raw end
+
+            local scales = {
+                k = 1e3,
+                m = 1e6,
+                b = 1e9,
+                t = 1e12,
+                qa = 1e15,
+                q = 1e15,
+                qi = 1e18
+            }
+            local existingScale = scales[(suffix or ""):lower()]
+            if suffix and suffix ~= "" then
+                if not existingScale then return raw end
+                number *= existingScale
+            end
+
+            local divisor, compactSuffix
+            if number >= 1e18 then
+                divisor, compactSuffix = 1e18, "Qi"
+            elseif number >= 1e15 then
+                divisor, compactSuffix = 1e15, "Qa"
+            elseif number >= 1e12 then
+                divisor, compactSuffix = 1e12, "T"
+            elseif number >= 1e9 then
+                divisor, compactSuffix = 1e9, "B"
+            else
+                return raw
+            end
+
+            local compact = string.format("%.2f", number / divisor)
+                :gsub("0+$", "")
+                :gsub("%.$", "")
+            return compact .. compactSuffix
+        end
+
+        local function ReadPlayerStatAttribute(attributeName)
+            local value = LocalPlayer:GetAttribute(attributeName)
+            if value == nil then return "—" end
+            return tostring(value)
+        end
+
+        local function FindOwnedPlot()
+            local plots = workspace:FindFirstChild("Plots")
+            if not plots then return nil end
+
+            -- Prefer the owner attribute, but also support the game's visible
+            -- "Your Base" marker in case userID is missing or stored differently.
+            for baseIndex = 1, 7 do
+                local base = plots:FindFirstChild("Base_" .. tostring(baseIndex))
+                if base then
+                    local ownerUserId = base:GetAttribute("userID")
+                    if tonumber(ownerUserId) == LocalPlayer.UserId then
+                        return base
+                    end
+                    local hitbox = base:FindFirstChild("Hitbox")
+                    local playerInfo = hitbox and hitbox:FindFirstChild("PlayerInfoUi")
+                    local nameLabel = playerInfo and playerInfo:FindFirstChild("Name")
+                    if nameLabel and nameLabel:IsA("TextLabel") and nameLabel.Text == "Your Base" then
+                        return base
+                    end
+                end
+            end
+            return nil
+        end
+
+        local function ReadPlacedAnimalCPS(animal)
+            -- Exact placed-animal hierarchy:
+            -- RootPart.AnimalOverheadAttachment.AnimalOverhead.CashPerSecond.CashPerSecond
+            local rootPart = animal and animal:FindFirstChild("RootPart")
+            local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
+            local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+            local cpsContainer = overhead and overhead:FindFirstChild("CashPerSecond")
+            local cpsLabel = cpsContainer and cpsContainer:FindFirstChild("CashPerSecond")
+
+            if cpsLabel and (cpsLabel:IsA("TextLabel") or cpsLabel:IsA("TextButton") or cpsLabel:IsA("TextBox")) then
+                local display = cpsLabel.Text
+                local numericValue = ParseCPS(display)
+                if numericValue >= 0 then
+                    return numericValue, display
+                end
+            end
+
+            -- Keep the general reader as a fallback for alternate animal layouts.
+            if type(GetPetCPS) == "function" then
+                return GetPetCPS(animal)
+            end
+            return -1, nil
+        end
+
+        local function ReadHighestPlacedAnimal()
+            local ownedBase = FindOwnedPlot()
+            local placedAnimals = ownedBase and ownedBase:FindFirstChild("PlacedAnimals")
+            if not placedAnimals then return "—" end
+
+            local highestValue = -1
+            local highestDisplay = nil
+
+            for _, animal in ipairs(placedAnimals:GetChildren()) do
+                local cashPerSecond, display = ReadPlacedAnimalCPS(animal)
+                if type(cashPerSecond) == "number" and cashPerSecond > highestValue then
+                    highestValue = cashPerSecond
+                    highestDisplay = display
+                end
+            end
+
+            if highestValue < 0 then return "—" end
+            return highestDisplay and tostring(highestDisplay) or tostring(highestValue)
+        end
+
         task.spawn(function()
-            while not Runtime.Stopped and ScreenGui.Parent and DurationValue.Parent do
-                local elapsed = math.max(0, math.floor(os.clock() - ScriptStartedAt))
-                local hours = math.floor(elapsed / 3600)
-                local minutes = math.floor((elapsed % 3600) / 60)
-                local seconds = elapsed % 60
-                DurationValue.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
-                task.wait(1)
+            while not Runtime.Stopped and ScreenGui.Parent and StatsCard.Parent do
+                CashValue.Text = FormatCompactStat(LocalPlayer:GetAttribute("Cash"))
+                CashPerSecondValue.Text = FormatCompactStat(LocalPlayer:GetAttribute("CashPerSecond"))
+                DiamondsValue.Text = ReadPlayerStatAttribute("Diamonds")
+                SpeedValue.Text = FormatCompactStat(LocalPlayer:GetAttribute("SpeedPower"))
+
+                -- Refresh Mastery independently so a Stats reader error cannot stop it.
+                pcall(RefreshMasteryRows)
+
+                -- Top Cash Animal is isolated from the rest of the dashboard update loop.
+                local success, highestAnimal = pcall(ReadHighestPlacedAnimal)
+                HighestCashAnimalValue.Text = success and tostring(highestAnimal) or "—"
+
+                -- Pickaxe damage is intentionally left as "—" until its value is provided.
+                task.wait(0.5)
             end
         end)
-        local StatsCard = CreateCard(Page, "Stats", "UI placeholder only — stats tracking is not connected yet.")
-        StatsCard.Size = UDim2.new(1, 0, 0, 76)
     elseif index == 2 then
         local AutoRow = Create("Frame", {
             Name = "AutoControlsRow",
             Parent = Page,
-            Size = UDim2.new(1, 0, 0, 350),
+            Position = UDim2.fromOffset(10, 10),
+            Size = UDim2.new(1, -20, 0, 350),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             LayoutOrder = 1
         })
-        local Card1 = CreateCard(AutoRow, "⚡  Auto Break", "")
-        Card1.Position = UDim2.new(0.5, 6, 0, 0)
-        Card1.Size = UDim2.new(0.5, -6, 0, 190)
+        local Card1 = CreateCard(AutoRow, "Auto Break", "")
+        Card1.Position = UDim2.new(0.5, 5, 0, 0)
+        Card1.Size = UDim2.new(0.5, -5, 0, 190)
         local StartAutoBreak
         local StopAutoBreak
         local StopPickupAutomation
@@ -1459,9 +1729,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AutoBreakToggle.Size = UDim2.fromOffset(48, 24)
         local AutoBreakTitle = Card1:FindFirstChildWhichIsA("TextLabel")
         if AutoBreakTitle then AutoBreakTitle.Size = UDim2.new(1, -78, 0, 22) end
-        local AutoPickupCard = CreateCard(AutoRow, "🐾  Auto Pickup", "")
+        local AutoPickupCard = CreateCard(AutoRow, "Auto Steal", "")
         AutoPickupCard.Position = UDim2.new(0, 0, 0, 0)
-        AutoPickupCard.Size = UDim2.new(0.5, -6, 0, 316)
+        AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
         local AutoPickupEnabled = false
         local CurrentTarget, ArrivedAtTarget, WaitingForPickup
         local PickupRequested, ReturningAfterPickup, FlingRecoveryActive, ScriptShuttingDown
@@ -1500,6 +1770,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local PickupZoneButton
         local RarityList
         local RarityFilterButton
+        local UpdateRarityFilterButtonText, UpdatePickupZoneButtonText
         local ZoneFilterOpen = false
         local EggFilterOpen = false
         local ZoneList
@@ -1513,7 +1784,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 RarityList.Size = UDim2.new(1, -22, 0, 140)
             end
             if PickupZoneList then PickupZoneList.Visible = false end
-            RarityFilterButton.Text = RarityFilterOpen and "Rarity ▲" or "Rarity ▼"
+            UpdateRarityFilterButtonText()
             RarityList.Visible = RarityFilterOpen
             if ZoneList then ZoneList.Visible = false end
             if EggFilterList then EggFilterList.Visible = false end
@@ -1544,11 +1815,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 PickupZoneList.Size = UDim2.new(1, -22, 0, 140)
                 PickupZoneList.Visible = ZoneFilterOpen
             end
-            local count = 0
-            for _, selected in pairs(SelectedPickupZones) do
-                if selected then count += 1 end
-            end
-            PickupZoneButton.Text = ZoneFilterOpen and "Zone ▲" or (count == 0 and "Zone: All ▼" or string.format("Zone: %d ▼", count))
+            UpdatePickupZoneButtonText()
         end)
         PickupZoneButton.Name = "AutoPickupZoneFilterButton"
         PickupZoneButton.Position = UDim2.fromOffset(11, 85)
@@ -1568,12 +1835,24 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextXAlignment = Enum.TextXAlignment.Left
         })
         Create("TextLabel", {
+            Name = "KGUnitLabel",
+            Parent = AutoPickupCard,
+            Position = UDim2.new(1, -63, 0, 111),
+            Size = UDim2.fromOffset(52, 13),
+            BackgroundTransparency = 1,
+            Text = "Unit",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Center
+        })
+        Create("TextLabel", {
             Name = "KGThresholdLabel",
             Parent = AutoPickupCard,
             Position = UDim2.fromOffset(11, 111),
             Size = UDim2.new(1, -22, 0, 13),
             BackgroundTransparency = 1,
-            Text = "Weight Threshold (KG) · Unit",
+            Text = "Weight Threshold",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.GothamMedium,
             TextSize = 9,
@@ -1597,8 +1876,8 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AddCorner(KGThresholdInput, 5)
         AddStroke(KGThresholdInput, Theme.Border, 1)
         local KGUnitButton
-        local KGUnitState = {options = {"K", "M", "B", "T"}, open = false, list = nil}
-        KGUnitButton = CreateButton(AutoPickupCard, "KG: K ▼", function()
+        local KGUnitState = {options = {"K", "M", "B", "T", "Qa"}, open = false, list = nil}
+        KGUnitButton = CreateButton(AutoPickupCard, "K ▼", function()
             KGUnitState.open = not KGUnitState.open
             RarityFilterOpen = false
             ZoneFilterOpen = false
@@ -1607,7 +1886,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if ZoneList then ZoneList.Visible = false end
             if EggFilterList then EggFilterList.Visible = false end
             if KGUnitState.list then KGUnitState.list.Visible = KGUnitState.open end
-            KGUnitButton.Text = KGUnitState.open and "KG: " .. KGThresholdUnit .. " ▲" or "KG: " .. KGThresholdUnit .. " ▼"
+            KGUnitButton.Text = KGUnitState.open and KGThresholdUnit .. " ▲" or KGThresholdUnit .. " ▼"
         end)
         KGUnitButton.Name = "KGUnitFilterButton"
         KGUnitButton.Position = UDim2.new(1, -63, 0, 126)
@@ -1654,7 +1933,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AddCorner(unitButton, 4)
             unitButton.MouseButton1Click:Connect(function()
                 KGThresholdUnit = unit
-                KGUnitButton.Text = "KG: " .. unit .. " ▼"
+                KGUnitButton.Text = unit .. " ▼"
                 KGUnitState.open = false
                 KGUnitState.list.Visible = false
                 for _, child in ipairs(KGUnitState.list:GetChildren()) do
@@ -1673,14 +1952,26 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 and string.format("[Auto Pickup] KG priority threshold set to %s %s KG.", tostring(KGThresholdAmount), KGThresholdUnit)
                 or "[Auto Pickup] KG priority filter OFF.")
         end)
-        local CPSFilter = {amount = 0, unit = "K", options = {"K", "M", "B", "T"}, open = false}
+        local CPSFilter = {amount = 0, unit = "K", options = {"K", "M", "B", "T", "Qa"}, open = false}
+        Create("TextLabel", {
+            Name = "CPSUnitLabel",
+            Parent = AutoPickupCard,
+            Position = UDim2.new(1, -63, 0, 154),
+            Size = UDim2.fromOffset(52, 13),
+            BackgroundTransparency = 1,
+            Text = "Unit",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Center
+        })
         Create("TextLabel", {
             Name = "CPSFilterLabel",
             Parent = AutoPickupCard,
             Position = UDim2.fromOffset(11, 154),
             Size = UDim2.new(1, -22, 0, 13),
             BackgroundTransparency = 1,
-            Text = "Coins per Second Threshold · Unit",
+            Text = "Coins per Second Threshold",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.GothamMedium,
             TextSize = 9,
@@ -1704,7 +1995,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         AddCorner(CPSFilter.input, 5)
         AddStroke(CPSFilter.input, Theme.Border, 1)
-        CPSFilter.button = CreateButton(AutoPickupCard, "Unit: K ▼", function()
+        CPSFilter.button = CreateButton(AutoPickupCard, "K ▼", function()
             CPSFilter.open = not CPSFilter.open
             RarityFilterOpen = false
             ZoneFilterOpen = false
@@ -1714,7 +2005,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if EggFilterList then EggFilterList.Visible = false end
             if KGUnitState.list then KGUnitState.list.Visible = false; KGUnitState.open = false end
             CPSFilter.list.Visible = CPSFilter.open
-            CPSFilter.button.Text = CPSFilter.open and "Unit: " .. CPSFilter.unit .. " ▲" or "Unit: " .. CPSFilter.unit .. " ▼"
+            CPSFilter.button.Text = CPSFilter.open and CPSFilter.unit .. " ▲" or CPSFilter.unit .. " ▼"
         end)
         CPSFilter.button.Name = "CPSUnitFilterButton"
         CPSFilter.button.Position = UDim2.new(1, -63, 0, 169)
@@ -1757,7 +2048,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             AddCorner(unitButton, 4)
             unitButton.MouseButton1Click:Connect(function()
                 CPSFilter.unit = unit
-                CPSFilter.button.Text = "Unit: " .. unit .. " ▼"
+                CPSFilter.button.Text = unit .. " ▼"
                 CPSFilter.open = false
                 CPSFilter.list.Visible = false
                 for _, child in ipairs(CPSFilter.list:GetChildren()) do
@@ -1776,34 +2067,91 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 and string.format("[Auto Pickup] Coins/second minimum set to %s %s/s.", tostring(CPSFilter.amount), CPSFilter.unit)
                 or "[Auto Pickup] Coins/second filter OFF.")
         end)
+        local function CreatePickupCheckbox(parent, labelText, yPosition, callback)
+            local CheckboxBorder = Create("Frame", {
+                Parent = parent,
+                Name = "PickupOptionCheckboxBorder",
+                Position = UDim2.new(1, -32, 0, yPosition + 2),
+                Size = UDim2.fromOffset(18, 18),
+                BackgroundColor3 = Theme.Accent,
+                BorderSizePixel = 0,
+                ZIndex = 2
+            })
+            AddCorner(CheckboxBorder, 4)
+            local Checkbox = Create("TextButton", {
+                Parent = CheckboxBorder,
+                Name = "PickupOptionCheckbox",
+                Position = UDim2.fromOffset(2, 2),
+                Size = UDim2.fromOffset(14, 14),
+                BackgroundColor3 = Theme.SurfaceInput,
+                Text = "",
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                ZIndex = 3
+            })
+            AddCorner(Checkbox, 3)
+            local CheckIcon = Create("TextLabel", {
+                Parent = Checkbox,
+                Size = UDim2.fromScale(1, 1),
+                BackgroundTransparency = 1,
+                Text = "",
+                TextColor3 = Theme.Text,
+                TextStrokeTransparency = 1,
+                Font = Enum.Font.Gotham,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                TextYAlignment = Enum.TextYAlignment.Center,
+                BorderSizePixel = 0,
+                ZIndex = 4
+            })
+            local Label = Create("TextButton", {
+                Parent = parent,
+                Position = UDim2.fromOffset(11, yPosition),
+                Size = UDim2.new(1, -55, 0, 22),
+                BackgroundTransparency = 1,
+                Text = labelText,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BorderSizePixel = 0,
+                AutoButtonColor = false
+            })
+            local Enabled = false
+            local function SetEnabled(value)
+                Enabled = value
+                CheckIcon.Text = Enabled and "✓" or ""
+                Checkbox.BackgroundColor3 = Enabled and Theme.Accent or Theme.SurfaceInput
+                Checkbox.TextColor3 = Theme.Text
+                if callback then callback(Enabled) end
+            end
+            local function Toggle()
+                SetEnabled(not Enabled)
+            end
+            Checkbox.MouseButton1Click:Connect(Toggle)
+            Label.MouseButton1Click:Connect(Toggle)
+            return Checkbox
+        end
         local HighestCashEnabled = false
-        local HighestCashToggle = CreateToggle(AutoPickupCard, "Above Lowest $/s", false, function(enabled)
+        local HighestCashToggle = CreatePickupCheckbox(AutoPickupCard, "Steal above your lowest $/s", 205, function(enabled)
             HighestCashEnabled = enabled
             AddDebugLog("[Auto Pickup] " .. (enabled and "Lowest placed CPS filter ON." or "Lowest placed CPS filter OFF."))
         end)
-        HighestCashToggle.Position = UDim2.fromOffset(11, 205)
-        HighestCashToggle.Size = UDim2.new(1, -22, 0, 22)
         local UnindexedOnlyEnabled = false
-        local UnindexedOnlyToggle = CreateToggle(AutoPickupCard, "Unindexed Animals", false, function(enabled)
+        local UnindexedOnlyToggle = CreatePickupCheckbox(AutoPickupCard, "Steal not Index Animals", 231, function(enabled)
             UnindexedOnlyEnabled = enabled
             AddDebugLog("[Auto Pickup] " .. (enabled and "Unindexed-only verification ON." or "Unindexed-only verification OFF."))
         end)
-        UnindexedOnlyToggle.Position = UDim2.fromOffset(11, 231)
-        UnindexedOnlyToggle.Size = UDim2.new(1, -22, 0, 22)
         local DropInZone1Enabled = false
-        local DropInZone1Toggle = CreateToggle(AutoPickupCard, "Drop in Zone 1", false, function(enabled)
+        local DropInZone1Toggle = CreatePickupCheckbox(AutoPickupCard, "Drop the animal in Zone 1", 257, function(enabled)
             DropInZone1Enabled = enabled
             AddDebugLog("[Auto Pickup] Drop in Zone 1 " .. (enabled and "ON." or "OFF."))
         end)
-        DropInZone1Toggle.Position = UDim2.fromOffset(11, 257)
-        DropInZone1Toggle.Size = UDim2.new(1, -22, 0, 22)
         local PickUpWithMutationEnabled = false
-        local PickUpWithMutationToggle = CreateToggle(AutoPickupCard, "With Mutation", false, function(enabled)
+        local PickUpWithMutationToggle = CreatePickupCheckbox(AutoPickupCard, "Steal animal with mutation", 283, function(enabled)
             PickUpWithMutationEnabled = enabled
             AddDebugLog("[Auto Pickup] With Mutation " .. (enabled and "ON." or "OFF."))
         end)
-        PickUpWithMutationToggle.Position = UDim2.fromOffset(11, 283)
-        PickUpWithMutationToggle.Size = UDim2.new(1, -22, 0, 22)
         RarityList = Create("ScrollingFrame", {
             Name = "RarityFilterContainer",
             Parent = AutoPickupCard,
@@ -1882,19 +2230,55 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 102
                 })
                 Create("TextLabel", {
-                    Parent = RarityButton, Position = UDim2.new(1, -23, 0, 0),
-                    Size = UDim2.fromOffset(20, 22), BackgroundTransparency = 1,
+                    Parent = RarityButton, AnchorPoint = Vector2.new(1, 0.5),
+                    Position = UDim2.new(1, -7, 0.5, 0),
+                    Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 1,
                     Text = selected and "✓" or "○",
-                    TextColor3 = selected and Color3.fromRGB(110, 205, 145) or Theme.Gray,
-                    Font = Enum.Font.GothamBold, TextSize = 11, ZIndex = 102
+                    TextColor3 = selected and Theme.Accent or Theme.Gray,
+                    Font = Enum.Font.GothamBold, TextSize = 10,
+                    TextXAlignment = Enum.TextXAlignment.Center,
+                    TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 102
                 })
                 RarityButton.MouseButton1Click:Connect(function()
                     SelectedRarities[rarityName] = not SelectedRarities[rarityName] or nil
+                    UpdateRarityFilterButtonText()
                     RefreshRarityList()
                 end)
             end
         end
         RefreshRarityList()
+        UpdateRarityFilterButtonText = function()
+            local selected = {}
+            for _, rarityName in ipairs(RarityOptions) do
+                if SelectedRarities[rarityName] then
+                    table.insert(selected, rarityName)
+                end
+            end
+            local summary = #selected > 0 and table.concat(selected, ", ") or "All"
+            RarityFilterButton.Text = "Rarity: " .. summary .. (RarityFilterOpen and " ▲" or " ▼")
+            RarityFilterButton.TextSize = 8
+            RarityFilterButton.TextXAlignment = Enum.TextXAlignment.Center
+        end
+        UpdatePickupZoneButtonText = function()
+            local selected = {}
+            for zoneName, enabled in pairs(SelectedPickupZones) do
+                if enabled then
+                    local zoneNumber = zoneName:match("%d+")
+                    table.insert(selected, zoneNumber or zoneName)
+                end
+            end
+            table.sort(selected, function(a, b)
+                local an, bn = tonumber(a), tonumber(b)
+                if an and bn then return an > bn end
+                if an then return true end
+                if bn then return false end
+                return a < b
+            end)
+            local summary = #selected > 0 and table.concat(selected, ", ") or "All"
+            PickupZoneButton.Text = "Zone: " .. summary .. (ZoneFilterOpen and " ▲" or " ▼")
+            PickupZoneButton.TextSize = 8
+            PickupZoneButton.TextXAlignment = Enum.TextXAlignment.Center
+        end
         local function RefreshPickupZoneList()
             for _, item in ipairs(PickupZoneList:GetChildren()) do
                 if item:IsA("TextButton") then item:Destroy() end
@@ -1948,7 +2332,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             allButton.MouseButton1Click:Connect(function()
                 table.clear(SelectedPickupZones)
                 RefreshPickupZoneList()
-                PickupZoneButton.Text = "Zone: All ▼"
+                UpdatePickupZoneButtonText()
             end)
             for index, zone in ipairs(zones) do
                 local zoneName = zone.Name
@@ -1983,11 +2367,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         SelectedPickupZones[zoneName] = true
                     end
                     RefreshPickupZoneList()
-                    local count = 0
-                    for _, enabled in pairs(SelectedPickupZones) do
-                        if enabled then count += 1 end
-                    end
-                    PickupZoneButton.Text = count == 0 and "Zone: All ▼" or string.format("Zone: %d ▼", count)
+                    UpdatePickupZoneButtonText()
                 end)
             end
             PickupZoneList.CanvasSize = UDim2.new(0, 0, 0, PickupZoneLayout.AbsoluteContentSize.Y + 10)
@@ -1995,6 +2375,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         RefreshPickupZoneList()
         local SelectedZones = {}
         local SelectedEggs = {}
+        local UpdateAutoBreakFilterButtonTexts
         local PreferredZoneName = nil
         local SortOrder = "Highest Luck"
         local SortFrame
@@ -2067,8 +2448,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 EggFilterList.Position = UDim2.new(0, EggFilterButton.Position.X.Offset, 0, EggFilterButton.Position.Y.Offset + EggFilterButton.AbsoluteSize.Y + 4)
                 EggFilterList.Size = UDim2.new(1, -22, 0, 140)
             end
-            ZoneFilterButton.Text = ZoneFilterOpen and "Zones ▲" or "Zones ▼"
-            EggFilterButton.Text = EggFilterOpen and "Eggs ▲" or "Eggs ▼"
+            UpdateAutoBreakFilterButtonTexts()
             RarityFilterButton.Text = RarityFilterOpen and "Rarity ▲" or "Rarity ▼"
         end
         Create("TextLabel", {
@@ -2490,6 +2870,44 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
             return records
         end
+        UpdateAutoBreakFilterButtonTexts = function()
+            local selectedZones = {}
+            for zoneName, enabled in pairs(SelectedZones) do
+                if enabled then
+                    table.insert(selectedZones, zoneName:match("%d+") or zoneName)
+                end
+            end
+            table.sort(selectedZones, function(a, b)
+                local an, bn = tonumber(a), tonumber(b)
+                if an and bn then return an > bn end
+                if an then return true end
+                if bn then return false end
+                return a < b
+            end)
+            local zoneSummary = #selectedZones > 0 and table.concat(selectedZones, ", ") or "None"
+            ZoneFilterButton.Text = "Zone: " .. zoneSummary .. (ZoneFilterOpen and " ▲" or " ▼")
+            ZoneFilterButton.TextSize = 8
+            ZoneFilterButton.TextXAlignment = Enum.TextXAlignment.Center
+
+            local records = GetEggRecords()
+            local selectedEggs = {}
+            for _, record in ipairs(records) do
+                if SelectedEggs[record.name] ~= false then
+                    table.insert(selectedEggs, record.name)
+                end
+            end
+            local eggSummary
+            if #selectedEggs == #records then
+                eggSummary = #records == 0 and "None" or "All"
+            elseif #selectedEggs == 0 then
+                eggSummary = "None"
+            else
+                eggSummary = table.concat(selectedEggs, ", ")
+            end
+            EggFilterButton.Text = "Eggs: " .. eggSummary .. (EggFilterOpen and " ▲" or " ▼")
+            EggFilterButton.TextSize = 8
+            EggFilterButton.TextXAlignment = Enum.TextXAlignment.Center
+        end
         local RefreshEggList
         function RefreshZoneList()
             for _, item in ipairs(ZoneList:GetChildren()) do
@@ -2536,6 +2954,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 for _, zone in ipairs(zones) do SelectedZones[zone.Name] = selectEverything and true or nil end
                 RefreshZoneList()
                 RefreshEggList()
+                UpdateAutoBreakFilterButtonTexts()
                 if RefreshEggFilters then RefreshEggFilters() end
             end)
             for zoneIndex, zone in ipairs(zones) do
@@ -2580,6 +2999,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     SelectedZones[zoneName] = not SelectedZones[zoneName] or nil
                     RefreshZoneList()
                     RefreshEggList()
+                    UpdateAutoBreakFilterButtonTexts()
                     if RefreshEggFilters then RefreshEggFilters() end
                 end)
             end
@@ -2621,6 +3041,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     if selectEverything then SelectedEggs[record.name] = nil else SelectedEggs[record.name] = false end
                 end
                 RefreshEggList()
+                UpdateAutoBreakFilterButtonTexts()
                 if RefreshEggFilters then RefreshEggFilters() end
             end)
             if #records == 0 then
@@ -2681,38 +3102,38 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         SelectedEggs[eggName] = false
                     end
                     RefreshEggList()
+                    UpdateAutoBreakFilterButtonTexts()
                     if RefreshEggFilters then RefreshEggFilters() end
                 end)
             end
         end
-        local TitanicPriorityToggle = CreateToggle(Card1, "Titanic Priority", false, function(enabled)
+        local TitanicPriorityToggle = CreatePickupCheckbox(Card1, "Titanic Priority", AutoBreakControlLayout.TitanicY, function(enabled)
             TitanicPriorityEnabled = enabled
             AddDebugLog("[Auto Break] TITANIC priority " .. (enabled and "ON" or "OFF"))
             if RefreshEggFilters then RefreshEggFilters() end
         end)
-        SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
-        Card1.Size = UDim2.new(0.5, -6, 0, 190)
-        AutoPickupCard.Size = UDim2.new(0.5, -6, 0, 316)
+        Card1.Size = UDim2.new(0.5, -5, 0, 190)
+        AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
         local function UpdateAutoBreakCardHeights()
             local autoBreakBottom = math.max(AutoBreakControlLayout.TitanicY + AutoBreakControlLayout.Height + 12, 190)
             local pickupBottom = 316
             local sharedHeight = math.max(autoBreakBottom, pickupBottom)
-            Card1.Size = UDim2.new(0.5, -6, 0, sharedHeight)
-            AutoPickupCard.Size = UDim2.new(0.5, -6, 0, sharedHeight)
-            AutoRow.Size = UDim2.new(1, 0, 0, sharedHeight + 34)
+            Card1.Size = UDim2.new(0.5, -5, 0, sharedHeight)
+            AutoPickupCard.Size = UDim2.new(0.5, -5, 0, sharedHeight)
+            AutoRow.Size = UDim2.new(1, -20, 0, sharedHeight + 34)
         end
         UpdateAutoBreakCardHeights()
         function UpdateFilterPanelWithTitanic()
             UpdateFilterPanel()
             PriorityFilterButton.Position = UDim2.fromOffset(0, 0)
             PriorityFilterButton.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
-            SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
             UpdateAutoBreakCardHeights()
         end
         ZoneFilterButton.MouseButton1Click:Connect(UpdateFilterPanelWithTitanic)
         EggFilterButton.MouseButton1Click:Connect(UpdateFilterPanelWithTitanic)
         RefreshZoneList()
         RefreshEggList()
+        UpdateAutoBreakFilterButtonTexts()
         TrackPersistentConnection(ZoneBuilds.ChildAdded:Connect(function()
             RefreshZoneList()
             RefreshEggList()
@@ -2933,9 +3354,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             if humanoid then humanoid:Move(Vector3.zero, false) end
         end
+        local PreviousShutdown = Runtime.Shutdown
         Runtime.Shutdown = function()
             if ShutdownAutomation then
                 ShutdownAutomation()
+            end
+            if type(PreviousShutdown) == "function" then
+                PreviousShutdown()
             end
         end
         function ClearPickupLock(token)
@@ -3375,11 +3800,19 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     local value = ParseCPS(object.Text)
                     if value >= 0 then return value, object.Text end
                 end
-                for _, childName in ipairs({"Text", "ContentText"}) do
+                for _, childName in ipairs({"Text", "ContentText", "CashPerSecond"}) do
                     local child = object:FindFirstChild(childName, true)
                     if child and (child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox")) then
                         local value = ParseCPS(child.Text)
                         if value >= 0 then return value, child.Text end
+                    end
+                end
+                -- Some overheads nest the actual TextLabel one level deeper:
+                -- AnimalOverhead.CashPerSecond.CashPerSecond.
+                for _, descendant in ipairs(object:GetDescendants()) do
+                    if descendant:IsA("TextLabel") or descendant:IsA("TextButton") or descendant:IsA("TextBox") then
+                        local value = ParseCPS(descendant.Text)
+                        if value >= 0 then return value, descendant.Text end
                     end
                 end
                 return -1, nil
@@ -3612,7 +4045,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 SetPickupTracking(pickup, cps >= 0 and "CPS checked (second scan)" or "CPS read failed", cpsText)
                 if CPSFilter.amount > 0 and cps >= 0 then
-                    local scales = {K = 1e3, M = 1e6, B = 1e9, T = 1e12}
+                    local scales = {K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15}
                     local minimumCPS = CPSFilter.amount * (scales[CPSFilter.unit] or 1)
                     cpsPriorityPickup = cps >= minimumCPS
                 end
@@ -4879,13 +5312,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     table.insert(selectedZoneNames, zoneName)
                 end
             end
-            if #selectedZoneNames == 0 then
-                for _, zone in ipairs(ZoneBuilds:GetChildren()) do
-                    if zone:IsA("Model") then
-                        table.insert(selectedZoneNames, zone.Name)
-                    end
-                end
-            end
             table.sort(selectedZoneNames)
             local target = lockedTarget
             if not target then
@@ -5153,7 +5579,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             end)
         end
     elseif index == 5 then
-        local ThemeCard = CreateCard(Page, "🎨  Theme Settings", "Choose a color palette for the interface.")
+        local ThemeCard = CreateCard(Page, "Theme Settings", "Choose a color palette for the interface.")
         local ThemeOptions = {
             "Midnight Blue + Cyan",
             "Black + Purple",
@@ -5315,7 +5741,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             )
         end)
 
-        local AntiAFKCard = CreateCard(Page, "🛡️  Anti AFK", "")
+        local AntiAFKCard = CreateCard(Page, "️  Anti AFK", "")
         AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
         local AntiAFKEnabled = true
         local AntiAFKStatus = Create("TextLabel", {
@@ -5349,7 +5775,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         table.insert(Runtime.PersistentConnections, AntiAFKConnection)
 
     elseif index == 3 then
-        local CandyCard = CreateCard(Page, "🍬  Auto collect candies", "UNDER DEVELOPMENT")
+        local CandyCard = CreateCard(Page, "Auto collect candies", "UNDER DEVELOPMENT")
         CandyCard.Size = UDim2.new(1, 0, 0, 110)
         local CandyInfo = Create("TextLabel", {
             Parent = CandyCard,
@@ -5370,12 +5796,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local ESPCardsRow = Create("Frame", {
             Name = "ESPFeatureCardsRow",
             Parent = Page,
-            Size = UDim2.new(1, 0, 0, 120),
+            Position = UDim2.fromOffset(10, 10),
+            Size = UDim2.new(1, -20, 0, 100),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             LayoutOrder = 0
         })
-        local ESPCard = CreateCard(ESPCardsRow, "🥚  Egg ESP", "Displays egg stats.")
+        local ESPCard = CreateCard(ESPCardsRow, "Egg ESP", "Displays egg stats.")
         ESPCard.Position = UDim2.new(0, 0, 0, 0)
         ESPCard.Size = UDim2.new(0.5, -5, 0, 100)
         ESPCard.LayoutOrder = 1
@@ -5788,13 +6215,13 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local MiscFeatureRow = Create("Frame", {
             Name = "MiscFeatureCardsRow",
             Parent = Page,
-            Position = UDim2.fromOffset(0, 128),
-            Size = UDim2.new(1, 0, 0, 110),
+            Position = UDim2.fromOffset(10, 120),
+            Size = UDim2.new(1, -20, 0, 110),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             LayoutOrder = 1
         })
-        local AntiPaloCard = CreateCard(MiscFeatureRow, "🛡️  Anti Knockback", "Prevents knockback and fling.")
+        local AntiPaloCard = CreateCard(MiscFeatureRow, "️  Anti Knockback", "Prevents knockback and fling.")
         AntiPaloCard.Position = UDim2.new(0, 0, 0, 0)
         AntiPaloCard.Size = UDim2.new(0.5, -5, 0, 100)
         AntiPaloCard.LayoutOrder = 1
@@ -5829,7 +6256,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         AntiPaloToggle.Position = UDim2.new(1, -58, 0, 7)
         AntiPaloToggle.Size = UDim2.fromOffset(48, 24)
 
-        local AuraCard = CreateCard(MiscFeatureRow, "⚔️  Auto Boink", "Boink any enemy nearby.")
+        local AuraCard = CreateCard(MiscFeatureRow, "️  Auto Boink", "Boink any enemy nearby.")
         AuraCard.Position = UDim2.new(0.5, 5, 0, 0)
         AuraCard.Size = UDim2.new(0.5, -5, 0, 100)
         AuraCard.LayoutOrder = 2
@@ -6006,11 +6433,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         CreateButton(Card1, "Example Button", function()
             -- Put your actual function here.
         end)
-        local Card2 = CreateCard(Page, "🎨  Example Settings", "Example controls that only change the UI state.")
+        local Card2 = CreateCard(Page, "Example Settings", "Example controls that only change the UI state.")
         CreateToggle(Card2, "Example Toggle", false, function(state)
             -- state = true / false
         end)
-        local Card3 = CreateCard(Page, "🎛️  Example Options", "Dropdown and slider examples.")
+        local Card3 = CreateCard(Page, "️  Example Options", "Dropdown and slider examples.")
         CreateDropdown(Card3, "Mode", {"Option 1", "Option 2", "Option 3"}, function(selection)
             -- selection contains the selected option.
         end)
