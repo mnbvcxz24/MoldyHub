@@ -635,6 +635,30 @@ for index, name in ipairs(TabNames) do
             :WaitForChild("WK_Remotes")
             :WaitForChild("BasicAttack")
 
+        local function setFarmFloat(enabled)
+            local character = LocalPlayer.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+
+            if enabled then
+                if not root:GetAttribute("CLAutoFarmOriginalAnchored") then
+                    root:SetAttribute("CLAutoFarmOriginalAnchored", root.Anchored)
+                end
+                if not root:GetAttribute("CLAutoFarmFloatActive") then
+                    root:SetAttribute("CLAutoFarmFloatActive", true)
+                    root.CFrame = root.CFrame + Vector3.new(0, 10, 0)
+                end
+                root.Anchored = true
+            else
+                local wasActive = root:GetAttribute("CLAutoFarmFloatActive")
+                if wasActive then
+                    root.Anchored = root:GetAttribute("CLAutoFarmOriginalAnchored") == true
+                    root:SetAttribute("CLAutoFarmFloatActive", nil)
+                    root:SetAttribute("CLAutoFarmOriginalAnchored", nil)
+                end
+            end
+        end
+
         local function updateM1Loop()
             m1LoopId = m1LoopId + 1
             local thisLoop = m1LoopId
@@ -654,9 +678,22 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
+        LocalPlayer.CharacterAdded:Connect(function(character)
+            if autoFarmEnabled then
+                local root = character:WaitForChild("HumanoidRootPart", 5)
+                if root and autoFarmEnabled then
+                    root.CFrame = root.CFrame + Vector3.new(0, 10, 0)
+                    root.Anchored = true
+                    root:SetAttribute("CLAutoFarmFloatActive", true)
+                    root:SetAttribute("CLAutoFarmOriginalAnchored", false)
+                end
+            end
+        end)
+
         local card = CreateCard(left, "Auto farm", 162)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
+            setFarmFloat(enabled)
             updateM1Loop()
         end)
         CreateCheckbox(card, "Use M1", 65, function(checked)
