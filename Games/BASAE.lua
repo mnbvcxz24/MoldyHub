@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.305"
+local testver = "Test ver: 1.306"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -321,6 +321,16 @@ local function ApplyTheme(themeName)
     end
     ActiveThemeName = themeName
     local colorProperties = {"BackgroundColor3", "TextColor3", "TextStrokeColor3", "ImageColor3", "ScrollBarImageColor3", "Color"}
+    for _, checkbox in ipairs(ScreenGui:GetDescendants()) do
+        if checkbox:IsA("TextButton") and checkbox.Name == "PickupOptionCheckbox" then
+            local checkboxStroke = checkbox:FindFirstChildOfClass("UIStroke")
+            if checkboxStroke then
+                checkboxStroke.Color = selectedTheme.Accent
+                checkboxStroke.Thickness = 2
+                checkboxStroke.Transparency = 0
+            end
+        end
+    end
     for _, object in ipairs(ScreenGui:GetDescendants()) do
         for _, property in ipairs(colorProperties) do
             local ok, currentColor = pcall(function()
@@ -2068,6 +2078,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local function CreatePickupCheckbox(parent, labelText, yPosition, callback)
             local Checkbox = Create("TextButton", {
                 Parent = parent,
+                Name = "PickupOptionCheckbox",
                 Position = UDim2.new(1, -30, 0, yPosition + 4),
                 Size = UDim2.fromOffset(14, 14),
                 BackgroundColor3 = Theme.SurfaceInput,
@@ -2076,7 +2087,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 AutoButtonColor = false
             })
             AddCorner(Checkbox, 3)
-            AddStroke(Checkbox, Theme.Border, 2)
+            AddStroke(Checkbox, Theme.Accent, 2)
             local CheckIcon = Create("TextLabel", {
                 Parent = Checkbox,
                 Size = UDim2.fromScale(1, 1),
