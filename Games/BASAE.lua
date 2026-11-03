@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.303"
+local testver = "Test ver: 1.304"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2072,15 +2072,24 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 Size = UDim2.fromOffset(14, 14),
                 BackgroundColor3 = Theme.SurfaceInput,
                 Text = "",
-                TextColor3 = Theme.Text,
-                TextStrokeTransparency = 1,
-                Font = Enum.Font.GothamBold,
-                TextSize = 10,
                 BorderSizePixel = 0,
                 AutoButtonColor = false
             })
             AddCorner(Checkbox, 3)
             AddStroke(Checkbox, Theme.Gray, 2)
+            local CheckIcon = Create("TextLabel", {
+                Parent = Checkbox,
+                Size = UDim2.fromScale(1, 1),
+                BackgroundTransparency = 1,
+                Text = "",
+                TextColor3 = Theme.Text,
+                TextStrokeTransparency = 1,
+                Font = Enum.Font.Gotham,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                TextYAlignment = Enum.TextYAlignment.Center,
+                BorderSizePixel = 0
+            })
             local Label = Create("TextButton", {
                 Parent = parent,
                 Position = UDim2.fromOffset(11, yPosition),
@@ -2097,7 +2106,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local Enabled = false
             local function SetEnabled(value)
                 Enabled = value
-                Checkbox.Text = Enabled and "✓" or ""
+                CheckIcon.Text = Enabled and "✓" or ""
                 Checkbox.BackgroundColor3 = Enabled and Theme.Accent or Theme.SurfaceInput
                 Checkbox.TextColor3 = Theme.Text
                 if callback then callback(Enabled) end
