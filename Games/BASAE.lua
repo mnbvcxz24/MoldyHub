@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.313"
+local testver = "Test ver: 1.314"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -2954,6 +2954,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 for _, zone in ipairs(zones) do SelectedZones[zone.Name] = selectEverything and true or nil end
                 RefreshZoneList()
                 RefreshEggList()
+                UpdateAutoBreakFilterButtonTexts()
                 if RefreshEggFilters then RefreshEggFilters() end
             end)
             for zoneIndex, zone in ipairs(zones) do
@@ -2998,6 +2999,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     SelectedZones[zoneName] = not SelectedZones[zoneName] or nil
                     RefreshZoneList()
                     RefreshEggList()
+                    UpdateAutoBreakFilterButtonTexts()
                     if RefreshEggFilters then RefreshEggFilters() end
                 end)
             end
@@ -3099,6 +3101,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         SelectedEggs[eggName] = false
                     end
                     RefreshEggList()
+                    UpdateAutoBreakFilterButtonTexts()
                     if RefreshEggFilters then RefreshEggFilters() end
                 end)
             end
@@ -3123,7 +3126,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             UpdateFilterPanel()
             PriorityFilterButton.Position = UDim2.fromOffset(0, 0)
             PriorityFilterButton.Size = UDim2.new(1, 0, 0, AutoBreakControlLayout.Height)
-            SetAutoBreakControl(TitanicPriorityToggle, AutoBreakControlLayout.TitanicY)
             UpdateAutoBreakCardHeights()
         end
         ZoneFilterButton.MouseButton1Click:Connect(UpdateFilterPanelWithTitanic)
