@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local testver = "Test ver: 1.315"
+local testver = "Test ver: 1.316"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -3041,6 +3041,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     if selectEverything then SelectedEggs[record.name] = nil else SelectedEggs[record.name] = false end
                 end
                 RefreshEggList()
+                UpdateAutoBreakFilterButtonTexts()
                 if RefreshEggFilters then RefreshEggFilters() end
             end)
             if #records == 0 then
