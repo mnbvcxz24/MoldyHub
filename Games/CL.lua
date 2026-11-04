@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.6"
+local deployver = "CL ver 2.7"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -536,6 +536,7 @@ for index, name in ipairs(TabNames) do
         local skillLastTargets = {}
         local skillAdvancePending = {}
         local skillCastBusy = false
+        local targetClickLoopId = 0
 
         -- Keep the highlighted target centered after Roblox's normal camera update.
         local RunService = game:GetService("RunService")
@@ -578,6 +579,31 @@ for index, name in ipairs(TabNames) do
             cameraAimTarget = nil
             targetHighlight.Adornee = nil
             targetHighlight.Enabled = false
+        end
+
+        -- Click the currently highlighted skill target at its on-screen position every 0.5s.
+        local function startTargetClickLoop(enabled)
+            targetClickLoopId = targetClickLoopId + 1
+            local thisLoop = targetClickLoopId
+            if not enabled then return end
+
+            task.spawn(function()
+                while thisLoop == targetClickLoopId and autoFarmEnabled do
+                    local target = cameraAimTarget
+                    local camera = workspace.CurrentCamera
+                    if target and target.Parent and camera then
+                        local screenPoint, onScreen = camera:WorldToViewportPoint(target.Position)
+                        if onScreen and screenPoint.Z > 0 then
+                            pcall(function()
+                                VirtualInputManager:SendMouseButtonEvent(screenPoint.X, screenPoint.Y, 0, true, game, 0)
+                                task.wait(0.03)
+                                VirtualInputManager:SendMouseButtonEvent(screenPoint.X, screenPoint.Y, 0, false, game, 0)
+                            end)
+                        end
+                    end
+                    task.wait(0.5)
+                end
+            end)
         end
 
         local function getAssignedSkillTarget(slot, root, enemies)
@@ -757,6 +783,7 @@ for index, name in ipairs(TabNames) do
         end
 
         RegisterCleanup(function()
+            targetClickLoopId = targetClickLoopId + 1
             undergroundEnabled = false
             if undergroundCharacter then
                 local oldHumanoid = undergroundCharacter:FindFirstChildOfClass("Humanoid")
@@ -794,6 +821,7 @@ for index, name in ipairs(TabNames) do
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
             if not enabled then clearEnemyAim() end
+            startTargetClickLoop(enabled)
             updateM1Loop()
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
                 startSkillLoop(slot, enabled and skillEnabled[slot] == true)
