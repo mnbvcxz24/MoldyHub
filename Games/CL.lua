@@ -476,7 +476,7 @@ for index, name in ipairs(TabNames) do
         end
 
         local AbilityRail = LocalPlayer:WaitForChild("PlayerGui")
-            :WaitForChild("WK_HUD")
+            :WaitForChild("MainHUD")
             :WaitForChild("Right Column")
             :WaitForChild("Ability Rail")
             :WaitForChild("MainFrame")
