@@ -466,7 +466,7 @@ for index, name in ipairs(TabNames) do
 
         -- Resolve game dependencies only when the related feature actually needs them.
         local function getBasicAttackRemote()
-            local remotes = ReplicatedStorage:FindFirstChild("WK_Remotes")
+            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
             return remotes and remotes:FindFirstChild("BasicAttack")
         end
 
