@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 1.4"
+local deployver = "CL ver 1.5"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -463,9 +463,7 @@ for index, name in ipairs(TabNames) do
         local basicAttack = ReplicatedStorage
             :WaitForChild("WK_Remotes")
             :WaitForChild("BasicAttack")
-        local castSkill = ReplicatedStorage
-            :WaitForChild("WK_Remotes")
-            :WaitForChild("CastSkill")
+        local VirtualInputManager = game:GetService("VirtualInputManager")
         local SkillsModule = ReplicatedStorage
             :WaitForChild("Shared")
             :WaitForChild("Config")
@@ -668,11 +666,21 @@ for index, name in ipairs(TabNames) do
                             -- Let the render-step camera aim run before sending the cast.
                             task.wait()
                             if aimReady and thisLoop == skillLoopIds[slot] and autoFarmEnabled then
-                                local camera = workspace.CurrentCamera
-                                local aimCFrame = camera and camera.CFrame
-                                local castOk = pcall(function()
-                                    castSkill:FireServer(skillId, aimCFrame, enemyRoot.Position)
+                                local keyCode = Enum.KeyCode[slot]
+                                local keyDownSent = false
+                                local castOk = keyCode and pcall(function()
+                                    VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+                                    keyDownSent = true
+                                    task.wait(0.08)
+                                    VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+                                    keyDownSent = false
                                 end)
+                                -- Always release the key if activation was interrupted.
+                                if keyDownSent then
+                                    pcall(function()
+                                        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+                                    end)
+                                end
                                 if castOk then
                                     -- Mark advancement for the next ready cast; reservation stays
                                     -- active throughout this skill's cooldown.
