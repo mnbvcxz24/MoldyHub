@@ -7,6 +7,8 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
+local deployver = "CL ver 1.0"
+local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.0")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
 if type(previousCleanup) == "function" then
@@ -100,7 +102,7 @@ local Title = Create("TextLabel", {
     Position = UDim2.fromOffset(14, 0),
     Size = UDim2.new(1, -56, 1, 0),
     BackgroundTransparency = 1,
-    Text = '<font color="#2D87FF">Moldy</font>Hub <font face="Gotham" size="9" color="#2D87FF">CL</font>',
+    Text = '<font color="#2D87FF">Moldy</font>Hub <font face="Gotham" size="9" color="#2D87FF">' .. displayVersion .. '</font>',
     RichText = true,
     TextColor3 = Theme.Text,
     Font = Enum.Font.GothamBold,
@@ -534,7 +536,10 @@ for index, name in ipairs(TabNames) do
         local skillLastTargets = {}
         local skillAdvancePending = {}
 
-        -- Highlight the selected enemy and point the camera at its root.
+        -- Keep the highlighted target centered after Roblox's normal camera update.
+        local RunService = game:GetService("RunService")
+        local cameraAimTarget = nil
+        local cameraAimBound = true
         local targetHighlight = Instance.new("Highlight")
         targetHighlight.Name = "CLSelectedEnemyHighlight"
         targetHighlight.FillColor = Color3.fromRGB(45, 135, 255)
@@ -545,21 +550,30 @@ for index, name in ipairs(TabNames) do
         targetHighlight.Enabled = false
         targetHighlight.Parent = workspace
 
-        local function aimCameraAtEnemy(enemyRoot)
-            if not enemyRoot or not enemyRoot.Parent then return nil end
-
+        RunService:BindToRenderStep("CLMoldyHubCameraAim", Enum.RenderPriority.Camera.Value + 1, function()
+            local target = cameraAimTarget
             local camera = workspace.CurrentCamera
-            if not camera then return nil end
-
-            targetHighlight.Adornee = enemyRoot.Parent
-            targetHighlight.Enabled = true
+            if not target or not target.Parent or not camera then return end
 
             local cameraPosition = camera.CFrame.Position
-            camera.CFrame = CFrame.lookAt(cameraPosition, enemyRoot.Position)
-            return camera.CFrame
+            local direction = target.Position - cameraPosition
+            if direction.Magnitude > 0.01 then
+                camera.CFrame = CFrame.lookAt(cameraPosition, target.Position, camera.CFrame.UpVector)
+                camera.Focus = CFrame.new(target.Position)
+            end
+        end)
+
+        local function aimCameraAtEnemy(enemyRoot)
+            if not enemyRoot or not enemyRoot.Parent then return false end
+
+            cameraAimTarget = enemyRoot
+            targetHighlight.Adornee = enemyRoot.Parent
+            targetHighlight.Enabled = true
+            return true
         end
 
         local function clearEnemyAim()
+            cameraAimTarget = nil
             targetHighlight.Adornee = nil
             targetHighlight.Enabled = false
         end
@@ -637,10 +651,12 @@ for index, name in ipairs(TabNames) do
 
                         local enemyRoot = getAssignedSkillTarget(slot, root, enemies)
                         if enemyRoot then
-                            local aimCFrame = aimCameraAtEnemy(enemyRoot)
-                            -- Give the camera one frame to place the selected enemy at screen center.
+                            local aimReady = aimCameraAtEnemy(enemyRoot)
+                            -- Let the render-step camera aim run before sending the cast.
                             task.wait()
-                            if aimCFrame and thisLoop == skillLoopIds[slot] and autoFarmEnabled then
+                            if aimReady and thisLoop == skillLoopIds[slot] and autoFarmEnabled then
+                                local camera = workspace.CurrentCamera
+                                local aimCFrame = camera and camera.CFrame
                                 local castOk = pcall(function()
                                     castSkill:FireServer(skillId, aimCFrame, nil)
                                 end)
@@ -741,6 +757,10 @@ for index, name in ipairs(TabNames) do
             end
             setFarmFloat(false)
             clearEnemyAim()
+            if cameraAimBound then
+                RunService:UnbindFromRenderStep("CLMoldyHubCameraAim")
+                cameraAimBound = false
+            end
             targetHighlight:Destroy()
         end)
 
