@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.1"
+local deployver = "CL ver 2.2"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -515,7 +515,7 @@ for index, name in ipairs(TabNames) do
             return findSkillByDisplayName(displayName, slot)
         end
 
-        local MAX_TARGET_DISTANCE = 100
+        local MAX_TARGET_DISTANCE = 200
 
         local function getClosestEnemy(root, enemies)
             if not root or not enemies then return nil end
