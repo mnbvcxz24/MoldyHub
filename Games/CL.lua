@@ -562,7 +562,7 @@ for index, name in ipairs(TabNames) do
         targetHighlight.Parent = workspace
 
         RunService:BindToRenderStep("CLMoldyHubCameraAim", Enum.RenderPriority.Camera.Value + 1, function(deltaTime)
-            local target = orbitEnabled and orbitTarget or nil
+            local target = orbitEnabled and orbitTarget or cameraAimTarget
             local camera = workspace.CurrentCamera
 
             if orbitEnabled then
