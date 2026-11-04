@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 1.5"
+local deployver = "CL ver 1.6"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -559,13 +559,7 @@ for index, name in ipairs(TabNames) do
             local cameraPosition = camera.CFrame.Position
             local direction = target.Position - cameraPosition
             if direction.Magnitude > 0.01 then
-                -- Lower the camera look point slightly so the highlighted target sits
-                -- a little above the screen center (screen-space offset, not enemy height).
-                local viewportHeight = camera.ViewportSize.Y
-                local verticalOffset = viewportHeight > 0
-                    and (2 * direction.Magnitude * math.tan(math.rad(camera.FieldOfView / 2)) * (20 / viewportHeight))
-                    or 0
-                local aimPosition = target.Position - camera.CFrame.UpVector * verticalOffset
+                local aimPosition = target.Position
                 camera.CFrame = CFrame.lookAt(cameraPosition, aimPosition, camera.CFrame.UpVector)
                 camera.Focus = CFrame.new(aimPosition)
             end
