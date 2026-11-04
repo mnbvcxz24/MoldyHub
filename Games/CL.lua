@@ -588,6 +588,32 @@ for index, name in ipairs(TabNames) do
             local target = orbitEnabled and orbitTarget or cameraAimTarget
             local camera = workspace.CurrentCamera
 
+            local enemies = workspace:FindFirstChild("Enemies")
+            if orbitSelectedTarget and (not orbitSelectedTarget.Parent
+                or orbitSelectedTarget.Parent.Parent ~= enemies) then
+                orbitSelectedTarget = nil
+            end
+
+            -- If the active target dies/disappears, automatically acquire another
+            -- enemy unless a still-valid manual lock is selected.
+            if not orbitEnabled and (not cameraAimTarget or not cameraAimTarget.Parent) then
+                local character = LocalPlayer.Character
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+                if orbitSelectedTarget and orbitSelectedTarget.Parent then
+                    cameraAimTarget = orbitSelectedTarget
+                else
+                    cameraAimTarget = getClosestEnemy(root, enemies)
+                end
+                target = cameraAimTarget
+                if target then
+                    targetHighlight.Adornee = target.Parent
+                    targetHighlight.Enabled = true
+                else
+                    targetHighlight.Adornee = nil
+                    targetHighlight.Enabled = false
+                end
+            end
+
             if orbitEnabled then
                 local character = LocalPlayer.Character
                 local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -1051,9 +1077,29 @@ for index, name in ipairs(TabNames) do
                     Corner(button, 4)
                     button.MouseButton1Click:Connect(function()
                         if not enemyRoot.Parent or enemyRoot.Parent.Parent ~= enemies then return end
-                        orbitSelectedTarget = enemyRoot
-                        if orbitEnabled then orbitTarget = enemyRoot end
-                        aimCameraAtEnemy(enemyRoot)
+
+                        if orbitSelectedTarget == enemyRoot then
+                            -- Clicking the locked enemy again clears the manual lock;
+                            -- automatic nearest-enemy targeting takes over.
+                            orbitSelectedTarget = nil
+                            local character = LocalPlayer.Character
+                            local root = character and character:FindFirstChild("HumanoidRootPart")
+                            local nextTarget = getClosestEnemy(root, enemies)
+                            if orbitEnabled then
+                                orbitTarget = nextTarget
+                            else
+                                cameraAimTarget = nextTarget
+                            end
+                            if nextTarget then
+                                aimCameraAtEnemy(nextTarget)
+                            else
+                                clearEnemyAim()
+                            end
+                        else
+                            orbitSelectedTarget = enemyRoot
+                            if orbitEnabled then orbitTarget = enemyRoot end
+                            aimCameraAtEnemy(enemyRoot)
+                        end
                         refreshNearbyEnemies()
                     end)
                 end
@@ -1062,9 +1108,9 @@ for index, name in ipairs(TabNames) do
             if validCount == 0 then
                 enemyListStatus.Text = "No enemies found"
             elseif orbitSelectedTarget and orbitSelectedTarget.Parent then
-                enemyListStatus.Text = "Locked: " .. orbitSelectedTarget.Parent.Name
+                enemyListStatus.Text = "Locked: " .. orbitSelectedTarget.Parent.Name .. " • click again to unlock"
             else
-                enemyListStatus.Text = tostring(validCount) .. " enemies found • select to lock"
+                enemyListStatus.Text = tostring(validCount) .. " enemies found • auto target"
             end
         end
 
