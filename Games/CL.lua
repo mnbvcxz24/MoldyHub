@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 1.3"
+local deployver = "CL ver 1.4"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -454,6 +454,7 @@ for index, name in ipairs(TabNames) do
     if index == 1 then
         -- Farm tab: one card, matching BASAE's compact card style.
         local autoFarmEnabled = false
+        local farmFloatEnabled = false
         local useM1Enabled = false
         local m1LoopId = 0
         local skillLoopIds = {C = 0, X = 0, Z = 0, V = 0}
@@ -745,9 +746,9 @@ for index, name in ipairs(TabNames) do
         end
 
         LocalPlayer.CharacterAdded:Connect(function(character)
-            if autoFarmEnabled then
+            if autoFarmEnabled and farmFloatEnabled then
                 local root = character:WaitForChild("HumanoidRootPart", 5)
-                if root and autoFarmEnabled then
+                if root and autoFarmEnabled and farmFloatEnabled then
                     root.CFrame = root.CFrame + Vector3.new(0, floatingHeight, 0)
                     root.Anchored = true
                     root:SetAttribute("CLAutoFarmFloatActive", true)
@@ -779,7 +780,7 @@ for index, name in ipairs(TabNames) do
         local card = CreateCard(left, "Auto farm", 184)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
-            setFarmFloat(enabled)
+            setFarmFloat(enabled and farmFloatEnabled)
             if not enabled then clearEnemyAim() end
             updateM1Loop()
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
@@ -806,10 +807,14 @@ for index, name in ipairs(TabNames) do
             skillEnabled.V = checked
             startSkillLoop("V", checked)
         end)
-        local heightCard = CreateCard(left, "Movement", 64)
+        local heightCard = CreateCard(left, "Movement", 88)
+        CreateCheckbox(heightCard, "Enable flying", 34, function(checked)
+            farmFloatEnabled = checked
+            setFarmFloat(autoFarmEnabled and farmFloatEnabled)
+        end)
         Create("TextLabel", {
             Parent = heightCard,
-            Position = UDim2.fromOffset(12, 34),
+            Position = UDim2.fromOffset(12, 58),
             Size = UDim2.new(1, -112, 0, 22),
             BackgroundTransparency = 1,
             Text = "Floating height (studs)",
@@ -820,7 +825,7 @@ for index, name in ipairs(TabNames) do
         })
         local heightInput = Create("TextBox", {
             Parent = heightCard,
-            Position = UDim2.new(1, -88, 0, 32),
+            Position = UDim2.new(1, -88, 0, 56),
             Size = UDim2.fromOffset(76, 26),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
