@@ -959,6 +959,16 @@ for index, name in ipairs(TabNames) do
 
         -- Orbit movement circles the currently selected enemy target.
         local function setOrbitEnabled(enabled)
+            if not enabled then
+                -- Stop orbit movement but hand its current target back to normal auto-aim.
+                -- This keeps the camera lock and auto-click target running after flying is disabled.
+                if orbitTarget and orbitTarget.Parent then
+                    cameraAimTarget = orbitTarget
+                elseif orbitSelectedTarget and orbitSelectedTarget.Parent then
+                    cameraAimTarget = orbitSelectedTarget
+                end
+            end
+
             orbitEnabled = enabled
             if not enabled then
                 if orbitHumanoid and orbitOriginalPlatformStand ~= nil then
