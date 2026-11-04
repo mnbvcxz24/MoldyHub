@@ -7,6 +7,17 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
+local environment = (getgenv and getgenv()) or _G
+local previousCleanup = environment.CLMoldyHubCleanup
+if type(previousCleanup) == "function" then
+    pcall(previousCleanup)
+end
+
+local cleanupCallbacks = {}
+local function RegisterCleanup(callback)
+    table.insert(cleanupCallbacks, callback)
+end
+
 local old = game.CoreGui:FindFirstChild(UI_NAME)
 if old then old:Destroy() end
 local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
@@ -659,6 +670,18 @@ for index, name in ipairs(TabNames) do
             end
         end)
 
+        RegisterCleanup(function()
+            autoFarmEnabled = false
+            useM1Enabled = false
+            m1LoopId = m1LoopId + 1
+            for _, slot in ipairs({"C", "X", "Z", "V"}) do
+                skillEnabled[slot] = false
+                skillLoopIds[slot] = skillLoopIds[slot] + 1
+                skillTargetAssignments[slot] = nil
+            end
+            setFarmFloat(false)
+        end)
+
         local card = CreateCard(left, "Auto farm", 184)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
@@ -735,6 +758,12 @@ for index, name in ipairs(TabNames) do
 
     elseif index == 2 then
         local antiAfkConnection
+        RegisterCleanup(function()
+            if antiAfkConnection then
+                antiAfkConnection:Disconnect()
+                antiAfkConnection = nil
+            end
+        end)
         local card = CreateCard(left, "Anti AFK", 64)
         CreateToggle(card, "Anti AFK", 34, function(enabled)
             if antiAfkConnection then
@@ -779,3 +808,16 @@ UserInputService.InputChanged:Connect(function(input)
             startPosition.Y.Scale, startPosition.Y.Offset + delta.Y)
     end
 end)
+
+local function CleanupCLMoldyHub()
+    for _, callback in ipairs(cleanupCallbacks) do
+        pcall(callback)
+    end
+    cleanupCallbacks = {}
+    local gui = game.CoreGui:FindFirstChild(UI_NAME)
+    if gui then gui:Destroy() end
+    local statusGui = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
+    if statusGui then statusGui:Destroy() end
+end
+
+environment.CLMoldyHubCleanup = CleanupCLMoldyHub
