@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 1.9"
+local deployver = "CL ver 2.0"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -705,18 +705,26 @@ for index, name in ipairs(TabNames) do
             if not root then return end
 
             if enabled then
-                if root:GetAttribute("CLAutoFarmFloatActive") ~= true then
+                local newMode = undergroundEnabled and "Underground" or "Flying"
+                local wasActive = root:GetAttribute("CLAutoFarmFloatActive") == true
+                local oldMode = root:GetAttribute("CLAutoFarmFloatMode")
+                if not wasActive then
                     root:SetAttribute("CLAutoFarmOriginalAnchored", root.Anchored)
                     root:SetAttribute("CLAutoFarmFloatActive", true)
-                    local verticalOffset = undergroundEnabled and -floatingHeight or floatingHeight
-                    root.CFrame = root.CFrame + Vector3.new(0, verticalOffset, 0)
+                    root.CFrame = root.CFrame + Vector3.new(0, undergroundEnabled and -floatingHeight or floatingHeight, 0)
+                elseif oldMode ~= newMode then
+                    local oldOffset = oldMode == "Underground" and -floatingHeight or floatingHeight
+                    local newOffset = undergroundEnabled and -floatingHeight or floatingHeight
+                    root.CFrame = root.CFrame + Vector3.new(0, newOffset - oldOffset, 0)
                 end
+                root:SetAttribute("CLAutoFarmFloatMode", newMode)
                 root.Anchored = true
             else
                 local wasActive = root:GetAttribute("CLAutoFarmFloatActive")
                 if wasActive then
                     root.Anchored = root:GetAttribute("CLAutoFarmOriginalAnchored") == true
                     root:SetAttribute("CLAutoFarmFloatActive", nil)
+                    root:SetAttribute("CLAutoFarmFloatMode", nil)
                     root:SetAttribute("CLAutoFarmOriginalAnchored", nil)
                 end
             end
@@ -873,7 +881,8 @@ for index, name in ipairs(TabNames) do
                 local character = LocalPlayer.Character
                 local root = character and character:FindFirstChild("HumanoidRootPart")
                 if root and root:GetAttribute("CLAutoFarmFloatActive") then
-                    root.CFrame = root.CFrame + Vector3.new(0, floatingHeight - previousHeight, 0)
+                    local direction = undergroundEnabled and -1 or 1
+                    root.CFrame = root.CFrame + Vector3.new(0, (floatingHeight - previousHeight) * direction, 0)
                 end
             else
                 heightInput.Text = tostring(floatingHeight)
