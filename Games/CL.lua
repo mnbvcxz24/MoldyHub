@@ -544,6 +544,7 @@ for index, name in ipairs(TabNames) do
         local cameraAimBound = true
         local orbitEnabled = false
         local orbitTarget = nil
+        local orbitSelectedTarget = nil
         local orbitDistance = 12
         local orbitHeight = 5
         local orbitSpeed = 90
@@ -580,7 +581,13 @@ for index, name in ipairs(TabNames) do
 
                 if (not orbitTarget or not orbitTarget.Parent) and root then
                     local enemies = workspace:FindFirstChild("Enemies")
-                    orbitTarget = getClosestEnemy(root, enemies)
+                    if orbitSelectedTarget and orbitSelectedTarget.Parent
+                        and orbitSelectedTarget.Parent.Parent == enemies then
+                        orbitTarget = orbitSelectedTarget
+                    else
+                        orbitSelectedTarget = nil
+                        orbitTarget = getClosestEnemy(root, enemies)
+                    end
                     target = orbitTarget
                     if target then
                         targetHighlight.Adornee = target.Parent
@@ -904,7 +911,13 @@ for index, name in ipairs(TabNames) do
                 local character = LocalPlayer.Character
                 local root = character and character:FindFirstChild("HumanoidRootPart")
                 local enemies = workspace:FindFirstChild("Enemies")
-                orbitTarget = getClosestEnemy(root, enemies)
+                if orbitSelectedTarget and orbitSelectedTarget.Parent
+                    and orbitSelectedTarget.Parent.Parent == enemies then
+                    orbitTarget = orbitSelectedTarget
+                else
+                    orbitSelectedTarget = nil
+                    orbitTarget = getClosestEnemy(root, enemies)
+                end
                 if orbitTarget then
                     aimCameraAtEnemy(orbitTarget)
                 end
@@ -917,9 +930,115 @@ for index, name in ipairs(TabNames) do
             end
         end
 
-        local orbitCard = CreateCard(left, "Enemy Orbit", 150)
+        local orbitCard = CreateCard(left, "Enemy Orbit", 280)
         CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
             setOrbitEnabled(checked)
+        end)
+
+        Create("TextLabel", {
+            Parent = orbitCard,
+            Position = UDim2.fromOffset(12, 59),
+            Size = UDim2.new(1, -24, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Enemy Nearby",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        local enemyList = Create("ScrollingFrame", {
+            Parent = orbitCard,
+            Position = UDim2.fromOffset(12, 78),
+            Size = UDim2.new(1, -24, 0, 88),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Theme.Gray,
+            CanvasSize = UDim2.new(0, 0, 0, 0)
+        })
+        Corner(enemyList, 5)
+        Stroke(enemyList, Theme.Border, 1)
+        local enemyListLayout = Create("UIListLayout", {
+            Parent = enemyList,
+            Padding = UDim.new(0, 3),
+            SortOrder = Enum.SortOrder.Name
+        })
+        enemyListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            enemyList.CanvasSize = UDim2.new(0, 0, 0, enemyListLayout.AbsoluteContentSize.Y + 6)
+        end)
+
+        local enemyListStatus = Create("TextLabel", {
+            Parent = orbitCard,
+            Position = UDim2.fromOffset(12, 169),
+            Size = UDim2.new(1, -24, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Select an enemy to lock",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        local function refreshNearbyEnemies()
+            for _, child in ipairs(enemyList:GetChildren()) do
+                if child:IsA("TextButton") then child:Destroy() end
+            end
+
+            local enemies = workspace:FindFirstChild("Enemies")
+            local enemyModels = enemies and enemies:GetChildren() or {}
+            local validCount = 0
+            local character = LocalPlayer.Character
+            local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+
+            table.sort(enemyModels, function(a, b)
+                return a.Name < b.Name
+            end)
+
+            for _, enemy in ipairs(enemyModels) do
+                local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
+                if enemyRoot then
+                    validCount = validCount + 1
+                    local distance = playerRoot and math.floor((enemyRoot.Position - playerRoot.Position).Magnitude) or 0
+                    local isSelected = orbitSelectedTarget == enemyRoot
+                    local button = Create("TextButton", {
+                        Parent = enemyList,
+                        Size = UDim2.new(1, -6, 0, 22),
+                        BackgroundColor3 = isSelected and Theme.Accent or Theme.Card,
+                        BackgroundTransparency = isSelected and 0.12 or 0,
+                        BorderSizePixel = 0,
+                        Text = enemy.Name .. "  •  " .. tostring(distance) .. " studs",
+                        TextColor3 = Theme.Text,
+                        Font = Enum.Font.Gotham,
+                        TextSize = 8,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        AutoButtonColor = true
+                    })
+                    Corner(button, 4)
+                    button.MouseButton1Click:Connect(function()
+                        if not enemyRoot.Parent or enemyRoot.Parent.Parent ~= enemies then return end
+                        orbitSelectedTarget = enemyRoot
+                        if orbitEnabled then orbitTarget = enemyRoot end
+                        aimCameraAtEnemy(enemyRoot)
+                        refreshNearbyEnemies()
+                    end)
+                end
+            end
+
+            if validCount == 0 then
+                enemyListStatus.Text = "No enemies found"
+            elseif orbitSelectedTarget and orbitSelectedTarget.Parent then
+                enemyListStatus.Text = "Locked: " .. orbitSelectedTarget.Parent.Name
+            else
+                enemyListStatus.Text = tostring(validCount) .. " enemies found • select to lock"
+            end
+        end
+
+        task.spawn(function()
+            while orbitCard.Parent do
+                refreshNearbyEnemies()
+                task.wait(1)
+            end
         end)
 
         local function createOrbitInput(label, y, defaultValue, minValue, maxValue, setter)
@@ -962,13 +1081,13 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
-        createOrbitInput("Distance (studs)", 62, 12, 3, 100, function(value)
+        createOrbitInput("Distance (studs)", 190, 12, 3, 100, function(value)
             orbitDistance = value
         end)
-        createOrbitInput("Flying height (studs)", 91, 5, 0, 100, function(value)
+        createOrbitInput("Flying height (studs)", 219, 5, 0, 100, function(value)
             orbitHeight = value
         end)
-        createOrbitInput("Speed (deg/sec)", 120, 90, 10, 360, function(value)
+        createOrbitInput("Speed (deg/sec)", 248, 90, 10, 360, function(value)
             orbitSpeed = value
         end)
 
