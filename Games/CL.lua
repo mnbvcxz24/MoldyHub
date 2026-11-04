@@ -530,6 +530,25 @@ for index, name in ipairs(TabNames) do
             return closestEnemyRoot
         end
 
+        -- Orbit mode makes every Auto Farm attack use the same selected orbit target.
+        -- Outside orbit mode, preserve the normal closest/rotating target behavior.
+        local function getFarmTarget(root, enemies)
+            if orbitEnabled then
+                local selectedTarget = orbitSelectedTarget
+                if selectedTarget and selectedTarget.Parent
+                    and selectedTarget.Parent.Parent == enemies then
+                    return selectedTarget
+                end
+
+                if orbitTarget and orbitTarget.Parent
+                    and orbitTarget.Parent.Parent == enemies then
+                    return orbitTarget
+                end
+            end
+
+            return getClosestEnemy(root, enemies)
+        end
+
         -- Each skill reserves one enemy root during its cooldown.
         -- After casting, it advances to the next available enemy location.
         local skillTargetAssignments = {}
@@ -585,8 +604,8 @@ for index, name in ipairs(TabNames) do
                         and orbitSelectedTarget.Parent.Parent == enemies then
                         orbitTarget = orbitSelectedTarget
                     else
-                        orbitSelectedTarget = nil
                         orbitTarget = getClosestEnemy(root, enemies)
+                        orbitSelectedTarget = orbitTarget
                     end
                     target = orbitTarget
                     if target then
@@ -758,7 +777,12 @@ for index, name in ipairs(TabNames) do
                             break
                         end
 
-                        local enemyRoot = getAssignedSkillTarget(slot, root, enemies)
+                        local enemyRoot
+                        if orbitEnabled then
+                            enemyRoot = getFarmTarget(root, enemies)
+                        else
+                            enemyRoot = getAssignedSkillTarget(slot, root, enemies)
+                        end
                         if enemyRoot then
                             -- Serialize casts so each skill gets a clean camera-aim window.
                             while skillCastBusy and thisLoop == skillLoopIds[slot] and autoFarmEnabled do
@@ -822,7 +846,7 @@ for index, name in ipairs(TabNames) do
 
                     if root and enemies then
                         if thisLoop == m1LoopId and autoFarmEnabled and useM1Enabled then
-                            local enemyRoot = getClosestEnemy(root, enemies)
+                            local enemyRoot = getFarmTarget(root, enemies)
                             if enemyRoot then
                                 pcall(function()
                                     basicAttack:FireServer(
@@ -916,8 +940,8 @@ for index, name in ipairs(TabNames) do
                     and orbitSelectedTarget.Parent.Parent == enemies then
                     orbitTarget = orbitSelectedTarget
                 else
-                    orbitSelectedTarget = nil
                     orbitTarget = getClosestEnemy(root, enemies)
+                    orbitSelectedTarget = orbitTarget
                 end
                 if orbitTarget then
                     aimCameraAtEnemy(orbitTarget)
