@@ -639,7 +639,8 @@ for index, name in ipairs(TabNames) do
             targetHighlight.Enabled = false
         end
 
-        -- Click the currently highlighted skill target at its on-screen position every 0.5s.
+        -- Tap only the screen center while a valid camera-locked target exists.
+        -- The camera aim places the selected enemy under the center reticle.
         local function startTargetClickLoop(enabled)
             targetClickLoopId = targetClickLoopId + 1
             local thisLoop = targetClickLoopId
@@ -650,14 +651,14 @@ for index, name in ipairs(TabNames) do
                     local target = cameraAimTarget
                     local camera = workspace.CurrentCamera
                     if target and target.Parent and camera then
-                        local screenPoint, onScreen = camera:WorldToViewportPoint(target.Position)
-                        if onScreen and screenPoint.Z > 0 then
-                            pcall(function()
-                                VirtualInputManager:SendMouseButtonEvent(screenPoint.X, screenPoint.Y, 0, true, game, 0)
-                                task.wait(0.03)
-                                VirtualInputManager:SendMouseButtonEvent(screenPoint.X, screenPoint.Y, 0, false, game, 0)
-                            end)
-                        end
+                        local viewport = camera.ViewportSize
+                        local centerX = viewport.X * 0.5
+                        local centerY = viewport.Y * 0.5
+                        pcall(function()
+                            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                            task.wait(0.03)
+                            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                        end)
                     end
                     task.wait(0.5)
                 end
