@@ -496,17 +496,16 @@ for index, name in ipairs(TabNames) do
             return findSkillByDisplayName(displayName, slot)
         end
 
-        local function getClosestLivingEnemy(root, enemies)
+        local function getClosestEnemy(root, enemies)
             if not root or not enemies then return nil end
 
             local closestEnemyRoot
             local closestDistance = math.huge
 
             for _, enemy in ipairs(enemies:GetChildren()) do
-                local humanoid = enemy:FindFirstChildOfClass("Humanoid")
                 local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
 
-                if humanoid and humanoid.Health > 0 and enemyRoot then
+                if enemyRoot then
                     local distance = (enemyRoot.Position - root.Position).Magnitude
                     if distance < closestDistance then
                         closestDistance = distance
@@ -518,8 +517,8 @@ for index, name in ipairs(TabNames) do
             return closestEnemyRoot
         end
 
-        -- Skills share one cursor so each cast advances to the next enemy location.
-        -- Enemy model names are intentionally ignored; only living root positions matter.
+        -- Skills share one cursor and rotate through enemy root locations.
+        -- Enemy model names and Humanoid objects are not used.
         local skillTargetCursor = 0
 
         local function getNextRotatingEnemy(root, enemies)
@@ -527,10 +526,9 @@ for index, name in ipairs(TabNames) do
 
             local targets = {}
             for _, enemy in ipairs(enemies:GetChildren()) do
-                local humanoid = enemy:FindFirstChildOfClass("Humanoid")
                 local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
 
-                if humanoid and humanoid.Health > 0 and enemyRoot then
+                if enemyRoot then
                     table.insert(targets, {
                         root = enemyRoot,
                         distance = (enemyRoot.Position - root.Position).Magnitude
@@ -617,7 +615,7 @@ for index, name in ipairs(TabNames) do
 
                     if root and enemies then
                         if thisLoop == m1LoopId and autoFarmEnabled and useM1Enabled then
-                            local enemyRoot = getClosestLivingEnemy(root, enemies)
+                            local enemyRoot = getClosestEnemy(root, enemies)
                             if enemyRoot then
                                 pcall(function()
                                     basicAttack:FireServer(
