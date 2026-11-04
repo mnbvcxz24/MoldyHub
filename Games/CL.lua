@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.12"
+local deployver = "CL ver 2.13"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -1069,12 +1069,29 @@ for index, name in ipairs(TabNames) do
                     Corner(button, 4)
                     button.MouseButton1Click:Connect(function()
                         if not enemyRoot.Parent or enemyRoot.Parent.Parent ~= enemies then return end
-                        orbitSelectedTarget = enemyRoot
-                        if orbitEnabled then
-                            orbitTarget = enemyRoot
-                            cameraAimTarget = enemyRoot
+
+                        if orbitSelectedTarget == enemyRoot then
+                            -- Clicking the active lock again unselects it.
+                            orbitSelectedTarget = nil
+                            if orbitEnabled then
+                                local character = LocalPlayer.Character
+                                local root = character and character:FindFirstChild("HumanoidRootPart")
+                                orbitTarget = getClosestEnemy(root, enemies)
+                                if orbitTarget then
+                                    aimCameraAtEnemy(orbitTarget)
+                                else
+                                    clearEnemyAim()
+                                end
+                            end
+                        else
+                            orbitSelectedTarget = enemyRoot
+                            if orbitEnabled then
+                                orbitTarget = enemyRoot
+                                cameraAimTarget = enemyRoot
+                            end
+                            aimCameraAtEnemy(enemyRoot)
                         end
-                        aimCameraAtEnemy(enemyRoot)
+
                         refreshNearbyEnemies()
                     end)
                 end
