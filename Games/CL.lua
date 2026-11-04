@@ -900,7 +900,20 @@ for index, name in ipairs(TabNames) do
             targetHighlight:Destroy()
         end)
 
-        local card = CreateCard(left, "Auto farm", 184)
+        local cardsRow = Create("Frame", {
+            Parent = left,
+            Size = UDim2.new(1, 0, 0, 280),
+            BackgroundTransparency = 1
+        })
+        Create("UIListLayout", {
+            Parent = cardsRow,
+            FillDirection = Enum.FillDirection.Horizontal,
+            Padding = UDim.new(0, 10),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local card = CreateCard(cardsRow, "Auto farm", 280)
+        card.Size = UDim2.new(0.5, -5, 1, 0)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
             if not enabled then clearEnemyAim() end
@@ -965,7 +978,8 @@ for index, name in ipairs(TabNames) do
             end
         end
 
-        local orbitCard = CreateCard(left, "Enemy Orbit", 280)
+        local orbitCard = CreateCard(cardsRow, "Enemy Orbit", 280)
+        orbitCard.Size = UDim2.new(0.5, -5, 1, 0)
         CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
             setOrbitEnabled(checked)
         end)
@@ -1047,6 +1061,7 @@ for index, name in ipairs(TabNames) do
                         Font = Enum.Font.Gotham,
                         TextSize = 8,
                         TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd,
                         AutoButtonColor = true
                     })
                     Corner(button, 4)
@@ -1083,7 +1098,7 @@ for index, name in ipairs(TabNames) do
             Create("TextLabel", {
                 Parent = orbitCard,
                 Position = UDim2.fromOffset(12, y + 2),
-                Size = UDim2.fromOffset(120, 18),
+                Size = UDim2.fromOffset(78, 18),
                 BackgroundTransparency = 1,
                 Text = label,
                 TextColor3 = Theme.DarkGray,
@@ -1093,8 +1108,8 @@ for index, name in ipairs(TabNames) do
             })
             local input = Create("TextBox", {
                 Parent = orbitCard,
-                Position = UDim2.new(1, -82, 0, y),
-                Size = UDim2.fromOffset(70, 23),
+                Position = UDim2.new(1, -66, 0, y),
+                Size = UDim2.fromOffset(54, 23),
                 BackgroundColor3 = Theme.SurfaceInput,
                 TextColor3 = Theme.Text,
                 PlaceholderColor3 = Theme.Gray,
