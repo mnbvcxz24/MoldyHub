@@ -518,6 +518,36 @@ for index, name in ipairs(TabNames) do
             return closestEnemyRoot
         end
 
+        -- Skills share one cursor so each cast advances to the next enemy location.
+        -- Enemy model names are intentionally ignored; only living root positions matter.
+        local skillTargetCursor = 0
+
+        local function getNextRotatingEnemy(root, enemies)
+            if not root or not enemies then return nil end
+
+            local targets = {}
+            for _, enemy in ipairs(enemies:GetChildren()) do
+                local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+                local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
+
+                if humanoid and humanoid.Health > 0 and enemyRoot then
+                    table.insert(targets, {
+                        root = enemyRoot,
+                        distance = (enemyRoot.Position - root.Position).Magnitude
+                    })
+                end
+            end
+
+            if #targets == 0 then return nil end
+
+            table.sort(targets, function(a, b)
+                return a.distance < b.distance
+            end)
+
+            skillTargetCursor = (skillTargetCursor % #targets) + 1
+            return targets[skillTargetCursor].root
+        end
+
         local function startSkillLoop(slot, enabled)
             skillLoopIds[slot] = skillLoopIds[slot] + 1
             local thisLoop = skillLoopIds[slot]
@@ -535,7 +565,7 @@ for index, name in ipairs(TabNames) do
                             break
                         end
 
-                        local enemyRoot = getClosestLivingEnemy(root, enemies)
+                        local enemyRoot = getNextRotatingEnemy(root, enemies)
                         if enemyRoot then
                             pcall(function()
                                 castSkill:FireServer(skillId, root.CFrame, enemyRoot.Position)
