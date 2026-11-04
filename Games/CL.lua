@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 1.1"
+local deployver = "CL ver 1.2"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -667,7 +667,7 @@ for index, name in ipairs(TabNames) do
                                 local camera = workspace.CurrentCamera
                                 local aimCFrame = camera and camera.CFrame
                                 local castOk = pcall(function()
-                                    castSkill:FireServer(skillId, aimCFrame, nil)
+                                    castSkill:FireServer(skillId, aimCFrame, enemyRoot.Position)
                                 end)
                                 if castOk then
                                     -- Mark advancement for the next ready cast; reservation stays
