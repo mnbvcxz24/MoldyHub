@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.2"
+local deployver = "CL ver 2.3"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -543,6 +543,7 @@ for index, name in ipairs(TabNames) do
         local skillTargetAssignments = {}
         local skillLastTargets = {}
         local skillAdvancePending = {}
+        local skillCastBusy = false
 
         -- Keep the highlighted target centered after Roblox's normal camera update.
         local RunService = game:GetService("RunService")
@@ -641,6 +642,25 @@ for index, name in ipairs(TabNames) do
                 end
             end
 
+            -- No unreserved enemy is available: share an existing skill target.
+            local sharedTarget
+            local sharedDistance = math.huge
+            for _, targetRoot in pairs(skillTargetAssignments) do
+                if targetRoot and targetRoot.Parent and targetRoot.Parent.Parent == enemies then
+                    local distance = (targetRoot.Position - root.Position).Magnitude
+                    if distance <= MAX_TARGET_DISTANCE and distance < sharedDistance then
+                        sharedTarget = targetRoot
+                        sharedDistance = distance
+                    end
+                end
+            end
+
+            if sharedTarget then
+                skillTargetAssignments[slot] = sharedTarget
+                skillLastTargets[slot] = sharedTarget.Parent
+                return sharedTarget
+            end
+
             return nil
         end
 
@@ -663,30 +683,40 @@ for index, name in ipairs(TabNames) do
 
                         local enemyRoot = getAssignedSkillTarget(slot, root, enemies)
                         if enemyRoot then
-                            local aimReady = aimCameraAtEnemy(enemyRoot)
-                            -- Let the render-step camera aim run before sending the cast.
-                            task.wait()
-                            if aimReady and thisLoop == skillLoopIds[slot] and autoFarmEnabled then
-                                local keyCode = Enum.KeyCode[slot]
-                                local keyDownSent = false
-                                local castOk = keyCode and pcall(function()
-                                    VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-                                    keyDownSent = true
-                                    task.wait(0.08)
-                                    VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
-                                    keyDownSent = false
-                                end)
-                                -- Always release the key if activation was interrupted.
-                                if keyDownSent then
-                                    pcall(function()
+                            -- Serialize casts so each skill gets a clean camera-aim window.
+                            while skillCastBusy and thisLoop == skillLoopIds[slot] and autoFarmEnabled do
+                                task.wait()
+                            end
+
+                            if thisLoop == skillLoopIds[slot] and autoFarmEnabled
+                                and enemyRoot.Parent and enemyRoot.Parent.Parent == enemies then
+                                skillCastBusy = true
+                                local aimReady = aimCameraAtEnemy(enemyRoot)
+                                -- Let the render-step camera aim run before sending the cast.
+                                task.wait()
+                                if aimReady and thisLoop == skillLoopIds[slot] and autoFarmEnabled then
+                                    local keyCode = Enum.KeyCode[slot]
+                                    local keyDownSent = false
+                                    local castOk = keyCode and pcall(function()
+                                        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+                                        keyDownSent = true
+                                        task.wait(0.08)
                                         VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+                                        keyDownSent = false
                                     end)
+                                    -- Always release the key if activation was interrupted.
+                                    if keyDownSent then
+                                        pcall(function()
+                                            VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+                                        end)
+                                    end
+                                    if castOk then
+                                        -- Mark advancement for the next ready cast; reservation stays
+                                        -- active throughout this skill's cooldown.
+                                        skillAdvancePending[slot] = true
+                                    end
                                 end
-                                if castOk then
-                                    -- Mark advancement for the next ready cast; reservation stays
-                                    -- active throughout this skill's cooldown.
-                                    skillAdvancePending[slot] = true
-                                end
+                                skillCastBusy = false
                             end
                         end
 
