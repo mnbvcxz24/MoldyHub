@@ -460,7 +460,7 @@ for index, name in ipairs(TabNames) do
         local skillLoopIds = {C = 0, X = 0, Z = 0, V = 0}
         local skillEnabled = {C = false, X = false, Z = false, V = false}
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local remotes = ReplicatedStorage:WaitForChild("WK_Remotes")
+        local remotes = ReplicatedStorage:WaitForChild("Remotes")
         local basicAttack = remotes:WaitForChild("BasicAttack")
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local SkillsModule = ReplicatedStorage
@@ -562,7 +562,7 @@ for index, name in ipairs(TabNames) do
         targetHighlight.Parent = workspace
 
         RunService:BindToRenderStep("CLMoldyHubCameraAim", Enum.RenderPriority.Camera.Value + 1, function(deltaTime)
-            local target = orbitEnabled and orbitTarget or cameraAimTarget
+            local target = orbitEnabled and orbitTarget or nil
             local camera = workspace.CurrentCamera
 
             if orbitEnabled then
