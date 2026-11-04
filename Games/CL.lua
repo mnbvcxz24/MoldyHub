@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 1.6"
+local deployver = "CL ver 1.7"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -559,7 +559,7 @@ for index, name in ipairs(TabNames) do
             local cameraPosition = camera.CFrame.Position
             local direction = target.Position - cameraPosition
             if direction.Magnitude > 0.01 then
-                local aimPosition = target.Position
+                local aimPosition = target.Position - Vector3.new(0, 3, 0)
                 camera.CFrame = CFrame.lookAt(cameraPosition, aimPosition, camera.CFrame.UpVector)
                 camera.Focus = CFrame.new(aimPosition)
             end
