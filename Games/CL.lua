@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.4"
+local deployver = "CL ver 2.5"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -462,19 +462,6 @@ for index, name in ipairs(TabNames) do
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local remotes = ReplicatedStorage:WaitForChild("WK_Remotes")
         local basicAttack = remotes:WaitForChild("BasicAttack")
-        local stateVitals = remotes:WaitForChild("StateVitals")
-        local latestVitals = nil
-        local hpRefreshLoopId = 0
-
-        -- Cache the latest server-provided vitals payload received after script startup.
-        local stateVitalsConnection = stateVitals.OnClientEvent:Connect(function(data)
-            if type(data) ~= "table" then return end
-            local snapshot = {}
-            for key, value in pairs(data) do
-                snapshot[key] = value
-            end
-            latestVitals = snapshot
-        end)
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local SkillsModule = ReplicatedStorage
             :WaitForChild("Shared")
@@ -772,11 +759,6 @@ for index, name in ipairs(TabNames) do
         RegisterCleanup(function()
             autoFarmEnabled = false
             useM1Enabled = false
-            hpRefreshLoopId = hpRefreshLoopId + 1
-            if stateVitalsConnection then
-                stateVitalsConnection:Disconnect()
-                stateVitalsConnection = nil
-            end
             m1LoopId = m1LoopId + 1
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
                 skillEnabled[slot] = false
@@ -821,29 +803,6 @@ for index, name in ipairs(TabNames) do
         CreateCheckbox(card, "Use V", 153, function(checked)
             skillEnabled.V = checked
             startSkillLoop("V", checked)
-        end)
-
-        local hpCard = CreateCard(left, "HP Refresh", 64)
-        CreateCheckbox(hpCard, "Replay latest HP data", 34, function(checked)
-            hpRefreshLoopId = hpRefreshLoopId + 1
-            local thisLoop = hpRefreshLoopId
-            if not checked then return end
-
-            task.spawn(function()
-                while thisLoop == hpRefreshLoopId do
-                    if latestVitals then
-                        if type(firesignal) == "function" then
-                            pcall(function()
-                                firesignal(stateVitals.OnClientEvent, latestVitals)
-                            end)
-                        else
-                            warn("[CL HP Refresh] firesignal is unavailable in this executor.")
-                            break
-                        end
-                    end
-                    task.wait(0.2)
-                end
-            end)
         end)
 
     elseif index == 2 then
