@@ -542,6 +542,12 @@ for index, name in ipairs(TabNames) do
         local RunService = game:GetService("RunService")
         local cameraAimTarget = nil
         local cameraAimBound = true
+        local orbitEnabled = false
+        local orbitDistance = 12
+        local orbitSpeed = 90
+        local orbitAngle = 0
+        local orbitHumanoid = nil
+        local orbitOriginalPlatformStand = nil
         local targetHighlight = Instance.new("Highlight")
         targetHighlight.Name = "CLSelectedEnemyHighlight"
         targetHighlight.FillColor = Color3.fromRGB(45, 135, 255)
@@ -552,15 +558,42 @@ for index, name in ipairs(TabNames) do
         targetHighlight.Enabled = false
         targetHighlight.Parent = workspace
 
-        RunService:BindToRenderStep("CLMoldyHubCameraAim", Enum.RenderPriority.Camera.Value + 1, function()
+        RunService:BindToRenderStep("CLMoldyHubCameraAim", Enum.RenderPriority.Camera.Value + 1, function(deltaTime)
             local target = cameraAimTarget
             local camera = workspace.CurrentCamera
-            if not target or not target.Parent or not camera then return end
 
+            if orbitEnabled then
+                local character = LocalPlayer.Character
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+                if humanoid and humanoid ~= orbitHumanoid then
+                    if orbitHumanoid and orbitOriginalPlatformStand ~= nil then
+                        pcall(function() orbitHumanoid.PlatformStand = orbitOriginalPlatformStand end)
+                    end
+                    orbitHumanoid = humanoid
+                    orbitOriginalPlatformStand = humanoid.PlatformStand
+                    humanoid.PlatformStand = true
+                end
+
+                if target and target.Parent and root then
+                    orbitAngle = (orbitAngle + math.rad(orbitSpeed) * deltaTime) % (math.pi * 2)
+                    local offset = Vector3.new(
+                        math.cos(orbitAngle) * orbitDistance,
+                        0,
+                        math.sin(orbitAngle) * orbitDistance
+                    )
+                    local orbitPosition = target.Position + offset
+                    root.CFrame = CFrame.lookAt(orbitPosition, target.Position)
+                    root.AssemblyLinearVelocity = Vector3.zero
+                    root.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+
+            if not target or not target.Parent or not camera then return end
             local cameraPosition = camera.CFrame.Position
-            local direction = target.Position - cameraPosition
-            if direction.Magnitude > 0.01 then
-                local aimPosition = target.Position - Vector3.new(0, 3, 0)
+            local aimPosition = target.Position - Vector3.new(0, 3, 0)
+            if (aimPosition - cameraPosition).Magnitude > 0.01 then
                 camera.CFrame = CFrame.lookAt(cameraPosition, aimPosition, camera.CFrame.UpVector)
                 camera.Focus = CFrame.new(aimPosition)
             end
@@ -784,21 +817,12 @@ for index, name in ipairs(TabNames) do
 
         RegisterCleanup(function()
             targetClickLoopId = targetClickLoopId + 1
-            undergroundEnabled = false
-            if undergroundCharacter then
-                local oldHumanoid = undergroundCharacter:FindFirstChildOfClass("Humanoid")
-                local oldRoot = undergroundCharacter:FindFirstChild("HumanoidRootPart")
-                if oldRoot and undergroundOriginalCFrame then
-                    oldRoot.CFrame = undergroundOriginalCFrame
-                end
-                if oldHumanoid and undergroundOriginalPlatformStand ~= nil then
-                    oldHumanoid.PlatformStand = undergroundOriginalPlatformStand
-                end
+            orbitEnabled = false
+            if orbitHumanoid and orbitOriginalPlatformStand ~= nil then
+                pcall(function() orbitHumanoid.PlatformStand = orbitOriginalPlatformStand end)
             end
-            if undergroundCharacterConnection then
-                undergroundCharacterConnection:Disconnect()
-                undergroundCharacterConnection = nil
-            end
+            orbitHumanoid = nil
+            orbitOriginalPlatformStand = nil
             autoFarmEnabled = false
             useM1Enabled = false
             m1LoopId = m1LoopId + 1
@@ -848,106 +872,76 @@ for index, name in ipairs(TabNames) do
             startSkillLoop("V", checked)
         end)
 
-        -- Underground uses the Humanoid as the character reference, then its root part for positioning.
-        local undergroundEnabled = false
-        local undergroundOffset = 20
-        local undergroundCharacter = nil
-        local undergroundOriginalCFrame = nil
-        local undergroundOriginalPlatformStand = nil
-
-        local undergroundCard = CreateCard(left, "Underground", 94)
-        CreateCheckbox(undergroundCard, "Enable Underground", 34, function(checked)
-            undergroundEnabled = checked
-            local character = LocalPlayer.Character
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-            if checked then
-                if not humanoid then
-                    undergroundEnabled = false
-                    return
+        -- Orbit movement circles the currently selected enemy target.
+        local function setOrbitEnabled(enabled)
+            orbitEnabled = enabled
+            if not enabled then
+                if orbitHumanoid and orbitOriginalPlatformStand ~= nil then
+                    pcall(function() orbitHumanoid.PlatformStand = orbitOriginalPlatformStand end)
                 end
-                local root = character:FindFirstChild("HumanoidRootPart")
-                if not root then
-                    undergroundEnabled = false
-                    return
-                end
-                undergroundCharacter = character
-                undergroundOriginalCFrame = root.CFrame
-                undergroundOriginalPlatformStand = humanoid.PlatformStand
-                humanoid.PlatformStand = true
-                root.CFrame = root.CFrame - Vector3.new(0, undergroundOffset, 0)
+                orbitHumanoid = nil
+                orbitOriginalPlatformStand = nil
             else
-                if undergroundCharacter then
-                    local oldHumanoid = undergroundCharacter:FindFirstChildOfClass("Humanoid")
-                    local oldRoot = undergroundCharacter:FindFirstChild("HumanoidRootPart")
-                    if oldRoot and undergroundOriginalCFrame then
-                        oldRoot.CFrame = undergroundOriginalCFrame
-                    end
-                    if oldHumanoid and undergroundOriginalPlatformStand ~= nil then
-                        oldHumanoid.PlatformStand = undergroundOriginalPlatformStand
-                    end
+                local character = LocalPlayer.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    orbitHumanoid = humanoid
+                    orbitOriginalPlatformStand = humanoid.PlatformStand
+                    humanoid.PlatformStand = true
                 end
-                undergroundCharacter = nil
-                undergroundOriginalCFrame = nil
-                undergroundOriginalPlatformStand = nil
             end
+        end
+
+        local orbitCard = CreateCard(left, "Enemy Orbit", 150)
+        CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
+            setOrbitEnabled(checked)
         end)
 
-        Create("TextLabel", {
-            Parent = undergroundCard,
-            Position = UDim2.fromOffset(12, 62),
-            Size = UDim2.fromOffset(104, 18),
-            BackgroundTransparency = 1,
-            Text = "Offset (studs)",
-            TextColor3 = Theme.DarkGray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local undergroundInput = Create("TextBox", {
-            Parent = undergroundCard,
-            Position = UDim2.new(1, -82, 0, 59),
-            Size = UDim2.fromOffset(70, 23),
-            BackgroundColor3 = Theme.SurfaceInput,
-            TextColor3 = Theme.Text,
-            PlaceholderColor3 = Theme.Gray,
-            PlaceholderText = "20",
-            Text = "20",
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            ClearTextOnFocus = false,
-            BorderSizePixel = 0
-        })
-        Corner(undergroundInput, 5)
-        Stroke(undergroundInput, Theme.Border, 1)
-        undergroundInput.FocusLost:Connect(function()
-            local value = tonumber(undergroundInput.Text)
-            if value then
-                undergroundOffset = math.clamp(math.abs(value), 1, 500)
-                undergroundInput.Text = tostring(undergroundOffset)
-                if undergroundEnabled and undergroundCharacter == LocalPlayer.Character then
-                    local root = undergroundCharacter:FindFirstChild("HumanoidRootPart")
-                    if root and undergroundOriginalCFrame then
-                        root.CFrame = undergroundOriginalCFrame - Vector3.new(0, undergroundOffset, 0)
-                    end
+        local function createOrbitInput(label, y, defaultValue, minValue, maxValue, setter)
+            Create("TextLabel", {
+                Parent = orbitCard,
+                Position = UDim2.fromOffset(12, y + 2),
+                Size = UDim2.fromOffset(120, 18),
+                BackgroundTransparency = 1,
+                Text = label,
+                TextColor3 = Theme.DarkGray,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            local input = Create("TextBox", {
+                Parent = orbitCard,
+                Position = UDim2.new(1, -82, 0, y),
+                Size = UDim2.fromOffset(70, 23),
+                BackgroundColor3 = Theme.SurfaceInput,
+                TextColor3 = Theme.Text,
+                PlaceholderColor3 = Theme.Gray,
+                PlaceholderText = tostring(defaultValue),
+                Text = tostring(defaultValue),
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                ClearTextOnFocus = false,
+                BorderSizePixel = 0
+            })
+            Corner(input, 5)
+            Stroke(input, Theme.Border, 1)
+            input.FocusLost:Connect(function()
+                local value = tonumber(input.Text)
+                if value then
+                    value = math.clamp(value, minValue, maxValue)
+                    setter(value)
+                    input.Text = tostring(value)
+                else
+                    input.Text = tostring(defaultValue)
                 end
-            else
-                undergroundInput.Text = tostring(undergroundOffset)
-            end
-        end)
+            end)
+        end
 
-        local undergroundCharacterConnection = LocalPlayer.CharacterAdded:Connect(function(character)
-            if not undergroundEnabled then return end
-            task.wait(0.2)
-            if not undergroundEnabled or LocalPlayer.Character ~= character then return end
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            local root = character:FindFirstChild("HumanoidRootPart")
-            if humanoid and root then
-                undergroundCharacter = character
-                undergroundOriginalCFrame = root.CFrame
-                undergroundOriginalPlatformStand = humanoid.PlatformStand
-                humanoid.PlatformStand = true
-                root.CFrame = root.CFrame - Vector3.new(0, undergroundOffset, 0)
-            end
+        createOrbitInput("Distance (studs)", 62, 12, 3, 100, function(value)
+            orbitDistance = value
+        end)
+        createOrbitInput("Speed (deg/sec)", 91, 90, 10, 360, function(value)
+            orbitSpeed = value
         end)
 
     elseif index == 2 then
