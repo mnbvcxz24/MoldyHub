@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.0"
+local deployver = "CL ver 2.1"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -459,6 +459,9 @@ for index, name in ipairs(TabNames) do
         local autoFarmEnabled = false
         local farmFloatEnabled = false
         local undergroundEnabled = false
+        local dodgeEnabled = false
+        local dodgeDistance = 20
+        local dodgeLoopId = 0
         local useM1Enabled = false
         local m1LoopId = 0
         local skillLoopIds = {C = 0, X = 0, Z = 0, V = 0}
@@ -730,6 +733,48 @@ for index, name in ipairs(TabNames) do
             end
         end
 
+        -- Maintain a horizontal radius around the nearest enemy.
+        -- Move outward when it approaches and inward when it retreats.
+        local function updateDodgeLoop()
+            dodgeLoopId = dodgeLoopId + 1
+            local thisLoop = dodgeLoopId
+            if not dodgeEnabled then return end
+
+            task.spawn(function()
+                while thisLoop == dodgeLoopId and dodgeEnabled do
+                    local character = LocalPlayer.Character
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    local enemies = workspace:FindFirstChild("Enemies")
+                    local enemyRoot = root and getClosestEnemy(root, enemies)
+
+                    if root and enemyRoot then
+                        local offset = Vector3.new(
+                            root.Position.X - enemyRoot.Position.X,
+                            0,
+                            root.Position.Z - enemyRoot.Position.Z
+                        )
+                        local distance = offset.Magnitude
+                        if distance > 0.01 then
+                            local direction = offset.Unit
+                            local desiredPosition = enemyRoot.Position + direction * dodgeDistance
+                            local goal = Vector3.new(desiredPosition.X, root.Position.Y, desiredPosition.Z)
+                            local deltaTime = RunService.Heartbeat:Wait()
+                            if thisLoop ~= dodgeLoopId or not dodgeEnabled then break end
+                            local alpha = math.clamp(deltaTime * 3, 0, 1)
+                            root.CFrame = root.CFrame:Lerp(
+                                CFrame.new(goal) * root.CFrame.Rotation,
+                                alpha
+                            )
+                        else
+                            RunService.Heartbeat:Wait()
+                        end
+                    else
+                        task.wait(0.15)
+                    end
+                end
+            end)
+        end
+
         local function updateM1Loop()
             m1LoopId = m1LoopId + 1
             local thisLoop = m1LoopId
@@ -778,6 +823,8 @@ for index, name in ipairs(TabNames) do
         RegisterCleanup(function()
             autoFarmEnabled = false
             useM1Enabled = false
+            dodgeEnabled = false
+            dodgeLoopId = dodgeLoopId + 1
             m1LoopId = m1LoopId + 1
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
                 skillEnabled[slot] = false
@@ -825,7 +872,7 @@ for index, name in ipairs(TabNames) do
             skillEnabled.V = checked
             startSkillLoop("V", checked)
         end)
-        local heightCard = CreateCard(left, "Movement", 112)
+        local heightCard = CreateCard(left, "Movement", 166)
         local setFlyingChecked
         local setUndergroundChecked
         _, setFlyingChecked = CreateCheckbox(heightCard, "Enable flying", 34, function(checked)
@@ -886,6 +933,47 @@ for index, name in ipairs(TabNames) do
                 end
             else
                 heightInput.Text = tostring(floatingHeight)
+            end
+        end)
+
+        CreateCheckbox(heightCard, "Dodge", 110, function(checked)
+            dodgeEnabled = checked
+            updateDodgeLoop()
+        end)
+        Create("TextLabel", {
+            Parent = heightCard,
+            Position = UDim2.fromOffset(12, 136),
+            Size = UDim2.new(1, -112, 0, 22),
+            BackgroundTransparency = 1,
+            Text = "Dodge distance",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local dodgeDistanceInput = Create("TextBox", {
+            Parent = heightCard,
+            Position = UDim2.new(1, -88, 0, 134),
+            Size = UDim2.fromOffset(76, 26),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            Text = tostring(dodgeDistance),
+            PlaceholderText = "20",
+            TextColor3 = Theme.Text,
+            PlaceholderColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            ClearTextOnFocus = false
+        })
+        Corner(dodgeDistanceInput, 5)
+        Stroke(dodgeDistanceInput, Theme.Border, 1)
+        dodgeDistanceInput.FocusLost:Connect(function()
+            local enteredDistance = tonumber(dodgeDistanceInput.Text)
+            if enteredDistance and enteredDistance >= 1 and enteredDistance <= 500 then
+                dodgeDistance = enteredDistance
+                dodgeDistanceInput.Text = tostring(dodgeDistance)
+            else
+                dodgeDistanceInput.Text = tostring(dodgeDistance)
             end
         end)
 
