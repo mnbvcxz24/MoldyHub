@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 1.7"
+local deployver = "CL ver 1.8"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -684,6 +684,10 @@ for index, name in ipairs(TabNames) do
                         end
 
                         task.wait(math.max(tonumber(skillData.Cooldown) or 1, 0.1))
+                        if skillAdvancePending[slot] then
+                            -- Give the skill 2 extra seconds before assigning its next target.
+                            task.wait(2)
+                        end
                     else
                         task.wait(0.5)
                     end
