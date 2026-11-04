@@ -673,7 +673,8 @@ for index, name in ipairs(TabNames) do
         end)
 
                 local function aimCameraAtEnemy(enemyRoot)
-            if not enemyRoot or not enemyRoot.Parent then return false end
+            local enemies = workspace:FindFirstChild("Enemies")
+            if not isValidEnemyRoot(enemyRoot, enemies) then return false end
 
             cameraAimTarget = enemyRoot
             targetHighlight.Adornee = enemyRoot.Parent
@@ -945,7 +946,10 @@ for index, name in ipairs(TabNames) do
         local card = CreateCard(left, "Auto farm", 184)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
-            if not enabled then clearEnemyAim() end
+            if not enabled then
+                skillAimTarget = nil
+                clearEnemyAim()
+            end
             startTargetClickLoop(enabled)
             updateM1Loop()
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
@@ -1087,7 +1091,7 @@ for index, name in ipairs(TabNames) do
 
             for _, enemy in ipairs(enemyModels) do
                 local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-                if enemyRoot then
+                if isValidEnemyRoot(enemyRoot, enemies) then
                     validCount = validCount + 1
                     local distance = playerRoot and math.floor((enemyRoot.Position - playerRoot.Position).Magnitude) or 0
                     local isSelected = orbitSelectedTarget == enemyRoot
@@ -1106,7 +1110,7 @@ for index, name in ipairs(TabNames) do
                     })
                     Corner(button, 4)
                     button.MouseButton1Click:Connect(function()
-                        if not enemyRoot.Parent or enemyRoot.Parent.Parent ~= enemies then return end
+                        if not isValidEnemyRoot(enemyRoot, enemies) then return end
 
                         if orbitSelectedTarget == enemyRoot then
                             -- Clicking the locked enemy again clears the manual lock;
