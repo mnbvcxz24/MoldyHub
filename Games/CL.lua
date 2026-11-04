@@ -1019,7 +1019,10 @@ for index, name in ipairs(TabNames) do
                     button.MouseButton1Click:Connect(function()
                         if not enemyRoot.Parent or enemyRoot.Parent.Parent ~= enemies then return end
                         orbitSelectedTarget = enemyRoot
-                        if orbitEnabled then orbitTarget = enemyRoot end
+                        if orbitEnabled then
+                            orbitTarget = enemyRoot
+                            cameraAimTarget = enemyRoot
+                        end
                         aimCameraAtEnemy(enemyRoot)
                         refreshNearbyEnemies()
                     end)
