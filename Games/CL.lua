@@ -532,6 +532,17 @@ for index, name in ipairs(TabNames) do
 
         local MAX_TARGET_DISTANCE = 200
 
+        -- A target is usable only while its model is still in Enemies and its
+        -- Humanoid is alive. Some enemies remain parented briefly after death.
+        local function isValidEnemyRoot(enemyRoot, enemies)
+            if not enemyRoot or not enemyRoot.Parent then return false end
+            local enemy = enemyRoot.Parent
+            if enemies and enemy.Parent ~= enemies then return false end
+            if enemyRoot.Name ~= "HumanoidRootPart" then return false end
+            local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+            return humanoid ~= nil and humanoid.Health > 0
+        end
+
         local function getClosestEnemy(root, enemies)
             if not root or not enemies then return nil end
 
@@ -541,7 +552,7 @@ for index, name in ipairs(TabNames) do
             for _, enemy in ipairs(enemies:GetChildren()) do
                 local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
 
-                if enemyRoot then
+                if isValidEnemyRoot(enemyRoot, enemies) then
                     local distance = (enemyRoot.Position - root.Position).Magnitude
                     if distance <= MAX_TARGET_DISTANCE and distance < closestDistance then
                         closestDistance = distance
@@ -564,6 +575,7 @@ for index, name in ipairs(TabNames) do
         -- Keep the highlighted target centered after Roblox's normal camera update.
         local RunService = game:GetService("RunService")
         local cameraAimTarget = nil
+        local skillAimTarget = nil
         local cameraAimBound = true
         local orbitEnabled = false
         local orbitTarget = nil
@@ -585,40 +597,34 @@ for index, name in ipairs(TabNames) do
         targetHighlight.Parent = workspace
 
         RunService:BindToRenderStep("CLMoldyHubCameraAim", Enum.RenderPriority.Camera.Value + 1, function(deltaTime)
-            local target = orbitEnabled and orbitTarget or cameraAimTarget
             local camera = workspace.CurrentCamera
-
             local enemies = workspace:FindFirstChild("Enemies")
-            if orbitSelectedTarget and (not orbitSelectedTarget.Parent
-                or orbitSelectedTarget.Parent.Parent ~= enemies) then
+            local character = LocalPlayer.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+
+            if not isValidEnemyRoot(orbitSelectedTarget, enemies) then
                 orbitSelectedTarget = nil
             end
-
-            -- If the active target dies/disappears, automatically acquire another
-            -- enemy unless a still-valid manual lock is selected.
-            if not orbitEnabled and (not cameraAimTarget or not cameraAimTarget.Parent) then
-                local character = LocalPlayer.Character
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-                if orbitSelectedTarget and orbitSelectedTarget.Parent then
-                    cameraAimTarget = orbitSelectedTarget
-                else
-                    cameraAimTarget = getClosestEnemy(root, enemies)
-                end
-                target = cameraAimTarget
-                if target then
-                    targetHighlight.Adornee = target.Parent
-                    targetHighlight.Enabled = true
-                else
-                    targetHighlight.Adornee = nil
-                    targetHighlight.Enabled = false
-                end
+            if not isValidEnemyRoot(skillAimTarget, enemies) then
+                skillAimTarget = nil
             end
 
+            -- Reacquire as soon as the current target dies, even if its model
+            -- and HumanoidRootPart have not yet been removed from workspace.
             if orbitEnabled then
-                local character = LocalPlayer.Character
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                if not isValidEnemyRoot(orbitTarget, enemies) then
+                    orbitTarget = isValidEnemyRoot(orbitSelectedTarget, enemies)
+                        and orbitSelectedTarget or getClosestEnemy(root, enemies)
+                end
+            elseif not isValidEnemyRoot(cameraAimTarget, enemies) then
+                cameraAimTarget = isValidEnemyRoot(orbitSelectedTarget, enemies)
+                    and orbitSelectedTarget or getClosestEnemy(root, enemies)
+            end
 
+            -- Orbit movement follows its own target. Skill aiming temporarily
+            -- takes camera priority without changing the orbit movement target.
+            if orbitEnabled then
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                 if humanoid and humanoid ~= orbitHumanoid then
                     if orbitHumanoid and orbitOriginalPlatformStand ~= nil then
                         pcall(function() orbitHumanoid.PlatformStand = orbitOriginalPlatformStand end)
@@ -628,52 +634,45 @@ for index, name in ipairs(TabNames) do
                     humanoid.PlatformStand = true
                 end
 
-                if (not orbitTarget or not orbitTarget.Parent) and root then
-                    local enemies = workspace:FindFirstChild("Enemies")
-                    if orbitSelectedTarget and orbitSelectedTarget.Parent
-                        and orbitSelectedTarget.Parent.Parent == enemies then
-                        orbitTarget = orbitSelectedTarget
-                    else
-                        orbitSelectedTarget = nil
-                        orbitTarget = getClosestEnemy(root, enemies)
-                    end
-                    target = orbitTarget
-                    if target then
-                        targetHighlight.Adornee = target.Parent
-                        targetHighlight.Enabled = true
-                    end
-                end
-
-                if orbitTarget and orbitTarget.Parent then
-                    target = orbitTarget
-                    targetHighlight.Adornee = target.Parent
-                    targetHighlight.Enabled = true
-                end
-
-                if target and target.Parent and root then
+                if isValidEnemyRoot(orbitTarget, enemies) and root then
                     orbitAngle = (orbitAngle + math.rad(orbitSpeed) * deltaTime) % (math.pi * 2)
                     local offset = Vector3.new(
                         math.cos(orbitAngle) * orbitDistance,
                         orbitHeight,
                         math.sin(orbitAngle) * orbitDistance
                     )
-                    local orbitPosition = target.Position + offset
-                    root.CFrame = CFrame.lookAt(orbitPosition, target.Position)
+                    local orbitPosition = orbitTarget.Position + offset
+                    root.CFrame = CFrame.lookAt(orbitPosition, orbitTarget.Position)
                     root.AssemblyLinearVelocity = Vector3.zero
                     root.AssemblyAngularVelocity = Vector3.zero
                 end
             end
 
-            if not target or not target.Parent or not camera then return end
-            local cameraPosition = camera.CFrame.Position
-            local aimPosition = target.Position - Vector3.new(0, 3, 0)
-            if (aimPosition - cameraPosition).Magnitude > 0.01 then
-                camera.CFrame = CFrame.lookAt(cameraPosition, aimPosition, camera.CFrame.UpVector)
-                camera.Focus = CFrame.new(aimPosition)
+            local target
+            if isValidEnemyRoot(skillAimTarget, enemies) then
+                target = skillAimTarget
+            elseif orbitEnabled then
+                target = orbitTarget
+            else
+                target = cameraAimTarget
+            end
+
+            if target and camera then
+                targetHighlight.Adornee = target.Parent
+                targetHighlight.Enabled = true
+                local cameraPosition = camera.CFrame.Position
+                local aimPosition = target.Position - Vector3.new(0, 3, 0)
+                if (aimPosition - cameraPosition).Magnitude > 0.01 then
+                    camera.CFrame = CFrame.lookAt(cameraPosition, aimPosition, camera.CFrame.UpVector)
+                    camera.Focus = CFrame.new(aimPosition)
+                end
+            elseif not orbitEnabled then
+                targetHighlight.Adornee = nil
+                targetHighlight.Enabled = false
             end
         end)
 
-        local function aimCameraAtEnemy(enemyRoot)
+                local function aimCameraAtEnemy(enemyRoot)
             if not enemyRoot or not enemyRoot.Parent then return false end
 
             cameraAimTarget = enemyRoot
@@ -696,14 +695,25 @@ for index, name in ipairs(TabNames) do
 
             task.spawn(function()
                 while thisLoop == targetClickLoopId and autoFarmEnabled do
-                    -- Keep clicking the active aim/orbit target even between skill casts.
-                    local target = cameraAimTarget
-                    if not (target and target.Parent) then
-                        target = orbitEnabled and orbitTarget or orbitSelectedTarget
+                    -- Follow the live skill target first, then orbit/manual/nearest target.
+                    local enemies = workspace:FindFirstChild("Enemies")
+                    local character = LocalPlayer.Character
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    local target
+                    if isValidEnemyRoot(skillAimTarget, enemies) then
+                        target = skillAimTarget
+                    elseif orbitEnabled and isValidEnemyRoot(orbitTarget, enemies) then
+                        target = orbitTarget
+                    elseif not orbitEnabled and isValidEnemyRoot(cameraAimTarget, enemies) then
+                        target = cameraAimTarget
+                    elseif isValidEnemyRoot(orbitSelectedTarget, enemies) then
+                        target = orbitSelectedTarget
+                    else
+                        target = getClosestEnemy(root, enemies)
                     end
 
                     local camera = workspace.CurrentCamera
-                    if target and target.Parent and camera then
+                    if isValidEnemyRoot(target, enemies) and camera then
                         local screenPoint, onScreen = camera:WorldToViewportPoint(target.Position)
                         if onScreen and screenPoint.Z > 0 then
                             -- Always attempt mouse-up separately so a failed press cannot
@@ -732,7 +742,7 @@ for index, name in ipairs(TabNames) do
             end
 
             local assigned = skillTargetAssignments[slot]
-            if assigned and assigned.Parent and assigned.Parent.Parent == enemies
+            if isValidEnemyRoot(assigned, enemies)
                 and (assigned.Position - root.Position).Magnitude <= MAX_TARGET_DISTANCE then
                 return assigned
             end
@@ -743,7 +753,7 @@ for index, name in ipairs(TabNames) do
 
             local reserved = {}
             for otherSlot, targetRoot in pairs(skillTargetAssignments) do
-                if targetRoot and targetRoot.Parent and targetRoot.Parent.Parent == enemies
+                if isValidEnemyRoot(targetRoot, enemies)
                     and (targetRoot.Position - root.Position).Magnitude <= MAX_TARGET_DISTANCE then
                     reserved[targetRoot] = true
                 else
@@ -768,7 +778,7 @@ for index, name in ipairs(TabNames) do
                 local enemy = enemyModels[index]
                 local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
 
-                if enemyRoot and not reserved[enemyRoot]
+                if isValidEnemyRoot(enemyRoot, enemies) and not reserved[enemyRoot]
                     and (enemyRoot.Position - root.Position).Magnitude <= MAX_TARGET_DISTANCE then
                     skillTargetAssignments[slot] = enemyRoot
                     skillLastTargets[slot] = enemy
@@ -780,7 +790,7 @@ for index, name in ipairs(TabNames) do
             local sharedTarget
             local sharedDistance = math.huge
             for _, targetRoot in pairs(skillTargetAssignments) do
-                if targetRoot and targetRoot.Parent and targetRoot.Parent.Parent == enemies then
+                if isValidEnemyRoot(targetRoot, enemies) then
                     local distance = (targetRoot.Position - root.Position).Magnitude
                     if distance <= MAX_TARGET_DISTANCE and distance < sharedDistance then
                         sharedTarget = targetRoot
@@ -823,12 +833,14 @@ for index, name in ipairs(TabNames) do
                             end
 
                             if thisLoop == skillLoopIds[slot] and autoFarmEnabled
-                                and enemyRoot.Parent and enemyRoot.Parent.Parent == enemies then
+                                and isValidEnemyRoot(enemyRoot, enemies) then
                                 skillCastBusy = true
+                                skillAimTarget = enemyRoot
                                 local aimReady = aimCameraAtEnemy(enemyRoot)
                                 -- Let the render-step camera aim run before sending the cast.
                                 task.wait()
-                                if aimReady and thisLoop == skillLoopIds[slot] and autoFarmEnabled then
+                                if aimReady and isValidEnemyRoot(enemyRoot, enemies)
+                                    and thisLoop == skillLoopIds[slot] and autoFarmEnabled then
                                     local keyCode = Enum.KeyCode[slot]
                                     local keyDownSent = false
                                     local castOk = keyCode and pcall(function()
@@ -849,6 +861,9 @@ for index, name in ipairs(TabNames) do
                                         -- active throughout this skill's cooldown.
                                         skillAdvancePending[slot] = true
                                     end
+                                end
+                                if skillAimTarget == enemyRoot then
+                                    skillAimTarget = nil
                                 end
                                 skillCastBusy = false
                             end
@@ -918,6 +933,7 @@ for index, name in ipairs(TabNames) do
                 skillLastTargets[slot] = nil
                 skillAdvancePending[slot] = nil
             end
+            skillAimTarget = nil
             clearEnemyAim()
             if cameraAimBound then
                 RunService:UnbindFromRenderStep("CLMoldyHubCameraAim")
@@ -962,10 +978,15 @@ for index, name in ipairs(TabNames) do
             if not enabled then
                 -- Stop orbit movement but hand its current target back to normal auto-aim.
                 -- This keeps the camera lock and auto-click target running after flying is disabled.
-                if orbitTarget and orbitTarget.Parent then
+                local enemies = workspace:FindFirstChild("Enemies")
+                if isValidEnemyRoot(orbitTarget, enemies) then
                     cameraAimTarget = orbitTarget
-                elseif orbitSelectedTarget and orbitSelectedTarget.Parent then
+                elseif isValidEnemyRoot(orbitSelectedTarget, enemies) then
                     cameraAimTarget = orbitSelectedTarget
+                else
+                    local character = LocalPlayer.Character
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    cameraAimTarget = getClosestEnemy(root, enemies)
                 end
             end
 
@@ -981,8 +1002,7 @@ for index, name in ipairs(TabNames) do
                 local character = LocalPlayer.Character
                 local root = character and character:FindFirstChild("HumanoidRootPart")
                 local enemies = workspace:FindFirstChild("Enemies")
-                if orbitSelectedTarget and orbitSelectedTarget.Parent
-                    and orbitSelectedTarget.Parent.Parent == enemies then
+                if isValidEnemyRoot(orbitSelectedTarget, enemies) then
                     orbitTarget = orbitSelectedTarget
                 else
                     orbitSelectedTarget = nil
