@@ -7,8 +7,8 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 1.0"
-local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.0")
+local deployver = "CL ver 1.1"
+local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
 if type(previousCleanup) == "function" then
@@ -509,6 +509,8 @@ for index, name in ipairs(TabNames) do
             return findSkillByDisplayName(displayName, slot)
         end
 
+        local MAX_TARGET_DISTANCE = 100
+
         local function getClosestEnemy(root, enemies)
             if not root or not enemies then return nil end
 
@@ -520,7 +522,7 @@ for index, name in ipairs(TabNames) do
 
                 if enemyRoot then
                     local distance = (enemyRoot.Position - root.Position).Magnitude
-                    if distance < closestDistance then
+                    if distance <= MAX_TARGET_DISTANCE and distance < closestDistance then
                         closestDistance = distance
                         closestEnemyRoot = enemyRoot
                     end
@@ -558,8 +560,12 @@ for index, name in ipairs(TabNames) do
             local cameraPosition = camera.CFrame.Position
             local direction = target.Position - cameraPosition
             if direction.Magnitude > 0.01 then
-                camera.CFrame = CFrame.lookAt(cameraPosition, target.Position, camera.CFrame.UpVector)
-                camera.Focus = CFrame.new(target.Position)
+                -- Lower the camera look point slightly so the highlighted target sits
+                -- a little above the screen center (screen-space offset, not enemy height).
+                local verticalOffset = direction.Magnitude * math.tan(math.rad(camera.FieldOfView / 2)) * 0.04
+                local aimPosition = target.Position - camera.CFrame.UpVector * verticalOffset
+                camera.CFrame = CFrame.lookAt(cameraPosition, aimPosition, camera.CFrame.UpVector)
+                camera.Focus = CFrame.new(aimPosition)
             end
         end)
 
@@ -588,7 +594,8 @@ for index, name in ipairs(TabNames) do
             end
 
             local assigned = skillTargetAssignments[slot]
-            if assigned and assigned.Parent and assigned.Parent.Parent == enemies then
+            if assigned and assigned.Parent and assigned.Parent.Parent == enemies
+                and (assigned.Position - root.Position).Magnitude <= MAX_TARGET_DISTANCE then
                 return assigned
             end
             skillTargetAssignments[slot] = nil
@@ -598,7 +605,8 @@ for index, name in ipairs(TabNames) do
 
             local reserved = {}
             for otherSlot, targetRoot in pairs(skillTargetAssignments) do
-                if targetRoot and targetRoot.Parent and targetRoot.Parent.Parent == enemies then
+                if targetRoot and targetRoot.Parent and targetRoot.Parent.Parent == enemies
+                    and (targetRoot.Position - root.Position).Magnitude <= MAX_TARGET_DISTANCE then
                     reserved[targetRoot] = true
                 else
                     skillTargetAssignments[otherSlot] = nil
@@ -622,7 +630,8 @@ for index, name in ipairs(TabNames) do
                 local enemy = enemyModels[index]
                 local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
 
-                if enemyRoot and not reserved[enemyRoot] then
+                if enemyRoot and not reserved[enemyRoot]
+                    and (enemyRoot.Position - root.Position).Magnitude <= MAX_TARGET_DISTANCE then
                     skillTargetAssignments[slot] = enemyRoot
                     skillLastTargets[slot] = enemy
                     return enemyRoot
