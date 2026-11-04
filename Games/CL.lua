@@ -552,20 +552,25 @@ for index, name in ipairs(TabNames) do
         local orbitHumanoid = nil
         local orbitOriginalPlatformStand = nil
 
-        -- Orbit mode makes every Auto Farm attack use the same selected orbit target.
-        -- Outside orbit mode, preserve the normal closest/rotating target behavior.
+        -- An explicitly selected nearby enemy is a hard lock.
+        -- Without an explicit lock, Orbit follows Auto Farm's changing closest target.
         local function getFarmTarget(root, enemies)
             if orbitEnabled then
                 local selectedTarget = orbitSelectedTarget
-                if selectedTarget and selectedTarget.Parent
-                    and selectedTarget.Parent.Parent == enemies then
-                    return selectedTarget
+                if selectedTarget then
+                    if selectedTarget.Parent and selectedTarget.Parent.Parent == enemies then
+                        orbitTarget = selectedTarget
+                        return selectedTarget
+                    end
+                    orbitSelectedTarget = nil
                 end
 
-                if orbitTarget and orbitTarget.Parent
-                    and orbitTarget.Parent.Parent == enemies then
-                    return orbitTarget
+                local nextTarget = getClosestEnemy(root, enemies)
+                if nextTarget then
+                    orbitTarget = nextTarget
+                    cameraAimTarget = nextTarget
                 end
+                return nextTarget
             end
 
             return getClosestEnemy(root, enemies)
@@ -599,20 +604,23 @@ for index, name in ipairs(TabNames) do
                     humanoid.PlatformStand = true
                 end
 
-                if (not orbitTarget or not orbitTarget.Parent) and root then
-                    local enemies = workspace:FindFirstChild("Enemies")
-                    if orbitSelectedTarget and orbitSelectedTarget.Parent
-                        and orbitSelectedTarget.Parent.Parent == enemies then
-                        orbitTarget = orbitSelectedTarget
-                    else
-                        orbitTarget = getClosestEnemy(root, enemies)
-                        orbitSelectedTarget = orbitTarget
-                    end
-                    target = orbitTarget
-                    if target then
-                        targetHighlight.Adornee = target.Parent
-                        targetHighlight.Enabled = true
-                    end
+                local enemies = workspace:FindFirstChild("Enemies")
+                if orbitSelectedTarget and (not orbitSelectedTarget.Parent
+                    or orbitSelectedTarget.Parent.Parent ~= enemies) then
+                    orbitSelectedTarget = nil
+                end
+
+                if orbitSelectedTarget then
+                    orbitTarget = orbitSelectedTarget
+                elseif (not orbitTarget or not orbitTarget.Parent
+                    or orbitTarget.Parent.Parent ~= enemies) and root then
+                    orbitTarget = getClosestEnemy(root, enemies)
+                end
+
+                target = orbitTarget
+                if target then
+                    targetHighlight.Adornee = target.Parent
+                    targetHighlight.Enabled = true
                 end
 
                 if orbitTarget and orbitTarget.Parent then
@@ -941,8 +949,9 @@ for index, name in ipairs(TabNames) do
                     and orbitSelectedTarget.Parent.Parent == enemies then
                     orbitTarget = orbitSelectedTarget
                 else
+                    -- No explicit nearby-list lock: begin with Auto Farm's closest target.
+                    orbitSelectedTarget = nil
                     orbitTarget = getClosestEnemy(root, enemies)
-                    orbitSelectedTarget = orbitTarget
                 end
                 if orbitTarget then
                     aimCameraAtEnemy(orbitTarget)
