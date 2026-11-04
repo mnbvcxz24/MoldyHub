@@ -496,6 +496,28 @@ for index, name in ipairs(TabNames) do
             return findSkillByDisplayName(displayName, slot)
         end
 
+        local function getClosestLivingEnemy(root, enemies)
+            if not root or not enemies then return nil end
+
+            local closestEnemyRoot
+            local closestDistance = math.huge
+
+            for _, enemy in ipairs(enemies:GetChildren()) do
+                local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+                local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
+
+                if humanoid and humanoid.Health > 0 and enemyRoot then
+                    local distance = (enemyRoot.Position - root.Position).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestEnemyRoot = enemyRoot
+                    end
+                end
+            end
+
+            return closestEnemyRoot
+        end
+
         local function startSkillLoop(slot, enabled)
             skillLoopIds[slot] = skillLoopIds[slot] + 1
             local thisLoop = skillLoopIds[slot]
@@ -509,19 +531,17 @@ for index, name in ipairs(TabNames) do
                     local enemies = workspace:FindFirstChild("Enemies")
 
                     if skillId and skillData and root and enemies then
-                        for _, enemy in ipairs(enemies:GetChildren()) do
-                            if thisLoop ~= skillLoopIds[slot] or not autoFarmEnabled then
-                                break
-                            end
-
-                            local humanoid = enemy:FindFirstChildOfClass("Humanoid")
-                            local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-                            if humanoid and humanoid.Health > 0 and enemyRoot then
-                                pcall(function()
-                                    castSkill:FireServer(skillId, root.CFrame, enemyRoot.Position)
-                                end)
-                            end
+                        if thisLoop ~= skillLoopIds[slot] or not autoFarmEnabled then
+                            break
                         end
+
+                        local enemyRoot = getClosestLivingEnemy(root, enemies)
+                        if enemyRoot then
+                            pcall(function()
+                                castSkill:FireServer(skillId, root.CFrame, enemyRoot.Position)
+                            end)
+                        end
+
                         task.wait(math.max(tonumber(skillData.Cooldown) or 1, 0.1))
                     else
                         task.wait(0.5)
@@ -566,15 +586,9 @@ for index, name in ipairs(TabNames) do
                     local enemies = workspace:FindFirstChild("Enemies")
 
                     if root and enemies then
-                        for _, enemy in ipairs(enemies:GetChildren()) do
-                            if thisLoop ~= m1LoopId or not autoFarmEnabled or not useM1Enabled then
-                                break
-                            end
-
-                            local humanoid = enemy:FindFirstChildOfClass("Humanoid")
-                            local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-
-                            if humanoid and humanoid.Health > 0 and enemyRoot then
+                        if thisLoop == m1LoopId and autoFarmEnabled and useM1Enabled then
+                            local enemyRoot = getClosestLivingEnemy(root, enemies)
+                            if enemyRoot then
                                 pcall(function()
                                     basicAttack:FireServer(
                                         root.CFrame,
