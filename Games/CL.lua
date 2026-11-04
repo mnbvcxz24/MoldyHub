@@ -530,25 +530,6 @@ for index, name in ipairs(TabNames) do
             return closestEnemyRoot
         end
 
-        -- Orbit mode makes every Auto Farm attack use the same selected orbit target.
-        -- Outside orbit mode, preserve the normal closest/rotating target behavior.
-        local function getFarmTarget(root, enemies)
-            if orbitEnabled then
-                local selectedTarget = orbitSelectedTarget
-                if selectedTarget and selectedTarget.Parent
-                    and selectedTarget.Parent.Parent == enemies then
-                    return selectedTarget
-                end
-
-                if orbitTarget and orbitTarget.Parent
-                    and orbitTarget.Parent.Parent == enemies then
-                    return orbitTarget
-                end
-            end
-
-            return getClosestEnemy(root, enemies)
-        end
-
         -- Each skill reserves one enemy root during its cooldown.
         -- After casting, it advances to the next available enemy location.
         local skillTargetAssignments = {}
@@ -570,6 +551,26 @@ for index, name in ipairs(TabNames) do
         local orbitAngle = 0
         local orbitHumanoid = nil
         local orbitOriginalPlatformStand = nil
+
+        -- Orbit mode makes every Auto Farm attack use the same selected orbit target.
+        -- Outside orbit mode, preserve the normal closest/rotating target behavior.
+        local function getFarmTarget(root, enemies)
+            if orbitEnabled then
+                local selectedTarget = orbitSelectedTarget
+                if selectedTarget and selectedTarget.Parent
+                    and selectedTarget.Parent.Parent == enemies then
+                    return selectedTarget
+                end
+
+                if orbitTarget and orbitTarget.Parent
+                    and orbitTarget.Parent.Parent == enemies then
+                    return orbitTarget
+                end
+            end
+
+            return getClosestEnemy(root, enemies)
+        end
+
         local targetHighlight = Instance.new("Highlight")
         targetHighlight.Name = "CLSelectedEnemyHighlight"
         targetHighlight.FillColor = Color3.fromRGB(45, 135, 255)
