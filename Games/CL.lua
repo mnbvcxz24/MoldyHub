@@ -517,33 +517,46 @@ for index, name in ipairs(TabNames) do
             return closestEnemyRoot
         end
 
-        -- Skills share one cursor and rotate through enemy root locations.
-        -- Enemy model names and Humanoid objects are not used.
-        local skillTargetCursor = 0
+        -- Each skill reserves its own enemy HumanoidRootPart.
+        -- A root already assigned to another skill cannot be selected.
+        local skillTargetAssignments = {}
 
-        local function getNextRotatingEnemy(root, enemies)
+        local function getAssignedSkillTarget(slot, root, enemies)
             if not root or not enemies then return nil end
 
-            local targets = {}
+            local assigned = skillTargetAssignments[slot]
+            if assigned and assigned.Parent and assigned.Parent.Parent == enemies then
+                return assigned
+            end
+            skillTargetAssignments[slot] = nil
+
+            local reserved = {}
+            for otherSlot, targetRoot in pairs(skillTargetAssignments) do
+                if targetRoot and targetRoot.Parent and targetRoot.Parent.Parent == enemies then
+                    reserved[targetRoot] = true
+                else
+                    skillTargetAssignments[otherSlot] = nil
+                end
+            end
+
+            local candidates = {}
             for _, enemy in ipairs(enemies:GetChildren()) do
                 local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-
-                if enemyRoot then
-                    table.insert(targets, {
+                if enemyRoot and not reserved[enemyRoot] then
+                    table.insert(candidates, {
                         root = enemyRoot,
                         distance = (enemyRoot.Position - root.Position).Magnitude
                     })
                 end
             end
 
-            if #targets == 0 then return nil end
-
-            table.sort(targets, function(a, b)
+            table.sort(candidates, function(a, b)
                 return a.distance < b.distance
             end)
 
-            skillTargetCursor = (skillTargetCursor % #targets) + 1
-            return targets[skillTargetCursor].root
+            local selected = candidates[1] and candidates[1].root
+            skillTargetAssignments[slot] = selected
+            return selected
         end
 
         local function startSkillLoop(slot, enabled)
@@ -563,7 +576,7 @@ for index, name in ipairs(TabNames) do
                             break
                         end
 
-                        local enemyRoot = getNextRotatingEnemy(root, enemies)
+                        local enemyRoot = getAssignedSkillTarget(slot, root, enemies)
                         if enemyRoot then
                             pcall(function()
                                 castSkill:FireServer(skillId, root.CFrame, enemyRoot.Position)
