@@ -460,35 +460,52 @@ for index, name in ipairs(TabNames) do
         local skillLoopIds = {C = 0, X = 0, Z = 0, V = 0}
         local skillEnabled = {C = false, X = false, Z = false, V = false}
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local remotes = ReplicatedStorage:WaitForChild("WK_Remotes")
-        local basicAttack = remotes:WaitForChild("BasicAttack")
         local VirtualInputManager = game:GetService("VirtualInputManager")
-        local SkillsModule = ReplicatedStorage
-            :WaitForChild("Shared")
-            :WaitForChild("Config")
-            :WaitForChild("Skills")
         local SkillsConfig
-        local skillsOk, skillsResult = pcall(require, SkillsModule)
-        if skillsOk and type(skillsResult) == "table" then
-            SkillsConfig = skillsResult
-        else
-            warn("[CL Auto farm] Unable to load Skills config:", skillsResult)
+        local skillsConfigLoadAttempted = false
+
+        -- Resolve game dependencies only when the related feature actually needs them.
+        local function getBasicAttackRemote()
+            local remotes = ReplicatedStorage:FindFirstChild("WK_Remotes")
+            return remotes and remotes:FindFirstChild("BasicAttack")
         end
 
-        local AbilityRail = LocalPlayer:WaitForChild("PlayerGui")
-            :WaitForChild("WK_HUD")
-            :WaitForChild("Right Column")
-            :WaitForChild("Ability Rail")
-            :WaitForChild("MainFrame")
-            :WaitForChild("Abilities")
-            :WaitForChild("Abilities")
+        local function getSkillsConfig()
+            if SkillsConfig then return SkillsConfig end
+            if skillsConfigLoadAttempted then return nil end
+
+            local shared = ReplicatedStorage:FindFirstChild("Shared")
+            local config = shared and shared:FindFirstChild("Config")
+            local skillsModule = config and config:FindFirstChild("Skills")
+            if not skillsModule then return nil end
+
+            skillsConfigLoadAttempted = true
+            local skillsOk, skillsResult = pcall(require, skillsModule)
+            if skillsOk and type(skillsResult) == "table" then
+                SkillsConfig = skillsResult
+            else
+                warn("[CL Auto farm] Unable to load Skills config:", skillsResult)
+            end
+            return SkillsConfig
+        end
+
+        local function getAbilityRail()
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            local hud = playerGui and playerGui:FindFirstChild("WK_HUD")
+            local rightColumn = hud and hud:FindFirstChild("Right Column")
+            local abilityRail = rightColumn and rightColumn:FindFirstChild("Ability Rail")
+            local mainFrame = abilityRail and abilityRail:FindFirstChild("MainFrame")
+            local abilities = mainFrame and mainFrame:FindFirstChild("Abilities")
+            return abilities and abilities:FindFirstChild("Abilities")
+        end
 
         local function findSkillByDisplayName(displayName, slot)
-            if not SkillsConfig or type(displayName) ~= "string" or displayName == "" then
+            local skillsConfig = getSkillsConfig()
+            if not skillsConfig or type(displayName) ~= "string" or displayName == "" then
                 return nil
             end
 
-            for key, skill in pairs(SkillsConfig) do
+            for key, skill in pairs(skillsConfig) do
                 if type(skill) == "table"
                     and skill.DisplayName == displayName
                     and tostring(skill.Slot) == slot then
@@ -499,7 +516,9 @@ for index, name in ipairs(TabNames) do
         end
 
         local function getAbilitySkill(slot)
-            local slotFrame = AbilityRail:FindFirstChild("Slot_" .. slot)
+            local abilityRail = getAbilityRail()
+            if not abilityRail then return nil end
+            local slotFrame = abilityRail:FindFirstChild("Slot_" .. slot)
             local left = slotFrame and slotFrame:FindFirstChild("left")
             local nameLabel = left and left:FindFirstChild("name")
             local displayName = nameLabel and nameLabel.Text
@@ -824,6 +843,8 @@ for index, name in ipairs(TabNames) do
                             local enemyRoot = getClosestEnemy(root, enemies)
                             if enemyRoot then
                                 pcall(function()
+                                    local basicAttack = getBasicAttackRemote()
+                                    if not basicAttack then return end
                                     basicAttack:FireServer(
                                         root.CFrame,
                                         nil,
