@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.3"
+local deployver = "CL ver 2.4"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -449,27 +449,32 @@ for index, name in ipairs(TabNames) do
     end)
 end
 
-local floatingHeight = 30
-
 for index, name in ipairs(TabNames) do
     local page, left = CreatePage(index)
     Pages[index] = page
     if index == 1 then
         -- Farm tab: one card, matching BASAE's compact card style.
         local autoFarmEnabled = false
-        local farmFloatEnabled = false
-        local undergroundEnabled = false
-        local dodgeEnabled = false
-        local dodgeDistance = 20
-        local dodgeLoopId = 0
         local useM1Enabled = false
         local m1LoopId = 0
         local skillLoopIds = {C = 0, X = 0, Z = 0, V = 0}
         local skillEnabled = {C = false, X = false, Z = false, V = false}
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local basicAttack = ReplicatedStorage
-            :WaitForChild("WK_Remotes")
-            :WaitForChild("BasicAttack")
+        local remotes = ReplicatedStorage:WaitForChild("WK_Remotes")
+        local basicAttack = remotes:WaitForChild("BasicAttack")
+        local stateVitals = remotes:WaitForChild("StateVitals")
+        local latestVitals = nil
+        local hpRefreshLoopId = 0
+
+        -- Cache the latest server-provided vitals payload received after script startup.
+        local stateVitalsConnection = stateVitals.OnClientEvent:Connect(function(data)
+            if type(data) ~= "table" then return end
+            local snapshot = {}
+            for key, value in pairs(data) do
+                snapshot[key] = value
+            end
+            latestVitals = snapshot
+        end)
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local SkillsModule = ReplicatedStorage
             :WaitForChild("Shared")
@@ -732,79 +737,6 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
-        local function setFarmFloat(enabled)
-            local character = LocalPlayer.Character
-            local root = character and character:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-
-            if enabled then
-                local newMode = undergroundEnabled and "Underground" or "Flying"
-                local wasActive = root:GetAttribute("CLAutoFarmFloatActive") == true
-                local oldMode = root:GetAttribute("CLAutoFarmFloatMode")
-                if not wasActive then
-                    root:SetAttribute("CLAutoFarmOriginalAnchored", root.Anchored)
-                    root:SetAttribute("CLAutoFarmFloatActive", true)
-                    root.CFrame = root.CFrame + Vector3.new(0, undergroundEnabled and -floatingHeight or floatingHeight, 0)
-                elseif oldMode ~= newMode then
-                    local oldOffset = oldMode == "Underground" and -floatingHeight or floatingHeight
-                    local newOffset = undergroundEnabled and -floatingHeight or floatingHeight
-                    root.CFrame = root.CFrame + Vector3.new(0, newOffset - oldOffset, 0)
-                end
-                root:SetAttribute("CLAutoFarmFloatMode", newMode)
-                root.Anchored = true
-            else
-                local wasActive = root:GetAttribute("CLAutoFarmFloatActive")
-                if wasActive then
-                    root.Anchored = root:GetAttribute("CLAutoFarmOriginalAnchored") == true
-                    root:SetAttribute("CLAutoFarmFloatActive", nil)
-                    root:SetAttribute("CLAutoFarmFloatMode", nil)
-                    root:SetAttribute("CLAutoFarmOriginalAnchored", nil)
-                end
-            end
-        end
-
-        -- Maintain a horizontal radius around the nearest enemy.
-        -- Move outward when it approaches and inward when it retreats.
-        local function updateDodgeLoop()
-            dodgeLoopId = dodgeLoopId + 1
-            local thisLoop = dodgeLoopId
-            if not dodgeEnabled then return end
-
-            task.spawn(function()
-                while thisLoop == dodgeLoopId and dodgeEnabled do
-                    local character = LocalPlayer.Character
-                    local root = character and character:FindFirstChild("HumanoidRootPart")
-                    local enemies = workspace:FindFirstChild("Enemies")
-                    local enemyRoot = root and getClosestEnemy(root, enemies)
-
-                    if root and enemyRoot then
-                        local offset = Vector3.new(
-                            root.Position.X - enemyRoot.Position.X,
-                            0,
-                            root.Position.Z - enemyRoot.Position.Z
-                        )
-                        local distance = offset.Magnitude
-                        if distance > 0.01 then
-                            local direction = offset.Unit
-                            local desiredPosition = enemyRoot.Position + direction * dodgeDistance
-                            local goal = Vector3.new(desiredPosition.X, root.Position.Y, desiredPosition.Z)
-                            local deltaTime = RunService.Heartbeat:Wait()
-                            if thisLoop ~= dodgeLoopId or not dodgeEnabled then break end
-                            local alpha = math.clamp(deltaTime * 3, 0, 1)
-                            root.CFrame = root.CFrame:Lerp(
-                                CFrame.new(goal) * root.CFrame.Rotation,
-                                alpha
-                            )
-                        else
-                            RunService.Heartbeat:Wait()
-                        end
-                    else
-                        task.wait(0.15)
-                    end
-                end
-            end)
-        end
-
         local function updateM1Loop()
             m1LoopId = m1LoopId + 1
             local thisLoop = m1LoopId
@@ -837,24 +769,14 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
-        LocalPlayer.CharacterAdded:Connect(function(character)
-            if autoFarmEnabled and farmFloatEnabled then
-                local root = character:WaitForChild("HumanoidRootPart", 5)
-                if root and autoFarmEnabled and farmFloatEnabled then
-                    local verticalOffset = undergroundEnabled and -floatingHeight or floatingHeight
-                    root.CFrame = root.CFrame + Vector3.new(0, verticalOffset, 0)
-                    root.Anchored = true
-                    root:SetAttribute("CLAutoFarmFloatActive", true)
-                    root:SetAttribute("CLAutoFarmOriginalAnchored", false)
-                end
-            end
-        end)
-
         RegisterCleanup(function()
             autoFarmEnabled = false
             useM1Enabled = false
-            dodgeEnabled = false
-            dodgeLoopId = dodgeLoopId + 1
+            hpRefreshLoopId = hpRefreshLoopId + 1
+            if stateVitalsConnection then
+                stateVitalsConnection:Disconnect()
+                stateVitalsConnection = nil
+            end
             m1LoopId = m1LoopId + 1
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
                 skillEnabled[slot] = false
@@ -863,7 +785,6 @@ for index, name in ipairs(TabNames) do
                 skillLastTargets[slot] = nil
                 skillAdvancePending[slot] = nil
             end
-            setFarmFloat(false)
             clearEnemyAim()
             if cameraAimBound then
                 RunService:UnbindFromRenderStep("CLMoldyHubCameraAim")
@@ -875,7 +796,6 @@ for index, name in ipairs(TabNames) do
         local card = CreateCard(left, "Auto farm", 184)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
-            setFarmFloat(enabled and farmFloatEnabled)
             if not enabled then clearEnemyAim() end
             updateM1Loop()
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
@@ -902,109 +822,28 @@ for index, name in ipairs(TabNames) do
             skillEnabled.V = checked
             startSkillLoop("V", checked)
         end)
-        local heightCard = CreateCard(left, "Movement", 166)
-        local setFlyingChecked
-        local setUndergroundChecked
-        _, setFlyingChecked = CreateCheckbox(heightCard, "Enable flying", 34, function(checked)
-            farmFloatEnabled = checked
-            if checked then
-                undergroundEnabled = false
-                setUndergroundChecked(false)
-            end
-            setFarmFloat(autoFarmEnabled and (farmFloatEnabled or undergroundEnabled))
-        end)
-        _, setUndergroundChecked = CreateCheckbox(heightCard, "Underground", 58, function(checked)
-            undergroundEnabled = checked
-            if checked then
-                farmFloatEnabled = false
-                setFlyingChecked(false)
-            end
-            setFarmFloat(autoFarmEnabled and (farmFloatEnabled or undergroundEnabled))
-        end)
-        Create("TextLabel", {
-            Parent = heightCard,
-            Position = UDim2.fromOffset(12, 82),
-            Size = UDim2.new(1, -112, 0, 22),
-            BackgroundTransparency = 1,
-            Text = "Offset (studs)",
-            TextColor3 = Theme.DarkGray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local heightInput = Create("TextBox", {
-            Parent = heightCard,
-            Position = UDim2.new(1, -88, 0, 80),
-            Size = UDim2.fromOffset(76, 26),
-            BackgroundColor3 = Theme.SurfaceInput,
-            BorderSizePixel = 0,
-            Text = tostring(floatingHeight),
-            PlaceholderText = "30",
-            TextColor3 = Theme.Text,
-            PlaceholderColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 10,
-            ClearTextOnFocus = false
-        })
-        Corner(heightInput, 5)
-        Stroke(heightInput, Theme.Border, 1)
-        heightInput.FocusLost:Connect(function()
-            local enteredHeight = tonumber(heightInput.Text)
-            if enteredHeight and enteredHeight > 0 and enteredHeight <= 500 then
-                local previousHeight = floatingHeight
-                floatingHeight = enteredHeight
-                heightInput.Text = tostring(floatingHeight)
 
-                local character = LocalPlayer.Character
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-                if root and root:GetAttribute("CLAutoFarmFloatActive") then
-                    local direction = undergroundEnabled and -1 or 1
-                    root.CFrame = root.CFrame + Vector3.new(0, (floatingHeight - previousHeight) * direction, 0)
+        local hpCard = CreateCard(left, "HP Refresh", 64)
+        CreateCheckbox(hpCard, "Replay latest HP data", 34, function(checked)
+            hpRefreshLoopId = hpRefreshLoopId + 1
+            local thisLoop = hpRefreshLoopId
+            if not checked then return end
+
+            task.spawn(function()
+                while thisLoop == hpRefreshLoopId do
+                    if latestVitals then
+                        if type(firesignal) == "function" then
+                            pcall(function()
+                                firesignal(stateVitals.OnClientEvent, latestVitals)
+                            end)
+                        else
+                            warn("[CL HP Refresh] firesignal is unavailable in this executor.")
+                            break
+                        end
+                    end
+                    task.wait(0.2)
                 end
-            else
-                heightInput.Text = tostring(floatingHeight)
-            end
-        end)
-
-        CreateCheckbox(heightCard, "Dodge", 110, function(checked)
-            dodgeEnabled = checked
-            updateDodgeLoop()
-        end)
-        Create("TextLabel", {
-            Parent = heightCard,
-            Position = UDim2.fromOffset(12, 136),
-            Size = UDim2.new(1, -112, 0, 22),
-            BackgroundTransparency = 1,
-            Text = "Dodge distance",
-            TextColor3 = Theme.DarkGray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local dodgeDistanceInput = Create("TextBox", {
-            Parent = heightCard,
-            Position = UDim2.new(1, -88, 0, 134),
-            Size = UDim2.fromOffset(76, 26),
-            BackgroundColor3 = Theme.SurfaceInput,
-            BorderSizePixel = 0,
-            Text = tostring(dodgeDistance),
-            PlaceholderText = "20",
-            TextColor3 = Theme.Text,
-            PlaceholderColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 10,
-            ClearTextOnFocus = false
-        })
-        Corner(dodgeDistanceInput, 5)
-        Stroke(dodgeDistanceInput, Theme.Border, 1)
-        dodgeDistanceInput.FocusLost:Connect(function()
-            local enteredDistance = tonumber(dodgeDistanceInput.Text)
-            if enteredDistance and enteredDistance >= 1 and enteredDistance <= 500 then
-                dodgeDistance = enteredDistance
-                dodgeDistanceInput.Text = tostring(dodgeDistance)
-            else
-                dodgeDistanceInput.Text = tostring(dodgeDistance)
-            end
+            end)
         end)
 
     elseif index == 2 then
