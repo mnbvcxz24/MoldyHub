@@ -534,6 +534,36 @@ for index, name in ipairs(TabNames) do
         local skillLastTargets = {}
         local skillAdvancePending = {}
 
+        -- Highlight the selected enemy and point the camera at its root.
+        local targetHighlight = Instance.new("Highlight")
+        targetHighlight.Name = "CLSelectedEnemyHighlight"
+        targetHighlight.FillColor = Color3.fromRGB(45, 135, 255)
+        targetHighlight.OutlineColor = Color3.fromRGB(220, 240, 255)
+        targetHighlight.FillTransparency = 0.72
+        targetHighlight.OutlineTransparency = 0
+        targetHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        targetHighlight.Enabled = false
+        targetHighlight.Parent = workspace
+
+        local function aimCameraAtEnemy(enemyRoot)
+            if not enemyRoot or not enemyRoot.Parent then return nil end
+
+            local camera = workspace.CurrentCamera
+            if not camera then return nil end
+
+            targetHighlight.Adornee = enemyRoot.Parent
+            targetHighlight.Enabled = true
+
+            local cameraPosition = camera.CFrame.Position
+            camera.CFrame = CFrame.lookAt(cameraPosition, enemyRoot.Position)
+            return camera.CFrame
+        end
+
+        local function clearEnemyAim()
+            targetHighlight.Adornee = nil
+            targetHighlight.Enabled = false
+        end
+
         local function getAssignedSkillTarget(slot, root, enemies)
             if not root or not enemies then return nil end
 
@@ -607,13 +637,18 @@ for index, name in ipairs(TabNames) do
 
                         local enemyRoot = getAssignedSkillTarget(slot, root, enemies)
                         if enemyRoot then
-                            local castOk = pcall(function()
-                                castSkill:FireServer(skillId, root.CFrame, enemyRoot.Position)
-                            end)
-                            if castOk then
-                                -- Mark advancement for the next ready cast; reservation stays
-                                -- active throughout this skill's cooldown.
-                                skillAdvancePending[slot] = true
+                            local aimCFrame = aimCameraAtEnemy(enemyRoot)
+                            -- Give the camera one frame to place the selected enemy at screen center.
+                            task.wait()
+                            if aimCFrame and thisLoop == skillLoopIds[slot] and autoFarmEnabled then
+                                local castOk = pcall(function()
+                                    castSkill:FireServer(skillId, aimCFrame, nil)
+                                end)
+                                if castOk then
+                                    -- Mark advancement for the next ready cast; reservation stays
+                                    -- active throughout this skill's cooldown.
+                                    skillAdvancePending[slot] = true
+                                end
                             end
                         end
 
@@ -705,12 +740,15 @@ for index, name in ipairs(TabNames) do
                 skillAdvancePending[slot] = nil
             end
             setFarmFloat(false)
+            clearEnemyAim()
+            targetHighlight:Destroy()
         end)
 
         local card = CreateCard(left, "Auto farm", 184)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
             setFarmFloat(enabled)
+            if not enabled then clearEnemyAim() end
             updateM1Loop()
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
                 startSkillLoop(slot, enabled and skillEnabled[slot] == true)
