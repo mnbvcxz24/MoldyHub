@@ -528,18 +528,29 @@ for index, name in ipairs(TabNames) do
             return closestEnemyRoot
         end
 
-        -- Each skill reserves its own enemy HumanoidRootPart.
-        -- A root already assigned to another skill cannot be selected.
+        -- Each skill reserves one enemy root during its cooldown.
+        -- After casting, it advances to the next available enemy location.
         local skillTargetAssignments = {}
+        local skillLastTargets = {}
+        local skillAdvancePending = {}
 
         local function getAssignedSkillTarget(slot, root, enemies)
             if not root or not enemies then return nil end
+
+            -- Keep the just-used target reserved until this skill is ready again.
+            if skillAdvancePending[slot] then
+                skillTargetAssignments[slot] = nil
+                skillAdvancePending[slot] = nil
+            end
 
             local assigned = skillTargetAssignments[slot]
             if assigned and assigned.Parent and assigned.Parent.Parent == enemies then
                 return assigned
             end
             skillTargetAssignments[slot] = nil
+
+            local enemyModels = enemies:GetChildren()
+            if #enemyModels == 0 then return nil end
 
             local reserved = {}
             for otherSlot, targetRoot in pairs(skillTargetAssignments) do
@@ -550,24 +561,31 @@ for index, name in ipairs(TabNames) do
                 end
             end
 
-            local candidates = {}
-            for _, enemy in ipairs(enemies:GetChildren()) do
-                local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-                if enemyRoot and not reserved[enemyRoot] then
-                    table.insert(candidates, {
-                        root = enemyRoot,
-                        distance = (enemyRoot.Position - root.Position).Magnitude
-                    })
+            -- Start searching immediately after this skill's previous enemy model.
+            local startIndex = 0
+            local lastTarget = skillLastTargets[slot]
+            if lastTarget then
+                for index, enemy in ipairs(enemyModels) do
+                    if enemy == lastTarget then
+                        startIndex = index
+                        break
+                    end
                 end
             end
 
-            table.sort(candidates, function(a, b)
-                return a.distance < b.distance
-            end)
+            for offset = 1, #enemyModels do
+                local index = ((startIndex + offset - 1) % #enemyModels) + 1
+                local enemy = enemyModels[index]
+                local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
 
-            local selected = candidates[1] and candidates[1].root
-            skillTargetAssignments[slot] = selected
-            return selected
+                if enemyRoot and not reserved[enemyRoot] then
+                    skillTargetAssignments[slot] = enemyRoot
+                    skillLastTargets[slot] = enemy
+                    return enemyRoot
+                end
+            end
+
+            return nil
         end
 
         local function startSkillLoop(slot, enabled)
@@ -589,9 +607,14 @@ for index, name in ipairs(TabNames) do
 
                         local enemyRoot = getAssignedSkillTarget(slot, root, enemies)
                         if enemyRoot then
-                            pcall(function()
+                            local castOk = pcall(function()
                                 castSkill:FireServer(skillId, root.CFrame, enemyRoot.Position)
                             end)
+                            if castOk then
+                                -- Mark advancement for the next ready cast; reservation stays
+                                -- active throughout this skill's cooldown.
+                                skillAdvancePending[slot] = true
+                            end
                         end
 
                         task.wait(math.max(tonumber(skillData.Cooldown) or 1, 0.1))
@@ -678,6 +701,8 @@ for index, name in ipairs(TabNames) do
                 skillEnabled[slot] = false
                 skillLoopIds[slot] = skillLoopIds[slot] + 1
                 skillTargetAssignments[slot] = nil
+                skillLastTargets[slot] = nil
+                skillAdvancePending[slot] = nil
             end
             setFarmFloat(false)
         end)
