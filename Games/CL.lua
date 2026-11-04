@@ -568,8 +568,8 @@ for index, name in ipairs(TabNames) do
         local orbitEnabled = false
         local orbitTarget = nil
         local orbitSelectedTarget = nil
-        local orbitDistance = 12
-        local orbitHeight = 5
+        local orbitDistance = 50
+        local orbitHeight = 50
         local orbitSpeed = 90
         local orbitAngle = 0
         local orbitHumanoid = nil
@@ -1161,10 +1161,10 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
-        createOrbitInput("Distance (studs)", 190, 12, 3, 100, function(value)
+        createOrbitInput("Distance (studs)", 190, 50, 3, 100, function(value)
             orbitDistance = value
         end)
-        createOrbitInput("Flying height (studs)", 219, 5, 0, 100, function(value)
+        createOrbitInput("Flying height (studs)", 219, 50, 0, 100, function(value)
             orbitHeight = value
         end)
         createOrbitInput("Speed (deg/sec)", 248, 90, 10, 360, function(value)
