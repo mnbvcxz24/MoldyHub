@@ -544,6 +544,7 @@ for index, name in ipairs(TabNames) do
         local cameraAimBound = true
         local orbitEnabled = false
         local orbitDistance = 12
+        local orbitHeight = 5
         local orbitSpeed = 90
         local orbitAngle = 0
         local orbitHumanoid = nil
@@ -580,7 +581,7 @@ for index, name in ipairs(TabNames) do
                     orbitAngle = (orbitAngle + math.rad(orbitSpeed) * deltaTime) % (math.pi * 2)
                     local offset = Vector3.new(
                         math.cos(orbitAngle) * orbitDistance,
-                        0,
+                        orbitHeight,
                         math.sin(orbitAngle) * orbitDistance
                     )
                     local orbitPosition = target.Position + offset
@@ -940,7 +941,10 @@ for index, name in ipairs(TabNames) do
         createOrbitInput("Distance (studs)", 62, 12, 3, 100, function(value)
             orbitDistance = value
         end)
-        createOrbitInput("Speed (deg/sec)", 91, 90, 10, 360, function(value)
+        createOrbitInput("Flying height (studs)", 91, 5, 0, 100, function(value)
+            orbitHeight = value
+        end)
+        createOrbitInput("Speed (deg/sec)", 120, 90, 10, 360, function(value)
             orbitSpeed = value
         end)
 
