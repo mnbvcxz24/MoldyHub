@@ -462,7 +462,7 @@ for index, name in ipairs(TabNames) do
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local SkillsConfig
-        local skillsConfigLoadAttempted = false
+        local skillsConfigWarningShown = false
 
         -- Resolve game dependencies only when the related feature actually needs them.
         local function getBasicAttackRemote()
@@ -472,21 +472,25 @@ for index, name in ipairs(TabNames) do
 
         local function getSkillsConfig()
             if SkillsConfig then return SkillsConfig end
-            if skillsConfigLoadAttempted then return nil end
 
+            -- Retry on later skill-loop cycles if the module is not ready yet
+            -- or require fails temporarily; do not permanently disable skills.
             local shared = ReplicatedStorage:FindFirstChild("Shared")
             local config = shared and shared:FindFirstChild("Config")
             local skillsModule = config and config:FindFirstChild("Skills")
             if not skillsModule then return nil end
 
-            skillsConfigLoadAttempted = true
             local skillsOk, skillsResult = pcall(require, skillsModule)
             if skillsOk and type(skillsResult) == "table" then
                 SkillsConfig = skillsResult
-            else
-                warn("[CL Auto farm] Unable to load Skills config:", skillsResult)
+                return SkillsConfig
             end
-            return SkillsConfig
+
+            if not skillsConfigWarningShown then
+                warn("[CL Auto farm] Unable to load Skills config; will retry:", skillsResult)
+                skillsConfigWarningShown = true
+            end
+            return nil
         end
 
         local function getAbilityRail()
@@ -666,14 +670,23 @@ for index, name in ipairs(TabNames) do
 
             task.spawn(function()
                 while thisLoop == targetClickLoopId and autoFarmEnabled do
+                    -- Keep clicking the active aim/orbit target even between skill casts.
                     local target = cameraAimTarget
+                    if not (target and target.Parent) then
+                        target = orbitEnabled and orbitTarget or orbitSelectedTarget
+                    end
+
                     local camera = workspace.CurrentCamera
                     if target and target.Parent and camera then
                         local screenPoint, onScreen = camera:WorldToViewportPoint(target.Position)
                         if onScreen and screenPoint.Z > 0 then
+                            -- Always attempt mouse-up separately so a failed press cannot
+                            -- leave the synthetic mouse button held down.
                             pcall(function()
                                 VirtualInputManager:SendMouseButtonEvent(screenPoint.X, screenPoint.Y, 0, true, game, 0)
-                                task.wait(0.03)
+                            end)
+                            task.wait(0.03)
+                            pcall(function()
                                 VirtualInputManager:SendMouseButtonEvent(screenPoint.X, screenPoint.Y, 0, false, game, 0)
                             end)
                         end
