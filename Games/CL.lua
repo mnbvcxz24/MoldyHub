@@ -543,6 +543,7 @@ for index, name in ipairs(TabNames) do
         local cameraAimTarget = nil
         local cameraAimBound = true
         local orbitEnabled = false
+        local orbitTarget = nil
         local orbitDistance = 12
         local orbitHeight = 5
         local orbitSpeed = 90
@@ -560,7 +561,7 @@ for index, name in ipairs(TabNames) do
         targetHighlight.Parent = workspace
 
         RunService:BindToRenderStep("CLMoldyHubCameraAim", Enum.RenderPriority.Camera.Value + 1, function(deltaTime)
-            local target = cameraAimTarget
+            local target = orbitEnabled and orbitTarget or cameraAimTarget
             local camera = workspace.CurrentCamera
 
             if orbitEnabled then
@@ -575,6 +576,22 @@ for index, name in ipairs(TabNames) do
                     orbitHumanoid = humanoid
                     orbitOriginalPlatformStand = humanoid.PlatformStand
                     humanoid.PlatformStand = true
+                end
+
+                if (not orbitTarget or not orbitTarget.Parent) and root then
+                    local enemies = workspace:FindFirstChild("Enemies")
+                    orbitTarget = getClosestEnemy(root, enemies)
+                    target = orbitTarget
+                    if target then
+                        targetHighlight.Adornee = target.Parent
+                        targetHighlight.Enabled = true
+                    end
+                end
+
+                if orbitTarget and orbitTarget.Parent then
+                    target = orbitTarget
+                    targetHighlight.Adornee = target.Parent
+                    targetHighlight.Enabled = true
                 end
 
                 if target and target.Parent and root then
@@ -882,8 +899,15 @@ for index, name in ipairs(TabNames) do
                 end
                 orbitHumanoid = nil
                 orbitOriginalPlatformStand = nil
+                orbitTarget = nil
             else
                 local character = LocalPlayer.Character
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+                local enemies = workspace:FindFirstChild("Enemies")
+                orbitTarget = getClosestEnemy(root, enemies)
+                if orbitTarget then
+                    aimCameraAtEnemy(orbitTarget)
+                end
                 local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
                     orbitHumanoid = humanoid
