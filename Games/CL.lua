@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.5"
+local deployver = "CL ver 2.6"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -757,6 +757,21 @@ for index, name in ipairs(TabNames) do
         end
 
         RegisterCleanup(function()
+            undergroundEnabled = false
+            if undergroundCharacter then
+                local oldHumanoid = undergroundCharacter:FindFirstChildOfClass("Humanoid")
+                local oldRoot = undergroundCharacter:FindFirstChild("HumanoidRootPart")
+                if oldRoot and undergroundOriginalCFrame then
+                    oldRoot.CFrame = undergroundOriginalCFrame
+                end
+                if oldHumanoid and undergroundOriginalPlatformStand ~= nil then
+                    oldHumanoid.PlatformStand = undergroundOriginalPlatformStand
+                end
+            end
+            if undergroundCharacterConnection then
+                undergroundCharacterConnection:Disconnect()
+                undergroundCharacterConnection = nil
+            end
             autoFarmEnabled = false
             useM1Enabled = false
             m1LoopId = m1LoopId + 1
@@ -803,6 +818,108 @@ for index, name in ipairs(TabNames) do
         CreateCheckbox(card, "Use V", 153, function(checked)
             skillEnabled.V = checked
             startSkillLoop("V", checked)
+        end)
+
+        -- Underground uses the Humanoid as the character reference, then its root part for positioning.
+        local undergroundEnabled = false
+        local undergroundOffset = 20
+        local undergroundCharacter = nil
+        local undergroundOriginalCFrame = nil
+        local undergroundOriginalPlatformStand = nil
+
+        local undergroundCard = CreateCard(left, "Underground", 94)
+        CreateCheckbox(undergroundCard, "Enable Underground", 34, function(checked)
+            undergroundEnabled = checked
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if checked then
+                if not humanoid then
+                    undergroundEnabled = false
+                    return
+                end
+                local root = character:FindFirstChild("HumanoidRootPart")
+                if not root then
+                    undergroundEnabled = false
+                    return
+                end
+                undergroundCharacter = character
+                undergroundOriginalCFrame = root.CFrame
+                undergroundOriginalPlatformStand = humanoid.PlatformStand
+                humanoid.PlatformStand = true
+                root.CFrame = root.CFrame - Vector3.new(0, undergroundOffset, 0)
+            else
+                if undergroundCharacter then
+                    local oldHumanoid = undergroundCharacter:FindFirstChildOfClass("Humanoid")
+                    local oldRoot = undergroundCharacter:FindFirstChild("HumanoidRootPart")
+                    if oldRoot and undergroundOriginalCFrame then
+                        oldRoot.CFrame = undergroundOriginalCFrame
+                    end
+                    if oldHumanoid and undergroundOriginalPlatformStand ~= nil then
+                        oldHumanoid.PlatformStand = undergroundOriginalPlatformStand
+                    end
+                end
+                undergroundCharacter = nil
+                undergroundOriginalCFrame = nil
+                undergroundOriginalPlatformStand = nil
+            end
+        end)
+
+        Create("TextLabel", {
+            Parent = undergroundCard,
+            Position = UDim2.fromOffset(12, 62),
+            Size = UDim2.fromOffset(104, 18),
+            BackgroundTransparency = 1,
+            Text = "Offset (studs)",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local undergroundInput = Create("TextBox", {
+            Parent = undergroundCard,
+            Position = UDim2.new(1, -82, 0, 59),
+            Size = UDim2.fromOffset(70, 23),
+            BackgroundColor3 = Theme.SurfaceInput,
+            TextColor3 = Theme.Text,
+            PlaceholderColor3 = Theme.Gray,
+            PlaceholderText = "20",
+            Text = "20",
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            ClearTextOnFocus = false,
+            BorderSizePixel = 0
+        })
+        Corner(undergroundInput, 5)
+        Stroke(undergroundInput, Theme.Border, 1)
+        undergroundInput.FocusLost:Connect(function()
+            local value = tonumber(undergroundInput.Text)
+            if value then
+                undergroundOffset = math.clamp(math.abs(value), 1, 500)
+                undergroundInput.Text = tostring(undergroundOffset)
+                if undergroundEnabled and undergroundCharacter == LocalPlayer.Character then
+                    local root = undergroundCharacter:FindFirstChild("HumanoidRootPart")
+                    if root and undergroundOriginalCFrame then
+                        root.CFrame = undergroundOriginalCFrame - Vector3.new(0, undergroundOffset, 0)
+                    end
+                end
+            else
+                undergroundInput.Text = tostring(undergroundOffset)
+            end
+        end)
+
+        local undergroundCharacterConnection = LocalPlayer.CharacterAdded:Connect(function(character)
+            if not undergroundEnabled then return end
+            task.wait(0.2)
+            if not undergroundEnabled or LocalPlayer.Character ~= character then return end
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            local root = character:FindFirstChild("HumanoidRootPart")
+            if humanoid and root then
+                undergroundCharacter = character
+                undergroundOriginalCFrame = root.CFrame
+                undergroundOriginalPlatformStand = humanoid.PlatformStand
+                humanoid.PlatformStand = true
+                root.CFrame = root.CFrame - Vector3.new(0, undergroundOffset, 0)
+            end
         end)
 
     elseif index == 2 then
