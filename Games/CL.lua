@@ -257,8 +257,10 @@ local Content = Create("Frame", {
     Position = UDim2.fromOffset(0, 72),
     Size = UDim2.new(1, 0, 1, -72),
     BackgroundColor3 = Theme.Background,
-    BorderSizePixel = 0
+    BorderSizePixel = 0,
+    ClipsDescendants = true
 })
+Corner(Content, 12)
 
 local Pages, NavButtons = {}, {}
 local TabNames = {"Farm", "Settings", "Webhook"}
@@ -278,18 +280,18 @@ local function CreatePage(index)
     })
     local left = Create("Frame", {
         Parent = page,
-        Position = UDim2.fromOffset(10, 10),
-        Size = UDim2.new(1, -20, 0, 0),
+        Position = UDim2.fromOffset(8, 8),
+        Size = UDim2.new(1, -16, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
     local leftLayout = Create("UIListLayout", {
         Parent = left,
-        Padding = UDim.new(0, 10),
+        Padding = UDim.new(0, 6),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     local function UpdateCanvas()
-        page.CanvasSize = UDim2.new(0, 0, 0, left.AbsolutePosition.Y - page.AbsolutePosition.Y + left.AbsoluteSize.Y + 10)
+        page.CanvasSize = UDim2.new(0, 0, 0, left.AbsolutePosition.Y - page.AbsolutePosition.Y + left.AbsoluteSize.Y + 8)
     end
     leftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
     page:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateCanvas)
@@ -961,12 +963,12 @@ for index, name in ipairs(TabNames) do
         Create("UIListLayout", {
             Parent = cardsRow,
             FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 10),
+            Padding = UDim.new(0, 6),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
 
         local card = CreateCard(cardsRow, "Auto farm", 280)
-        card.Size = UDim2.new(0.5, -5, 1, 0)
+        card.Size = UDim2.new(0.5, -3, 1, 0)
         CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
             if not enabled then clearEnemyAim() end
@@ -1032,7 +1034,7 @@ for index, name in ipairs(TabNames) do
         end
 
         local orbitCard = CreateCard(cardsRow, "Enemy Orbit", 280)
-        orbitCard.Size = UDim2.new(0.5, -5, 1, 0)
+        orbitCard.Size = UDim2.new(0.5, -3, 1, 0)
         CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
             setOrbitEnabled(checked)
         end)
