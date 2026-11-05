@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.13"
+local deployver = "CL ver 2.14"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -552,19 +552,20 @@ for index, name in ipairs(TabNames) do
         local orbitHumanoid = nil
         local orbitOriginalPlatformStand = nil
 
-        -- An explicitly selected nearby enemy is a hard lock.
-        -- Without an explicit lock, Orbit follows Auto Farm's changing closest target.
+        -- An explicitly selected nearby enemy is a hard lock for every farm action.
+        -- Only fall back to automatic target selection after that enemy is no longer valid.
         local function getFarmTarget(root, enemies)
-            if orbitEnabled then
-                local selectedTarget = orbitSelectedTarget
-                if selectedTarget then
-                    if selectedTarget.Parent and selectedTarget.Parent.Parent == enemies then
-                        orbitTarget = selectedTarget
-                        return selectedTarget
-                    end
-                    orbitSelectedTarget = nil
+            local selectedTarget = orbitSelectedTarget
+            if selectedTarget then
+                if selectedTarget.Parent and selectedTarget.Parent.Parent == enemies then
+                    orbitTarget = selectedTarget
+                    cameraAimTarget = selectedTarget
+                    return selectedTarget
                 end
+                orbitSelectedTarget = nil
+            end
 
+            if orbitEnabled then
                 local nextTarget = getClosestEnemy(root, enemies)
                 if nextTarget then
                     orbitTarget = nextTarget
@@ -653,9 +654,14 @@ for index, name in ipairs(TabNames) do
         end)
 
         local function aimCameraAtEnemy(enemyRoot)
+            local selectedTarget = orbitSelectedTarget
+            if selectedTarget and selectedTarget.Parent then
+                enemyRoot = selectedTarget
+            end
             if not enemyRoot or not enemyRoot.Parent then return false end
 
             cameraAimTarget = enemyRoot
+            if orbitEnabled then orbitTarget = enemyRoot end
             targetHighlight.Adornee = enemyRoot.Parent
             targetHighlight.Enabled = true
             return true
@@ -676,9 +682,10 @@ for index, name in ipairs(TabNames) do
 
             task.spawn(function()
                 while thisLoop == targetClickLoopId and autoFarmEnabled do
-                    local target = cameraAimTarget
+                    -- Send the mouse click only while the main UI is minimized.
+                    local target = orbitSelectedTarget or (orbitEnabled and orbitTarget) or cameraAimTarget
                     local camera = workspace.CurrentCamera
-                    if target and target.Parent and camera then
+                    if not Main.Visible and target and target.Parent and camera then
                         local viewport = camera.ViewportSize
                         local centerX = viewport.X * 0.5
                         local centerY = viewport.Y * 0.5
@@ -789,7 +796,9 @@ for index, name in ipairs(TabNames) do
                         end
 
                         local enemyRoot
-                        if orbitEnabled then
+                        if orbitSelectedTarget then
+                            enemyRoot = getFarmTarget(root, enemies)
+                        elseif orbitEnabled then
                             enemyRoot = getFarmTarget(root, enemies)
                         else
                             enemyRoot = getAssignedSkillTarget(slot, root, enemies)
@@ -1085,10 +1094,8 @@ for index, name in ipairs(TabNames) do
                             end
                         else
                             orbitSelectedTarget = enemyRoot
-                            if orbitEnabled then
-                                orbitTarget = enemyRoot
-                                cameraAimTarget = enemyRoot
-                            end
+                            orbitTarget = enemyRoot
+                            cameraAimTarget = enemyRoot
                             aimCameraAtEnemy(enemyRoot)
                         end
 
