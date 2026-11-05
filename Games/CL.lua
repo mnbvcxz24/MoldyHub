@@ -1355,19 +1355,58 @@ for index, name in ipairs(TabNames) do
             ZIndex = 2
         })
 
-        local filterList = Create("ScrollingFrame", {
+        -- BASAE-style dropdown shell with multi-select options.
+        local filterDropdown = Create("TextButton", {
             Parent = card,
             Position = UDim2.fromOffset(12, 228),
-            Size = UDim2.new(1, -24, 0, 120),
+            Size = UDim2.new(1, -24, 0, 28),
             BackgroundColor3 = Theme.SurfaceInput,
-            BackgroundTransparency = 0,
+            Text = "",
             BorderSizePixel = 0,
+            AutoButtonColor = false,
+            ZIndex = 10
+        })
+        Corner(filterDropdown, 6)
+
+        local filterDropdownText = Create("TextLabel", {
+            Parent = filterDropdown,
+            Position = UDim2.fromOffset(10, 0),
+            Size = UDim2.new(1, -34, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Select Grimoires",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 11
+        })
+        Create("TextLabel", {
+            Parent = filterDropdown,
+            Position = UDim2.new(1, -24, 0, 0),
+            Size = UDim2.fromOffset(18, 28),
+            BackgroundTransparency = 1,
+            Text = "v",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            ZIndex = 11
+        })
+
+        local filterDropdownOpen = false
+        local filterList = Create("ScrollingFrame", {
+            Parent = filterDropdown,
+            Position = UDim2.new(0, 0, 1, 5),
+            Size = UDim2.new(1, 0, 0, 96),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            Visible = false,
             ScrollBarThickness = 3,
             ScrollBarImageColor3 = Theme.Gray,
             CanvasSize = UDim2.new(0, 0, 0, 0),
-            ZIndex = 2
+            ZIndex = 20
         })
-        Corner(filterList, 5)
+        Corner(filterList, 6)
         local filterLayout = Create("UIListLayout", {
             Parent = filterList,
             Padding = UDim.new(0, 2),
@@ -1381,11 +1420,30 @@ for index, name in ipairs(TabNames) do
             PaddingRight = UDim.new(0, 5)
         })
 
+        filterDropdown.MouseButton1Click:Connect(function()
+            filterDropdownOpen = not filterDropdownOpen
+            filterList.Visible = filterDropdownOpen
+        end)
+
         local function updateFilterCanvas()
             filterList.CanvasSize = UDim2.new(0, 0, 0, filterLayout.AbsoluteContentSize.Y + 8)
         end
         filterLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateFilterCanvas)
 
+        local function updateFilterDropdownText()
+            local selectedNames = {}
+            for name, selected in pairs(grimoireFilter) do
+                if selected == true then table.insert(selectedNames, name) end
+            end
+            table.sort(selectedNames)
+            if #selectedNames == 0 then
+                filterDropdownText.Text = "Select Grimoires"
+            elseif #selectedNames == 1 then
+                filterDropdownText.Text = selectedNames[1]
+            else
+                filterDropdownText.Text = tostring(#selectedNames) .. " Grimoires selected"
+            end
+        end
         local function getGrimoireRows()
             local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
             local shopUI = playerGui and playerGui:FindFirstChild("ShopUI")
@@ -1469,10 +1527,12 @@ for index, name in ipairs(TabNames) do
                     local isSelected = grimoireFilter[grimoireName]
                     check.BackgroundColor3 = isSelected and Theme.Accent or Theme.Card
                     mark.Visible = isSelected
+                    updateFilterDropdownText()
                 end)
             end
 
             updateFilterCanvas()
+            updateFilterDropdownText()
         end
 
         local function getRequestFunction()
