@@ -1240,7 +1240,6 @@ for index, name in ipairs(TabNames) do
             end
         end)
     elseif index == 3 then
-    elseif index == 3 then
         -- Webhook UI controls. Notification delivery is wired separately once the
         -- game's spellbook-award event and payload are confirmed.
         local spellbookNotifierEnabled = false
