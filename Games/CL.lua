@@ -377,7 +377,7 @@ local function CreateCheckbox(parent, label, y, callback)
     local row = Create("TextButton", {
         Parent = parent,
         Position = UDim2.fromOffset(12, y),
-        Size = UDim2.new(1, -24, 0, 20),
+        Size = UDim2.new(1, -24, 0, 18),
         BackgroundTransparency = 1,
         Text = "",
         BorderSizePixel = 0,
@@ -979,23 +979,23 @@ for index, name in ipairs(TabNames) do
                 startSkillLoop(slot, enabled and skillEnabled[slot] == true)
             end
         end)
-        CreateCheckbox(card, "Use M1", 65, function(checked)
+        CreateCheckbox(card, "Use M1", 62, function(checked)
             useM1Enabled = checked
             updateM1Loop()
         end)
-        CreateCheckbox(card, "Use C", 87, function(checked)
+        CreateCheckbox(card, "Use C", 80, function(checked)
             skillEnabled.C = checked
             startSkillLoop("C", checked)
         end)
-        CreateCheckbox(card, "Use X", 109, function(checked)
+        CreateCheckbox(card, "Use X", 98, function(checked)
             skillEnabled.X = checked
             startSkillLoop("X", checked)
         end)
-        CreateCheckbox(card, "Use Z", 131, function(checked)
+        CreateCheckbox(card, "Use Z", 116, function(checked)
             skillEnabled.Z = checked
             startSkillLoop("Z", checked)
         end)
-        CreateCheckbox(card, "Use V", 153, function(checked)
+        CreateCheckbox(card, "Use V", 134, function(checked)
             skillEnabled.V = checked
             startSkillLoop("V", checked)
         end)
@@ -1042,8 +1042,8 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = orbitCard,
-            Position = UDim2.fromOffset(12, 59),
-            Size = UDim2.new(1, -24, 0, 16),
+            Position = UDim2.fromOffset(12, 55),
+            Size = UDim2.new(1, -24, 0, 14),
             BackgroundTransparency = 1,
             Text = "Enemy Nearby",
             TextColor3 = Theme.Text,
@@ -1054,8 +1054,8 @@ for index, name in ipairs(TabNames) do
 
         local enemyList = Create("ScrollingFrame", {
             Parent = orbitCard,
-            Position = UDim2.fromOffset(12, 78),
-            Size = UDim2.new(1, -24, 0, 88),
+            Position = UDim2.fromOffset(12, 72),
+            Size = UDim2.new(1, -24, 0, 78),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
@@ -1066,16 +1066,16 @@ for index, name in ipairs(TabNames) do
         Stroke(enemyList, Theme.Border, 1)
         local enemyListLayout = Create("UIListLayout", {
             Parent = enemyList,
-            Padding = UDim.new(0, 3),
+            Padding = UDim.new(0, 1),
             SortOrder = Enum.SortOrder.Name
         })
         enemyListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            enemyList.CanvasSize = UDim2.new(0, 0, 0, enemyListLayout.AbsoluteContentSize.Y + 6)
+            enemyList.CanvasSize = UDim2.new(0, 0, 0, enemyListLayout.AbsoluteContentSize.Y + 2)
         end)
 
         local enemyListStatus = Create("TextLabel", {
             Parent = orbitCard,
-            Position = UDim2.fromOffset(12, 169),
+            Position = UDim2.fromOffset(12, 153),
             Size = UDim2.new(1, -24, 0, 14),
             BackgroundTransparency = 1,
             Text = "Select an enemy to lock",
@@ -1108,7 +1108,7 @@ for index, name in ipairs(TabNames) do
                     local isSelected = orbitSelectedTarget == enemyRoot
                     local button = Create("TextButton", {
                         Parent = enemyList,
-                        Size = UDim2.new(1, -6, 0, 22),
+                        Size = UDim2.new(1, -6, 0, 18),
                         BackgroundColor3 = isSelected and Theme.Accent or Theme.Card,
                         BackgroundTransparency = isSelected and 0.12 or 0,
                         BorderSizePixel = 0,
@@ -1207,13 +1207,13 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
-        createOrbitInput("Distance (studs)", 190, 50, 3, 100, function(value)
+        createOrbitInput("Distance (studs)", 178, 50, 3, 100, function(value)
             orbitDistance = value
         end)
-        createOrbitInput("Flying height (studs)", 219, 50, 0, 100, function(value)
+        createOrbitInput("Flying height (studs)", 202, 50, 0, 100, function(value)
             orbitHeight = value
         end)
-        createOrbitInput("Speed (deg/sec)", 248, 90, 10, 360, function(value)
+        createOrbitInput("Speed (deg/sec)", 226, 90, 10, 360, function(value)
             orbitSpeed = value
         end)
 
