@@ -1246,8 +1246,8 @@ for index, name in ipairs(TabNames) do
         local webhookUrl = ""
         local spellbookFilter = {}
 
-        local card = CreateCard(left, "Spellbook Notifier", 204)
-        CreateToggle(card, "Spellbook Notifier", 34, function(enabled)
+        local card = CreateCard(left, "Grimoire Notifier", 204)
+        CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
             spellbookNotifierEnabled = enabled
         end)
 
@@ -1278,7 +1278,7 @@ for index, name in ipairs(TabNames) do
             BorderSizePixel = 0
         })
         Corner(webhookInput, 5)
-        Stroke(webhookInput, Theme.Border, 1)
+        Create("UIPadding", {Parent = webhookInput, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
         webhookInput.FocusLost:Connect(function()
             webhookUrl = string.gsub(webhookInput.Text, "^%s*(.-)%s*$", "%1")
         end)
@@ -1288,7 +1288,7 @@ for index, name in ipairs(TabNames) do
             Position = UDim2.fromOffset(12, 120),
             Size = UDim2.new(1, -24, 0, 27),
             BackgroundColor3 = Theme.SurfaceInput,
-            Text = "Spellbook filter  ·  Configure",
+            Text = "Grimoire filter  ·  Configure",
             TextColor3 = Theme.Text,
             Font = Enum.Font.GothamMedium,
             TextSize = 9,
@@ -1320,7 +1320,7 @@ for index, name in ipairs(TabNames) do
             BorderSizePixel = 0
         })
         Corner(filterInput, 5)
-        Stroke(filterInput, Theme.Border, 1)
+        Create("UIPadding", {Parent = filterInput, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
         local saveFilter = Create("TextButton", {
             Parent = filterEditor,
             Position = UDim2.new(1, -52, 0, 0),
@@ -1337,7 +1337,7 @@ for index, name in ipairs(TabNames) do
         filterButton.MouseButton1Click:Connect(function()
             filterEditor.Visible = not filterEditor.Visible
             card.Size = UDim2.new(1, 0, 0, filterEditor.Visible and 204 or 158)
-            filterButton.Text = filterEditor.Visible and "Spellbook filter  ·  Close" or "Spellbook filter  ·  Configure"
+            filterButton.Text = filterEditor.Visible and "Grimoire filter  ·  Close" or "Grimoire filter  ·  Configure"
         end)
         saveFilter.MouseButton1Click:Connect(function()
             table.clear(spellbookFilter)
@@ -1348,8 +1348,8 @@ for index, name in ipairs(TabNames) do
             filterEditor.Visible = false
             card.Size = UDim2.new(1, 0, 0, 158)
             filterButton.Text = #spellbookFilter > 0
-                and ("Spellbook filter  ·  " .. tostring(#spellbookFilter) .. " selected")
-                or "Spellbook filter  ·  All"
+                and ("Grimoire filter  ·  " .. tostring(#spellbookFilter) .. " selected")
+                or "Grimoire filter  ·  All"
         end)
     end
 end
