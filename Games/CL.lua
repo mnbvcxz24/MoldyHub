@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
@@ -1243,69 +1244,100 @@ for index, name in ipairs(TabNames) do
         end)
     elseif index == 3 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
-        -- Grimoire row frames; StockShopState is reserved for stock updates.
+        -- Grimoire filter names come from the shop's Grimoire row frames.
+        -- StockShopState is only observed; this script never fires the remote.
         local grimoireNotifierEnabled = false
         local webhookUrl = ""
+        local roleId = ""
         local grimoireFilter = {}
+        local previousStock = {}
+        local stockConnection
 
-        local card = CreateCard(left, "Grimoire Notifier", 270)
+        local card = CreateCard(left, "Grimoire Notifier", 294)
         CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
             grimoireNotifierEnabled = enabled
         end)
 
-        Create("TextLabel", {
-            Parent = card,
-            Position = UDim2.fromOffset(12, 66),
-            Size = UDim2.new(1, -24, 0, 14),
-            BackgroundTransparency = 1,
-            Text = "Webhook",
-            TextColor3 = Theme.DarkGray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        local webhookInput = Create("TextBox", {
-            Parent = card,
-            Position = UDim2.fromOffset(12, 83),
-            Size = UDim2.new(1, -24, 0, 27),
-            BackgroundColor3 = Theme.SurfaceInput,
-            Text = "",
-            PlaceholderText = "Paste webhook URL",
-            PlaceholderColor3 = Theme.Gray,
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ClearTextOnFocus = false,
-            BorderSizePixel = 0
-        })
-        Corner(webhookInput, 5)
-        Create("UIPadding", {Parent = webhookInput, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
+        local function createNotifierInput(labelText, placeholder, y)
+            Create("TextLabel", {
+                Parent = card,
+                Position = UDim2.fromOffset(12, y),
+                Size = UDim2.new(1, -24, 0, 13),
+                BackgroundTransparency = 1,
+                Text = labelText,
+                TextColor3 = Theme.DarkGray,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 2
+            })
+            local input = Create("TextBox", {
+                Parent = card,
+                Position = UDim2.fromOffset(12, y + 15),
+                Size = UDim2.new(1, -24, 0, 24),
+                BackgroundColor3 = Theme.SurfaceInput,
+                BackgroundTransparency = 0,
+                Text = "",
+                PlaceholderText = placeholder,
+                PlaceholderColor3 = Theme.Gray,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ClearTextOnFocus = false,
+                TextEditable = true,
+                Active = true,
+                BorderSizePixel = 0,
+                ZIndex = 2
+            })
+            Corner(input, 5)
+            Create("UIPadding", {
+                Parent = input,
+                PaddingLeft = UDim.new(0, 8),
+                PaddingRight = UDim.new(0, 8)
+            })
+            return input
+        end
+
+        local webhookInput = createNotifierInput("Webhook URL", "Paste Discord webhook URL", 63)
         webhookInput.FocusLost:Connect(function()
             webhookUrl = string.gsub(webhookInput.Text, "^%s*(.-)%s*$", "%1")
         end)
 
+        local roleInput = createNotifierInput("Role ID (optional)", "Enter Discord role ID to mention", 104)
+        roleInput.FocusLost:Connect(function()
+            roleId = string.gsub(roleInput.Text, "^%s*(.-)%s*$", "%1")
+            if roleId ~= "" and not string.match(roleId, "^%d+$") then
+                roleId = ""
+                roleInput.Text = ""
+                roleInput.PlaceholderText = "Role ID must contain numbers only"
+            end
+        end)
+
         Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 119),
-            Size = UDim2.new(1, -24, 0, 14),
+            Position = UDim2.fromOffset(12, 145),
+            Size = UDim2.new(1, -24, 0, 13),
             BackgroundTransparency = 1,
             Text = "Grimoire filter",
             TextColor3 = Theme.DarkGray,
             Font = Enum.Font.Gotham,
             TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 2
         })
 
         local filterList = Create("ScrollingFrame", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 137),
+            Position = UDim2.fromOffset(12, 162),
             Size = UDim2.new(1, -24, 0, 120),
             BackgroundColor3 = Theme.SurfaceInput,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
             ScrollBarImageColor3 = Theme.Gray,
-            CanvasSize = UDim2.new(0, 0, 0, 0)
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            ZIndex = 2
         })
         Corner(filterList, 5)
         local filterLayout = Create("UIListLayout", {
@@ -1369,14 +1401,16 @@ for index, name in ipairs(TabNames) do
                     BackgroundTransparency = 1,
                     Text = "",
                     BorderSizePixel = 0,
-                    AutoButtonColor = false
+                    AutoButtonColor = false,
+                    ZIndex = 3
                 })
                 local check = Create("Frame", {
                     Parent = row,
                     Position = UDim2.fromOffset(2, 4),
                     Size = UDim2.fromOffset(14, 14),
                     BackgroundColor3 = selected and Theme.Accent or Theme.Card,
-                    BorderSizePixel = 0
+                    BorderSizePixel = 0,
+                    ZIndex = 3
                 })
                 Corner(check, 3)
                 local mark = Create("TextLabel", {
@@ -1387,7 +1421,8 @@ for index, name in ipairs(TabNames) do
                     TextColor3 = Theme.Text,
                     Font = Enum.Font.GothamBold,
                     TextSize = 10,
-                    Visible = selected
+                    Visible = selected,
+                    ZIndex = 4
                 })
                 Create("TextLabel", {
                     Parent = row,
@@ -1398,7 +1433,8 @@ for index, name in ipairs(TabNames) do
                     TextColor3 = Theme.Text,
                     Font = Enum.Font.Gotham,
                     TextSize = 9,
-                    TextXAlignment = Enum.TextXAlignment.Left
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    ZIndex = 4
                 })
                 row.MouseButton1Click:Connect(function()
                     grimoireFilter[grimoireName] = not grimoireFilter[grimoireName]
@@ -1409,6 +1445,87 @@ for index, name in ipairs(TabNames) do
             end
 
             updateFilterCanvas()
+        end
+
+        local function getRequestFunction()
+            if type(environment.request) == "function" then
+                return environment.request
+            elseif type(environment.http_request) == "function" then
+                return environment.http_request
+            elseif type(environment.syn) == "table" and type(environment.syn.request) == "function" then
+                return environment.syn.request
+            elseif type(environment.http) == "table" and type(environment.http.request) == "function" then
+                return environment.http.request
+            end
+            return nil
+        end
+
+        local function sendGrimoireWebhook(grimoireId, price)
+            if webhookUrl == "" then return end
+            local requestFunction = getRequestFunction()
+            if not requestFunction then
+                warn("[MoldyHub] No executor HTTP request function is available; webhook was not sent.")
+                return
+            end
+
+            local mention = ""
+            local allowedMentions = {parse = {}}
+            if roleId ~= "" then
+                mention = "<@&" .. roleId .. ">"
+                allowedMentions.roles = {roleId}
+            end
+
+            local payload = {
+                content = mention,
+                allowed_mentions = allowedMentions,
+                embeds = {{
+                    title = "✨ Grimoire Stock Alert",
+                    description = "**" .. tostring(grimoireId) .. "** is now in stock!",
+                    color = 0x2D87FF,
+                    fields = {
+                        {name = "Status", value = "IN STOCK", inline = true},
+                        {name = "Price", value = tostring(price or "Unknown"), inline = true}
+                    },
+                    footer = {text = "MoldyHub Grimoire Notifier"}
+                }}
+            }
+
+            local ok, response = pcall(function()
+                return requestFunction({
+                    Url = webhookUrl,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode(payload)
+                })
+            end)
+            if not ok then
+                warn("[MoldyHub] Discord webhook request failed: " .. tostring(response))
+            end
+        end
+
+        local function handleStockShopState(data)
+            if type(data) ~= "table" or type(data.Items) ~= "table" then return end
+            for _, item in pairs(data.Items) do
+                if type(item) == "table" and item.GrimoireId ~= nil then
+                    local id = tostring(item.GrimoireId)
+                    local inStock = item.InStock == true
+                    local wasInStock = previousStock[id]
+                    previousStock[id] = inStock
+
+                    if grimoireNotifierEnabled and inStock and wasInStock == false and grimoireFilter[id] == true then
+                        task.spawn(sendGrimoireWebhook, id, item.Price)
+                    end
+                end
+            end
+        end
+
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        local stockShopState = remotes and remotes:FindFirstChild("StockShopState")
+        if stockShopState and stockShopState:IsA("RemoteEvent") then
+            stockConnection = ConnectManaged(stockShopState.OnClientEvent, handleStockShopState)
+        else
+            warn("[MoldyHub] StockShopState RemoteEvent was not found under ReplicatedStorage.Remotes.")
         end
 
         local grimoireRows = getGrimoireRows()
@@ -1436,6 +1553,7 @@ for index, name in ipairs(TabNames) do
             if rowsAddedConnection then rowsAddedConnection:Disconnect() end
             if rowsRemovedConnection then rowsRemovedConnection:Disconnect() end
         end)
+
     end
 end
 
