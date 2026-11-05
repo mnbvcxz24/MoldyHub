@@ -261,7 +261,7 @@ local Content = Create("Frame", {
 })
 
 local Pages, NavButtons = {}, {}
-local TabNames = {"Farm", "Settings"}
+local TabNames = {"Farm", "Settings", "Webhook"}
 
 local function CreatePage(index)
     local page = Create("ScrollingFrame", {
@@ -1238,6 +1238,119 @@ for index, name in ipairs(TabNames) do
                     end)
                 end)
             end
+        end)
+    elseif index == 3 then
+    elseif index == 3 then
+        -- Webhook UI controls. Notification delivery is wired separately once the
+        -- game's spellbook-award event and payload are confirmed.
+        local spellbookNotifierEnabled = false
+        local webhookUrl = ""
+        local spellbookFilter = {}
+
+        local card = CreateCard(left, "Spellbook Notifier", 204)
+        CreateToggle(card, "Spellbook Notifier", 34, function(enabled)
+            spellbookNotifierEnabled = enabled
+        end)
+
+        Create("TextLabel", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 66),
+            Size = UDim2.new(1, -24, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Webhook",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local webhookInput = Create("TextBox", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 83),
+            Size = UDim2.new(1, -24, 0, 27),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "",
+            PlaceholderText = "Paste webhook URL",
+            PlaceholderColor3 = Theme.Gray,
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ClearTextOnFocus = false,
+            BorderSizePixel = 0
+        })
+        Corner(webhookInput, 5)
+        Stroke(webhookInput, Theme.Border, 1)
+        webhookInput.FocusLost:Connect(function()
+            webhookUrl = string.gsub(webhookInput.Text, "^%s*(.-)%s*$", "%1")
+        end)
+
+        local filterButton = Create("TextButton", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 120),
+            Size = UDim2.new(1, -24, 0, 27),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "Spellbook filter  ·  Configure",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        Corner(filterButton, 5)
+        Stroke(filterButton, Theme.Border, 1)
+
+        local filterEditor = Create("Frame", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 154),
+            Size = UDim2.new(1, -24, 0, 40),
+            BackgroundTransparency = 1,
+            Visible = false
+        })
+        local filterInput = Create("TextBox", {
+            Parent = filterEditor,
+            Size = UDim2.new(1, -58, 1, 0),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "",
+            PlaceholderText = "Names, separated by commas",
+            PlaceholderColor3 = Theme.Gray,
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ClearTextOnFocus = false,
+            BorderSizePixel = 0
+        })
+        Corner(filterInput, 5)
+        Stroke(filterInput, Theme.Border, 1)
+        local saveFilter = Create("TextButton", {
+            Parent = filterEditor,
+            Position = UDim2.new(1, -52, 0, 0),
+            Size = UDim2.fromOffset(52, 40),
+            BackgroundColor3 = Theme.Accent,
+            Text = "Save",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        Corner(saveFilter, 5)
+        filterButton.MouseButton1Click:Connect(function()
+            filterEditor.Visible = not filterEditor.Visible
+            card.Size = UDim2.new(1, 0, 0, filterEditor.Visible and 204 or 158)
+            filterButton.Text = filterEditor.Visible and "Spellbook filter  ·  Close" or "Spellbook filter  ·  Configure"
+        end)
+        saveFilter.MouseButton1Click:Connect(function()
+            table.clear(spellbookFilter)
+            for name in string.gmatch(filterInput.Text, "[^,]+") do
+                name = string.gsub(name, "^%s*(.-)%s*$", "%1")
+                if name ~= "" then table.insert(spellbookFilter, name) end
+            end
+            filterEditor.Visible = false
+            card.Size = UDim2.new(1, 0, 0, 158)
+            filterButton.Text = #spellbookFilter > 0
+                and ("Spellbook filter  ·  " .. tostring(#spellbookFilter) .. " selected")
+                or "Spellbook filter  ·  All"
         end)
     end
 end
