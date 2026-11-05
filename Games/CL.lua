@@ -1253,7 +1253,7 @@ for index, name in ipairs(TabNames) do
         local previousStock = {}
         local stockConnection
 
-        local card = CreateCard(left, "Grimoire Notifier", 326)
+        local card = CreateCard(left, "Grimoire Notifier", 360)
         CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
             grimoireNotifierEnabled = enabled
         end)
@@ -1273,7 +1273,7 @@ for index, name in ipairs(TabNames) do
             })
             local input = Create("TextBox", {
                 Parent = card,
-                Position = UDim2.fromOffset(12, y + 15),
+                Position = UDim2.fromOffset(12, y + 17),
                 Size = UDim2.new(1, -24, 0, 24),
                 BackgroundColor3 = Theme.SurfaceInput,
                 BackgroundTransparency = 0,
@@ -1304,7 +1304,7 @@ for index, name in ipairs(TabNames) do
             webhookUrl = string.gsub(webhookInput.Text, "^%s*(.-)%s*$", "%1")
         end)
 
-        local roleInput = createNotifierInput("Role ID (optional)", "Enter Discord role ID to mention", 104)
+        local roleInput = createNotifierInput("Role ID (optional)", "Enter Discord role ID to mention", 110)
         roleInput.FocusLost:Connect(function()
             roleId = string.gsub(roleInput.Text, "^%s*(.-)%s*$", "%1")
             if roleId ~= "" and not string.match(roleId, "^%d+$") then
@@ -1314,9 +1314,22 @@ for index, name in ipairs(TabNames) do
             end
         end)
 
+        Create("TextLabel", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 159),
+            Size = UDim2.new(1, -24, 0, 13),
+            BackgroundTransparency = 1,
+            Text = "Webhook Test",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 2
+        })
+
         local testWebhookButton = Create("TextButton", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 145),
+            Position = UDim2.fromOffset(12, 176),
             Size = UDim2.new(1, -24, 0, 24),
             BackgroundColor3 = Theme.Accent,
             Text = "Test Webhook",
@@ -1331,7 +1344,7 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 177),
+            Position = UDim2.fromOffset(12, 211),
             Size = UDim2.new(1, -24, 0, 13),
             BackgroundTransparency = 1,
             Text = "Grimoire filter",
@@ -1344,7 +1357,7 @@ for index, name in ipairs(TabNames) do
 
         local filterList = Create("ScrollingFrame", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 194),
+            Position = UDim2.fromOffset(12, 228),
             Size = UDim2.new(1, -24, 0, 120),
             BackgroundColor3 = Theme.SurfaceInput,
             BackgroundTransparency = 0,
