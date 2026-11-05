@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.14"
+local deployver = "CL ver 2.15"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -690,7 +690,7 @@ for index, name in ipairs(TabNames) do
                         local centerX = viewport.X * 0.5
                         local centerY = viewport.Y * 0.5
                         -- Offset the click slightly right to compensate for the clockwise orbit.
-                        local clickX = centerX + (viewport.X * 0.05)
+                        local clickX = centerX + (viewport.X * 0.01)
                         pcall(function()
                             VirtualInputManager:SendMouseButtonEvent(clickX, centerY, 0, true, game, 0)
                             task.wait(0.03)
