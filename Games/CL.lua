@@ -1512,7 +1512,7 @@ for index, name in ipairs(TabNames) do
                     local wasInStock = previousStock[id]
                     previousStock[id] = inStock
 
-                    if grimoireNotifierEnabled and inStock and wasInStock == false and grimoireFilter[id] == true then
+                    if grimoireNotifierEnabled and inStock and wasInStock ~= true and grimoireFilter[id] == true then
                         task.spawn(sendGrimoireWebhook, id, item.Price)
                     end
                 end
