@@ -1240,15 +1240,15 @@ for index, name in ipairs(TabNames) do
             end
         end)
     elseif index == 3 then
-        -- Webhook UI controls. Notification delivery is wired separately once the
-        -- game's spellbook-award event and payload are confirmed.
-        local spellbookNotifierEnabled = false
+        -- Grimoire notifier UI. The filter list is populated from the shop's
+        -- Grimoire row frames; StockShopState is reserved for stock updates.
+        local grimoireNotifierEnabled = false
         local webhookUrl = ""
-        local spellbookFilter = {}
+        local grimoireFilter = {}
 
-        local card = CreateCard(left, "Grimoire Notifier", 204)
+        local card = CreateCard(left, "Grimoire Notifier", 270)
         CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
-            spellbookNotifierEnabled = enabled
+            grimoireNotifierEnabled = enabled
         end)
 
         Create("TextLabel", {
@@ -1283,73 +1283,156 @@ for index, name in ipairs(TabNames) do
             webhookUrl = string.gsub(webhookInput.Text, "^%s*(.-)%s*$", "%1")
         end)
 
-        local filterButton = Create("TextButton", {
+        Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 120),
-            Size = UDim2.new(1, -24, 0, 27),
-            BackgroundColor3 = Theme.SurfaceInput,
-            Text = "Grimoire filter  ·  Configure",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.GothamMedium,
-            TextSize = 9,
-            BorderSizePixel = 0,
-            AutoButtonColor = true
-        })
-        Corner(filterButton, 5)
-        Stroke(filterButton, Theme.Border, 1)
-
-        local filterEditor = Create("Frame", {
-            Parent = card,
-            Position = UDim2.fromOffset(12, 154),
-            Size = UDim2.new(1, -24, 0, 40),
+            Position = UDim2.fromOffset(12, 119),
+            Size = UDim2.new(1, -24, 0, 14),
             BackgroundTransparency = 1,
-            Visible = false
-        })
-        local filterInput = Create("TextBox", {
-            Parent = filterEditor,
-            Size = UDim2.new(1, -58, 1, 0),
-            BackgroundColor3 = Theme.SurfaceInput,
-            Text = "",
-            PlaceholderText = "Names, separated by commas",
-            PlaceholderColor3 = Theme.Gray,
-            TextColor3 = Theme.Text,
+            Text = "Grimoire filter",
+            TextColor3 = Theme.DarkGray,
             Font = Enum.Font.Gotham,
             TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ClearTextOnFocus = false,
-            BorderSizePixel = 0
+            TextXAlignment = Enum.TextXAlignment.Left
         })
-        Corner(filterInput, 5)
-        Create("UIPadding", {Parent = filterInput, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
-        local saveFilter = Create("TextButton", {
-            Parent = filterEditor,
-            Position = UDim2.new(1, -52, 0, 0),
-            Size = UDim2.fromOffset(52, 40),
-            BackgroundColor3 = Theme.Accent,
-            Text = "Save",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.GothamBold,
-            TextSize = 9,
+
+        local filterList = Create("ScrollingFrame", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 137),
+            Size = UDim2.new(1, -24, 0, 120),
+            BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
-            AutoButtonColor = true
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Theme.Gray,
+            CanvasSize = UDim2.new(0, 0, 0, 0)
         })
-        Corner(saveFilter, 5)
-        filterButton.MouseButton1Click:Connect(function()
-            filterEditor.Visible = not filterEditor.Visible
-            card.Size = UDim2.new(1, 0, 0, filterEditor.Visible and 204 or 158)
-            filterButton.Text = filterEditor.Visible and "Grimoire filter  ·  Close" or "Grimoire filter  ·  Configure"
-        end)
-        saveFilter.MouseButton1Click:Connect(function()
-            table.clear(spellbookFilter)
-            for name in string.gmatch(filterInput.Text, "[^,]+") do
-                name = string.gsub(name, "^%s*(.-)%s*$", "%1")
-                if name ~= "" then table.insert(spellbookFilter, name) end
+        Corner(filterList, 5)
+        local filterLayout = Create("UIListLayout", {
+            Parent = filterList,
+            Padding = UDim.new(0, 2),
+            SortOrder = Enum.SortOrder.Name
+        })
+        Create("UIPadding", {
+            Parent = filterList,
+            PaddingTop = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4),
+            PaddingLeft = UDim.new(0, 5),
+            PaddingRight = UDim.new(0, 5)
+        })
+
+        local function updateFilterCanvas()
+            filterList.CanvasSize = UDim2.new(0, 0, 0, filterLayout.AbsoluteContentSize.Y + 8)
+        end
+        filterLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateFilterCanvas)
+
+        local function getGrimoireRows()
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            local shopUI = playerGui and playerGui:FindFirstChild("ShopUI")
+            local container = shopUI and shopUI:FindFirstChild("Container")
+            local shopPanel = container and container:FindFirstChild("ShopPanel")
+            local grimoirePage = shopPanel and shopPanel:FindFirstChild("Page_Grimoire")
+            return grimoirePage and grimoirePage:FindFirstChild("Rows")
+        end
+
+        local function refreshGrimoireFilter()
+            local rows = getGrimoireRows()
+            if not rows then return end
+
+            for _, child in ipairs(filterList:GetChildren()) do
+                if child:IsA("TextButton") then child:Destroy() end
             end
-            filterEditor.Visible = false
-            card.Size = UDim2.new(1, 0, 0, 158)
-            filterButton.Text = #spellbookFilter > 0
-                and ("Grimoire filter  ·  " .. tostring(#spellbookFilter) .. " selected")
-                or "Grimoire filter  ·  All"
+
+            local grimoireNames = {}
+            for _, itemFrame in ipairs(rows:GetChildren()) do
+                if itemFrame:IsA("Frame") and itemFrame.Name ~= "ShopItem" then
+                    grimoireNames[itemFrame.Name] = true
+                end
+            end
+
+            local sortedNames = {}
+            for name in pairs(grimoireNames) do
+                table.insert(sortedNames, name)
+                if grimoireFilter[name] == nil then
+                    grimoireFilter[name] = false
+                end
+            end
+            table.sort(sortedNames)
+
+            for _, grimoireName in ipairs(sortedNames) do
+                local selected = grimoireFilter[grimoireName] == true
+                local row = Create("TextButton", {
+                    Name = grimoireName,
+                    Parent = filterList,
+                    Size = UDim2.new(1, -2, 0, 22),
+                    BackgroundColor3 = Theme.SurfaceInput,
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false
+                })
+                local check = Create("Frame", {
+                    Parent = row,
+                    Position = UDim2.fromOffset(2, 4),
+                    Size = UDim2.fromOffset(14, 14),
+                    BackgroundColor3 = selected and Theme.Accent or Theme.Card,
+                    BorderSizePixel = 0
+                })
+                Corner(check, 3)
+                local mark = Create("TextLabel", {
+                    Parent = check,
+                    Size = UDim2.fromScale(1, 1),
+                    BackgroundTransparency = 1,
+                    Text = "✓",
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 10,
+                    Visible = selected
+                })
+                Create("TextLabel", {
+                    Parent = row,
+                    Position = UDim2.fromOffset(23, 0),
+                    Size = UDim2.new(1, -27, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = grimoireName,
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Left
+                })
+                row.MouseButton1Click:Connect(function()
+                    grimoireFilter[grimoireName] = not grimoireFilter[grimoireName]
+                    local isSelected = grimoireFilter[grimoireName]
+                    check.BackgroundColor3 = isSelected and Theme.Accent or Theme.Card
+                    mark.Visible = isSelected
+                end)
+            end
+
+            updateFilterCanvas()
+        end
+
+        local grimoireRows = getGrimoireRows()
+        local rowsAddedConnection, rowsRemovedConnection
+        local function watchGrimoireRows(rows)
+            if rowsAddedConnection then rowsAddedConnection:Disconnect(); rowsAddedConnection = nil end
+            if rowsRemovedConnection then rowsRemovedConnection:Disconnect(); rowsRemovedConnection = nil end
+            if not rows then return end
+            rowsAddedConnection = rows.ChildAdded:Connect(refreshGrimoireFilter)
+            rowsRemovedConnection = rows.ChildRemoved:Connect(refreshGrimoireFilter)
+            refreshGrimoireFilter()
+        end
+        watchGrimoireRows(grimoireRows)
+        task.spawn(function()
+            while card.Parent do
+                local currentRows = getGrimoireRows()
+                if currentRows ~= grimoireRows then
+                    grimoireRows = currentRows
+                    watchGrimoireRows(grimoireRows)
+                elseif not grimoireRows then
+                    refreshGrimoireFilter()
+                end
+                task.wait(2)
+            end
+            if rowsAddedConnection then rowsAddedConnection:Disconnect() end
+            if rowsRemovedConnection then rowsRemovedConnection:Disconnect() end
         end)
     end
 end
