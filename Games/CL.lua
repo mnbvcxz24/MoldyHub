@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.15"
+local deployver = "CL ver 2.16-test"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local previousCleanup = environment.CLMoldyHubCleanup
@@ -16,9 +16,19 @@ if type(previousCleanup) == "function" then
 end
 
 local cleanupCallbacks = {}
+local managedConnections = {}
 local function RegisterCleanup(callback)
     table.insert(cleanupCallbacks, callback)
 end
+local function ConnectManaged(signal, callback)
+    local connection = signal:Connect(callback)
+    table.insert(managedConnections, connection)
+    return connection
+end
+RegisterCleanup(function()
+    for _, connection in ipairs(managedConnections) do pcall(function() connection:Disconnect() end) end
+    table.clear(managedConnections)
+end)
 
 local old = game.CoreGui:FindFirstChild(UI_NAME)
 if old then old:Destroy() end
@@ -171,13 +181,16 @@ local function KeepFloatingToggleOnScreen()
     FloatingToggle.Position = UDim2.fromOffset(x, y)
 end
 
+local floatingViewportConnection
 local function WatchFloatingToggleViewport(camera)
-    if camera then
-        camera:GetPropertyChangedSignal("ViewportSize"):Connect(KeepFloatingToggleOnScreen)
-    end
+    if floatingViewportConnection then floatingViewportConnection:Disconnect(); floatingViewportConnection = nil end
+    if camera then floatingViewportConnection = ConnectManaged(camera:GetPropertyChangedSignal("ViewportSize"), KeepFloatingToggleOnScreen) end
 end
+RegisterCleanup(function()
+    if floatingViewportConnection then floatingViewportConnection:Disconnect(); floatingViewportConnection = nil end
+end)
 WatchFloatingToggleViewport(workspace.CurrentCamera)
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+ConnectManaged(workspace:GetPropertyChangedSignal("CurrentCamera"), function()
     WatchFloatingToggleViewport(workspace.CurrentCamera)
     KeepFloatingToggleOnScreen()
 end)
@@ -192,7 +205,7 @@ FloatingToggle.InputBegan:Connect(function(input)
         CircleMoved = false
     end
 end)
-UserInputService.InputChanged:Connect(function(input)
+ConnectManaged(UserInputService.InputChanged, function(input)
     if not CircleDragging then return end
     if input.UserInputType == Enum.UserInputType.MouseMovement or input == CircleDragInput then
         local delta = input.Position - CircleDragStart
@@ -203,7 +216,7 @@ UserInputService.InputChanged:Connect(function(input)
         end
     end
 end)
-UserInputService.InputEnded:Connect(function(input)
+ConnectManaged(UserInputService.InputEnded, function(input)
     if CircleDragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == CircleDragInput) then
         local wasDragged = CircleMoved
         CircleDragging, CircleDragInput, CircleMoved = false, nil, false
@@ -248,7 +261,7 @@ local Content = Create("Frame", {
 })
 
 local Pages, NavButtons = {}, {}
-local TabNames = {"Farm", "Settings"}
+local TabNames = {"Farm", "Settings", "Webhook"}
 
 local function CreatePage(index)
     local page = Create("ScrollingFrame", {
@@ -460,35 +473,47 @@ for index, name in ipairs(TabNames) do
         local skillLoopIds = {C = 0, X = 0, Z = 0, V = 0}
         local skillEnabled = {C = false, X = false, Z = false, V = false}
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local remotes = ReplicatedStorage:WaitForChild("Remotes")
-        local basicAttack = remotes:WaitForChild("BasicAttack")
         local VirtualInputManager = game:GetService("VirtualInputManager")
-        local SkillsModule = ReplicatedStorage
-            :WaitForChild("Shared")
-            :WaitForChild("Config")
-            :WaitForChild("Skills")
-        local SkillsConfig
-        local skillsOk, skillsResult = pcall(require, SkillsModule)
-        if skillsOk and type(skillsResult) == "table" then
-            SkillsConfig = skillsResult
-        else
-            warn("[CL Auto farm] Unable to load Skills config:", skillsResult)
+        local SkillsConfig, basicAttack
+        local basicAttackCheckedAt, skillConfigCheckedAt = 0, 0
+        local function FindPath(root, path, timeout)
+            local deadline, current = os.clock() + (timeout or 0), root
+            for _, childName in ipairs(path) do
+                if not current then return nil end
+                local child = current:FindFirstChild(childName)
+                if not child and timeout and timeout > 0 then child = current:WaitForChild(childName, math.max(0, deadline - os.clock())) end
+                if not child then return nil end
+                current = child
+            end
+            return current
+        end
+        local function getBasicAttackRemote()
+            if basicAttack and basicAttack.Parent then return basicAttack end
+            if os.clock() - basicAttackCheckedAt < 2 then return nil end
+            basicAttackCheckedAt = os.clock()
+            local remote = FindPath(ReplicatedStorage, {"Remotes", "BasicAttack"}, 5)
+            if remote and remote:IsA("RemoteEvent") then basicAttack = remote end
+            return basicAttack
+        end
+        local function getSkillsConfig()
+            if SkillsConfig then return SkillsConfig end
+            if os.clock() - skillConfigCheckedAt < 3 then return nil end
+            skillConfigCheckedAt = os.clock()
+            local module = FindPath(ReplicatedStorage, {"Shared", "Config", "Skills"}, 5)
+            if not module or not module:IsA("ModuleScript") then return nil end
+            local ok, result = pcall(require, module)
+            if ok and type(result) == "table" then SkillsConfig = result
+            else warn("[CL Auto farm] Unable to load Skills config:", result) end
+            return SkillsConfig
+        end
+        local function getAbilityRail()
+            return FindPath(LocalPlayer, {"PlayerGui", "MainHUD", "Right Column", "Ability Rail", "MainFrame", "Abilities", "Abilities"}, 5)
         end
 
-        local AbilityRail = LocalPlayer:WaitForChild("PlayerGui")
-            :WaitForChild("MainHUD")
-            :WaitForChild("Right Column")
-            :WaitForChild("Ability Rail")
-            :WaitForChild("MainFrame")
-            :WaitForChild("Abilities")
-            :WaitForChild("Abilities")
-
         local function findSkillByDisplayName(displayName, slot)
-            if not SkillsConfig or type(displayName) ~= "string" or displayName == "" then
-                return nil
-            end
-
-            for key, skill in pairs(SkillsConfig) do
+            local config = getSkillsConfig()
+            if not config or type(displayName) ~= "string" or displayName == "" then return nil end
+            for key, skill in pairs(config) do
                 if type(skill) == "table"
                     and skill.DisplayName == displayName
                     and tostring(skill.Slot) == slot then
@@ -499,7 +524,9 @@ for index, name in ipairs(TabNames) do
         end
 
         local function getAbilitySkill(slot)
-            local slotFrame = AbilityRail:FindFirstChild("Slot_" .. slot)
+            local abilityRail = getAbilityRail()
+            if not abilityRail then return nil end
+            local slotFrame = abilityRail:FindFirstChild("Slot_" .. slot)
             local left = slotFrame and slotFrame:FindFirstChild("left")
             local nameLabel = left and left:FindFirstChild("name")
             local displayName = nameLabel and nameLabel.Text
@@ -508,6 +535,15 @@ for index, name in ipairs(TabNames) do
         end
 
         local MAX_TARGET_DISTANCE = 200
+        local function isValidEnemyRoot(enemyRoot, enemies, playerRoot)
+            if not enemyRoot or not enemyRoot:IsA("BasePart") or not enemies then return false end
+            local model = enemyRoot.Parent
+            if not model or model.Parent ~= enemies then return false end
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health <= 0 then return false end
+            if playerRoot and (enemyRoot.Position - playerRoot.Position).Magnitude > MAX_TARGET_DISTANCE then return false end
+            return true
+        end
 
         local function getClosestEnemy(root, enemies)
             if not root or not enemies then return nil end
@@ -518,9 +554,9 @@ for index, name in ipairs(TabNames) do
             for _, enemy in ipairs(enemies:GetChildren()) do
                 local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
 
-                if enemyRoot then
+                if isValidEnemyRoot(enemyRoot, enemies, root) then
                     local distance = (enemyRoot.Position - root.Position).Magnitude
-                    if distance <= MAX_TARGET_DISTANCE and distance < closestDistance then
+                    if distance < closestDistance then
                         closestDistance = distance
                         closestEnemyRoot = enemyRoot
                     end
@@ -536,6 +572,7 @@ for index, name in ipairs(TabNames) do
         local skillLastTargets = {}
         local skillAdvancePending = {}
         local skillCastBusy = false
+        local skillCastBusySince = 0
         local targetClickLoopId = 0
 
         -- Keep the highlighted target centered after Roblox's normal camera update.
@@ -557,12 +594,13 @@ for index, name in ipairs(TabNames) do
         local function getFarmTarget(root, enemies)
             local selectedTarget = orbitSelectedTarget
             if selectedTarget then
-                if selectedTarget.Parent and selectedTarget.Parent.Parent == enemies then
+                if isValidEnemyRoot(selectedTarget, enemies, root) then
                     orbitTarget = selectedTarget
                     cameraAimTarget = selectedTarget
                     return selectedTarget
                 end
                 orbitSelectedTarget = nil
+                if orbitTarget == selectedTarget then orbitTarget = nil end
             end
 
             if orbitEnabled then
@@ -606,15 +644,15 @@ for index, name in ipairs(TabNames) do
                 end
 
                 local enemies = workspace:FindFirstChild("Enemies")
-                if orbitSelectedTarget and (not orbitSelectedTarget.Parent
-                    or orbitSelectedTarget.Parent.Parent ~= enemies) then
+                if orbitSelectedTarget and not isValidEnemyRoot(orbitSelectedTarget, enemies, root) then
+                    local invalidTarget = orbitSelectedTarget
                     orbitSelectedTarget = nil
+                    if orbitTarget == invalidTarget then orbitTarget = nil end
                 end
 
                 if orbitSelectedTarget then
                     orbitTarget = orbitSelectedTarget
-                elseif (not orbitTarget or not orbitTarget.Parent
-                    or orbitTarget.Parent.Parent ~= enemies) and root then
+                elseif not isValidEnemyRoot(orbitTarget, enemies, root) and root then
                     orbitTarget = getClosestEnemy(root, enemies)
                 end
 
@@ -685,17 +723,22 @@ for index, name in ipairs(TabNames) do
                     -- Send the mouse click only while the main UI is minimized.
                     local target = orbitSelectedTarget or (orbitEnabled and orbitTarget) or cameraAimTarget
                     local camera = workspace.CurrentCamera
-                    if not Main.Visible and target and target.Parent and camera then
+                    local character = LocalPlayer.Character
+                    local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+                    local enemies = workspace:FindFirstChild("Enemies")
+                    if not Main.Visible and camera and isValidEnemyRoot(target, enemies, playerRoot) then
                         local viewport = camera.ViewportSize
                         local centerX = viewport.X * 0.5
                         local centerY = viewport.Y * 0.5
                         -- Click the center reticle, where the camera lock aims the target.
                         local clickX = centerX
-                        pcall(function()
+                        local mouseDown = pcall(function()
                             VirtualInputManager:SendMouseButtonEvent(clickX, centerY, 0, true, game, 0)
-                            task.wait(0.03)
-                            VirtualInputManager:SendMouseButtonEvent(clickX, centerY, 0, false, game, 0)
                         end)
+                        if mouseDown then
+                            task.wait(0.03)
+                            pcall(function() VirtualInputManager:SendMouseButtonEvent(clickX, centerY, 0, false, game, 0) end)
+                        end
                     end
                     task.wait(0.5)
                 end
@@ -806,12 +849,16 @@ for index, name in ipairs(TabNames) do
                         if enemyRoot then
                             -- Serialize casts so each skill gets a clean camera-aim window.
                             while skillCastBusy and thisLoop == skillLoopIds[slot] and autoFarmEnabled do
-                                task.wait()
+                                if os.clock() - skillCastBusySince > 5 then
+                                    warn("[CL Auto farm] Skill cast lock timed out; recovering.")
+                                    skillCastBusy, skillCastBusySince = false, 0
+                                else task.wait(0.05) end
                             end
 
                             if thisLoop == skillLoopIds[slot] and autoFarmEnabled
                                 and enemyRoot.Parent and enemyRoot.Parent.Parent == enemies then
                                 skillCastBusy = true
+                                skillCastBusySince = os.clock()
                                 local aimReady = aimCameraAtEnemy(enemyRoot)
                                 -- Let the render-step camera aim run before sending the cast.
                                 task.wait()
@@ -838,6 +885,7 @@ for index, name in ipairs(TabNames) do
                                     end
                                 end
                                 skillCastBusy = false
+                                skillCastBusySince = 0
                             end
                         end
 
@@ -864,19 +912,11 @@ for index, name in ipairs(TabNames) do
                     local root = character and character:FindFirstChild("HumanoidRootPart")
                     local enemies = workspace:FindFirstChild("Enemies")
 
-                    if root and enemies then
-                        if thisLoop == m1LoopId and autoFarmEnabled and useM1Enabled then
-                            local enemyRoot = getFarmTarget(root, enemies)
-                            if enemyRoot then
-                                pcall(function()
-                                    basicAttack:FireServer(
-                                        root.CFrame,
-                                        nil,
-                                        enemyRoot.Position,
-                                        0
-                                    )
-                                end)
-                            end
+                    if root and enemies and thisLoop == m1LoopId and autoFarmEnabled and useM1Enabled then
+                        local enemyRoot = getFarmTarget(root, enemies)
+                        local attackRemote = getBasicAttackRemote()
+                        if attackRemote and isValidEnemyRoot(enemyRoot, enemies, root) then
+                            pcall(function() attackRemote:FireServer(root.CFrame, nil, enemyRoot.Position, 0) end)
                         end
                     end
 
@@ -895,6 +935,8 @@ for index, name in ipairs(TabNames) do
             orbitOriginalPlatformStand = nil
             autoFarmEnabled = false
             useM1Enabled = false
+            skillCastBusy, skillCastBusySince = false, 0
+            basicAttack = nil
             m1LoopId = m1LoopId + 1
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
                 skillEnabled[slot] = false
@@ -1077,7 +1119,9 @@ for index, name in ipairs(TabNames) do
                     })
                     Corner(button, 4)
                     button.MouseButton1Click:Connect(function()
-                        if not enemyRoot.Parent or enemyRoot.Parent.Parent ~= enemies then return end
+                        local character = LocalPlayer.Character
+                        local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+                        if not isValidEnemyRoot(enemyRoot, enemies, playerRoot) then return end
 
                         if orbitSelectedTarget == enemyRoot then
                             -- Clicking the active lock again unselects it.
@@ -1195,6 +1239,118 @@ for index, name in ipairs(TabNames) do
                 end)
             end
         end)
+    elseif index == 3 then
+        -- Webhook UI controls. Notification delivery is wired separately once the
+        -- game's spellbook-award event and payload are confirmed.
+        local spellbookNotifierEnabled = false
+        local webhookUrl = ""
+        local spellbookFilter = {}
+
+        local card = CreateCard(left, "Spellbook Notifier", 204)
+        CreateToggle(card, "Spellbook Notifier", 34, function(enabled)
+            spellbookNotifierEnabled = enabled
+        end)
+
+        Create("TextLabel", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 66),
+            Size = UDim2.new(1, -24, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Webhook",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local webhookInput = Create("TextBox", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 83),
+            Size = UDim2.new(1, -24, 0, 27),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "",
+            PlaceholderText = "Paste webhook URL",
+            PlaceholderColor3 = Theme.Gray,
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ClearTextOnFocus = false,
+            BorderSizePixel = 0
+        })
+        Corner(webhookInput, 5)
+        Stroke(webhookInput, Theme.Border, 1)
+        webhookInput.FocusLost:Connect(function()
+            webhookUrl = string.gsub(webhookInput.Text, "^%s*(.-)%s*$", "%1")
+        end)
+
+        local filterButton = Create("TextButton", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 120),
+            Size = UDim2.new(1, -24, 0, 27),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "Spellbook filter  ·  Configure",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        Corner(filterButton, 5)
+        Stroke(filterButton, Theme.Border, 1)
+
+        local filterEditor = Create("Frame", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 154),
+            Size = UDim2.new(1, -24, 0, 40),
+            BackgroundTransparency = 1,
+            Visible = false
+        })
+        local filterInput = Create("TextBox", {
+            Parent = filterEditor,
+            Size = UDim2.new(1, -58, 1, 0),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "",
+            PlaceholderText = "Names, separated by commas",
+            PlaceholderColor3 = Theme.Gray,
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ClearTextOnFocus = false,
+            BorderSizePixel = 0
+        })
+        Corner(filterInput, 5)
+        Stroke(filterInput, Theme.Border, 1)
+        local saveFilter = Create("TextButton", {
+            Parent = filterEditor,
+            Position = UDim2.new(1, -52, 0, 0),
+            Size = UDim2.fromOffset(52, 40),
+            BackgroundColor3 = Theme.Accent,
+            Text = "Save",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        Corner(saveFilter, 5)
+        filterButton.MouseButton1Click:Connect(function()
+            filterEditor.Visible = not filterEditor.Visible
+            card.Size = UDim2.new(1, 0, 0, filterEditor.Visible and 204 or 158)
+            filterButton.Text = filterEditor.Visible and "Spellbook filter  ·  Close" or "Spellbook filter  ·  Configure"
+        end)
+        saveFilter.MouseButton1Click:Connect(function()
+            table.clear(spellbookFilter)
+            for name in string.gmatch(filterInput.Text, "[^,]+") do
+                name = string.gsub(name, "^%s*(.-)%s*$", "%1")
+                if name ~= "" then table.insert(spellbookFilter, name) end
+            end
+            filterEditor.Visible = false
+            card.Size = UDim2.new(1, 0, 0, 158)
+            filterButton.Text = #spellbookFilter > 0
+                and ("Spellbook filter  ·  " .. tostring(#spellbookFilter) .. " selected")
+                or "Spellbook filter  ·  All"
+        end)
     end
 end
 
@@ -1215,7 +1371,7 @@ TopBar.InputChanged:Connect(function(input)
         dragInput = input
     end
 end)
-UserInputService.InputChanged:Connect(function(input)
+ConnectManaged(UserInputService.InputChanged, function(input)
     if dragging and input == dragInput then
         local delta = input.Position - dragStart
         Main.Position = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + delta.X,
@@ -1224,9 +1380,7 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 local function CleanupCLMoldyHub()
-    for _, callback in ipairs(cleanupCallbacks) do
-        pcall(callback)
-    end
+    for index = #cleanupCallbacks, 1, -1 do pcall(cleanupCallbacks[index]) end
     cleanupCallbacks = {}
     local gui = game.CoreGui:FindFirstChild(UI_NAME)
     if gui then gui:Destroy() end
