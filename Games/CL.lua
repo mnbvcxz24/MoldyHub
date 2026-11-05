@@ -1253,7 +1253,7 @@ for index, name in ipairs(TabNames) do
         local previousStock = {}
         local stockConnection
 
-        local card = CreateCard(left, "Grimoire Notifier", 294)
+        local card = CreateCard(left, "Grimoire Notifier", 326)
         CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
             grimoireNotifierEnabled = enabled
         end)
@@ -1314,9 +1314,24 @@ for index, name in ipairs(TabNames) do
             end
         end)
 
-        Create("TextLabel", {
+        local testWebhookButton = Create("TextButton", {
             Parent = card,
             Position = UDim2.fromOffset(12, 145),
+            Size = UDim2.new(1, -24, 0, 24),
+            BackgroundColor3 = Theme.Accent,
+            Text = "Test Webhook",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true,
+            ZIndex = 2
+        })
+        Corner(testWebhookButton, 5)
+
+        Create("TextLabel", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 177),
             Size = UDim2.new(1, -24, 0, 13),
             BackgroundTransparency = 1,
             Text = "Grimoire filter",
@@ -1329,7 +1344,7 @@ for index, name in ipairs(TabNames) do
 
         local filterList = Create("ScrollingFrame", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 162),
+            Position = UDim2.fromOffset(12, 194),
             Size = UDim2.new(1, -24, 0, 120),
             BackgroundColor3 = Theme.SurfaceInput,
             BackgroundTransparency = 0,
@@ -1461,7 +1476,10 @@ for index, name in ipairs(TabNames) do
         end
 
         local function sendGrimoireWebhook(grimoireId, price)
-            if webhookUrl == "" then return end
+            if webhookUrl == "" then
+                warn("[MoldyHub] Enter a Discord webhook URL before testing the Grimoire notifier.")
+                return
+            end
             local requestFunction = getRequestFunction()
             if not requestFunction then
                 warn("[MoldyHub] No executor HTTP request function is available; webhook was not sent.")
@@ -1502,6 +1520,31 @@ for index, name in ipairs(TabNames) do
                 warn("[MoldyHub] Discord webhook request failed: " .. tostring(response))
             end
         end
+
+        local function sendTestWebhook()
+            if webhookUrl == "" then
+                warn("[MoldyHub] Enter a Discord webhook URL before testing the Grimoire notifier.")
+                return
+            end
+
+            local selectedGrimoire
+            local selectedCount = 0
+            for grimoireName, selected in pairs(grimoireFilter) do
+                if selected == true then
+                    selectedCount = selectedCount + 1
+                    selectedGrimoire = grimoireName
+                end
+            end
+
+            if selectedCount ~= 1 then
+                warn("[MoldyHub] Select exactly one Grimoire in the filter list to test the webhook.")
+                return
+            end
+
+            task.spawn(sendGrimoireWebhook, selectedGrimoire, "Sample")
+        end
+
+        testWebhookButton.MouseButton1Click:Connect(sendTestWebhook)
 
         local function handleStockShopState(data)
             if type(data) ~= "table" or type(data.Items) ~= "table" then return end
