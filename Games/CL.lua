@@ -1395,8 +1395,8 @@ for index, name in ipairs(TabNames) do
 
         local filterDropdownOpen = false
         local filterList = Create("ScrollingFrame", {
-            Parent = filterDropdown,
-            Position = UDim2.new(0, 0, 1, 5),
+            Parent = card,
+            Position = UDim2.fromOffset(12, 261),
             Size = UDim2.new(1, 0, 0, 96),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
@@ -1488,7 +1488,7 @@ for index, name in ipairs(TabNames) do
                     Text = "",
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
-                    ZIndex = 3
+                    ZIndex = 21
                 })
                 local check = Create("Frame", {
                     Parent = row,
@@ -1496,7 +1496,7 @@ for index, name in ipairs(TabNames) do
                     Size = UDim2.fromOffset(14, 14),
                     BackgroundColor3 = selected and Theme.Accent or Theme.Card,
                     BorderSizePixel = 0,
-                    ZIndex = 3
+                    ZIndex = 22
                 })
                 Corner(check, 3)
                 local mark = Create("TextLabel", {
@@ -1508,7 +1508,7 @@ for index, name in ipairs(TabNames) do
                     Font = Enum.Font.GothamBold,
                     TextSize = 10,
                     Visible = selected,
-                    ZIndex = 4
+                    ZIndex = 23
                 })
                 Create("TextLabel", {
                     Parent = row,
@@ -1520,7 +1520,7 @@ for index, name in ipairs(TabNames) do
                     Font = Enum.Font.Gotham,
                     TextSize = 9,
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    ZIndex = 4
+                    ZIndex = 23
                 })
                 row.MouseButton1Click:Connect(function()
                     grimoireFilter[grimoireName] = not grimoireFilter[grimoireName]
