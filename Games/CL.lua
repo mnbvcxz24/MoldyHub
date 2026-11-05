@@ -689,8 +689,8 @@ for index, name in ipairs(TabNames) do
                         local viewport = camera.ViewportSize
                         local centerX = viewport.X * 0.5
                         local centerY = viewport.Y * 0.5
-                        -- Offset the click slightly right to compensate for the clockwise orbit.
-                        local clickX = centerX + (viewport.X * 0.01)
+                        -- Click the center reticle, where the camera lock aims the target.
+                        local clickX = centerX
                         pcall(function()
                             VirtualInputManager:SendMouseButtonEvent(clickX, centerY, 0, true, game, 0)
                             task.wait(0.03)
