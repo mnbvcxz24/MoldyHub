@@ -1304,7 +1304,7 @@ for index, name in ipairs(TabNames) do
             webhookUrl = string.gsub(webhookInput.Text, "^%s*(.-)%s*$", "%1")
         end)
 
-        local roleInput = createNotifierInput("Role ID (optional)", "Enter Discord role ID to mention", 110)
+        local roleInput = createNotifierInput("Role ID (optional)", "Enter Discord role ID to mention", 109)
         roleInput.FocusLost:Connect(function()
             roleId = string.gsub(roleInput.Text, "^%s*(.-)%s*$", "%1")
             if roleId ~= "" and not string.match(roleId, "^%d+$") then
@@ -1316,7 +1316,7 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 159),
+            Position = UDim2.fromOffset(12, 155),
             Size = UDim2.new(1, -24, 0, 13),
             BackgroundTransparency = 1,
             Text = "Webhook Test",
@@ -1329,7 +1329,7 @@ for index, name in ipairs(TabNames) do
 
         local testWebhookButton = Create("TextButton", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 176),
+            Position = UDim2.fromOffset(12, 170),
             Size = UDim2.new(1, -24, 0, 24),
             BackgroundColor3 = Theme.Accent,
             Text = "Test Webhook",
@@ -1344,7 +1344,7 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 211),
+            Position = UDim2.fromOffset(12, 199),
             Size = UDim2.new(1, -24, 0, 13),
             BackgroundTransparency = 1,
             Text = "Grimoire filter",
@@ -1358,7 +1358,7 @@ for index, name in ipairs(TabNames) do
         -- BASAE-style dropdown shell with multi-select options.
         local filterDropdown = Create("TextButton", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 228),
+            Position = UDim2.fromOffset(12, 216),
             Size = UDim2.new(1, -24, 0, 28),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "",
@@ -1396,7 +1396,7 @@ for index, name in ipairs(TabNames) do
         local filterDropdownOpen = false
         local filterList = Create("ScrollingFrame", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 261),
+            Position = UDim2.fromOffset(12, 249),
             Size = UDim2.new(1, 0, 0, 96),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
@@ -1409,13 +1409,13 @@ for index, name in ipairs(TabNames) do
         Corner(filterList, 6)
         local filterLayout = Create("UIListLayout", {
             Parent = filterList,
-            Padding = UDim.new(0, 2),
+            Padding = UDim.new(0, 1),
             SortOrder = Enum.SortOrder.Name
         })
         Create("UIPadding", {
             Parent = filterList,
-            PaddingTop = UDim.new(0, 4),
-            PaddingBottom = UDim.new(0, 4),
+            PaddingTop = UDim.new(0, 2),
+            PaddingBottom = UDim.new(0, 2),
             PaddingLeft = UDim.new(0, 5),
             PaddingRight = UDim.new(0, 5)
         })
@@ -1426,7 +1426,7 @@ for index, name in ipairs(TabNames) do
         end)
 
         local function updateFilterCanvas()
-            filterList.CanvasSize = UDim2.new(0, 0, 0, filterLayout.AbsoluteContentSize.Y + 8)
+            filterList.CanvasSize = UDim2.new(0, 0, 0, filterLayout.AbsoluteContentSize.Y + 4)
         end
         filterLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateFilterCanvas)
 
@@ -1482,7 +1482,7 @@ for index, name in ipairs(TabNames) do
                 local row = Create("TextButton", {
                     Name = grimoireName,
                     Parent = filterList,
-                    Size = UDim2.new(1, -2, 0, 22),
+                    Size = UDim2.new(1, -2, 0, 18),
                     BackgroundColor3 = Theme.SurfaceInput,
                     BackgroundTransparency = 1,
                     Text = "",
@@ -1492,8 +1492,8 @@ for index, name in ipairs(TabNames) do
                 })
                 local check = Create("Frame", {
                     Parent = row,
-                    Position = UDim2.fromOffset(2, 4),
-                    Size = UDim2.fromOffset(14, 14),
+                    Position = UDim2.fromOffset(2, 3),
+                    Size = UDim2.fromOffset(12, 12),
                     BackgroundColor3 = selected and Theme.Accent or Theme.Card,
                     BorderSizePixel = 0,
                     ZIndex = 22
