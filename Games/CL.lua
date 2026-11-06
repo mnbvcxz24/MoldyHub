@@ -1360,6 +1360,10 @@ for index, name in ipairs(TabNames) do
         })
         local bossSpawnLoopId = 0
         local bossSpawnEnabled = false
+        -- Forward-declare values used by the spawn functions below.
+        local bossKeyLabel
+        local bossFilter
+        local bossDifficultyFilter
         local bossIdByName = {
             ["Shadow Ronin"] = "YamiSukehiro",
             ["Ember Lord"] = "FuegoleonVermillion"
@@ -1473,7 +1477,7 @@ for index, name in ipairs(TabNames) do
             bossSpawnLoopId = bossSpawnLoopId + 1
         end)
 
-        local bossKeyLabel = Create("TextLabel", {
+        bossKeyLabel = Create("TextLabel", {
             Parent = bossCard,
             Position = UDim2.fromOffset(12, 34),
             Size = UDim2.new(0.5, -16, 0, 16),
@@ -1536,7 +1540,7 @@ for index, name in ipairs(TabNames) do
             TextXAlignment = Enum.TextXAlignment.Left
         })
 
-        local bossFilter = {}
+        bossFilter = {}
         if type(savedConfig.bossFilter) == "table" then
             for name, selected in pairs(savedConfig.bossFilter) do
                 bossFilter[name] = selected == true
@@ -1748,7 +1752,7 @@ for index, name in ipairs(TabNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local bossDifficultyFilter = {}
+        bossDifficultyFilter = {}
         if type(savedConfig.bossDifficultyFilter) == "table" then
             for name, selected in pairs(savedConfig.bossDifficultyFilter) do
                 bossDifficultyFilter[name] = selected == true
