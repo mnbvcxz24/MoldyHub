@@ -325,8 +325,8 @@ local function CreatePage(index)
     })
     local function UpdateCanvas()
         local contentBottom = left.AbsolutePosition.Y - page.AbsolutePosition.Y + left.AbsoluteSize.Y
-        -- Keep a clean bottom margin after the final item on every tab.
-        local canvasHeight = math.max(contentBottom + 16, page.AbsoluteSize.Y)
+        -- Keep enough bottom scroll margin to comfortably reach the final item on every tab.
+        local canvasHeight = math.max(contentBottom + 50, page.AbsoluteSize.Y + 50)
         page.CanvasSize = UDim2.new(0, 0, 0, canvasHeight)
     end
     leftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
