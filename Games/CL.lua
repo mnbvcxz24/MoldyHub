@@ -1650,13 +1650,15 @@ for index, name in ipairs(TabNames) do
 
         local function sendGrimoireWebhook(grimoireId, price, restockTimer)
             if webhookUrl == "" then
-                warn("[MoldyHub] Enter a Discord webhook URL before testing the Grimoire notifier.")
-                return
+                return false, "Enter a Discord webhook URL first."
             end
+            if not string.match(string.lower(webhookUrl), "^https://discord(app)?%.com/api/webhooks/") then
+                return false, "Webhook URL must be a valid Discord webhook URL."
+            end
+
             local requestFunction = getRequestFunction()
             if not requestFunction then
-                warn("[MoldyHub] No executor HTTP request function is available; webhook was not sent.")
-                return
+                return false, "Executor HTTP request API is unavailable."
             end
 
             local mention = ""
@@ -1691,31 +1693,62 @@ for index, name in ipairs(TabNames) do
                 })
             end)
             if not ok then
-                warn("[MoldyHub] Discord webhook request failed: " .. tostring(response))
+                return false, tostring(response)
             end
+
+            local statusCode = type(response) == "table"
+                and (response.StatusCode or response.Status or response.status_code)
+                or nil
+            local responseBody = type(response) == "table" and response.Body or nil
+            if statusCode and (tonumber(statusCode) < 200 or tonumber(statusCode) >= 300) then
+                return false, "Discord returned HTTP " .. tostring(statusCode)
+                    .. (responseBody and (": " .. tostring(responseBody)) or "")
+            end
+            if type(response) == "table" and response.Success == false then
+                return false, "HTTP request failed" .. (responseBody and (": " .. tostring(responseBody)) or "")
+            end
+
+            return true, statusCode and ("HTTP " .. tostring(statusCode)) or "Request sent"
         end
 
         local function sendTestWebhook()
-            if webhookUrl == "" then
-                warn("[MoldyHub] Enter a Discord webhook URL before testing the Grimoire notifier.")
-                return
-            end
+            -- Read the visible inputs at click time so the latest edits are used
+            -- even if the TextBox FocusLost callback has not updated the cache.
+            webhookUrl = string.gsub(webhookInput.Text or "", "^%s*(.-)%s*$", "%1")
+            roleId = string.gsub(roleInput.Text or "", "^%s*(.-)%s*$", "%1")
+            savedConfig.webhookUrl = webhookUrl
+            savedConfig.roleId = roleId
 
-            local selectedGrimoire
-            local selectedCount = 0
+            local selectedNames = {}
             for grimoireName, selected in pairs(grimoireFilter) do
-                if selected == true then
-                    selectedCount = selectedCount + 1
-                    selectedGrimoire = grimoireName
-                end
+                if selected == true then table.insert(selectedNames, grimoireName) end
             end
+            table.sort(selectedNames)
 
-            if selectedCount ~= 1 then
-                warn("[MoldyHub] Select exactly one Grimoire in the filter list to test the webhook.")
+            if #selectedNames == 0 then
+                warn("[MoldyHub] Select at least one Grimoire in the filter list to test the webhook.")
+                testWebhookButton.Text = "Select a Grimoire first"
+                task.delay(2, function()
+                    if testWebhookButton.Parent then testWebhookButton.Text = "Test Webhook" end
+                end)
                 return
             end
 
-            task.spawn(sendGrimoireWebhook, selectedGrimoire, "Sample", "Test")
+            local selectedGrimoire = selectedNames[1]
+            testWebhookButton.Text = "Sending..."
+            testWebhookButton.Active = false
+            task.spawn(function()
+                local success, result = sendGrimoireWebhook(selectedGrimoire, "Sample", "Test")
+                if success then
+                    testWebhookButton.Text = "Sent (" .. tostring(result) .. ")"
+                else
+                    testWebhookButton.Text = "Failed - check console"
+                    warn("[MoldyHub] Test webhook failed: " .. tostring(result))
+                end
+                testWebhookButton.Active = true
+                task.wait(3)
+                if testWebhookButton.Parent then testWebhookButton.Text = "Test Webhook" end
+            end)
         end
 
         testWebhookButton.MouseButton1Click:Connect(sendTestWebhook)
