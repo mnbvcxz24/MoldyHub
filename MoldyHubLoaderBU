@@ -1,4 +1,4 @@
-local url = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/MoldyHubLoader"
+local url = "https://github.com/mnbvcxz24/MoldyHub/blob/main/Games/CL.lua"
 
 if type(loadstring) ~= "function" then
     warn("[MoldyHub] loadstring is unavailable")
