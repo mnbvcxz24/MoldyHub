@@ -1427,7 +1427,7 @@ for index, name in ipairs(TabNames) do
         local testWebhookButton = Create("TextButton", {
             Parent = card,
             Position = UDim2.fromOffset(12, 170),
-            Size = UDim2.new(1, -24, 0, 24),
+            Size = UDim2.new(0.5, -16, 0, 24),
             BackgroundColor3 = Theme.Accent,
             Text = "Test Webhook",
             TextColor3 = Theme.Text,
@@ -1438,6 +1438,21 @@ for index, name in ipairs(TabNames) do
             ZIndex = 2
         })
         Corner(testWebhookButton, 5)
+
+        local checkSendButton = Create("TextButton", {
+            Parent = card,
+            Position = UDim2.new(0.5, 4, 0, 170),
+            Size = UDim2.new(0.5, -16, 0, 24),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "Check & Send",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true,
+            ZIndex = 2
+        })
+        Corner(checkSendButton, 5)
 
         Create("TextLabel", {
             Parent = card,
@@ -1819,6 +1834,77 @@ for index, name in ipairs(TabNames) do
             local inStock = not string.find(string.upper(labelText), "OUT OF STOCK", 1, true)
             return inStock, labelText ~= "" and labelText or "Available"
         end
+
+        local function checkAndSendSelectedGrimoires()
+            webhookUrl = string.gsub(webhookInput.Text or "", "^%s*(.-)%s*$", "%1")
+            roleId = string.gsub(roleInput.Text or "", "^%s*(.-)%s*$", "%1")
+            savedConfig.webhookUrl = webhookUrl
+            savedConfig.roleId = roleId
+
+            local selectedNames = {}
+            for grimoireName, selected in pairs(grimoireFilter) do
+                if selected == true then table.insert(selectedNames, grimoireName) end
+            end
+            table.sort(selectedNames)
+
+            if #selectedNames == 0 then
+                checkSendButton.Text = "Select a Grimoire"
+                task.delay(2, function()
+                    if checkSendButton.Parent then checkSendButton.Text = "Check & Send" end
+                end)
+                return
+            end
+
+            checkSendButton.Text = "Checking..."
+            checkSendButton.Active = false
+            testWebhookButton.Active = false
+
+            task.spawn(function()
+                local rows = getGrimoireRows()
+                local timerText = getRestockTimerText()
+                local sentCount = 0
+                local inStockCount = 0
+                local failedCount = 0
+
+                if rows then
+                    for _, grimoireName in ipairs(selectedNames) do
+                        local itemFrame = rows:FindFirstChild(grimoireName)
+                        if itemFrame and itemFrame:IsA("Frame") then
+                            local inStock, priceText = getGrimoireStockInfo(itemFrame)
+                            if inStock == true then
+                                inStockCount = inStockCount + 1
+                                local success, result = sendGrimoireWebhook(grimoireName, priceText, timerText)
+                                if success then
+                                    sentCount = sentCount + 1
+                                else
+                                    failedCount = failedCount + 1
+                                    warn("[MoldyHub] Webhook failed for " .. grimoireName .. ": " .. tostring(result))
+                                end
+                                task.wait(0.25)
+                            end
+                        end
+                    end
+                end
+
+                if sentCount > 0 then
+                    checkSendButton.Text = "Sent " .. tostring(sentCount) .. "/" .. tostring(inStockCount)
+                elseif inStockCount == 0 then
+                    checkSendButton.Text = "None In Stock"
+                else
+                    checkSendButton.Text = "Send Failed"
+                end
+                if failedCount > 0 then
+                    warn("[MoldyHub] " .. tostring(failedCount) .. " Grimoire webhook(s) failed.")
+                end
+
+                checkSendButton.Active = true
+                testWebhookButton.Active = true
+                task.wait(3)
+                if checkSendButton.Parent then checkSendButton.Text = "Check & Send" end
+            end)
+        end
+
+        checkSendButton.MouseButton1Click:Connect(checkAndSendSelectedGrimoires)
 
         local grimoireRows = getGrimoireRows()
         local rowsAddedConnection, rowsRemovedConnection
