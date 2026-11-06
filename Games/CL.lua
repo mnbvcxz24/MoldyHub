@@ -1399,37 +1399,252 @@ for index, name in ipairs(TabNames) do
             TextXAlignment = Enum.TextXAlignment.Left
         })
 
-        local function createBossFilterRow(label, y)
-            Create("TextLabel", {
-                Parent = bossCard,
-                Position = UDim2.fromOffset(12, y + 3),
-                Size = UDim2.new(1, -92, 0, 18),
-                BackgroundTransparency = 1,
-                Text = label,
-                TextColor3 = Theme.DarkGray,
-                Font = Enum.Font.Gotham,
-                TextSize = 9,
-                TextXAlignment = Enum.TextXAlignment.Left
-            })
+        Create("TextLabel", {
+            Parent = bossCard,
+            Position = UDim2.fromOffset(12, 81),
+            Size = UDim2.new(1, -132, 0, 18),
+            BackgroundTransparency = 1,
+            Text = "Boss filter",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
 
-            local filterButton = Create("TextButton", {
-                Parent = bossCard,
-                Position = UDim2.new(1, -78, 0, y),
-                Size = UDim2.fromOffset(66, 23),
-                BackgroundColor3 = Theme.SurfaceInput,
-                Text = "Filter",
-                TextColor3 = Theme.Text,
-                Font = Enum.Font.Gotham,
-                TextSize = 9,
-                BorderSizePixel = 0,
-                AutoButtonColor = true
-            })
-            Corner(filterButton, 5)
-            Stroke(filterButton, Theme.Border, 1)
+        local bossFilter = {}
+        if type(savedConfig.bossFilter) == "table" then
+            for name, selected in pairs(savedConfig.bossFilter) do
+                bossFilter[name] = selected == true
+            end
         end
 
-        createBossFilterRow("Boss filter", 78)
-        createBossFilterRow("Boss difficulty", 106)
+        local bossFilterDropdown = Create("TextButton", {
+            Parent = bossCard,
+            Position = UDim2.new(1, -126, 0, 78),
+            Size = UDim2.fromOffset(114, 23),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "",
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            ZIndex = 10
+        })
+        Corner(bossFilterDropdown, 5)
+        Stroke(bossFilterDropdown, Theme.Border, 1)
+
+        local bossFilterDropdownText = Create("TextLabel", {
+            Parent = bossFilterDropdown,
+            Position = UDim2.fromOffset(8, 0),
+            Size = UDim2.new(1, -26, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Select bosses",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 11
+        })
+        Create("TextLabel", {
+            Parent = bossFilterDropdown,
+            Position = UDim2.new(1, -19, 0, 0),
+            Size = UDim2.fromOffset(14, 23),
+            BackgroundTransparency = 1,
+            Text = "v",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            ZIndex = 11
+        })
+
+        local bossFilterList = Create("ScrollingFrame", {
+            Parent = bossCard,
+            Position = UDim2.new(1, -126, 0, 104),
+            Size = UDim2.fromOffset(114, 88),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            Visible = false,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Theme.Gray,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            ZIndex = 30
+        })
+        Corner(bossFilterList, 5)
+        Stroke(bossFilterList, Theme.Border, 1)
+        local bossFilterLayout = Create("UIListLayout", {
+            Parent = bossFilterList,
+            Padding = UDim.new(0, 1),
+            SortOrder = Enum.SortOrder.Name
+        })
+        Create("UIPadding", {
+            Parent = bossFilterList,
+            PaddingTop = UDim.new(0, 2),
+            PaddingBottom = UDim.new(0, 2),
+            PaddingLeft = UDim.new(0, 4),
+            PaddingRight = UDim.new(0, 4)
+        })
+
+        local function updateBossFilterDropdownText()
+            local selectedNames = {}
+            for name, selected in pairs(bossFilter) do
+                if selected == true then
+                    table.insert(selectedNames, name)
+                end
+            end
+            table.sort(selectedNames)
+            if #selectedNames == 0 then
+                bossFilterDropdownText.Text = "Select bosses"
+            elseif #selectedNames == 1 then
+                bossFilterDropdownText.Text = selectedNames[1]
+            else
+                bossFilterDropdownText.Text = tostring(#selectedNames) .. " selected"
+            end
+        end
+
+        local function getBossBasePanel()
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            local summonUI = playerGui and playerGui:FindFirstChild("BossSummonUI")
+            local container = summonUI and summonUI:FindFirstChild("Container")
+            return container and container:FindFirstChild("BasePanel")
+        end
+
+        local function refreshBossFilter()
+            local basePanel = getBossBasePanel()
+            if not basePanel then
+                return
+            end
+
+            for _, child in ipairs(bossFilterList:GetChildren()) do
+                if child:IsA("TextButton") then
+                    child:Destroy()
+                end
+            end
+
+            local bossRows = {}
+            for _, child in ipairs(basePanel:GetChildren()) do
+                local rowNumber = child.Name:match("^BossRow(%d+)$")
+                if rowNumber then
+                    local nameLabel = child:FindFirstChild("BossNameLabel")
+                    if nameLabel and nameLabel:IsA("TextLabel") then
+                        local bossName = tostring(nameLabel.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+                        if bossName ~= "" then
+                            table.insert(bossRows, {
+                                number = tonumber(rowNumber) or 0,
+                                name = bossName
+                            })
+                        end
+                    end
+                end
+            end
+            table.sort(bossRows, function(a, b)
+                return a.number < b.number
+            end)
+
+            local seenNames = {}
+            for _, boss in ipairs(bossRows) do
+                local bossName = boss.name
+                if not seenNames[bossName] then
+                    seenNames[bossName] = true
+                    if bossFilter[bossName] == nil then
+                        bossFilter[bossName] = type(savedConfig.bossFilter) == "table"
+                            and savedConfig.bossFilter[bossName] == true or false
+                    end
+
+                    local selected = bossFilter[bossName] == true
+                    local option = Create("TextButton", {
+                        Name = bossName,
+                        Parent = bossFilterList,
+                        Size = UDim2.new(1, -2, 0, 18),
+                        BackgroundTransparency = 1,
+                        Text = "",
+                        BorderSizePixel = 0,
+                        AutoButtonColor = false,
+                        ZIndex = 31
+                    })
+                    local check = Create("Frame", {
+                        Parent = option,
+                        Position = UDim2.fromOffset(2, 3),
+                        Size = UDim2.fromOffset(12, 12),
+                        BackgroundColor3 = selected and Theme.Accent or Theme.Card,
+                        BorderSizePixel = 0,
+                        ZIndex = 32
+                    })
+                    Corner(check, 3)
+                    local mark = Create("TextLabel", {
+                        Parent = check,
+                        Size = UDim2.fromScale(1, 1),
+                        BackgroundTransparency = 1,
+                        Text = "✓",
+                        TextColor3 = Theme.Text,
+                        Font = Enum.Font.GothamBold,
+                        TextSize = 10,
+                        Visible = selected,
+                        ZIndex = 33
+                    })
+                    Create("TextLabel", {
+                        Parent = option,
+                        Position = UDim2.fromOffset(21, 0),
+                        Size = UDim2.new(1, -24, 1, 0),
+                        BackgroundTransparency = 1,
+                        Text = bossName,
+                        TextColor3 = Theme.Text,
+                        Font = Enum.Font.Gotham,
+                        TextSize = 8,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd,
+                        ZIndex = 33
+                    })
+                    option.MouseButton1Click:Connect(function()
+                        bossFilter[bossName] = not bossFilter[bossName]
+                        savedConfig.bossFilter = savedConfig.bossFilter or {}
+                        savedConfig.bossFilter[bossName] = bossFilter[bossName]
+                        local isSelected = bossFilter[bossName] == true
+                        check.BackgroundColor3 = isSelected and Theme.Accent or Theme.Card
+                        mark.Visible = isSelected
+                        updateBossFilterDropdownText()
+                    end)
+                end
+            end
+
+            bossFilterList.CanvasSize = UDim2.new(0, 0, 0, bossFilterLayout.AbsoluteContentSize.Y + 4)
+            updateBossFilterDropdownText()
+        end
+
+        local bossFilterOpen = false
+        bossFilterDropdown.MouseButton1Click:Connect(function()
+            bossFilterOpen = not bossFilterOpen
+            if bossFilterOpen then
+                refreshBossFilter()
+            end
+            bossFilterList.Visible = bossFilterOpen
+        end)
+
+        Create("TextLabel", {
+            Parent = bossCard,
+            Position = UDim2.fromOffset(12, 109),
+            Size = UDim2.new(1, -92, 0, 18),
+            BackgroundTransparency = 1,
+            Text = "Boss difficulty",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local bossDifficultyButton = Create("TextButton", {
+            Parent = bossCard,
+            Position = UDim2.new(1, -78, 0, 106),
+            Size = UDim2.fromOffset(66, 23),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "Filter",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        Corner(bossDifficultyButton, 5)
+        Stroke(bossDifficultyButton, Theme.Border, 1)
+
+        refreshBossFilter()
 
         task.spawn(function()
             while bossCard.Parent do
