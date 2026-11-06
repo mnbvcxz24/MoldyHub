@@ -1652,8 +1652,21 @@ for index, name in ipairs(TabNames) do
             if webhookUrl == "" then
                 return false, "Enter a Discord webhook URL first."
             end
-            if not string.match(string.lower(webhookUrl), "^https://discord(app)?%.com/api/webhooks/") then
-                return false, "Webhook URL must be a valid Discord webhook URL."
+            local lowerWebhookUrl = string.lower(string.gsub(webhookUrl, "^%s*(.-)%s*$", "%1"))
+            local validWebhookPrefix = false
+            for _, prefix in ipairs({
+                "https://discord.com/api/webhooks/",
+                "https://discordapp.com/api/webhooks/",
+                "https://canary.discord.com/api/webhooks/",
+                "https://ptb.discord.com/api/webhooks/"
+            }) do
+                if string.sub(lowerWebhookUrl, 1, #prefix) == prefix then
+                    validWebhookPrefix = true
+                    break
+                end
+            end
+            if not validWebhookPrefix then
+                return false, "Use the full Discord webhook URL copied from Server Settings > Integrations > Webhooks."
             end
 
             local requestFunction = getRequestFunction()
