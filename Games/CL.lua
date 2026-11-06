@@ -1251,7 +1251,6 @@ for index, name in ipairs(TabNames) do
         local roleId = ""
         local grimoireFilter = {}
         local previousStock = {}
-        local stockConnection
 
         local card = CreateCard(left, "Grimoire Notifier", 360)
         CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
@@ -1615,7 +1614,7 @@ for index, name in ipairs(TabNames) do
                 return
             end
 
-            task.spawn(sendGrimoireWebhook, selectedGrimoire, "Sample", getRestockTimerText())
+            task.spawn(sendGrimoireWebhook, selectedGrimoire, "Sample", "Test")
         end
 
         testWebhookButton.MouseButton1Click:Connect(sendTestWebhook)
