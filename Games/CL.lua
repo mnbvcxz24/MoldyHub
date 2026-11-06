@@ -1437,7 +1437,7 @@ for index, name in ipairs(TabNames) do
                         and not isBossNearby(boss.id) then
                         local ok = pcall(function()
                             summonRemote:FireServer({
-                                Difficulty = difficulty.name,
+                                Difficulty = difficulty.name == "Normal" and "Easy" or difficulty.name,
                                 BossId = boss.id,
                                 Phase = "Spawn"
                             })
