@@ -1,18 +1,49 @@
-local GameLinks = {
-    ["Steal-A-Pet-And-Ride-It"] = "loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/Games/SAPARI.lua"))()"
-}
+local url = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/MoldyHubLoader"
 
-local MarketplaceService = game:GetService("MarketplaceService")
-
-local info = MarketplaceService:GetProductInfo(game.PlaceId)
-local gameName = string.lower(info.Name)
-
-local url = GameLinks[gameName]
-
-if not url then
-    warn("[MoldyHub] Unsupported game: " .. gameName)
+if type(loadstring) ~= "function" then
+    warn("[MoldyHub] loadstring is unavailable")
     return
 end
 
-print("[MoldyHub] Supported game detected: " .. gameName)
-print("[MoldyHub] Approved script: " .. url)
+if type(game.HttpGet) ~= "function" then
+    warn("[MoldyHub] HttpGet is unavailable")
+    return
+end
+
+local ok, source = pcall(function()
+    return game:HttpGet(url)
+end)
+
+if not ok then
+    warn("[MoldyHub] Download failed: " .. tostring(source))
+    return
+end
+
+if type(source) ~= "string" then
+    warn("[MoldyHub] Downloaded source is not a string: " .. typeof(source))
+    return
+end
+
+if #source == 0 then
+    warn("[MoldyHub] Downloaded source is empty")
+    return
+end
+
+local compiler = loadstring
+if type(compiler) ~= "function" then
+    warn("[MoldyHub] loadstring is unavailable")
+    return
+end
+
+local scriptFunction, compileError = compiler(source)
+
+if type(scriptFunction) ~= "function" then
+    warn("[MoldyHub] Compile failed: " .. tostring(compileError))
+    return
+end
+
+local runOk, err = pcall(scriptFunction)
+
+if not runOk then
+    warn("[MoldyHub] Runtime error: " .. tostring(err))
+end
