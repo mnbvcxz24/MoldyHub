@@ -1348,6 +1348,42 @@ for index, name in ipairs(TabNames) do
         bossCard.Size = UDim2.new(1, 0, 0, 0)
         CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
 
+        local bossKeyLabel = Create("TextLabel", {
+            Parent = bossCard,
+            Position = UDim2.fromOffset(12, 34),
+            Size = UDim2.new(1, -24, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Boss Key - 0",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
+        local function refreshBossKeyCount()
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            local inventory = playerGui and playerGui:FindFirstChild("InventoryUI")
+            local container = inventory and inventory:FindFirstChild("Container")
+            local basePanel = container and container:FindFirstChild("BasePanel")
+            local grid = basePanel and basePanel:FindFirstChild("Grid")
+            local bossKeyItem = grid and grid:FindFirstChild("BossKey#k")
+            local countLabel = bossKeyItem and bossKeyItem:FindFirstChild("CountLabel")
+            local amount = countLabel and countLabel:IsA("TextLabel") and countLabel.Text or "0"
+            bossKeyLabel.Text = "Boss Key - " .. tostring(amount)
+        end
+
+        Create("TextLabel", {
+            Parent = bossCard,
+            Position = UDim2.fromOffset(12, 56),
+            Size = UDim2.new(1, -24, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Boss filters",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+
         local function createBossFilterRow(label, y)
             Create("TextLabel", {
                 Parent = bossCard,
@@ -1377,8 +1413,15 @@ for index, name in ipairs(TabNames) do
             Stroke(filterButton, Theme.Border, 1)
         end
 
-        createBossFilterRow("Boss filter", 34)
-        createBossFilterRow("Boss difficulty", 62)
+        createBossFilterRow("Boss filter", 78)
+        createBossFilterRow("Boss difficulty", 106)
+
+        task.spawn(function()
+            while bossCard.Parent do
+                refreshBossKeyCount()
+                task.wait(1)
+            end
+        end)
 
     elseif index == 2 then
         local settingsRow = Create("Frame", {
