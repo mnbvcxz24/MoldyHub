@@ -597,7 +597,14 @@ for index, name in ipairs(TabNames) do
             return SkillsConfig
         end
         local function getAbilityRail()
-            return FindPath(LocalPlayer, {"PlayerGui", "MainHUD", "Right Column", "Ability Rail", "MainFrame", "Abilities", "Abilities"}, 5)
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            if not playerGui then return nil end
+
+            -- MainHUD is used in the normal area; WK_HUD is used in dungeons.
+            local abilityRail = FindPath(playerGui, {"MainHUD", "Right Column", "Ability Rail", "MainFrame", "Abilities", "Abilities"})
+            if abilityRail then return abilityRail end
+
+            return FindPath(playerGui, {"WK_HUD", "Right Column", "Ability Rail", "MainFrame", "Abilities", "Abilities"})
         end
 
         local function findSkillByDisplayName(displayName, slot)
@@ -1435,6 +1442,16 @@ for index, name in ipairs(TabNames) do
                     if os.clock() - lastSpawn >= 8
                         and getBossKeyCount() >= difficulty.cost
                         and not isBossNearby(boss.id) then
+                        -- Give the spawn request a 2-second delay, then recheck
+                        -- the toggle, key balance, and nearby boss before firing.
+                        task.wait(2)
+                        if not bossSpawnEnabled then
+                            return
+                        end
+                        if getBossKeyCount() < difficulty.cost or isBossNearby(boss.id) then
+                            continue
+                        end
+
                         local ok = pcall(function()
                             summonRemote:FireServer({
                                 Difficulty = difficulty.name == "Normal" and "Easy" or difficulty.name,
