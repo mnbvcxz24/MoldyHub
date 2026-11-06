@@ -1345,7 +1345,10 @@ for index, name in ipairs(TabNames) do
         end)
 
         local bossCard, bossTitle = CreateCard(autoAttackColumn, "Auto spawn boss", 54)
-        bossCard.Size = UDim2.new(1, 0, 0, 0)
+        -- Keep the card height fixed so opening either filter popup never resizes it.
+        -- The extra space below the controls also matches the Webhook card spacing.
+        bossCard.AutomaticSize = Enum.AutomaticSize.None
+        bossCard.Size = UDim2.new(1, 0, 0, 278)
         CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
 
         local bossKeyLabel = Create("TextLabel", {
