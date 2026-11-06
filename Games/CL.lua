@@ -1244,13 +1244,13 @@ for index, name in ipairs(TabNames) do
         end)
     elseif index == 3 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
-        -- Grimoire filter names come from the shop's Grimoire row frames.
-        -- StockShopState is only observed; this script never fires the remote.
+        -- Grimoire row frames.
         local grimoireNotifierEnabled = false
         local webhookUrl = ""
         local roleId = ""
         local grimoireFilter = {}
-        local previousStock = {}
+        local notifiedThisRestock = {}
+        local restockCycleArmed = false
 
         local card = CreateCard(left, "Grimoire Notifier", 360)
         CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
@@ -1637,6 +1637,31 @@ for index, name in ipairs(TabNames) do
             return "Unknown"
         end
 
+        local function isRestockTimerZero(timerText)
+            if type(timerText) ~= "string" or timerText == "" or timerText == "Unknown" then
+                return nil
+            end
+
+            local normalized = string.lower(timerText)
+            local hasTimeUnit = string.find(normalized, ":", 1, true)
+                or string.find(normalized, "h", 1, true)
+                or string.find(normalized, "m", 1, true)
+                or string.find(normalized, "s", 1, true)
+
+            if not hasTimeUnit then
+                return string.match(normalized, "^%s*0+%s*$") ~= nil
+            end
+
+            local foundNumber = false
+            for numberText in string.gmatch(normalized, "%d+") do
+                foundNumber = true
+                if tonumber(numberText) ~= 0 then
+                    return false
+                end
+            end
+            return foundNumber
+        end
+
         local function getGrimoireStockInfo(itemFrame)
             local coinBuy = itemFrame and itemFrame:FindFirstChild("CoinBuy")
             local costRow = coinBuy and coinBuy:FindFirstChild("CostRow")
@@ -1644,10 +1669,8 @@ for index, name in ipairs(TabNames) do
             if not label or not label:IsA("TextLabel") then return nil end
 
             local labelText = string.gsub(label.Text or "", "^%s*(.-)%s*$", "%1")
-            if labelText == "" then return nil end
-
             local inStock = not string.find(string.upper(labelText), "OUT OF STOCK", 1, true)
-            return inStock, labelText
+            return inStock, labelText ~= "" and labelText or "Available"
         end
 
         local grimoireRows = getGrimoireRows()
@@ -1672,22 +1695,24 @@ for index, name in ipairs(TabNames) do
                 end
 
                 local restockTimer = getRestockTimerText()
-                if grimoireRows then
-                    for _, itemFrame in ipairs(grimoireRows:GetChildren()) do
-                        if itemFrame:IsA("Frame") and itemFrame.Name ~= "ShopItem" then
-                            local inStock, priceText = getGrimoireStockInfo(itemFrame)
-                            if inStock ~= nil then
-                                local id = itemFrame.Name
-                                local wasInStock = previousStock[id]
-                                previousStock[id] = inStock
+                local timerIsZero = isRestockTimerZero(restockTimer)
 
-                                -- Only notify on an observed OUT OF STOCK -> IN STOCK transition.
-                                -- The initial UI scan seeds the state without sending startup alerts.
-                                if grimoireNotifierEnabled
-                                    and inStock
-                                    and wasInStock == false
-                                    and grimoireFilter[id] == true then
-                                    task.spawn(sendGrimoireWebhook, id, priceText, restockTimer)
+                -- Arm notifications only after observing a real countdown above zero.
+                -- While the timer is at zero, each selected in-stock Grimoire is notified once.
+                if timerIsZero == false then
+                    restockCycleArmed = true
+                    table.clear(notifiedThisRestock)
+                elseif timerIsZero == true and restockCycleArmed and grimoireRows then
+                    if grimoireNotifierEnabled then
+                        for _, itemFrame in ipairs(grimoireRows:GetChildren()) do
+                            if itemFrame:IsA("Frame") and itemFrame.Name ~= "ShopItem" then
+                                local id = itemFrame.Name
+                                if grimoireFilter[id] == true and not notifiedThisRestock[id] then
+                                    local inStock, priceText = getGrimoireStockInfo(itemFrame)
+                                    if inStock == true then
+                                        notifiedThisRestock[id] = true
+                                        task.spawn(sendGrimoireWebhook, id, priceText, restockTimer)
+                                    end
                                 end
                             end
                         end
