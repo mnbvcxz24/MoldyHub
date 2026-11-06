@@ -306,14 +306,14 @@ local function CreatePage(index)
     })
     local left = Create("Frame", {
         Parent = page,
-        Position = UDim2.fromOffset(8, 8),
-        Size = UDim2.new(1, -16, 0, 0),
+        Position = UDim2.fromOffset(10, 10),
+        Size = UDim2.new(1, -20, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
     local leftLayout = Create("UIListLayout", {
         Parent = left,
-        Padding = UDim.new(0, 6),
+        Padding = UDim.new(0, 10),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     local function UpdateCanvas()
@@ -345,8 +345,8 @@ local function CreateCard(parent, title, height)
     Stroke(card, Theme.Border, 1)
     Create("TextLabel", {
         Parent = card,
-        Position = UDim2.fromOffset(12, 8),
-        Size = UDim2.new(1, -24, 0, 18),
+        Position = UDim2.fromOffset(11, 8),
+        Size = UDim2.new(1, -22, 0, 18),
         BackgroundTransparency = 1,
         Text = title,
         TextColor3 = Theme.Text,
@@ -1354,8 +1354,8 @@ for index, name in ipairs(TabNames) do
         local function createNotifierInput(labelText, placeholder, y)
             Create("TextLabel", {
                 Parent = card,
-                Position = UDim2.fromOffset(12, y),
-                Size = UDim2.new(1, -24, 0, 13),
+                Position = UDim2.fromOffset(11, y),
+                Size = UDim2.new(1, -22, 0, 13),
                 BackgroundTransparency = 1,
                 Text = labelText,
                 TextColor3 = Theme.DarkGray,
@@ -1366,8 +1366,8 @@ for index, name in ipairs(TabNames) do
             })
             local input = Create("TextBox", {
                 Parent = card,
-                Position = UDim2.fromOffset(12, y + 17),
-                Size = UDim2.new(1, -24, 0, 24),
+                Position = UDim2.fromOffset(11, y + 16),
+                Size = UDim2.new(1, -22, 0, 26),
                 BackgroundColor3 = Theme.SurfaceInput,
                 BackgroundTransparency = 0,
                 Text = "",
@@ -1386,8 +1386,8 @@ for index, name in ipairs(TabNames) do
             Corner(input, 5)
             Create("UIPadding", {
                 Parent = input,
-                PaddingLeft = UDim.new(0, 8),
-                PaddingRight = UDim.new(0, 8)
+                PaddingLeft = UDim.new(0, 9),
+                PaddingRight = UDim.new(0, 9)
             })
             return input
         end
