@@ -2075,11 +2075,12 @@ for index, name in ipairs(TabNames) do
         local grimoireNotifierEnabled = false
         local webhookUrl = type(savedConfig.webhookUrl) == "string" and savedConfig.webhookUrl or ""
         local roleId = type(savedConfig.roleId) == "string" and savedConfig.roleId or ""
+        local mentionType = savedConfig.mentionType == "user" and "user" or "role"
         local grimoireFilter = {}
         local notifiedThisRestock = {}
         local restockCycleArmed = false
 
-        local card = CreateCard(left, "Grimoire Notifier", 390)
+        local card = CreateCard(left, "Grimoire Notifier", 420)
         local _, setGrimoireNotifier = CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
             grimoireNotifierEnabled = enabled
             savedConfig.grimoireNotifier = enabled
@@ -2139,21 +2140,62 @@ for index, name in ipairs(TabNames) do
             savedConfig.webhookUrl = webhookUrl
         end)
 
-        local roleInput = createNotifierInput("Role ID (optional)", "Enter Discord role ID to mention", 109)
+        local roleInput = createNotifierInput("Mention ID (optional)", "Enter Discord user or role ID", 109)
         roleInput.Text = roleId
         roleInput.FocusLost:Connect(function()
             roleId = string.gsub(roleInput.Text, "^%s*(.-)%s*$", "%1")
             if roleId ~= "" and not string.match(roleId, "^%d+$") then
                 roleId = ""
                 roleInput.Text = ""
-                roleInput.PlaceholderText = "Role ID must contain numbers only"
+                roleInput.PlaceholderText = "Discord IDs must contain numbers only"
             end
             savedConfig.roleId = roleId
         end)
 
-        local checkSendButton = Create("TextButton", {
+        Create("TextLabel", {
             Parent = card,
             Position = UDim2.fromOffset(12, 155),
+            Size = UDim2.new(1, -24, 0, 12),
+            BackgroundTransparency = 1,
+            Text = "Mention type",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 2
+        })
+
+        local roleButton
+        local userButton
+        local function createMentionTypeButton(label, value, xOffset)
+            local button = Create("TextButton", {
+                Parent = card,
+                Position = UDim2.fromOffset(xOffset, 170),
+                Size = UDim2.new(0.5, -15, 0, 22),
+                BackgroundColor3 = mentionType == value and Theme.Accent or Theme.SurfaceInput,
+                Text = label,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.GothamBold,
+                TextSize = 9,
+                BorderSizePixel = 0,
+                AutoButtonColor = true,
+                ZIndex = 2
+            })
+            Corner(button, 5)
+            button.MouseButton1Click:Connect(function()
+                mentionType = value
+                savedConfig.mentionType = mentionType
+                roleButton.BackgroundColor3 = mentionType == "role" and Theme.Accent or Theme.SurfaceInput
+                userButton.BackgroundColor3 = mentionType == "user" and Theme.Accent or Theme.SurfaceInput
+            end)
+            return button
+        end
+        roleButton = createMentionTypeButton("Role", "role", 12)
+        userButton = createMentionTypeButton("User", "user", 12 + (card.AbsoluteSize.X / 2))
+
+        local checkSendButton = Create("TextButton", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 198),
             Size = UDim2.new(1, -24, 0, 24),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "Check & Send",
@@ -2168,7 +2210,7 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 186),
+            Position = UDim2.fromOffset(12, 229),
             Size = UDim2.new(1, -24, 0, 30),
             BackgroundTransparency = 1,
             Text = "Auto-send trigger: Restock Timer reaches 0 after a countdown. Selected Grimoires that are in stock are sent once per restock.",
@@ -2183,7 +2225,7 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 224),
+            Position = UDim2.fromOffset(12, 267),
             Size = UDim2.new(1, -24, 0, 13),
             BackgroundTransparency = 1,
             Text = "Grimoire filter",
@@ -2197,7 +2239,7 @@ for index, name in ipairs(TabNames) do
         -- BASAE-style dropdown shell with multi-select options.
         local filterDropdown = Create("TextButton", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 241),
+            Position = UDim2.fromOffset(12, 284),
             Size = UDim2.new(1, -24, 0, 28),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "",
@@ -2235,7 +2277,7 @@ for index, name in ipairs(TabNames) do
         local filterDropdownOpen = false
         local filterList = Create("ScrollingFrame", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 274),
+            Position = UDim2.fromOffset(12, 317),
             Size = UDim2.new(1, 0, 0, 96),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
@@ -2419,8 +2461,13 @@ for index, name in ipairs(TabNames) do
             local mention = ""
             local allowedMentions = {parse = {}}
             if roleId ~= "" then
-                mention = "<@&" .. roleId .. ">"
-                allowedMentions.roles = {roleId}
+                if mentionType == "user" then
+                    mention = "<@" .. roleId .. ">"
+                    allowedMentions.users = {roleId}
+                else
+                    mention = "<@&" .. roleId .. ">"
+                    allowedMentions.roles = {roleId}
+                end
             end
 
             local payload = {
