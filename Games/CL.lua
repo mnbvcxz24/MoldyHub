@@ -317,7 +317,10 @@ local function CreatePage(index)
         SortOrder = Enum.SortOrder.LayoutOrder
     })
     local function UpdateCanvas()
-        page.CanvasSize = UDim2.new(0, 0, 0, left.AbsolutePosition.Y - page.AbsolutePosition.Y + left.AbsoluteSize.Y + 8)
+        local contentBottom = left.AbsolutePosition.Y - page.AbsolutePosition.Y + left.AbsoluteSize.Y
+        -- Keep a small black scroll tail after the final card, even on short pages.
+        local canvasHeight = math.max(contentBottom + 40, page.AbsoluteSize.Y + 40)
+        page.CanvasSize = UDim2.new(0, 0, 0, canvasHeight)
     end
     leftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
     page:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateCanvas)
@@ -329,9 +332,14 @@ local function CreateCard(parent, title, height)
     local card = Create("Frame", {
         Name = title:gsub("%s+", ""),
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, height or 110),
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundColor3 = Theme.Card,
         BorderSizePixel = 0
+    })
+    Create("UIPadding", {
+        Parent = card,
+        PaddingBottom = UDim.new(0, 8)
     })
     Corner(card, 8)
     Stroke(card, Theme.Border, 1)
@@ -986,7 +994,8 @@ for index, name in ipairs(TabNames) do
 
         local cardsRow = Create("Frame", {
             Parent = left,
-            Size = UDim2.new(1, 0, 0, 280),
+            Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundTransparency = 1
         })
         Create("UIListLayout", {
@@ -997,7 +1006,7 @@ for index, name in ipairs(TabNames) do
         })
 
         local card = CreateCard(cardsRow, "Auto farm", 280)
-        card.Size = UDim2.new(0.5, -3, 1, 0)
+        card.Size = UDim2.new(0.5, -3, 0, 0)
         local _, setAutoFarm = CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
             savedConfig.autoFarm = enabled
@@ -1076,7 +1085,7 @@ for index, name in ipairs(TabNames) do
         end
 
         local orbitCard = CreateCard(cardsRow, "Enemy Orbit", 280)
-        orbitCard.Size = UDim2.new(0.5, -3, 1, 0)
+        orbitCard.Size = UDim2.new(0.5, -3, 0, 0)
         local _, setOrbitCheckbox = CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
             savedConfig.orbitEnabled = checked
             setOrbitEnabled(checked)
