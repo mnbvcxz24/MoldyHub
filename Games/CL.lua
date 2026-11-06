@@ -1133,6 +1133,8 @@ for index, name in ipairs(TabNames) do
                 orbitHumanoid = nil
                 orbitOriginalPlatformStand = nil
                 orbitTarget = nil
+                orbitSelectedTarget = nil
+                clearEnemyAim()
             else
                 local character = LocalPlayer.Character
                 local root = character and character:FindFirstChild("HumanoidRootPart")
