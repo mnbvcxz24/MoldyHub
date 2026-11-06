@@ -1402,7 +1402,7 @@ for index, name in ipairs(TabNames) do
         Create("TextLabel", {
             Parent = bossCard,
             Position = UDim2.fromOffset(12, 81),
-            Size = UDim2.new(1, -132, 0, 18),
+            Size = UDim2.new(1, -24, 0, 16),
             BackgroundTransparency = 1,
             Text = "Boss filter",
             TextColor3 = Theme.DarkGray,
@@ -1420,8 +1420,8 @@ for index, name in ipairs(TabNames) do
 
         local bossFilterDropdown = Create("TextButton", {
             Parent = bossCard,
-            Position = UDim2.new(1, -126, 0, 78),
-            Size = UDim2.fromOffset(114, 23),
+            Position = UDim2.fromOffset(12, 99),
+            Size = UDim2.new(1, -24, 0, 23),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "",
             BorderSizePixel = 0,
@@ -1458,8 +1458,8 @@ for index, name in ipairs(TabNames) do
 
         local bossFilterList = Create("ScrollingFrame", {
             Parent = bossCard,
-            Position = UDim2.new(1, -126, 0, 104),
-            Size = UDim2.fromOffset(114, 88),
+            Position = UDim2.fromOffset(12, 123),
+            Size = UDim2.new(1, -24, 0, 88),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
             Visible = false,
@@ -1620,8 +1620,8 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 109),
-            Size = UDim2.new(1, -92, 0, 18),
+            Position = UDim2.fromOffset(12, 128),
+            Size = UDim2.new(1, -24, 0, 16),
             BackgroundTransparency = 1,
             Text = "Boss difficulty",
             TextColor3 = Theme.DarkGray,
@@ -1638,8 +1638,8 @@ for index, name in ipairs(TabNames) do
 
         local bossDifficultyDropdown = Create("TextButton", {
             Parent = bossCard,
-            Position = UDim2.new(1, -126, 0, 106),
-            Size = UDim2.fromOffset(114, 23),
+            Position = UDim2.fromOffset(12, 146),
+            Size = UDim2.new(1, -24, 0, 23),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "",
             BorderSizePixel = 0,
@@ -1676,8 +1676,8 @@ for index, name in ipairs(TabNames) do
 
         local bossDifficultyList = Create("ScrollingFrame", {
             Parent = bossCard,
-            Position = UDim2.new(1, -126, 0, 132),
-            Size = UDim2.fromOffset(114, 88),
+            Position = UDim2.fromOffset(12, 170),
+            Size = UDim2.new(1, -24, 0, 88),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
             Visible = false,
