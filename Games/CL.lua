@@ -1351,25 +1351,40 @@ for index, name in ipairs(TabNames) do
         local bossKeyLabel = Create("TextLabel", {
             Parent = bossCard,
             Position = UDim2.fromOffset(12, 34),
-            Size = UDim2.new(1, -24, 0, 16),
+            Size = UDim2.new(0.5, -16, 0, 16),
             BackgroundTransparency = 1,
-            Text = "Boss Key - 0",
+            Text = "Boss Key: 0",
             TextColor3 = Theme.DarkGray,
             Font = Enum.Font.Gotham,
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
 
-        local function refreshBossKeyCount()
+        local bossCoinLabel = Create("TextLabel", {
+            Parent = bossCard,
+            Position = UDim2.new(0.5, 4, 0, 34),
+            Size = UDim2.new(0.5, -16, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Coins: 0",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+
+        local function refreshBossCurrencyCounts()
             local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-            local inventory = playerGui and playerGui:FindFirstChild("InventoryUI")
-            local container = inventory and inventory:FindFirstChild("Container")
+            local summonUI = playerGui and playerGui:FindFirstChild("BossSummonUI")
+            local container = summonUI and summonUI:FindFirstChild("Container")
             local basePanel = container and container:FindFirstChild("BasePanel")
-            local grid = basePanel and basePanel:FindFirstChild("Grid")
-            local bossKeyItem = grid and grid:FindFirstChild("BossKey#k")
-            local countLabel = bossKeyItem and bossKeyItem:FindFirstChild("CountLabel")
-            local amount = countLabel and countLabel:IsA("TextLabel") and countLabel.Text or "0"
-            bossKeyLabel.Text = "Boss Key - " .. tostring(amount)
+            local balanceRow = basePanel and basePanel:FindFirstChild("BalanceRow")
+            local currencies = balanceRow and balanceRow:FindFirstChild("Currencies")
+            local keyValueLabel = currencies and currencies:FindFirstChild("KeyValueLabel")
+            local coinValueLabel = currencies and currencies:FindFirstChild("CoinValueLabel")
+            local keyAmount = keyValueLabel and keyValueLabel.Text or "0"
+            local coinAmount = coinValueLabel and coinValueLabel.Text or "0"
+            bossKeyLabel.Text = "Boss Key: " .. tostring(keyAmount)
+            bossCoinLabel.Text = "Coins: " .. tostring(coinAmount)
         end
 
         Create("TextLabel", {
@@ -1418,7 +1433,7 @@ for index, name in ipairs(TabNames) do
 
         task.spawn(function()
             while bossCard.Parent do
-                refreshBossKeyCount()
+                refreshBossCurrencyCounts()
                 task.wait(1)
             end
         end)
