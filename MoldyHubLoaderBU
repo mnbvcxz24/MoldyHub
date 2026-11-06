@@ -1,4 +1,4 @@
-local url = "https://github.com/mnbvcxz24/MoldyHub/blob/main/Games/CL.lua"
+local url = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/refs/heads/main/Games/CL.lua"
 
 local source = game:HttpGet(url)
 
