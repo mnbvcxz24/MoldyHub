@@ -809,14 +809,14 @@ for index, name in ipairs(TabNames) do
             if not enabled then return end
 
             task.spawn(function()
-                while thisLoop == targetClickLoopId and autoFarmEnabled do
+                while thisLoop == targetClickLoopId and autoFarmEnabled and useM1Enabled do
                     -- Send the mouse click only while the main UI is minimized.
                     local target = orbitSelectedTarget or (orbitEnabled and orbitTarget) or cameraAimTarget
                     local camera = workspace.CurrentCamera
                     local character = LocalPlayer.Character
                     local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
                     local enemies = workspace:FindFirstChild("Enemies")
-                    if not Main.Visible and camera and isValidEnemyRoot(target, enemies, playerRoot) then
+                    if useM1Enabled and not Main.Visible and camera and isValidEnemyRoot(target, enemies, playerRoot) then
                         local viewport = camera.ViewportSize
                         local centerX = viewport.X * 0.5
                         local centerY = viewport.Y * 0.5
@@ -1096,6 +1096,7 @@ for index, name in ipairs(TabNames) do
             useM1Enabled = checked
             savedConfig.useM1 = checked
             updateM1Loop()
+            startTargetClickLoop(autoFarmEnabled)
         end)
         local _, setUseC = CreateCheckbox(card, "Use C", 52, function(checked)
             skillEnabled.C = checked
