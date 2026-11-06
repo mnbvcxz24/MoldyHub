@@ -13,11 +13,18 @@ local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
 local savedConfig = {}
+local configFileDetected = false
 local function loadSavedConfig()
+    if type(environment.isfile) == "function" then
+        local existsOk, exists = pcall(environment.isfile, CONFIG_FILE)
+        if not existsOk or not exists then return end
+        configFileDetected = true
+    end
     if type(environment.readfile) ~= "function" then return end
-    if type(environment.isfile) == "function" and not environment.isfile(CONFIG_FILE) then return end
     local ok, raw = pcall(environment.readfile, CONFIG_FILE)
-    if not ok or type(raw) ~= "string" or raw == "" then return end
+    if not ok or type(raw) ~= "string" then return end
+    configFileDetected = true
+    if raw == "" then return end
     local decodedOk, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
     if decodedOk and type(decoded) == "table" then savedConfig = decoded end
 end
@@ -1306,18 +1313,20 @@ for index, name in ipairs(TabNames) do
             Position = UDim2.fromOffset(12, 64),
             Size = UDim2.new(1, -24, 0, 16),
             BackgroundTransparency = 1,
-            Text = "Config loads automatically on next execution",
+            Text = configFileDetected and "Config file detected" or "No config file found",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
+            TextWrapped = false,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Left
         })
         saveButton.MouseButton1Click:Connect(function()
             if saveConfigToFile() then
-                saveStatus.Text = "Config saved successfully"
+                saveStatus.Text = "Config saved"
                 saveStatus.TextColor3 = Color3.fromRGB(95, 220, 140)
             else
-                saveStatus.Text = "Save failed - executor file API unavailable"
+                saveStatus.Text = "Save failed"
                 saveStatus.TextColor3 = Color3.fromRGB(240, 110, 110)
             end
         end)
