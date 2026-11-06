@@ -1629,22 +1629,210 @@ for index, name in ipairs(TabNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local bossDifficultyButton = Create("TextButton", {
+        local bossDifficultyFilter = {}
+        if type(savedConfig.bossDifficultyFilter) == "table" then
+            for name, selected in pairs(savedConfig.bossDifficultyFilter) do
+                bossDifficultyFilter[name] = selected == true
+            end
+        end
+
+        local bossDifficultyDropdown = Create("TextButton", {
             Parent = bossCard,
-            Position = UDim2.new(1, -78, 0, 106),
-            Size = UDim2.fromOffset(66, 23),
+            Position = UDim2.new(1, -126, 0, 106),
+            Size = UDim2.fromOffset(114, 23),
             BackgroundColor3 = Theme.SurfaceInput,
-            Text = "Filter",
+            Text = "",
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            ZIndex = 10
+        })
+        Corner(bossDifficultyDropdown, 5)
+        Stroke(bossDifficultyDropdown, Theme.Border, 1)
+
+        local bossDifficultyDropdownText = Create("TextLabel", {
+            Parent = bossDifficultyDropdown,
+            Position = UDim2.fromOffset(8, 0),
+            Size = UDim2.new(1, -26, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "Select difficulty",
             TextColor3 = Theme.Text,
             Font = Enum.Font.Gotham,
-            TextSize = 9,
-            BorderSizePixel = 0,
-            AutoButtonColor = true
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 11
         })
-        Corner(bossDifficultyButton, 5)
-        Stroke(bossDifficultyButton, Theme.Border, 1)
+        Create("TextLabel", {
+            Parent = bossDifficultyDropdown,
+            Position = UDim2.new(1, -19, 0, 0),
+            Size = UDim2.fromOffset(14, 23),
+            BackgroundTransparency = 1,
+            Text = "v",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            ZIndex = 11
+        })
+
+        local bossDifficultyList = Create("ScrollingFrame", {
+            Parent = bossCard,
+            Position = UDim2.new(1, -126, 0, 132),
+            Size = UDim2.fromOffset(114, 88),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            Visible = false,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Theme.Gray,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            ZIndex = 30
+        })
+        Corner(bossDifficultyList, 5)
+        Stroke(bossDifficultyList, Theme.Border, 1)
+        local bossDifficultyLayout = Create("UIListLayout", {
+            Parent = bossDifficultyList,
+            Padding = UDim.new(0, 1),
+            SortOrder = Enum.SortOrder.Name
+        })
+        Create("UIPadding", {
+            Parent = bossDifficultyList,
+            PaddingTop = UDim.new(0, 2),
+            PaddingBottom = UDim.new(0, 2),
+            PaddingLeft = UDim.new(0, 4),
+            PaddingRight = UDim.new(0, 4)
+        })
+
+        local function updateBossDifficultyDropdownText()
+            local selectedNames = {}
+            for name, selected in pairs(bossDifficultyFilter) do
+                if selected == true then
+                    table.insert(selectedNames, name)
+                end
+            end
+            table.sort(selectedNames)
+            if #selectedNames == 0 then
+                bossDifficultyDropdownText.Text = "Select difficulty"
+            elseif #selectedNames == 1 then
+                bossDifficultyDropdownText.Text = selectedNames[1]
+            else
+                bossDifficultyDropdownText.Text = tostring(#selectedNames) .. " selected"
+            end
+        end
+
+        local function refreshBossDifficultyFilter()
+            local basePanel = getBossBasePanel()
+            local difficultyRow = basePanel and basePanel:FindFirstChild("DifficultyRow")
+            local difficultyGroup = difficultyRow and difficultyRow:FindFirstChild("DifficultyGroup")
+            if not difficultyGroup then
+                return
+            end
+
+            for _, child in ipairs(bossDifficultyList:GetChildren()) do
+                if child:IsA("TextButton") then
+                    child:Destroy()
+                end
+            end
+
+            local difficultyOptions = {}
+            for _, child in ipairs(difficultyGroup:GetChildren()) do
+                if child.Name:match("Option$") then
+                    local optionName = child.Name:gsub("Option$", "")
+                    local optionText = ""
+                    if child:IsA("TextButton") or child:IsA("TextLabel") then
+                        optionText = tostring(child.Text or "")
+                    end
+                    optionText = optionText:gsub("^%s+", ""):gsub("%s+$", "")
+                    if optionText == "" then
+                        optionText = optionName
+                    end
+                    if optionName ~= "" then
+                        table.insert(difficultyOptions, {
+                            key = optionName,
+                            label = optionText
+                        })
+                    end
+                end
+            end
+            table.sort(difficultyOptions, function(a, b)
+                return a.key < b.key
+            end)
+
+            for _, difficulty in ipairs(difficultyOptions) do
+                local difficultyName = difficulty.key
+                if bossDifficultyFilter[difficultyName] == nil then
+                    bossDifficultyFilter[difficultyName] = type(savedConfig.bossDifficultyFilter) == "table"
+                        and savedConfig.bossDifficultyFilter[difficultyName] == true or false
+                end
+
+                local selected = bossDifficultyFilter[difficultyName] == true
+                local option = Create("TextButton", {
+                    Name = difficultyName,
+                    Parent = bossDifficultyList,
+                    Size = UDim2.new(1, -2, 0, 18),
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false,
+                    ZIndex = 31
+                })
+                local check = Create("Frame", {
+                    Parent = option,
+                    Position = UDim2.fromOffset(2, 3),
+                    Size = UDim2.fromOffset(12, 12),
+                    BackgroundColor3 = selected and Theme.Accent or Theme.Card,
+                    BorderSizePixel = 0,
+                    ZIndex = 32
+                })
+                Corner(check, 3)
+                local mark = Create("TextLabel", {
+                    Parent = check,
+                    Size = UDim2.fromScale(1, 1),
+                    BackgroundTransparency = 1,
+                    Text = "✓",
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 10,
+                    Visible = selected,
+                    ZIndex = 33
+                })
+                Create("TextLabel", {
+                    Parent = option,
+                    Position = UDim2.fromOffset(21, 0),
+                    Size = UDim2.new(1, -24, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = difficulty.label,
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 8,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    ZIndex = 33
+                })
+                option.MouseButton1Click:Connect(function()
+                    bossDifficultyFilter[difficultyName] = not bossDifficultyFilter[difficultyName]
+                    savedConfig.bossDifficultyFilter = savedConfig.bossDifficultyFilter or {}
+                    savedConfig.bossDifficultyFilter[difficultyName] = bossDifficultyFilter[difficultyName]
+                    local isSelected = bossDifficultyFilter[difficultyName] == true
+                    check.BackgroundColor3 = isSelected and Theme.Accent or Theme.Card
+                    mark.Visible = isSelected
+                    updateBossDifficultyDropdownText()
+                end)
+            end
+
+            bossDifficultyList.CanvasSize = UDim2.new(0, 0, 0, bossDifficultyLayout.AbsoluteContentSize.Y + 4)
+            updateBossDifficultyDropdownText()
+        end
+
+        local bossDifficultyOpen = false
+        bossDifficultyDropdown.MouseButton1Click:Connect(function()
+            bossDifficultyOpen = not bossDifficultyOpen
+            if bossDifficultyOpen then
+                refreshBossDifficultyFilter()
+            end
+            bossDifficultyList.Visible = bossDifficultyOpen
+        end)
 
         refreshBossFilter()
+        refreshBossDifficultyFilter()
 
         task.spawn(function()
             while bossCard.Parent do
