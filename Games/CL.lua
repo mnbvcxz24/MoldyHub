@@ -1613,6 +1613,7 @@ for index, name in ipairs(TabNames) do
         end
 
         local bossFilterOpen = false
+        local bossDifficultyOpen = false
         bossFilterDropdown.MouseButton1Click:Connect(function()
             bossFilterOpen = not bossFilterOpen
             bossDifficultyOpen = false
@@ -1827,7 +1828,6 @@ for index, name in ipairs(TabNames) do
             updateBossDifficultyDropdownText()
         end
 
-        local bossDifficultyOpen = false
         bossDifficultyDropdown.MouseButton1Click:Connect(function()
             bossDifficultyOpen = not bossDifficultyOpen
             bossFilterOpen = false
