@@ -1357,7 +1357,120 @@ for index, name in ipairs(TabNames) do
             BackgroundColor3 = Color3.fromRGB(0, 0, 0),
             BorderSizePixel = 0
         })
-        CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
+        local bossSpawnLoopId = 0
+        local bossSpawnEnabled = false
+        local bossIdByName = {
+            ["Shadow Ronin"] = "YamiSukehiro",
+            ["Ember Lord"] = "FuegoleonVermillion"
+        }
+        local bossKeyCost = {
+            Normal = 1,
+            Medium = 2,
+            Hard = 3,
+            Extreme = 5
+        }
+        local bossSpawnCooldowns = {}
+
+        local function getBossKeyCount()
+            local amount = tostring(bossKeyLabel.Text or ""):match("(%d+)")
+            return tonumber(amount) or 0
+        end
+
+        local function isBossNearby(bossId)
+            local enemies = workspace:FindFirstChild("Enemies")
+            local character = LocalPlayer.Character
+            local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+            if not enemies or not playerRoot then
+                return false
+            end
+
+            local expectedId = string.lower(bossId)
+            for _, enemy in ipairs(enemies:GetChildren()) do
+                local enemyName = string.lower(tostring(enemy.Name or ""))
+                if string.find(enemyName, expectedId, 1, true) then
+                    local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
+                    if enemyRoot and (enemyRoot.Position - playerRoot.Position).Magnitude <= MAX_TARGET_DISTANCE then
+                        local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+                        if not humanoid or humanoid.Health > 0 then
+                            return true
+                        end
+                    end
+                end
+            end
+            return false
+        end
+
+        local function spawnSelectedBosses()
+            local summonRemote = game:GetService("ReplicatedStorage")
+                :FindFirstChild("Remotes")
+            summonRemote = summonRemote and summonRemote:FindFirstChild("BossSummon")
+            if not summonRemote then
+                return
+            end
+
+            local selectedBosses = {}
+            for displayName, bossId in pairs(bossIdByName) do
+                if bossFilter[displayName] == true then
+                    table.insert(selectedBosses, {name = displayName, id = bossId})
+                end
+            end
+            table.sort(selectedBosses, function(a, b) return a.name < b.name end)
+
+            local selectedDifficulties = {}
+            for difficultyName, keyCost in pairs(bossKeyCost) do
+                if bossDifficultyFilter[difficultyName] == true then
+                    table.insert(selectedDifficulties, {name = difficultyName, cost = keyCost})
+                end
+            end
+            table.sort(selectedDifficulties, function(a, b)
+                return a.cost < b.cost
+            end)
+
+            for _, boss in ipairs(selectedBosses) do
+                for _, difficulty in ipairs(selectedDifficulties) do
+                    if not bossSpawnEnabled then
+                        return
+                    end
+
+                    local cooldownKey = boss.id .. ":" .. difficulty.name
+                    local lastSpawn = bossSpawnCooldowns[cooldownKey] or 0
+                    if os.clock() - lastSpawn >= 8
+                        and getBossKeyCount() >= difficulty.cost
+                        and not isBossNearby(boss.id) then
+                        local ok = pcall(function()
+                            summonRemote:FireServer({
+                                Difficulty = difficulty.name,
+                                BossId = boss.id,
+                                Phase = "Spawn"
+                            })
+                        end)
+                        if ok then
+                            bossSpawnCooldowns[cooldownKey] = os.clock()
+                            task.wait(0.35)
+                        end
+                    end
+                end
+            end
+        end
+
+        local setBossSpawnToggle = CreateCardHeaderToggle(bossCard, bossTitle, savedConfig.autoSpawnBoss == true, function(enabled)
+            bossSpawnEnabled = enabled
+            savedConfig.autoSpawnBoss = enabled
+            bossSpawnLoopId = bossSpawnLoopId + 1
+            local thisLoop = bossSpawnLoopId
+            if enabled then
+                task.spawn(function()
+                    while bossSpawnEnabled and thisLoop == bossSpawnLoopId and bossCard.Parent do
+                        spawnSelectedBosses()
+                        task.wait(2)
+                    end
+                end)
+            end
+        end)
+        RegisterCleanup(function()
+            bossSpawnEnabled = false
+            bossSpawnLoopId = bossSpawnLoopId + 1
+        end)
 
         local bossKeyLabel = Create("TextLabel", {
             Parent = bossCard,
