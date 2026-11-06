@@ -442,13 +442,13 @@ local function CreateCheckbox(parent, label, y, callback)
     })
     local checked = false
     local function setChecked(value)
-        checked = value
+        checked = value == true
         box.BackgroundColor3 = checked and Theme.Accent or Theme.SurfaceInput
         mark.Visible = checked
+        if callback then callback(checked) end
     end
     row.MouseButton1Click:Connect(function()
         setChecked(not checked)
-        if callback then callback(checked) end
     end)
     return row, setChecked
 end
