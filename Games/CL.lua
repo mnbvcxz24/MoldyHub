@@ -1648,10 +1648,6 @@ for index, name in ipairs(TabNames) do
                 or string.find(normalized, "m", 1, true)
                 or string.find(normalized, "s", 1, true)
 
-            if not hasTimeUnit then
-                return string.match(normalized, "^%s*0+%s*$") ~= nil
-            end
-
             local foundNumber = false
             for numberText in string.gmatch(normalized, "%d+") do
                 foundNumber = true
@@ -1659,6 +1655,9 @@ for index, name in ipairs(TabNames) do
                     return false
                 end
             end
+
+            -- Also supports labels such as "Restock in 0" without a unit suffix.
+            if not hasTimeUnit then return foundNumber end
             return foundNumber
         end
 
