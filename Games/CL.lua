@@ -325,8 +325,8 @@ local function CreatePage(index)
     })
     local function UpdateCanvas()
         local contentBottom = left.AbsolutePosition.Y - page.AbsolutePosition.Y + left.AbsoluteSize.Y
-        -- Keep a small black scroll tail after the final card, even on short pages.
-        local canvasHeight = math.max(contentBottom + 40, page.AbsoluteSize.Y + 40)
+        -- Keep a clean bottom margin after the final item on every tab.
+        local canvasHeight = math.max(contentBottom + 16, page.AbsoluteSize.Y)
         page.CanvasSize = UDim2.new(0, 0, 0, canvasHeight)
     end
     leftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
@@ -1351,13 +1351,6 @@ for index, name in ipairs(TabNames) do
         -- Filter lists overlay the card, so its height only needs to fit the controls.
         bossCard.AutomaticSize = Enum.AutomaticSize.None
         bossCard.Size = UDim2.new(1, 0, 0, 186)
-        -- Keep the extra scroll space outside the card, below it.
-        Create("Frame", {
-            Parent = autoAttackColumn,
-            Size = UDim2.new(1, 0, 0, 34),
-            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-            BorderSizePixel = 0
-        })
         local bossSpawnLoopId = 0
         local bossSpawnEnabled = false
         -- Forward-declare values used by the spawn functions below.
