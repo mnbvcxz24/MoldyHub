@@ -5774,6 +5774,35 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         Runtime.PersistentConnections = Runtime.PersistentConnections or {}
         table.insert(Runtime.PersistentConnections, AntiAFKConnection)
 
+        -- Settings UI placeholders: visual controls only; no persistence or auto-execute backend.
+        local ConfigSaveCard = CreateCard(Page, "Config Save", "Save your current settings.")
+        ConfigSaveCard.Size = UDim2.new(1, 0, 0, 104)
+        local ConfigSaveButton = CreateButton(ConfigSaveCard, "Save Config", nil)
+        ConfigSaveButton.Position = UDim2.fromOffset(11, 68)
+        ConfigSaveButton.Size = UDim2.new(1, -22, 0, 27)
+
+        local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Automatically execute the script when it loads.")
+        AutoExecuteCard.Size = UDim2.new(1, 0, 0, 76)
+        local AutoExecuteStatus = Create("TextLabel", {
+            Parent = AutoExecuteCard,
+            Position = UDim2.fromOffset(11, 43),
+            Size = UDim2.new(1, -82, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Status: Disabled",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local AutoExecuteToggle = CreateToggle(AutoExecuteCard, "", false, function(enabled)
+            AutoExecuteStatus.Text = "Status: " .. (enabled and "Enabled" or "Disabled")
+            AutoExecuteStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
+        end)
+        AutoExecuteToggle.Position = UDim2.new(1, -58, 0, 7)
+        AutoExecuteToggle.Size = UDim2.fromOffset(48, 24)
+        local AutoExecuteTitle = AutoExecuteCard:FindFirstChildWhichIsA("TextLabel")
+        if AutoExecuteTitle then AutoExecuteTitle.Size = UDim2.new(1, -78, 0, 22) end
+
     elseif index == 3 then
         local CandyCard = CreateCard(Page, "Auto collect candies", "UNDER DEVELOPMENT")
         CandyCard.Size = UDim2.new(1, 0, 0, 110)
