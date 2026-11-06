@@ -2711,6 +2711,17 @@ for index, name in ipairs(TabNames) do
             refreshGrimoireFilter()
         end
         watchGrimoireRows(grimoireRows)
+
+        -- Keep the displayed timer independent from stock checks and webhook requests.
+        task.spawn(function()
+            while card.Parent do
+                if timerStatusLabel and timerStatusLabel.Parent then
+                    timerStatusLabel.Text = "Restock timer: " .. tostring(getRestockTimerText())
+                end
+                task.wait(0.25)
+            end
+        end)
+
         task.spawn(function()
             while card.Parent do
                 local currentRows = getGrimoireRows()
