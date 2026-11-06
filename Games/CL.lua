@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.17-test"
+local deployver = "CL ver 2.18-test"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -326,8 +326,7 @@ local function CreatePage(index)
     local function UpdateCanvas()
         local contentBottom = left.AbsolutePosition.Y - page.AbsolutePosition.Y + left.AbsoluteSize.Y
         -- Keep a small black scroll tail after the final card, even on short pages.
-        local extraScrollSpace = page:GetAttribute("ExtraScrollSpace") or 0
-        local canvasHeight = math.max(contentBottom + 40, page.AbsoluteSize.Y + 40) + extraScrollSpace
+        local canvasHeight = math.max(contentBottom + 40, page.AbsoluteSize.Y + 40)
         page.CanvasSize = UDim2.new(0, 0, 0, canvasHeight)
     end
     leftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
@@ -1402,8 +1401,8 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 78),
-            Size = UDim2.new(1, -24, 0, 16),
+            Position = UDim2.fromOffset(12, 81),
+            Size = UDim2.new(1, -132, 0, 18),
             BackgroundTransparency = 1,
             Text = "Boss filter",
             TextColor3 = Theme.DarkGray,
@@ -1421,8 +1420,8 @@ for index, name in ipairs(TabNames) do
 
         local bossFilterDropdown = Create("TextButton", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 96),
-            Size = UDim2.new(1, -24, 0, 23),
+            Position = UDim2.new(1, -126, 0, 78),
+            Size = UDim2.fromOffset(114, 23),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "",
             BorderSizePixel = 0,
@@ -1458,9 +1457,9 @@ for index, name in ipairs(TabNames) do
         })
 
         local bossFilterList = Create("ScrollingFrame", {
-            Parent = page,
-            Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.new(1, -24, 0, 88),
+            Parent = bossCard,
+            Position = UDim2.new(1, -126, 0, 104),
+            Size = UDim2.fromOffset(114, 88),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
             Visible = false,
@@ -1611,36 +1610,18 @@ for index, name in ipairs(TabNames) do
         end
 
         local bossFilterOpen = false
-        local bossDifficultyOpen = false
-        local function updateBossPopupPositions()
-            local cardOffset = bossCard.AbsolutePosition - page.AbsolutePosition + page.CanvasPosition
-            local popupWidth = math.max(80, bossCard.AbsoluteSize.X - 24)
-            bossFilterList.Position = UDim2.fromOffset(cardOffset.X + 12, cardOffset.Y + 122)
-            bossDifficultyList.Position = UDim2.fromOffset(cardOffset.X + 12, cardOffset.Y + 260)
-            bossFilterList.Size = UDim2.fromOffset(popupWidth, 88)
-            bossDifficultyList.Size = UDim2.fromOffset(popupWidth, 88)
-            page:SetAttribute("ExtraScrollSpace", (bossFilterOpen or bossDifficultyOpen) and 100 or 0)
-        end
-        page:GetPropertyChangedSignal("CanvasPosition"):Connect(updateBossPopupPositions)
-        bossCard:GetPropertyChangedSignal("AbsolutePosition"):Connect(updateBossPopupPositions)
-        bossCard:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateBossPopupPositions)
-        updateBossPopupPositions()
-
         bossFilterDropdown.MouseButton1Click:Connect(function()
             bossFilterOpen = not bossFilterOpen
             if bossFilterOpen then
-                bossDifficultyOpen = false
-                bossDifficultyList.Visible = false
                 refreshBossFilter()
             end
             bossFilterList.Visible = bossFilterOpen
-            updateBossPopupPositions()
         end)
 
         Create("TextLabel", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 218),
-            Size = UDim2.new(1, -24, 0, 16),
+            Position = UDim2.fromOffset(12, 109),
+            Size = UDim2.new(1, -92, 0, 18),
             BackgroundTransparency = 1,
             Text = "Boss difficulty",
             TextColor3 = Theme.DarkGray,
@@ -1657,8 +1638,8 @@ for index, name in ipairs(TabNames) do
 
         local bossDifficultyDropdown = Create("TextButton", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 236),
-            Size = UDim2.new(1, -24, 0, 23),
+            Position = UDim2.new(1, -126, 0, 106),
+            Size = UDim2.fromOffset(114, 23),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "",
             BorderSizePixel = 0,
@@ -1694,9 +1675,9 @@ for index, name in ipairs(TabNames) do
         })
 
         local bossDifficultyList = Create("ScrollingFrame", {
-            Parent = page,
-            Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.new(1, -24, 0, 88),
+            Parent = bossCard,
+            Position = UDim2.new(1, -126, 0, 132),
+            Size = UDim2.fromOffset(114, 88),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
             Visible = false,
@@ -1841,15 +1822,13 @@ for index, name in ipairs(TabNames) do
             updateBossDifficultyDropdownText()
         end
 
+        local bossDifficultyOpen = false
         bossDifficultyDropdown.MouseButton1Click:Connect(function()
             bossDifficultyOpen = not bossDifficultyOpen
             if bossDifficultyOpen then
-                bossFilterOpen = false
-                bossFilterList.Visible = false
                 refreshBossDifficultyFilter()
             end
             bossDifficultyList.Visible = bossDifficultyOpen
-            updateBossPopupPositions()
         end)
 
         refreshBossFilter()
