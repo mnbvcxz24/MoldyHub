@@ -2154,38 +2154,10 @@ for index, name in ipairs(TabNames) do
             savedConfig.roleId = roleId
         end)
 
-        Create("TextLabel", {
-            Parent = card,
-            Position = UDim2.fromOffset(12, 155),
-            Size = UDim2.new(1, -24, 0, 13),
-            BackgroundTransparency = 1,
-            Text = "Webhook Test",
-            TextColor3 = Theme.DarkGray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 2
-        })
-
-        local testWebhookButton = Create("TextButton", {
-            Parent = card,
-            Position = UDim2.fromOffset(12, 170),
-            Size = UDim2.new(0.5, -16, 0, 24),
-            BackgroundColor3 = Theme.Accent,
-            Text = "Test Webhook",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.GothamBold,
-            TextSize = 9,
-            BorderSizePixel = 0,
-            AutoButtonColor = true,
-            ZIndex = 2
-        })
-        Corner(testWebhookButton, 5)
-
         local checkSendButton = Create("TextButton", {
             Parent = card,
-            Position = UDim2.new(0.5, 4, 0, 170),
-            Size = UDim2.new(0.5, -16, 0, 24),
+            Position = UDim2.fromOffset(12, 155),
+            Size = UDim2.new(1, -24, 0, 24),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "Check & Send",
             TextColor3 = Theme.Text,
@@ -2483,48 +2455,6 @@ for index, name in ipairs(TabNames) do
             return true, statusCode and ("HTTP " .. tostring(statusCode)) or "Request sent"
         end
 
-        local function sendTestWebhook()
-            -- Read the visible inputs at click time so the latest edits are used
-            -- even if the TextBox FocusLost callback has not updated the cache.
-            webhookUrl = string.gsub(webhookInput.Text or "", "^%s*(.-)%s*$", "%1")
-            roleId = string.gsub(roleInput.Text or "", "^%s*(.-)%s*$", "%1")
-            savedConfig.webhookUrl = webhookUrl
-            savedConfig.roleId = roleId
-
-            local selectedNames = {}
-            for grimoireName, selected in pairs(grimoireFilter) do
-                if selected == true then table.insert(selectedNames, grimoireName) end
-            end
-            table.sort(selectedNames)
-
-            if #selectedNames == 0 then
-                warn("[MoldyHub] Select at least one Grimoire in the filter list to test the webhook.")
-                testWebhookButton.Text = "Select a Grimoire first"
-                task.delay(2, function()
-                    if testWebhookButton.Parent then testWebhookButton.Text = "Test Webhook" end
-                end)
-                return
-            end
-
-            local selectedGrimoire = selectedNames[1]
-            testWebhookButton.Text = "Sending..."
-            testWebhookButton.Active = false
-            task.spawn(function()
-                local success, result = sendGrimoireWebhook(selectedGrimoire, "Sample", "Test")
-                if success then
-                    testWebhookButton.Text = "Sent"
-                else
-                    testWebhookButton.Text = "Failed"
-                    warn("[MoldyHub] Test webhook failed: " .. tostring(result))
-                end
-                testWebhookButton.Active = true
-                task.wait(3)
-                if testWebhookButton.Parent then testWebhookButton.Text = "Test Webhook" end
-            end)
-        end
-
-        testWebhookButton.MouseButton1Click:Connect(sendTestWebhook)
-
         local function getGrimoirePage()
             local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
             local shopUI = playerGui and playerGui:FindFirstChild("ShopUI")
@@ -2600,7 +2530,6 @@ for index, name in ipairs(TabNames) do
 
             checkSendButton.Text = "Checking..."
             checkSendButton.Active = false
-            testWebhookButton.Active = false
 
             task.spawn(function()
                 local rows = getGrimoireRows()
@@ -2641,7 +2570,6 @@ for index, name in ipairs(TabNames) do
                 end
 
                 checkSendButton.Active = true
-                testWebhookButton.Active = true
                 task.wait(3)
                 if checkSendButton.Parent then checkSendButton.Text = "Check & Send" end
             end)
