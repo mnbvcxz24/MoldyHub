@@ -1348,7 +1348,7 @@ for index, name in ipairs(TabNames) do
         -- Keep the card height fixed so opening either filter popup never resizes it.
         -- The extra space below the controls also matches the Webhook card spacing.
         bossCard.AutomaticSize = Enum.AutomaticSize.None
-        bossCard.Size = UDim2.new(1, 0, 0, 278)
+        bossCard.Size = UDim2.new(1, 0, 0, 300)
         CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
 
         local bossKeyLabel = Create("TextLabel", {
@@ -1461,7 +1461,7 @@ for index, name in ipairs(TabNames) do
 
         local bossFilterList = Create("ScrollingFrame", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 123),
+            Position = UDim2.fromOffset(12, 194),
             Size = UDim2.new(1, -24, 0, 88),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
@@ -1615,10 +1615,12 @@ for index, name in ipairs(TabNames) do
         local bossFilterOpen = false
         bossFilterDropdown.MouseButton1Click:Connect(function()
             bossFilterOpen = not bossFilterOpen
+            bossDifficultyOpen = false
             if bossFilterOpen then
                 refreshBossFilter()
             end
             bossFilterList.Visible = bossFilterOpen
+            bossDifficultyList.Visible = false
         end)
 
         Create("TextLabel", {
@@ -1679,7 +1681,7 @@ for index, name in ipairs(TabNames) do
 
         local bossDifficultyList = Create("ScrollingFrame", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 170),
+            Position = UDim2.fromOffset(12, 194),
             Size = UDim2.new(1, -24, 0, 88),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
@@ -1828,10 +1830,12 @@ for index, name in ipairs(TabNames) do
         local bossDifficultyOpen = false
         bossDifficultyDropdown.MouseButton1Click:Connect(function()
             bossDifficultyOpen = not bossDifficultyOpen
+            bossFilterOpen = false
             if bossDifficultyOpen then
                 refreshBossDifficultyFilter()
             end
             bossDifficultyList.Visible = bossDifficultyOpen
+            bossFilterList.Visible = false
         end)
 
         refreshBossFilter()
