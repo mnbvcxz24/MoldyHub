@@ -1614,12 +1614,16 @@ for index, name in ipairs(TabNames) do
         local bossDifficultyOpen = false
         local function updateBossPopupPositions()
             local cardOffset = bossCard.AbsolutePosition - page.AbsolutePosition + page.CanvasPosition
+            local popupWidth = math.max(80, bossCard.AbsoluteSize.X - 24)
             bossFilterList.Position = UDim2.fromOffset(cardOffset.X + 12, cardOffset.Y + 122)
             bossDifficultyList.Position = UDim2.fromOffset(cardOffset.X + 12, cardOffset.Y + 260)
+            bossFilterList.Size = UDim2.fromOffset(popupWidth, 88)
+            bossDifficultyList.Size = UDim2.fromOffset(popupWidth, 88)
             page:SetAttribute("ExtraScrollSpace", (bossFilterOpen or bossDifficultyOpen) and 100 or 0)
         end
         page:GetPropertyChangedSignal("CanvasPosition"):Connect(updateBossPopupPositions)
         bossCard:GetPropertyChangedSignal("AbsolutePosition"):Connect(updateBossPopupPositions)
+        bossCard:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateBossPopupPositions)
         updateBossPopupPositions()
 
         bossFilterDropdown.MouseButton1Click:Connect(function()
