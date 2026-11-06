@@ -1055,9 +1055,33 @@ for index, name in ipairs(TabNames) do
             Padding = UDim.new(0, 10),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
+        local autoAttackColumn = Create("Frame", {
+            Parent = cardsRow,
+            Size = UDim2.new(0.5, -5, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1
+        })
+        Create("UIListLayout", {
+            Parent = autoAttackColumn,
+            FillDirection = Enum.FillDirection.Vertical,
+            Padding = UDim.new(0, 10),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        local orbitColumn = Create("Frame", {
+            Parent = cardsRow,
+            Size = UDim2.new(0.5, -5, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1
+        })
+        Create("UIListLayout", {
+            Parent = orbitColumn,
+            FillDirection = Enum.FillDirection.Vertical,
+            Padding = UDim.new(0, 10),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
 
-        local card, autoAttackTitle = CreateCard(cardsRow, "Auto attack", 280)
-        card.Size = UDim2.new(0.5, -5, 0, 0)
+        local card, autoAttackTitle = CreateCard(autoAttackColumn, "Auto attack", 280)
+        card.Size = UDim2.new(1, 0, 0, 0)
         local setAutoFarm = CreateCardHeaderToggle(card, autoAttackTitle, savedConfig.autoFarm == true, function(enabled)
             autoFarmEnabled = enabled
             savedConfig.autoFarm = enabled
@@ -1133,8 +1157,8 @@ for index, name in ipairs(TabNames) do
             end
         end
 
-        local orbitCard, orbitTitle = CreateCard(cardsRow, "Orbit enemy", 280)
-        orbitCard.Size = UDim2.new(0.5, -5, 0, 0)
+        local orbitCard, orbitTitle = CreateCard(orbitColumn, "Orbit enemy", 280)
+        orbitCard.Size = UDim2.new(1, 0, 0, 0)
         CreateCardHeaderToggle(orbitCard, orbitTitle, savedConfig.orbitEnabled == true, function(enabled)
             savedConfig.orbitEnabled = enabled
             setOrbitEnabled(enabled)
@@ -1142,7 +1166,7 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = orbitCard,
-            Position = UDim2.fromOffset(12, 55),
+            Position = UDim2.fromOffset(12, 34),
             Size = UDim2.new(1, -24, 0, 14),
             BackgroundTransparency = 1,
             Text = "Enemy Nearby",
@@ -1154,7 +1178,7 @@ for index, name in ipairs(TabNames) do
 
         local enemyList = Create("ScrollingFrame", {
             Parent = orbitCard,
-            Position = UDim2.fromOffset(12, 72),
+            Position = UDim2.fromOffset(12, 51),
             Size = UDim2.new(1, -24, 0, 78),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
@@ -1175,7 +1199,7 @@ for index, name in ipairs(TabNames) do
 
         local enemyListStatus = Create("TextLabel", {
             Parent = orbitCard,
-            Position = UDim2.fromOffset(12, 153),
+            Position = UDim2.fromOffset(12, 132),
             Size = UDim2.new(1, -24, 0, 14),
             BackgroundTransparency = 1,
             Text = "Select an enemy to lock",
@@ -1307,26 +1331,21 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
-        createOrbitInput("Distance (studs)", 178, orbitDistance, 3, 100, function(value)
+        createOrbitInput("Distance (studs)", 157, orbitDistance, 3, 100, function(value)
             orbitDistance = value
             savedConfig.orbitDistance = value
         end)
-        createOrbitInput("Flying height (studs)", 202, orbitHeight, 0, 100, function(value)
+        createOrbitInput("Flying height (studs)", 181, orbitHeight, 0, 100, function(value)
             orbitHeight = value
             savedConfig.orbitHeight = value
         end)
-        createOrbitInput("Speed (deg/sec)", 226, orbitSpeed, 10, 360, function(value)
+        createOrbitInput("Speed (deg/sec)", 205, orbitSpeed, 10, 360, function(value)
             orbitSpeed = value
             savedConfig.orbitSpeed = value
         end)
 
-        local bossCardRow = Create("Frame", {
-            Parent = left,
-            Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            BackgroundTransparency = 1
-        })
-        local bossCard, bossTitle = CreateCard(bossCardRow, "Auto spawn boss", 54)
+        local bossCard, bossTitle = CreateCard(autoAttackColumn, "Auto spawn boss", 54)
+        bossCard.Size = UDim2.new(1, 0, 0, 0)
         CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
 
     elseif index == 2 then
