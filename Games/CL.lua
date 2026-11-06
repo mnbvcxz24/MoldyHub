@@ -1798,9 +1798,9 @@ for index, name in ipairs(TabNames) do
             task.spawn(function()
                 local success, result = sendGrimoireWebhook(selectedGrimoire, "Sample", "Test")
                 if success then
-                    testWebhookButton.Text = "Sent (" .. tostring(result) .. ")"
+                    testWebhookButton.Text = "Sent"
                 else
-                    testWebhookButton.Text = "Failed - check console"
+                    testWebhookButton.Text = "Failed"
                     warn("[MoldyHub] Test webhook failed: " .. tostring(result))
                 end
                 testWebhookButton.Active = true
