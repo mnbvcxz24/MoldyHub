@@ -1348,6 +1348,38 @@ for index, name in ipairs(TabNames) do
         bossCard.Size = UDim2.new(1, 0, 0, 0)
         CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
 
+        local function createBossFilterRow(label, y)
+            Create("TextLabel", {
+                Parent = bossCard,
+                Position = UDim2.fromOffset(12, y + 3),
+                Size = UDim2.new(1, -92, 0, 18),
+                BackgroundTransparency = 1,
+                Text = label,
+                TextColor3 = Theme.DarkGray,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+
+            local filterButton = Create("TextButton", {
+                Parent = bossCard,
+                Position = UDim2.new(1, -78, 0, y),
+                Size = UDim2.fromOffset(66, 23),
+                BackgroundColor3 = Theme.SurfaceInput,
+                Text = "Filter",
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                BorderSizePixel = 0,
+                AutoButtonColor = true
+            })
+            Corner(filterButton, 5)
+            Stroke(filterButton, Theme.Border, 1)
+        end
+
+        createBossFilterRow("Boss filter", 34)
+        createBossFilterRow("Boss difficulty", 62)
+
     elseif index == 2 then
         local settingsRow = Create("Frame", {
             Parent = left,
