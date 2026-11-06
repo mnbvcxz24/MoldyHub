@@ -1697,10 +1697,11 @@ for index, name in ipairs(TabNames) do
             end
 
             local statusCode = type(response) == "table"
-                and (response.StatusCode or response.Status or response.status_code)
+                and (response.StatusCode or response.status_code)
                 or nil
+            local numericStatus = tonumber(statusCode)
             local responseBody = type(response) == "table" and response.Body or nil
-            if statusCode and (tonumber(statusCode) < 200 or tonumber(statusCode) >= 300) then
+            if numericStatus and (numericStatus < 200 or numericStatus >= 300) then
                 return false, "Discord returned HTTP " .. tostring(statusCode)
                     .. (responseBody and (": " .. tostring(responseBody)) or "")
             end
