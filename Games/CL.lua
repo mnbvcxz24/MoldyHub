@@ -1381,7 +1381,7 @@ for index, name in ipairs(TabNames) do
             return tonumber(amount) or 0
         end
 
-        local function isBossNearby(bossId)
+        local function isBossNearby()
             local enemies = workspace:FindFirstChild("Enemies")
             local character = LocalPlayer.Character
             local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
@@ -1389,12 +1389,11 @@ for index, name in ipairs(TabNames) do
                 return false
             end
 
-            local expectedId = string.lower(bossId)
             for _, enemy in ipairs(enemies:GetChildren()) do
                 local enemyName = string.lower(tostring(enemy.Name or ""))
-                if string.find(enemyName, expectedId, 1, true) then
+                if string.find(enemyName, "boss", 1, true) then
                     local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-                    if enemyRoot and (enemyRoot.Position - playerRoot.Position).Magnitude <= MAX_TARGET_DISTANCE then
+                    if enemyRoot and (enemyRoot.Position - playerRoot.Position).Magnitude <= 200 then
                         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
                         if not humanoid or humanoid.Health > 0 then
                             return true
@@ -1441,14 +1440,14 @@ for index, name in ipairs(TabNames) do
                     local lastSpawn = bossSpawnCooldowns[cooldownKey] or 0
                     if os.clock() - lastSpawn >= 8
                         and getBossKeyCount() >= difficulty.cost
-                        and not isBossNearby(boss.id) then
+                        and not isBossNearby() then
                         -- Give the spawn request a 2-second delay, then recheck
                         -- the toggle, key balance, and nearby boss before firing.
                         task.wait(2)
                         if not bossSpawnEnabled then
                             return
                         end
-                        if getBossKeyCount() < difficulty.cost or isBossNearby(boss.id) then
+                        if getBossKeyCount() < difficulty.cost or isBossNearby() then
                             continue
                         end
 
