@@ -1345,10 +1345,9 @@ for index, name in ipairs(TabNames) do
         end)
 
         local bossCard, bossTitle = CreateCard(autoAttackColumn, "Auto spawn boss", 54)
-        -- Keep the card height fixed so opening either filter popup never resizes it.
-        -- The extra space below the controls also matches the Webhook card spacing.
+        -- Filter lists overlay the card, so its height only needs to fit the controls.
         bossCard.AutomaticSize = Enum.AutomaticSize.None
-        bossCard.Size = UDim2.new(1, 0, 0, 300)
+        bossCard.Size = UDim2.new(1, 0, 0, 186)
         CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
 
         local bossKeyLabel = Create("TextLabel", {
@@ -1461,8 +1460,8 @@ for index, name in ipairs(TabNames) do
 
         local bossFilterList = Create("ScrollingFrame", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 194),
-            Size = UDim2.new(1, -24, 0, 88),
+            Position = UDim2.fromOffset(12, 126),
+            Size = UDim2.new(1, -24, 0, 140),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
             Visible = false,
@@ -1614,15 +1613,6 @@ for index, name in ipairs(TabNames) do
 
         local bossFilterOpen = false
         local bossDifficultyOpen = false
-        bossFilterDropdown.MouseButton1Click:Connect(function()
-            bossFilterOpen = not bossFilterOpen
-            bossDifficultyOpen = false
-            if bossFilterOpen then
-                refreshBossFilter()
-            end
-            bossFilterList.Visible = bossFilterOpen
-            bossDifficultyList.Visible = false
-        end)
 
         Create("TextLabel", {
             Parent = bossCard,
@@ -1682,8 +1672,8 @@ for index, name in ipairs(TabNames) do
 
         local bossDifficultyList = Create("ScrollingFrame", {
             Parent = bossCard,
-            Position = UDim2.fromOffset(12, 194),
-            Size = UDim2.new(1, -24, 0, 88),
+            Position = UDim2.fromOffset(12, 173),
+            Size = UDim2.new(1, -24, 0, 140),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
             Visible = false,
@@ -1828,18 +1818,50 @@ for index, name in ipairs(TabNames) do
             updateBossDifficultyDropdownText()
         end
 
+        local function updateBossFilterPanel()
+            -- Match BASAE: only the active list is visible, directly below
+            -- its button. The list overlays the card instead of resizing it.
+            bossFilterList.Visible = bossFilterOpen
+            bossDifficultyList.Visible = bossDifficultyOpen
+
+            if bossFilterOpen then
+                bossFilterList.Position = UDim2.fromOffset(
+                    12,
+                    bossFilterDropdown.Position.Y.Offset + bossFilterDropdown.AbsoluteSize.Y + 4
+                )
+                bossFilterList.Size = UDim2.new(1, -24, 0, 140)
+            end
+
+            if bossDifficultyOpen then
+                bossDifficultyList.Position = UDim2.fromOffset(
+                    12,
+                    bossDifficultyDropdown.Position.Y.Offset + bossDifficultyDropdown.AbsoluteSize.Y + 4
+                )
+                bossDifficultyList.Size = UDim2.new(1, -24, 0, 140)
+            end
+        end
+
+        bossFilterDropdown.MouseButton1Click:Connect(function()
+            bossFilterOpen = not bossFilterOpen
+            bossDifficultyOpen = false
+            if bossFilterOpen then
+                refreshBossFilter()
+            end
+            updateBossFilterPanel()
+        end)
+
         bossDifficultyDropdown.MouseButton1Click:Connect(function()
             bossDifficultyOpen = not bossDifficultyOpen
             bossFilterOpen = false
             if bossDifficultyOpen then
                 refreshBossDifficultyFilter()
             end
-            bossDifficultyList.Visible = bossDifficultyOpen
-            bossFilterList.Visible = false
+            updateBossFilterPanel()
         end)
 
         refreshBossFilter()
         refreshBossDifficultyFilter()
+        updateBossFilterPanel()
 
         task.spawn(function()
             while bossCard.Parent do
