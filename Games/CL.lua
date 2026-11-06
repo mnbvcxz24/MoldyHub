@@ -1349,7 +1349,14 @@ for index, name in ipairs(TabNames) do
         local bossCard, bossTitle = CreateCard(autoAttackColumn, "Auto spawn boss", 54)
         -- Filter lists overlay the card, so its height only needs to fit the controls.
         bossCard.AutomaticSize = Enum.AutomaticSize.None
-        bossCard.Size = UDim2.new(1, 0, 0, 220)
+        bossCard.Size = UDim2.new(1, 0, 0, 186)
+        -- Keep the extra scroll space outside the card, below it.
+        Create("Frame", {
+            Parent = autoAttackColumn,
+            Size = UDim2.new(1, 0, 0, 34),
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+            BorderSizePixel = 0
+        })
         CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
 
         local bossKeyLabel = Create("TextLabel", {
