@@ -1,2 +1,11 @@
 local url = "https://github.com/mnbvcxz24/MoldyHub/blob/main/Games/CL.lua"
 
+local source = game:HttpGet(url)
+
+local fn, err = loadstring(source)
+if not fn then
+    warn("[MoldyHub] Failed to load source: " .. tostring(err))
+    return
+end
+
+fn()
