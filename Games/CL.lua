@@ -350,7 +350,7 @@ local function CreateCard(parent, title, height)
     })
     Corner(card, 8)
     Stroke(card, Theme.Border, 1)
-    Create("TextLabel", {
+    local titleLabel = Create("TextLabel", {
         Parent = card,
         Position = UDim2.fromOffset(11, 8),
         Size = UDim2.new(1, -22, 0, 18),
@@ -361,7 +361,51 @@ local function CreateCard(parent, title, height)
         TextSize = 10,
         TextXAlignment = Enum.TextXAlignment.Left
     })
-    return card
+    return card, titleLabel
+end
+
+local function CreateCardHeaderToggle(card, titleLabel, initialValue, callback)
+    titleLabel.Size = UDim2.new(1, -62, 0, 18)
+    local button = Create("TextButton", {
+        Parent = card,
+        Position = UDim2.new(1, -46, 0, 7),
+        Size = UDim2.fromOffset(34, 18),
+        BackgroundTransparency = 1,
+        Text = "",
+        BorderSizePixel = 0,
+        AutoButtonColor = false
+    })
+    local track = Create("Frame", {
+        Parent = button,
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.fromOffset(30, 14),
+        BackgroundColor3 = Color3.fromRGB(49, 67, 82),
+        BorderSizePixel = 0
+    })
+    Corner(track, 20)
+    local knob = Create("Frame", {
+        Parent = track,
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.fromOffset(10, 10),
+        BackgroundColor3 = Color3.fromRGB(245, 250, 255),
+        BorderSizePixel = 0
+    })
+    Corner(knob, 20)
+    local enabled = initialValue == true
+    local function update()
+        Tween(track, {BackgroundColor3 = enabled and Theme.Accent or Color3.fromRGB(49, 67, 82)})
+        Tween(knob, {Position = enabled and UDim2.new(1, -12, 0, 2) or UDim2.fromOffset(2, 2)})
+        if callback then callback(enabled) end
+    end
+    button.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        update()
+    end)
+    update()
+    return function(value)
+        enabled = value == true
+        update()
+    end
 end
 
 local function CreateToggle(parent, label, y, callback)
@@ -1012,9 +1056,9 @@ for index, name in ipairs(TabNames) do
             SortOrder = Enum.SortOrder.LayoutOrder
         })
 
-        local card = CreateCard(cardsRow, "Auto farm", 280)
+        local card, autoAttackTitle = CreateCard(cardsRow, "Auto attack", 280)
         card.Size = UDim2.new(0.5, -5, 0, 0)
-        local _, setAutoFarm = CreateToggle(card, "Auto farm", 34, function(enabled)
+        local setAutoFarm = CreateCardHeaderToggle(card, autoAttackTitle, savedConfig.autoFarm == true, function(enabled)
             autoFarmEnabled = enabled
             savedConfig.autoFarm = enabled
             if not enabled then clearEnemyAim() end
@@ -1024,27 +1068,27 @@ for index, name in ipairs(TabNames) do
                 startSkillLoop(slot, enabled and skillEnabled[slot] == true)
             end
         end)
-        local _, setUseM1 = CreateCheckbox(card, "Use M1", 62, function(checked)
+        local _, setUseM1 = CreateCheckbox(card, "Use M1", 34, function(checked)
             useM1Enabled = checked
             savedConfig.useM1 = checked
             updateM1Loop()
         end)
-        local _, setUseC = CreateCheckbox(card, "Use C", 80, function(checked)
+        local _, setUseC = CreateCheckbox(card, "Use C", 52, function(checked)
             skillEnabled.C = checked
             savedConfig.skillC = checked
             startSkillLoop("C", checked and autoFarmEnabled)
         end)
-        local _, setUseX = CreateCheckbox(card, "Use X", 98, function(checked)
+        local _, setUseX = CreateCheckbox(card, "Use X", 70, function(checked)
             skillEnabled.X = checked
             savedConfig.skillX = checked
             startSkillLoop("X", checked and autoFarmEnabled)
         end)
-        local _, setUseZ = CreateCheckbox(card, "Use Z", 116, function(checked)
+        local _, setUseZ = CreateCheckbox(card, "Use Z", 88, function(checked)
             skillEnabled.Z = checked
             savedConfig.skillZ = checked
             startSkillLoop("Z", checked and autoFarmEnabled)
         end)
-        local _, setUseV = CreateCheckbox(card, "Use V", 134, function(checked)
+        local _, setUseV = CreateCheckbox(card, "Use V", 106, function(checked)
             skillEnabled.V = checked
             savedConfig.skillV = checked
             startSkillLoop("V", checked and autoFarmEnabled)
@@ -1055,8 +1099,6 @@ for index, name in ipairs(TabNames) do
         setUseX(savedConfig.skillX == true)
         setUseZ(savedConfig.skillZ == true)
         setUseV(savedConfig.skillV == true)
-        setAutoFarm(savedConfig.autoFarm == true)
-
         -- Orbit movement circles the currently selected enemy target.
         local function setOrbitEnabled(enabled)
             orbitEnabled = enabled
@@ -1091,13 +1133,12 @@ for index, name in ipairs(TabNames) do
             end
         end
 
-        local orbitCard = CreateCard(cardsRow, "Enemy Orbit", 280)
+        local orbitCard, orbitTitle = CreateCard(cardsRow, "Orbit enemy", 280)
         orbitCard.Size = UDim2.new(0.5, -5, 0, 0)
-        local _, setOrbitCheckbox = CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
-            savedConfig.orbitEnabled = checked
-            setOrbitEnabled(checked)
+        CreateCardHeaderToggle(orbitCard, orbitTitle, savedConfig.orbitEnabled == true, function(enabled)
+            savedConfig.orbitEnabled = enabled
+            setOrbitEnabled(enabled)
         end)
-        setOrbitCheckbox(savedConfig.orbitEnabled == true)
 
         Create("TextLabel", {
             Parent = orbitCard,
@@ -1278,6 +1319,15 @@ for index, name in ipairs(TabNames) do
             orbitSpeed = value
             savedConfig.orbitSpeed = value
         end)
+
+        local bossCardRow = Create("Frame", {
+            Parent = left,
+            Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1
+        })
+        local bossCard, bossTitle = CreateCard(bossCardRow, "Auto spawn boss", 54)
+        CreateCardHeaderToggle(bossCard, bossTitle, false, nil)
 
     elseif index == 2 then
         local settingsRow = Create("Frame", {
