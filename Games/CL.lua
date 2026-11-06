@@ -1313,8 +1313,8 @@ for index, name in ipairs(TabNames) do
             Position = UDim2.fromOffset(12, 64),
             Size = UDim2.new(1, -24, 0, 16),
             BackgroundTransparency = 1,
-            Text = configFileDetected and "Config file detected" or "No config file found",
-            TextColor3 = Theme.Gray,
+            Text = configFileDetected and "Saved settings available" or "No saved settings",
+            TextColor3 = configFileDetected and Color3.fromRGB(95, 220, 140) or Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
             TextWrapped = false,
@@ -1323,7 +1323,7 @@ for index, name in ipairs(TabNames) do
         })
         saveButton.MouseButton1Click:Connect(function()
             if saveConfigToFile() then
-                saveStatus.Text = "Config saved"
+                saveStatus.Text = "Settings saved"
                 saveStatus.TextColor3 = Color3.fromRGB(95, 220, 140)
             else
                 saveStatus.Text = "Save failed"
