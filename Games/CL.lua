@@ -1377,9 +1377,14 @@ for index, name in ipairs(TabNames) do
                 Font = Enum.Font.Gotham,
                 TextSize = 9,
                 TextXAlignment = Enum.TextXAlignment.Left,
+                TextYAlignment = Enum.TextYAlignment.Center,
+                TextWrapped = false,
+                TextScaled = false,
+                MultiLine = false,
                 ClearTextOnFocus = false,
                 TextEditable = true,
                 Active = true,
+                ClipsDescendants = true,
                 BorderSizePixel = 0,
                 ZIndex = 2
             })
