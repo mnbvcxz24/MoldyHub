@@ -2095,9 +2095,14 @@ for index, name in ipairs(TabNames) do
         local mentionType = savedConfig.mentionType == "user" and "user" or "role"
         local grimoireFilter = {}
         local notifiedThisRestock = {}
+        local lastWebhookAttemptAt = {}
         local restockCycleArmed = false
+        local lastWebhookStatus = "No webhook sent yet"
+        local timerStatusLabel
+        local triggerStatusLabel
+        local lastSendStatusLabel
 
-        local card = CreateCard(left, "Grimoire Notifier", 420)
+        local card = CreateCard(left, "Grimoire Notifier", 455)
         local _, setGrimoireNotifier = CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
             grimoireNotifierEnabled = enabled
             savedConfig.grimoireNotifier = enabled
@@ -2225,12 +2230,36 @@ for index, name in ipairs(TabNames) do
         })
         Corner(checkSendButton, 5)
 
-        Create("TextLabel", {
+        timerStatusLabel = Create("TextLabel", {
             Parent = card,
             Position = UDim2.fromOffset(12, 229),
-            Size = UDim2.new(1, -24, 0, 30),
+            Size = UDim2.new(1, -24, 0, 14),
             BackgroundTransparency = 1,
-            Text = "Auto-send trigger: Restock Timer reaches 0 after a countdown. Selected Grimoires that are in stock are sent once per restock.",
+            Text = "Restock timer: Reading...",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 2
+        })
+        triggerStatusLabel = Create("TextLabel", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 246),
+            Size = UDim2.new(1, -24, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Auto trigger: Waiting for countdown",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 2
+        })
+        lastSendStatusLabel = Create("TextLabel", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 263),
+            Size = UDim2.new(1, -24, 0, 22),
+            BackgroundTransparency = 1,
+            Text = "Last webhook: " .. lastWebhookStatus,
             TextColor3 = Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 9,
@@ -2242,7 +2271,7 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 267),
+            Position = UDim2.fromOffset(12, 290),
             Size = UDim2.new(1, -24, 0, 13),
             BackgroundTransparency = 1,
             Text = "Grimoire filter",
@@ -2256,7 +2285,7 @@ for index, name in ipairs(TabNames) do
         -- BASAE-style dropdown shell with multi-select options.
         local filterDropdown = Create("TextButton", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 284),
+            Position = UDim2.fromOffset(12, 307),
             Size = UDim2.new(1, -24, 0, 28),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "",
@@ -2294,7 +2323,7 @@ for index, name in ipairs(TabNames) do
         local filterDropdownOpen = false
         local filterList = Create("ScrollingFrame", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 317),
+            Position = UDim2.fromOffset(12, 340),
             Size = UDim2.new(1, 0, 0, 96),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
@@ -2447,6 +2476,13 @@ for index, name in ipairs(TabNames) do
                 return environment.http.request
             end
             return nil
+        end
+
+        local function setLastWebhookStatus(message)
+            lastWebhookStatus = tostring(message)
+            if lastSendStatusLabel and lastSendStatusLabel.Parent then
+                lastSendStatusLabel.Text = "Last webhook: " .. lastWebhookStatus
+            end
         end
 
         local function sendGrimoireWebhook(grimoireId, price, restockTimer)
@@ -2606,6 +2642,7 @@ for index, name in ipairs(TabNames) do
 
             checkSendButton.Text = "Checking..."
             checkSendButton.Active = false
+            setLastWebhookStatus("Manual check started")
 
             task.spawn(function()
                 local rows = getGrimoireRows()
@@ -2613,19 +2650,23 @@ for index, name in ipairs(TabNames) do
                 local sentCount = 0
                 local inStockCount = 0
                 local failedCount = 0
+                local foundCount = 0
 
                 if rows then
                     for _, grimoireName in ipairs(selectedNames) do
                         local itemFrame = rows:FindFirstChild(grimoireName)
                         if itemFrame and itemFrame:IsA("Frame") then
+                            foundCount = foundCount + 1
                             local inStock, priceText = getGrimoireStockInfo(itemFrame)
                             if inStock == true then
                                 inStockCount = inStockCount + 1
                                 local success, result = sendGrimoireWebhook(grimoireName, priceText, timerText)
                                 if success then
                                     sentCount = sentCount + 1
+                                    setLastWebhookStatus(grimoireName .. " sent (" .. tostring(result) .. ")")
                                 else
                                     failedCount = failedCount + 1
+                                    setLastWebhookStatus(grimoireName .. " failed: " .. tostring(result))
                                     warn("[MoldyHub] Webhook failed for " .. grimoireName .. ": " .. tostring(result))
                                 end
                                 task.wait(0.25)
@@ -2634,10 +2675,17 @@ for index, name in ipairs(TabNames) do
                     end
                 end
 
-                if sentCount > 0 then
+                if not rows then
+                    checkSendButton.Text = "Rows Not Found"
+                    setLastWebhookStatus("Failed: Grimoire Rows not found")
+                elseif foundCount == 0 then
+                    checkSendButton.Text = "No Rows Found"
+                    setLastWebhookStatus("Failed: selected Grimoire rows not found")
+                elseif sentCount > 0 then
                     checkSendButton.Text = "Sent " .. tostring(sentCount) .. "/" .. tostring(inStockCount)
                 elseif inStockCount == 0 then
                     checkSendButton.Text = "None In Stock"
+                    setLastWebhookStatus("No selected Grimoires are in stock")
                 else
                     checkSendButton.Text = "Send Failed"
                 end
@@ -2677,21 +2725,58 @@ for index, name in ipairs(TabNames) do
                 local restockTimer = getRestockTimerText()
                 local timerIsZero = isRestockTimerZero(restockTimer)
 
-                -- Arm notifications only after observing a real countdown above zero.
-                -- While the timer is at zero, each selected in-stock Grimoire is notified once.
+                if timerStatusLabel and timerStatusLabel.Parent then
+                    timerStatusLabel.Text = "Restock timer: " .. tostring(restockTimer)
+                end
+
                 if timerIsZero == false then
                     restockCycleArmed = true
                     table.clear(notifiedThisRestock)
-                elseif timerIsZero == true and restockCycleArmed and grimoireRows then
+                    table.clear(lastWebhookAttemptAt)
+                    if triggerStatusLabel and triggerStatusLabel.Parent then
+                        triggerStatusLabel.Text = grimoireNotifierEnabled
+                            and "Auto trigger: Countdown detected; waiting for 0"
+                            or "Auto trigger: Notifier OFF; countdown detected"
+                    end
+                elseif timerIsZero == nil then
+                    if triggerStatusLabel and triggerStatusLabel.Parent then
+                        triggerStatusLabel.Text = "Auto trigger: Timer label not found or unreadable"
+                    end
+                elseif timerIsZero == true and not restockCycleArmed then
+                    if triggerStatusLabel and triggerStatusLabel.Parent then
+                        triggerStatusLabel.Text = "Auto trigger: Waiting to observe a countdown above 0"
+                    end
+                elseif timerIsZero == true and restockCycleArmed and not grimoireRows then
+                    if triggerStatusLabel and triggerStatusLabel.Parent then
+                        triggerStatusLabel.Text = "Auto trigger: Timer is 0, but Grimoire Rows are missing"
+                    end
+                elseif timerIsZero == true and restockCycleArmed then
+                    if triggerStatusLabel and triggerStatusLabel.Parent then
+                        triggerStatusLabel.Text = grimoireNotifierEnabled
+                            and "Auto trigger: Timer is 0; checking selected stock"
+                            or "Auto trigger: Timer is 0; notifier is OFF"
+                    end
                     if grimoireNotifierEnabled then
                         for _, itemFrame in ipairs(grimoireRows:GetChildren()) do
                             if itemFrame:IsA("Frame") and itemFrame.Name ~= "ShopItem" then
                                 local id = itemFrame.Name
-                                if grimoireFilter[id] == true and not notifiedThisRestock[id] then
+                                local lastAttempt = lastWebhookAttemptAt[id] or 0
+                                if grimoireFilter[id] == true
+                                    and not notifiedThisRestock[id]
+                                    and os.clock() - lastAttempt >= 10 then
                                     local inStock, priceText = getGrimoireStockInfo(itemFrame)
                                     if inStock == true then
-                                        notifiedThisRestock[id] = true
-                                        task.spawn(sendGrimoireWebhook, id, priceText, restockTimer)
+                                        lastWebhookAttemptAt[id] = os.clock()
+                                        task.spawn(function()
+                                            local success, result = sendGrimoireWebhook(id, priceText, restockTimer)
+                                            if success then
+                                                notifiedThisRestock[id] = true
+                                                setLastWebhookStatus(id .. " auto-sent (" .. tostring(result) .. ")")
+                                            else
+                                                setLastWebhookStatus(id .. " auto-send failed: " .. tostring(result))
+                                                warn("[MoldyHub] Auto webhook failed for " .. id .. ": " .. tostring(result))
+                                            end
+                                        end)
                                     end
                                 end
                             end
