@@ -11,6 +11,31 @@ local UI_NAME = "CLMoldyHubUI"
 local deployver = "CL ver 2.16-test"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
+local CONFIG_FILE = "MoldyHub_CL_Config.json"
+local savedConfig = {}
+local function loadSavedConfig()
+    if type(environment.readfile) ~= "function" then return end
+    if type(environment.isfile) == "function" and not environment.isfile(CONFIG_FILE) then return end
+    local ok, raw = pcall(environment.readfile, CONFIG_FILE)
+    if not ok or type(raw) ~= "string" or raw == "" then return end
+    local decodedOk, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+    if decodedOk and type(decoded) == "table" then savedConfig = decoded end
+end
+local function saveConfigToFile()
+    if type(environment.writefile) ~= "function" then
+        warn("[MoldyHub] This executor does not support writefile; config was not saved.")
+        return false
+    end
+    local ok, result = pcall(function()
+        environment.writefile(CONFIG_FILE, HttpService:JSONEncode(savedConfig))
+    end)
+    if not ok then
+        warn("[MoldyHub] Failed to save config: " .. tostring(result))
+        return false
+    end
+    return true
+end
+loadSavedConfig()
 local previousCleanup = environment.CLMoldyHubCleanup
 if type(previousCleanup) == "function" then
     pcall(previousCleanup)
@@ -366,11 +391,14 @@ local function CreateToggle(parent, label, y, callback)
         Tween(knob, {Position = enabled and UDim2.new(1, -12, 0, 2) or UDim2.fromOffset(2, 2)})
         if callback then callback(enabled) end
     end
-    row.MouseButton1Click:Connect(function()
-        enabled = not enabled
+    local function setEnabled(value)
+        enabled = value == true
         update()
+    end
+    row.MouseButton1Click:Connect(function()
+        setEnabled(not enabled)
     end)
-    return row
+    return row, setEnabled
 end
 
 local function CreateCheckbox(parent, label, y, callback)
@@ -585,9 +613,9 @@ for index, name in ipairs(TabNames) do
         local orbitEnabled = false
         local orbitTarget = nil
         local orbitSelectedTarget = nil
-        local orbitDistance = 50
-        local orbitHeight = 50
-        local orbitSpeed = 90
+        local orbitDistance = tonumber(savedConfig.orbitDistance) or 50
+        local orbitHeight = tonumber(savedConfig.orbitHeight) or 50
+        local orbitSpeed = tonumber(savedConfig.orbitSpeed) or 90
         local orbitAngle = 0
         local orbitHumanoid = nil
         local orbitOriginalPlatformStand = nil
@@ -970,8 +998,9 @@ for index, name in ipairs(TabNames) do
 
         local card = CreateCard(cardsRow, "Auto farm", 280)
         card.Size = UDim2.new(0.5, -3, 1, 0)
-        CreateToggle(card, "Auto farm", 34, function(enabled)
+        local _, setAutoFarm = CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
+            savedConfig.autoFarm = enabled
             if not enabled then clearEnemyAim() end
             startTargetClickLoop(enabled)
             updateM1Loop()
@@ -979,26 +1008,38 @@ for index, name in ipairs(TabNames) do
                 startSkillLoop(slot, enabled and skillEnabled[slot] == true)
             end
         end)
-        CreateCheckbox(card, "Use M1", 62, function(checked)
+        local _, setUseM1 = CreateCheckbox(card, "Use M1", 62, function(checked)
             useM1Enabled = checked
+            savedConfig.useM1 = checked
             updateM1Loop()
         end)
-        CreateCheckbox(card, "Use C", 80, function(checked)
+        local _, setUseC = CreateCheckbox(card, "Use C", 80, function(checked)
             skillEnabled.C = checked
-            startSkillLoop("C", checked)
+            savedConfig.skillC = checked
+            startSkillLoop("C", checked and autoFarmEnabled)
         end)
-        CreateCheckbox(card, "Use X", 98, function(checked)
+        local _, setUseX = CreateCheckbox(card, "Use X", 98, function(checked)
             skillEnabled.X = checked
-            startSkillLoop("X", checked)
+            savedConfig.skillX = checked
+            startSkillLoop("X", checked and autoFarmEnabled)
         end)
-        CreateCheckbox(card, "Use Z", 116, function(checked)
+        local _, setUseZ = CreateCheckbox(card, "Use Z", 116, function(checked)
             skillEnabled.Z = checked
-            startSkillLoop("Z", checked)
+            savedConfig.skillZ = checked
+            startSkillLoop("Z", checked and autoFarmEnabled)
         end)
-        CreateCheckbox(card, "Use V", 134, function(checked)
+        local _, setUseV = CreateCheckbox(card, "Use V", 134, function(checked)
             skillEnabled.V = checked
-            startSkillLoop("V", checked)
+            savedConfig.skillV = checked
+            startSkillLoop("V", checked and autoFarmEnabled)
         end)
+
+        setUseM1(savedConfig.useM1 == true)
+        setUseC(savedConfig.skillC == true)
+        setUseX(savedConfig.skillX == true)
+        setUseZ(savedConfig.skillZ == true)
+        setUseV(savedConfig.skillV == true)
+        setAutoFarm(savedConfig.autoFarm == true)
 
         -- Orbit movement circles the currently selected enemy target.
         local function setOrbitEnabled(enabled)
@@ -1036,9 +1077,11 @@ for index, name in ipairs(TabNames) do
 
         local orbitCard = CreateCard(cardsRow, "Enemy Orbit", 280)
         orbitCard.Size = UDim2.new(0.5, -3, 1, 0)
-        CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
+        local _, setOrbitCheckbox = CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
+            savedConfig.orbitEnabled = checked
             setOrbitEnabled(checked)
         end)
+        setOrbitCheckbox(savedConfig.orbitEnabled == true)
 
         Create("TextLabel", {
             Parent = orbitCard,
@@ -1207,17 +1250,55 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
-        createOrbitInput("Distance (studs)", 178, 50, 3, 100, function(value)
+        createOrbitInput("Distance (studs)", 178, orbitDistance, 3, 100, function(value)
             orbitDistance = value
+            savedConfig.orbitDistance = value
         end)
-        createOrbitInput("Flying height (studs)", 202, 50, 0, 100, function(value)
+        createOrbitInput("Flying height (studs)", 202, orbitHeight, 0, 100, function(value)
             orbitHeight = value
+            savedConfig.orbitHeight = value
         end)
-        createOrbitInput("Speed (deg/sec)", 226, 90, 10, 360, function(value)
+        createOrbitInput("Speed (deg/sec)", 226, orbitSpeed, 10, 360, function(value)
             orbitSpeed = value
+            savedConfig.orbitSpeed = value
         end)
 
     elseif index == 2 then
+        local settingsCard = CreateCard(left, "Configuration", 104)
+        local saveButton = Create("TextButton", {
+            Parent = settingsCard,
+            Position = UDim2.fromOffset(12, 34),
+            Size = UDim2.new(1, -24, 0, 26),
+            BackgroundColor3 = Theme.Accent,
+            Text = "Save Config",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        Corner(saveButton, 5)
+        local saveStatus = Create("TextLabel", {
+            Parent = settingsCard,
+            Position = UDim2.fromOffset(12, 64),
+            Size = UDim2.new(1, -24, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Config loads automatically on next execution",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        saveButton.MouseButton1Click:Connect(function()
+            if saveConfigToFile() then
+                saveStatus.Text = "Config saved successfully"
+                saveStatus.TextColor3 = Color3.fromRGB(95, 220, 140)
+            else
+                saveStatus.Text = "Save failed - executor file API unavailable"
+                saveStatus.TextColor3 = Color3.fromRGB(240, 110, 110)
+            end
+        end)
+
         local antiAfkConnection
         RegisterCleanup(function()
             if antiAfkConnection then
@@ -1226,7 +1307,8 @@ for index, name in ipairs(TabNames) do
             end
         end)
         local card = CreateCard(left, "Anti AFK", 64)
-        CreateToggle(card, "Anti AFK", 34, function(enabled)
+        local _, setAntiAfk = CreateToggle(card, "Anti AFK", 34, function(enabled)
+            savedConfig.antiAfk = enabled
             if antiAfkConnection then
                 antiAfkConnection:Disconnect()
                 antiAfkConnection = nil
@@ -1242,20 +1324,23 @@ for index, name in ipairs(TabNames) do
                 end)
             end
         end)
+        setAntiAfk(savedConfig.antiAfk == true)
     elseif index == 3 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
         -- Grimoire row frames.
         local grimoireNotifierEnabled = false
-        local webhookUrl = ""
-        local roleId = ""
+        local webhookUrl = type(savedConfig.webhookUrl) == "string" and savedConfig.webhookUrl or ""
+        local roleId = type(savedConfig.roleId) == "string" and savedConfig.roleId or ""
         local grimoireFilter = {}
         local notifiedThisRestock = {}
         local restockCycleArmed = false
 
         local card = CreateCard(left, "Grimoire Notifier", 360)
-        CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
+        local _, setGrimoireNotifier = CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
             grimoireNotifierEnabled = enabled
+            savedConfig.grimoireNotifier = enabled
         end)
+        setGrimoireNotifier(savedConfig.grimoireNotifier == true)
 
         local function createNotifierInput(labelText, placeholder, y)
             Create("TextLabel", {
@@ -1299,11 +1384,14 @@ for index, name in ipairs(TabNames) do
         end
 
         local webhookInput = createNotifierInput("Webhook URL", "Paste Discord webhook URL", 63)
+        webhookInput.Text = webhookUrl
         webhookInput.FocusLost:Connect(function()
             webhookUrl = string.gsub(webhookInput.Text, "^%s*(.-)%s*$", "%1")
+            savedConfig.webhookUrl = webhookUrl
         end)
 
         local roleInput = createNotifierInput("Role ID (optional)", "Enter Discord role ID to mention", 109)
+        roleInput.Text = roleId
         roleInput.FocusLost:Connect(function()
             roleId = string.gsub(roleInput.Text, "^%s*(.-)%s*$", "%1")
             if roleId ~= "" and not string.match(roleId, "^%d+$") then
@@ -1311,6 +1399,7 @@ for index, name in ipairs(TabNames) do
                 roleInput.Text = ""
                 roleInput.PlaceholderText = "Role ID must contain numbers only"
             end
+            savedConfig.roleId = roleId
         end)
 
         Create("TextLabel", {
@@ -1471,7 +1560,8 @@ for index, name in ipairs(TabNames) do
             for name in pairs(grimoireNames) do
                 table.insert(sortedNames, name)
                 if grimoireFilter[name] == nil then
-                    grimoireFilter[name] = false
+                    grimoireFilter[name] = type(savedConfig.grimoireFilter) == "table"
+                        and savedConfig.grimoireFilter[name] == true or false
                 end
             end
             table.sort(sortedNames)
@@ -1523,6 +1613,8 @@ for index, name in ipairs(TabNames) do
                 })
                 row.MouseButton1Click:Connect(function()
                     grimoireFilter[grimoireName] = not grimoireFilter[grimoireName]
+                    savedConfig.grimoireFilter = savedConfig.grimoireFilter or {}
+                    savedConfig.grimoireFilter[grimoireName] = grimoireFilter[grimoireName]
                     local isSelected = grimoireFilter[grimoireName]
                     check.BackgroundColor3 = isSelected and Theme.Accent or Theme.Card
                     mark.Visible = isSelected
