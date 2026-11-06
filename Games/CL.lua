@@ -2079,7 +2079,7 @@ for index, name in ipairs(TabNames) do
         local notifiedThisRestock = {}
         local restockCycleArmed = false
 
-        local card = CreateCard(left, "Grimoire Notifier", 360)
+        local card = CreateCard(left, "Grimoire Notifier", 390)
         local _, setGrimoireNotifier = CreateToggle(card, "Grimoire Notifier", 34, function(enabled)
             grimoireNotifierEnabled = enabled
             savedConfig.grimoireNotifier = enabled
@@ -2168,7 +2168,22 @@ for index, name in ipairs(TabNames) do
 
         Create("TextLabel", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 199),
+            Position = UDim2.fromOffset(12, 186),
+            Size = UDim2.new(1, -24, 0, 30),
+            BackgroundTransparency = 1,
+            Text = "Auto-send trigger: Restock Timer reaches 0 after a countdown. Selected Grimoires that are in stock are sent once per restock.",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            ZIndex = 2
+        })
+
+        Create("TextLabel", {
+            Parent = card,
+            Position = UDim2.fromOffset(12, 224),
             Size = UDim2.new(1, -24, 0, 13),
             BackgroundTransparency = 1,
             Text = "Grimoire filter",
@@ -2182,7 +2197,7 @@ for index, name in ipairs(TabNames) do
         -- BASAE-style dropdown shell with multi-select options.
         local filterDropdown = Create("TextButton", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 216),
+            Position = UDim2.fromOffset(12, 241),
             Size = UDim2.new(1, -24, 0, 28),
             BackgroundColor3 = Theme.SurfaceInput,
             Text = "",
@@ -2220,7 +2235,7 @@ for index, name in ipairs(TabNames) do
         local filterDropdownOpen = false
         local filterList = Create("ScrollingFrame", {
             Parent = card,
-            Position = UDim2.fromOffset(12, 249),
+            Position = UDim2.fromOffset(12, 274),
             Size = UDim2.new(1, 0, 0, 96),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
