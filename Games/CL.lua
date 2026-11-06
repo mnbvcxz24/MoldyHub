@@ -1001,12 +1001,12 @@ for index, name in ipairs(TabNames) do
         Create("UIListLayout", {
             Parent = cardsRow,
             FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 6),
+            Padding = UDim.new(0, 10),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
 
         local card = CreateCard(cardsRow, "Auto farm", 280)
-        card.Size = UDim2.new(0.5, -3, 0, 0)
+        card.Size = UDim2.new(0.5, -5, 0, 0)
         local _, setAutoFarm = CreateToggle(card, "Auto farm", 34, function(enabled)
             autoFarmEnabled = enabled
             savedConfig.autoFarm = enabled
@@ -1085,7 +1085,7 @@ for index, name in ipairs(TabNames) do
         end
 
         local orbitCard = CreateCard(cardsRow, "Enemy Orbit", 280)
-        orbitCard.Size = UDim2.new(0.5, -3, 0, 0)
+        orbitCard.Size = UDim2.new(0.5, -5, 0, 0)
         local _, setOrbitCheckbox = CreateCheckbox(orbitCard, "Enable Flying Orbit", 34, function(checked)
             savedConfig.orbitEnabled = checked
             setOrbitEnabled(checked)
@@ -1273,7 +1273,21 @@ for index, name in ipairs(TabNames) do
         end)
 
     elseif index == 2 then
-        local settingsCard = CreateCard(left, "Configuration", 104)
+        local settingsRow = Create("Frame", {
+            Parent = left,
+            Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1
+        })
+        Create("UIListLayout", {
+            Parent = settingsRow,
+            FillDirection = Enum.FillDirection.Horizontal,
+            Padding = UDim.new(0, 10),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local settingsCard = CreateCard(settingsRow, "Configuration", 104)
+        settingsCard.Size = UDim2.new(0.5, -5, 0, 0)
         local saveButton = Create("TextButton", {
             Parent = settingsCard,
             Position = UDim2.fromOffset(12, 34),
@@ -1315,7 +1329,8 @@ for index, name in ipairs(TabNames) do
                 antiAfkConnection = nil
             end
         end)
-        local card = CreateCard(left, "Anti AFK", 64)
+        local card = CreateCard(settingsRow, "Anti AFK", 64)
+        card.Size = UDim2.new(0.5, -5, 0, 0)
         local _, setAntiAfk = CreateToggle(card, "Anti AFK", 34, function(enabled)
             savedConfig.antiAfk = enabled
             if antiAfkConnection then
