@@ -1548,7 +1548,7 @@ for index, name in ipairs(TabNames) do
             return nil
         end
 
-        local function sendGrimoireWebhook(grimoireId, price)
+        local function sendGrimoireWebhook(grimoireId, price, restockTimer)
             if webhookUrl == "" then
                 warn("[MoldyHub] Enter a Discord webhook URL before testing the Grimoire notifier.")
                 return
@@ -1575,11 +1575,12 @@ for index, name in ipairs(TabNames) do
                     color = 0x2D87FF,
                     fields = {
                         {name = "Status", value = "IN STOCK", inline = true},
-                        {name = "Price", value = tostring(price or "Unknown"), inline = true}
+                        {name = "Price", value = tostring(price or "Unknown"), inline = true},
+                        {name = "Restock Timer", value = tostring(restockTimer or "Unknown"), inline = true}
                     },
                     footer = {text = "MoldyHub Grimoire Notifier"}
                 }}
-            }
+            }}
 
             local ok, response = pcall(function()
                 return requestFunction({
@@ -1614,34 +1615,40 @@ for index, name in ipairs(TabNames) do
                 return
             end
 
-            task.spawn(sendGrimoireWebhook, selectedGrimoire, "Sample")
+            task.spawn(sendGrimoireWebhook, selectedGrimoire, "Sample", getRestockTimerText())
         end
 
         testWebhookButton.MouseButton1Click:Connect(sendTestWebhook)
 
-        local function handleStockShopState(data)
-            if type(data) ~= "table" or type(data.Items) ~= "table" then return end
-            for _, item in pairs(data.Items) do
-                if type(item) == "table" and item.GrimoireId ~= nil then
-                    local id = tostring(item.GrimoireId)
-                    local inStock = item.InStock == true
-                    local wasInStock = previousStock[id]
-                    previousStock[id] = inStock
-
-                    if grimoireNotifierEnabled and inStock and wasInStock ~= true and grimoireFilter[id] == true then
-                        task.spawn(sendGrimoireWebhook, id, item.Price)
-                    end
-                end
-            end
+        local function getGrimoirePage()
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            local shopUI = playerGui and playerGui:FindFirstChild("ShopUI")
+            local container = shopUI and shopUI:FindFirstChild("Container")
+            local shopPanel = container and container:FindFirstChild("ShopPanel")
+            return shopPanel and shopPanel:FindFirstChild("Page_Grimoire")
         end
 
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        local stockShopState = remotes and remotes:FindFirstChild("StockShopState")
-        if stockShopState and stockShopState:IsA("RemoteEvent") then
-            stockConnection = ConnectManaged(stockShopState.OnClientEvent, handleStockShopState)
-        else
-            warn("[MoldyHub] StockShopState RemoteEvent was not found under ReplicatedStorage.Remotes.")
+        local function getRestockTimerText()
+            local grimoirePage = getGrimoirePage()
+            local restockLabel = grimoirePage and grimoirePage:FindFirstChild("RestockLabel")
+            if restockLabel and restockLabel:IsA("TextLabel") then
+                local timerText = string.gsub(restockLabel.Text or "", "^%s*(.-)%s*$", "%1")
+                if timerText ~= "" then return timerText end
+            end
+            return "Unknown"
+        end
+
+        local function getGrimoireStockInfo(itemFrame)
+            local coinBuy = itemFrame and itemFrame:FindFirstChild("CoinBuy")
+            local costRow = coinBuy and coinBuy:FindFirstChild("CostRow")
+            local label = costRow and costRow:FindFirstChild("Label")
+            if not label or not label:IsA("TextLabel") then return nil end
+
+            local labelText = string.gsub(label.Text or "", "^%s*(.-)%s*$", "%1")
+            if labelText == "" then return nil end
+
+            local inStock = not string.find(string.upper(labelText), "OUT OF STOCK", 1, true)
+            return inStock, labelText
         end
 
         local grimoireRows = getGrimoireRows()
@@ -1664,7 +1671,31 @@ for index, name in ipairs(TabNames) do
                 elseif not grimoireRows then
                     refreshGrimoireFilter()
                 end
-                task.wait(2)
+
+                local restockTimer = getRestockTimerText()
+                if grimoireRows then
+                    for _, itemFrame in ipairs(grimoireRows:GetChildren()) do
+                        if itemFrame:IsA("Frame") and itemFrame.Name ~= "ShopItem" then
+                            local inStock, priceText = getGrimoireStockInfo(itemFrame)
+                            if inStock ~= nil then
+                                local id = itemFrame.Name
+                                local wasInStock = previousStock[id]
+                                previousStock[id] = inStock
+
+                                -- Only notify on an observed OUT OF STOCK -> IN STOCK transition.
+                                -- The initial UI scan seeds the state without sending startup alerts.
+                                if grimoireNotifierEnabled
+                                    and inStock
+                                    and wasInStock == false
+                                    and grimoireFilter[id] == true then
+                                    task.spawn(sendGrimoireWebhook, id, priceText, restockTimer)
+                                end
+                            end
+                        end
+                    end
+                end
+
+                task.wait(1)
             end
             if rowsAddedConnection then rowsAddedConnection:Disconnect() end
             if rowsRemovedConnection then rowsRemovedConnection:Disconnect() end
