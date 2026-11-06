@@ -1579,7 +1579,7 @@ for index, name in ipairs(TabNames) do
                     },
                     footer = {text = "MoldyHub Grimoire Notifier"}
                 }}
-            }}
+            }
 
             local ok, response = pcall(function()
                 return requestFunction({
