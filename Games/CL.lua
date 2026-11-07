@@ -552,6 +552,8 @@ for index, name in ipairs(TabNames) do
     end)
 end
 
+local setLabyrinthAutoAttack, setLabyrinthAutoOrbit
+
 for index, name in ipairs(TabNames) do
     local page, left = CreatePage(index)
     Pages[index] = page
@@ -1099,6 +1101,7 @@ for index, name in ipairs(TabNames) do
                 startSkillLoop(slot, enabled and skillEnabled[slot] == true)
             end
         end)
+        setLabyrinthAutoAttack = setAutoFarm
         local _, setUseM1 = CreateCheckbox(card, "Use M1", 34, function(checked)
             useM1Enabled = checked
             savedConfig.useM1 = checked
@@ -1173,6 +1176,7 @@ for index, name in ipairs(TabNames) do
             savedConfig.orbitEnabled = enabled
             setOrbitEnabled(enabled)
         end)
+        setLabyrinthAutoOrbit = function(enabled) setOrbitEnabled(enabled) end
 
         Create("TextLabel", {
             Parent = orbitCard,
@@ -2842,7 +2846,7 @@ for index, name in ipairs(TabNames) do
 
 
     elseif index == 4 then
-        -- Labyrinth chest automation: visit each chest, wait for its nearby prompt, then mark it opened.
+        -- Labyrinth: mark every chest visited, then engage the boss with Farm toggles.
         local autoOpenChestEnabled = false
         local chestLoopId = 0
         local openedChests = {}
@@ -2875,7 +2879,7 @@ for index, name in ipairs(TabNames) do
         end
         local function markChestOpened(chest, bodyPart)
             openedChests[chest] = true
-            if not bodyPart:FindFirstChild("MoldyHubOpenedMarker") then
+            if bodyPart and not bodyPart:FindFirstChild("MoldyHubOpenedMarker") then
                 local marker = Create("BillboardGui", {
                     Name = "MoldyHubOpenedMarker",
                     Parent = bodyPart,
@@ -2898,24 +2902,51 @@ for index, name in ipairs(TabNames) do
                 Corner(markerText, 6)
             end
         end
+        local function isLoopActive(thisLoop)
+            return autoOpenChestEnabled and chestLoopId == thisLoop and chestCard.Parent ~= nil
+        end
+        local function findAliveBoss(enemies)
+            if not enemies then return nil end
+            for _, enemy in ipairs(enemies:GetChildren()) do
+                if string.find(string.lower(enemy.Name), "boss", 1, true) then
+                    local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+                    local root = enemy:FindFirstChild("HumanoidRootPart")
+                    if root and root:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
+                        return enemy, root
+                    end
+                end
+            end
+            return nil
+        end
+        local function allChestsMarked(chests)
+            if #chests == 0 then return false end
+            for _, chest in ipairs(chests) do
+                if not openedChests[chest] then return false end
+            end
+            return true
+        end
         local _, setAutoOpenChest = CreateToggle(chestCard, "Auto open chest", 34, function(enabled)
             autoOpenChestEnabled = enabled
             chestLoopId = chestLoopId + 1
             local thisLoop = chestLoopId
             if not enabled then
+                -- Always release Farm controls if the sequence is stopped manually.
+                if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
+                if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
                 setChestStatus("Stopped")
                 return
             end
             setChestStatus("Searching for chests", Theme.Accent)
             task.spawn(function()
                 local nextChestIndex = 1
-                while autoOpenChestEnabled and chestLoopId == thisLoop and chestCard.Parent do
+                local bossEngaged = false
+                while isLoopActive(thisLoop) do
                     local chestFolder = workspace:FindFirstChild("WK_DungeonChests")
                     local chests = chestFolder and chestFolder:GetChildren() or {}
                     if #chests == 0 then
                         setChestStatus("Waiting for WK_DungeonChests")
                         task.wait(1)
-                    else
+                    elseif not allChestsMarked(chests) then
                         if nextChestIndex > #chests then nextChestIndex = 1 end
                         local chest = chests[nextChestIndex]
                         nextChestIndex = nextChestIndex + 1
@@ -2930,10 +2961,8 @@ for index, name in ipairs(TabNames) do
                                         bodyPart.Position + Vector3.new(0, 2, 4),
                                         bodyPart.Position
                                     )
-
-                                    -- Allow extra time for replication/arrival before looking for the prompt.
                                     task.wait(math.random(8, 14) / 10)
-                                    if not autoOpenChestEnabled or chestLoopId ~= thisLoop then break end
+                                    if not isLoopActive(thisLoop) then break end
 
                                     if (root.Position - bodyPart.Position).Magnitude <= 12 then
                                         setChestStatus("Waiting for prompt: " .. chest.Name, Theme.Accent)
@@ -2945,11 +2974,9 @@ for index, name in ipairs(TabNames) do
                                                 break
                                             end
                                             task.wait(0.1)
-                                        until os.clock() >= promptDeadline
-                                            or not autoOpenChestEnabled
-                                            or chestLoopId ~= thisLoop
+                                        until os.clock() >= promptDeadline or not isLoopActive(thisLoop)
 
-                                        if not autoOpenChestEnabled or chestLoopId ~= thisLoop then break end
+                                        if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
                                             setChestStatus("Opening " .. chest.Name, Theme.Accent)
                                             local fired = false
@@ -2965,7 +2992,6 @@ for index, name in ipairs(TabNames) do
                                                 end)
                                                 fired = holdOk
                                             end
-
                                             if fired then
                                                 markChestOpened(chest, bodyPart)
                                                 setChestStatus("✓ Opened " .. chest.Name,
@@ -2975,7 +3001,9 @@ for index, name in ipairs(TabNames) do
                                                     Color3.fromRGB(240, 110, 110))
                                             end
                                         else
-                                            setChestStatus("Prompt did not appear: " .. chest.Name,
+                                            -- The chest is considered visited if its prompt never spawned nearby.
+                                            markChestOpened(chest, bodyPart)
+                                            setChestStatus("No prompt appeared; marked " .. chest.Name .. " opened",
                                                 Color3.fromRGB(240, 170, 80))
                                         end
                                     else
@@ -2986,13 +3014,56 @@ for index, name in ipairs(TabNames) do
                                     setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
                                 end
                             else
-                                setChestStatus("Chest Body not found: " .. chest.Name,
-                                    Color3.fromRGB(240, 110, 110))
+                                -- No body means there is no usable destination; mark this chest to avoid a dead loop.
+                                markChestOpened(chest, nil)
+                                setChestStatus("No Body; marked " .. chest.Name .. " visited",
+                                    Color3.fromRGB(240, 170, 80))
                             end
-                            -- Small randomized cooldown prevents immediately chaining prompts while the game catches up.
                             task.wait(math.random(12, 20) / 10)
                         else
                             task.wait(0.15)
+                        end
+                    else
+                        if not bossEngaged then
+                            local enemies = workspace:FindFirstChild("Enemies")
+                            local boss, bossRoot = findAliveBoss(enemies)
+                            if not boss then
+                                setChestStatus("All chests marked; waiting for boss", Theme.Accent)
+                                task.wait(1)
+                            else
+                                local character = LocalPlayer.Character
+                                local root = character and character:FindFirstChild("HumanoidRootPart")
+                                if root then
+                                    setChestStatus("Moving to boss: " .. boss.Name, Theme.Accent)
+                                    root.CFrame = CFrame.new(
+                                        bossRoot.Position + Vector3.new(0, 0, 8),
+                                        bossRoot.Position
+                                    )
+                                    task.wait(math.random(10, 16) / 10)
+                                    if not isLoopActive(thisLoop) then break end
+                                    if setLabyrinthAutoAttack then setLabyrinthAutoAttack(true) end
+                                    if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(true) end
+                                    bossEngaged = true
+                                    setChestStatus("Fighting boss: " .. boss.Name, Theme.Accent)
+                                    while isLoopActive(thisLoop) and boss.Parent == enemies do
+                                        local humanoid = boss:FindFirstChildOfClass("Humanoid")
+                                        if humanoid and humanoid.Health <= 0 then break end
+                                        task.wait(0.5)
+                                    end
+                                    if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
+                                    if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
+                                    if isLoopActive(thisLoop) then
+                                        setChestStatus("Boss defeated or gone; Farm toggles OFF",
+                                            Color3.fromRGB(95, 220, 140))
+                                        break
+                                    end
+                                else
+                                    setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
+                                    task.wait(1)
+                                end
+                            end
+                        else
+                            break
                         end
                     end
                 end
