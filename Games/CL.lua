@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.36"
+local deployver = "CL ver 2.37"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3056,7 +3056,7 @@ for index, name in ipairs(TabNames) do
                                                     setChestStatus("✓ Opened " .. chest.Name,
                                                         Color3.fromRGB(95, 220, 140))
                                                 else
-                                                    setChestStatus("Prompt still enabled after hold and trigger; chest not confirmed: " .. chest.Name,
+                                                    setChestStatus("Prompt still enabled after fireproximityprompt; chest not confirmed: " .. chest.Name,
                                                         Color3.fromRGB(240, 170, 80))
                                                 end
                                             else
