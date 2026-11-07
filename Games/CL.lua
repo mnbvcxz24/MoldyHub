@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.32"
+local deployver = "CL ver 2.33"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3074,9 +3074,10 @@ for index, name in ipairs(TabNames) do
                                                     Color3.fromRGB(240, 110, 110))
                                             end
                                         else
-                                            -- Do not skip a chest just because its prompt did not appear.
-                                            setChestStatus("Prompt not found; retrying " .. chest.Name,
-                                                Color3.fromRGB(240, 170, 80))
+                                            -- No prompt was found within the search window; mark this chest complete.
+                                            markChestOpened(chest, bodyPart)
+                                            setChestStatus("✓ Opened (no prompt): " .. chest.Name,
+                                                Color3.fromRGB(95, 220, 140))
                                         end
                                     else
                                         setChestStatus("Character root missing or teleport settling",
