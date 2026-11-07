@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.39"
+local deployver = "CL ver 2.21"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -670,8 +670,6 @@ for index, name in ipairs(TabNames) do
         local skillTargetAssignments = {}
         local skillLastTargets = {}
         local skillAdvancePending = {}
-        -- Track each slot's cooldown from the moment its key press completes.
-        local skillNextReadyAt = {C = 0, X = 0, Z = 0, V = 0}
         local skillCastBusy = false
         local skillCastBusySince = 0
         local targetClickLoopId = 0
@@ -939,19 +937,6 @@ for index, name in ipairs(TabNames) do
                             break
                         end
 
-                        -- Use a per-skill ready timestamp so restarting a loop cannot
-                        -- bypass cooldown, and do not add an extra post-cooldown delay.
-                        local remainingCooldown = (skillNextReadyAt[slot] or 0) - os.clock()
-                        while remainingCooldown > 0
-                            and thisLoop == skillLoopIds[slot]
-                            and autoFarmEnabled do
-                            task.wait(math.min(remainingCooldown, 0.1))
-                            remainingCooldown = (skillNextReadyAt[slot] or 0) - os.clock()
-                        end
-                        if thisLoop ~= skillLoopIds[slot] or not autoFarmEnabled then
-                            break
-                        end
-
                         local enemyRoot
                         if orbitSelectedTarget then
                             enemyRoot = getFarmTarget(root, enemies)
@@ -993,9 +978,6 @@ for index, name in ipairs(TabNames) do
                                         end)
                                     end
                                     if castOk then
-                                        -- Start this slot's cooldown from the completed key press.
-                                        skillNextReadyAt[slot] = os.clock()
-                                            + math.max(tonumber(skillData.Cooldown) or 1, 0.1)
                                         -- Mark advancement for the next ready cast; reservation stays
                                         -- active throughout this skill's cooldown.
                                         skillAdvancePending[slot] = true
@@ -1004,11 +986,13 @@ for index, name in ipairs(TabNames) do
                                 skillCastBusy = false
                                 skillCastBusySince = 0
                             end
-                        else
-                            -- No eligible target: yield instead of spinning at full CPU.
-                            task.wait(0.1)
                         end
 
+                        task.wait(math.max(tonumber(skillData.Cooldown) or 1, 0.1))
+                        if skillAdvancePending[slot] then
+                            -- Give the skill 2 extra seconds before assigning its next target.
+                            task.wait(2)
+                        end
                     else
                         task.wait(0.5)
                     end
@@ -2866,15 +2850,6 @@ for index, name in ipairs(TabNames) do
         -- Labyrinth: mark every chest visited, then engage the boss with Farm toggles.
         local autoOpenChestEnabled = false
         local chestLoopId = 0
-
-        -- Clear stale chest ESP markers left behind by a previous script run.
-        -- The openedChests table is also recreated below, so every chest is
-        -- eligible for a fresh prompt check after rerunning the script.
-        for _, object in ipairs(workspace:GetDescendants()) do
-            if object.Name == "MoldyHubOpenedMarker" and object:IsA("BillboardGui") then
-                pcall(function() object:Destroy() end)
-            end
-        end
         local openedChests = {}
         local chestStatus = Create("TextLabel", {
             Parent = left,
@@ -2939,37 +2914,31 @@ for index, name in ipairs(TabNames) do
                 if enemy:IsA("Model") then
                     local humanoid = enemy:FindFirstChildOfClass("Humanoid")
                     local root = enemy:FindFirstChild("HumanoidRootPart")
-                    if root and root:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
+                    if root and root:IsA("BasePart") and humanoid and humanoid.Health > 0 then
                         return enemy, root
                     end
                 end
             end
             return nil
         end
-        local anchoredChestRoot
-        local anchoredChestRootOriginalState
-        local function setChestAnchored(enabled, root)
+        local floatVelocity
+        local function setChestFloat(enabled, root)
             if not enabled then
-                if anchoredChestRoot and anchoredChestRoot.Parent then
-                    pcall(function()
-                        anchoredChestRoot.Anchored = anchoredChestRootOriginalState == true
-                    end)
+                if floatVelocity then
+                    pcall(function() floatVelocity:Destroy() end)
+                    floatVelocity = nil
                 end
-                anchoredChestRoot = nil
-                anchoredChestRootOriginalState = nil
                 return
             end
             if not root or not root.Parent then return end
-            if anchoredChestRoot and anchoredChestRoot ~= root and anchoredChestRoot.Parent then
-                pcall(function()
-                    anchoredChestRoot.Anchored = anchoredChestRootOriginalState == true
-                end)
-            end
-            if anchoredChestRoot ~= root then
-                anchoredChestRoot = root
-                anchoredChestRootOriginalState = root.Anchored
-            end
-            pcall(function() root.Anchored = true end)
+            if floatVelocity and floatVelocity.Parent == root then return end
+            if floatVelocity then pcall(function() floatVelocity:Destroy() end) end
+            floatVelocity = Instance.new("BodyVelocity")
+            floatVelocity.Name = "MoldyHubChestFloat"
+            floatVelocity.MaxForce = Vector3.new(0, 1e9, 0)
+            floatVelocity.P = 1e5
+            floatVelocity.Velocity = Vector3.zero
+            floatVelocity.Parent = root
         end
         local function allChestsMarked(chests)
             if #chests == 0 then return false end
@@ -2983,13 +2952,13 @@ for index, name in ipairs(TabNames) do
             chestLoopId = chestLoopId + 1
             local thisLoop = chestLoopId
             if not enabled then
-                setChestAnchored(false)
+                setChestFloat(false)
                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
                 setChestStatus("Stopped")
                 return
             end
-            setChestStatus("Searching for chests", Theme.Accent)
+            setChestStatus("Floating while opening chests", Theme.Accent)
             task.spawn(function()
                 local nextChestIndex = 1
                 local chestFolder
@@ -3000,11 +2969,12 @@ for index, name in ipairs(TabNames) do
                 end
                 while isLoopActive(thisLoop) do
                     local root = getCurrentRoot()
+                    if root then setChestFloat(true, root) end
 
                     chestFolder = workspace:FindFirstChild("WK_DungeonChests")
                     local chests = chestFolder and chestFolder:GetChildren() or {}
                     if #chests == 0 then
-                        setChestStatus("Anchored; waiting for WK_DungeonChests")
+                        setChestStatus("Floating; waiting for WK_DungeonChests")
                         task.wait(1)
                     elseif not allChestsMarked(chests) then
                         if nextChestIndex > #chests then nextChestIndex = 1 end
@@ -3015,19 +2985,19 @@ for index, name in ipairs(TabNames) do
                             if bodyPart then
                                 root = getCurrentRoot()
                                 if root then
-                                    setChestAnchored(true, root)
-                                    setChestStatus("Anchored to " .. chest.Name, Theme.Accent)
+                                    setChestFloat(true, root)
+                                    setChestStatus("Floating to " .. chest.Name, Theme.Accent)
                                     root.CFrame = CFrame.new(
                                         bodyPart.Position + Vector3.new(0, 2, 4),
                                         bodyPart.Position
                                     )
                                     task.wait(math.random(8, 14) / 10)
-                                    setChestAnchored(false)
                                     if not isLoopActive(thisLoop) then break end
                                     root = getCurrentRoot()
+                                    if root then setChestFloat(true, root) end
 
                                     if root and (root.Position - bodyPart.Position).Magnitude <= 12 then
-                                        setChestStatus("Waiting for prompt: " .. chest.Name, Theme.Accent)
+                                        setChestStatus("Floating; waiting for prompt: " .. chest.Name, Theme.Accent)
                                         local prompt
                                         local promptDeadline = os.clock() + 6
                                         repeat
@@ -3040,8 +3010,7 @@ for index, name in ipairs(TabNames) do
 
                                         if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
-                                            setChestStatus("Opening " .. chest.Name, Theme.Accent)
-                                            -- Restore the previously working chest interaction: fire first, hold fallback.
+                                            setChestStatus("Floating; opening " .. chest.Name, Theme.Accent)
                                             local fired = false
                                             if type(environment.fireproximityprompt) == "function" then
                                                 local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
@@ -3050,25 +3019,23 @@ for index, name in ipairs(TabNames) do
                                             if not fired then
                                                 local holdOk = pcall(function()
                                                     prompt:InputHoldBegin()
-                                                    task.wait(math.max(0.1, tonumber(prompt.HoldDuration) or 0))
+                                                    task.wait(math.max(0.1, prompt.HoldDuration))
                                                     prompt:InputHoldEnd()
                                                 end)
                                                 fired = holdOk
                                             end
-
                                             if fired then
                                                 markChestOpened(chest, bodyPart)
-                                                setChestStatus("✓ Opened " .. chest.Name,
+                                                setChestStatus("✓ Opened " .. chest.Name .. " (floating)",
                                                     Color3.fromRGB(95, 220, 140))
                                             else
                                                 setChestStatus("Could not activate " .. chest.Name,
                                                     Color3.fromRGB(240, 110, 110))
                                             end
                                         else
-                                            -- No prompt was found within the search window; mark this chest complete.
                                             markChestOpened(chest, bodyPart)
-                                            setChestStatus("✓ Opened (no prompt): " .. chest.Name,
-                                                Color3.fromRGB(95, 220, 140))
+                                            setChestStatus("No prompt; marked " .. chest.Name .. " opened",
+                                                Color3.fromRGB(240, 170, 80))
                                         end
                                     else
                                         setChestStatus("Character root missing or teleport settling",
@@ -3078,7 +3045,8 @@ for index, name in ipairs(TabNames) do
                                     setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
                                 end
                             else
-                                setChestStatus("Chest Body missing; retrying " .. chest.Name,
+                                markChestOpened(chest, nil)
+                                setChestStatus("No Body; marked " .. chest.Name .. " visited",
                                     Color3.fromRGB(240, 170, 80))
                             end
                             task.wait(math.random(12, 20) / 10)
@@ -3086,14 +3054,15 @@ for index, name in ipairs(TabNames) do
                             task.wait(0.15)
                         end
                     else
-                        -- Chests are complete. Stay anchored until any live enemy appears.
+                        -- Chests are complete. Stay floating until any live enemy appears.
                         enemies = workspace:FindFirstChild("Enemies")
                         local enemy, enemyRoot = findAliveEnemy(enemies)
                         if not enemy then
-                            setChestStatus("All chests marked; waiting for enemy spawn", Theme.Accent)
+                            setChestFloat(true, getCurrentRoot())
+                            setChestStatus("All chests marked; floating and waiting for enemy spawn", Theme.Accent)
                             task.wait(0.5)
                         else
-                            setChestAnchored(false)
+                            setChestFloat(false)
                             root = getCurrentRoot()
                             if root then
                                 setChestStatus("Moving to enemy: " .. enemy.Name, Theme.Accent)
@@ -3110,24 +3079,26 @@ for index, name in ipairs(TabNames) do
                                 setChestStatus("Fighting enemy: " .. enemy.Name, Theme.Accent)
                                 while isLoopActive(thisLoop) and enemy.Parent == enemies do
                                     local humanoid = enemy:FindFirstChildOfClass("Humanoid")
-                                    if humanoid and humanoid.Health <= 0 then break end
+                                    if not humanoid or humanoid.Health <= 0 then break end
                                     task.wait(0.4)
                                 end
                                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
                                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
                                 if isLoopActive(thisLoop) then
-                                    setChestStatus("Enemy defeated or gone; waiting for next spawn",
+                                    setChestFloat(true, getCurrentRoot())
+                                    setChestStatus("Enemy defeated or gone; floating for next spawn",
                                         Color3.fromRGB(95, 220, 140))
                                     task.wait(0.5)
                                 end
                             else
+                                setChestFloat(true, getCurrentRoot())
                                 setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
                                 task.wait(1)
                             end
                         end
                     end
                 end
-                setChestAnchored(false)
+                setChestFloat(false)
                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
             end)
