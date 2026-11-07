@@ -2922,7 +2922,10 @@ for index, name in ipairs(TabNames) do
             return nil
         end
         local floatVelocity
+        local floatLoopId = 0
         local function setChestFloat(enabled, root)
+            floatLoopId = floatLoopId + 1
+            local thisFloatLoop = floatLoopId
             if not enabled then
                 if floatVelocity then
                     pcall(function() floatVelocity:Destroy() end)
@@ -2933,12 +2936,28 @@ for index, name in ipairs(TabNames) do
             if not root or not root.Parent then return end
             if floatVelocity and floatVelocity.Parent == root then return end
             if floatVelocity then pcall(function() floatVelocity:Destroy() end) end
+
+            -- Keep vertical support to prevent falling, but add gentle continuous
+            -- horizontal strafing so the player is not a stationary target.
             floatVelocity = Instance.new("BodyVelocity")
             floatVelocity.Name = "MoldyHubChestFloat"
-            floatVelocity.MaxForce = Vector3.new(0, 1e9, 0)
+            floatVelocity.MaxForce = Vector3.new(1e7, 1e9, 1e7)
             floatVelocity.P = 1e5
-            floatVelocity.Velocity = Vector3.zero
             floatVelocity.Parent = root
+            local startedAt = os.clock()
+            task.spawn(function()
+                while thisFloatLoop == floatLoopId
+                    and floatVelocity and floatVelocity.Parent == root
+                    and root.Parent do
+                    local elapsed = os.clock() - startedAt
+                    floatVelocity.Velocity = Vector3.new(
+                        math.sin(elapsed * 1.8) * 6,
+                        0,
+                        math.cos(elapsed * 1.8) * 6
+                    )
+                    task.wait(0.12)
+                end
+            end)
         end
         local function allChestsMarked(chests)
             if #chests == 0 then return false end
