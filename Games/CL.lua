@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.25"
+local deployver = "CL ver 2.26"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3035,7 +3035,11 @@ for index, name in ipairs(TabNames) do
                                             setChestStatus("Anchored; opening " .. chest.Name, Theme.Accent)
                                             local fired = false
                                             if type(environment.fireproximityprompt) == "function" then
-                                                local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
+                                                local fireOk, fireResult = pcall(
+                                                    environment.fireproximityprompt,
+                                                    prompt,
+                                                    math.max(0, tonumber(prompt.HoldDuration) or 0)
+                                                )
                                                 fired = fireOk and fireResult ~= false
                                             end
                                             if not fired then
@@ -3046,17 +3050,35 @@ for index, name in ipairs(TabNames) do
                                                 end)
                                                 fired = holdOk
                                             end
+
+                                            -- A successful local call is not proof that the game opened
+                                            -- the chest. Wait for the prompt/chest state to confirm it.
+                                            local confirmed = false
                                             if fired then
+                                                local confirmDeadline = os.clock() + 2
+                                                repeat
+                                                    task.wait(0.1)
+                                                    confirmed = not chest.Parent
+                                                        or not prompt.Parent
+                                                        or not prompt.Enabled
+                                                until confirmed or os.clock() >= confirmDeadline
+                                                    or not isLoopActive(thisLoop)
+                                            end
+
+                                            if confirmed then
                                                 markChestOpened(chest, bodyPart)
-                                                setChestStatus("✓ Opened " .. chest.Name .. " (anchored)",
+                                                setChestStatus("✓ Opened " .. chest.Name .. " (confirmed)",
                                                     Color3.fromRGB(95, 220, 140))
                                             else
-                                                setChestStatus("Could not activate " .. chest.Name,
-                                                    Color3.fromRGB(240, 110, 110))
+                                                setChestStatus(
+                                                    fired and ("No chest confirmation; retrying " .. chest.Name)
+                                                        or ("Could not activate " .. chest.Name),
+                                                    Color3.fromRGB(240, 170, 80)
+                                                )
                                             end
                                         else
-                                            markChestOpened(chest, bodyPart)
-                                            setChestStatus("No prompt; marked " .. chest.Name .. " opened",
+                                            -- Do not skip a chest just because its prompt did not appear.
+                                            setChestStatus("Prompt not found; retrying " .. chest.Name,
                                                 Color3.fromRGB(240, 170, 80))
                                         end
                                     else
@@ -3067,8 +3089,7 @@ for index, name in ipairs(TabNames) do
                                     setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
                                 end
                             else
-                                markChestOpened(chest, nil)
-                                setChestStatus("No Body; marked " .. chest.Name .. " visited",
+                                setChestStatus("Chest Body missing; retrying " .. chest.Name,
                                     Color3.fromRGB(240, 170, 80))
                             end
                             task.wait(math.random(12, 20) / 10)
