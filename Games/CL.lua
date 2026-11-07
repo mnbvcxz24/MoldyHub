@@ -1172,11 +1172,12 @@ for index, name in ipairs(TabNames) do
 
         local orbitCard, orbitTitle = CreateCard(orbitColumn, "Orbit enemy", 280)
         orbitCard.Size = UDim2.new(1, 0, 0, 0)
-        CreateCardHeaderToggle(orbitCard, orbitTitle, savedConfig.orbitEnabled == true, function(enabled)
+        local setOrbitHeaderToggle = CreateCardHeaderToggle(orbitCard, orbitTitle, savedConfig.orbitEnabled == true, function(enabled)
             savedConfig.orbitEnabled = enabled
             setOrbitEnabled(enabled)
         end)
-        setLabyrinthAutoOrbit = function(enabled) setOrbitEnabled(enabled) end
+        -- Drive the actual header toggle as well as the orbit logic so its ON state is visible.
+        setLabyrinthAutoOrbit = setOrbitHeaderToggle
 
         Create("TextLabel", {
             Parent = orbitCard,
@@ -2905,18 +2906,39 @@ for index, name in ipairs(TabNames) do
         local function isLoopActive(thisLoop)
             return autoOpenChestEnabled and chestLoopId == thisLoop and chestCard.Parent ~= nil
         end
-        local function findAliveBoss(enemies)
+        -- Any live enemy model in workspace.Enemies can trigger the encounter; do not
+        -- depend on its name containing "Boss".
+        local function findAliveEnemy(enemies)
             if not enemies then return nil end
             for _, enemy in ipairs(enemies:GetChildren()) do
-                if string.find(string.lower(enemy.Name), "boss", 1, true) then
+                if enemy:IsA("Model") then
                     local humanoid = enemy:FindFirstChildOfClass("Humanoid")
                     local root = enemy:FindFirstChild("HumanoidRootPart")
-                    if root and root:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
+                    if root and root:IsA("BasePart") and humanoid and humanoid.Health > 0 then
                         return enemy, root
                     end
                 end
             end
             return nil
+        end
+        local floatVelocity
+        local function setChestFloat(enabled, root)
+            if not enabled then
+                if floatVelocity then
+                    pcall(function() floatVelocity:Destroy() end)
+                    floatVelocity = nil
+                end
+                return
+            end
+            if not root or not root.Parent then return end
+            if floatVelocity and floatVelocity.Parent == root then return end
+            if floatVelocity then pcall(function() floatVelocity:Destroy() end) end
+            floatVelocity = Instance.new("BodyVelocity")
+            floatVelocity.Name = "MoldyHubChestFloat"
+            floatVelocity.MaxForce = Vector3.new(0, 1e9, 0)
+            floatVelocity.P = 1e5
+            floatVelocity.Velocity = Vector3.zero
+            floatVelocity.Parent = root
         end
         local function allChestsMarked(chests)
             if #chests == 0 then return false end
@@ -2930,21 +2952,29 @@ for index, name in ipairs(TabNames) do
             chestLoopId = chestLoopId + 1
             local thisLoop = chestLoopId
             if not enabled then
-                -- Always release Farm controls if the sequence is stopped manually.
+                setChestFloat(false)
                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
                 setChestStatus("Stopped")
                 return
             end
-            setChestStatus("Searching for chests", Theme.Accent)
+            setChestStatus("Floating while opening chests", Theme.Accent)
             task.spawn(function()
                 local nextChestIndex = 1
-                local bossEngaged = false
+                local chestFolder
+                local enemies
+                local function getCurrentRoot()
+                    local character = LocalPlayer.Character
+                    return character and character:FindFirstChild("HumanoidRootPart")
+                end
                 while isLoopActive(thisLoop) do
-                    local chestFolder = workspace:FindFirstChild("WK_DungeonChests")
+                    local root = getCurrentRoot()
+                    if root then setChestFloat(true, root) end
+
+                    chestFolder = workspace:FindFirstChild("WK_DungeonChests")
                     local chests = chestFolder and chestFolder:GetChildren() or {}
                     if #chests == 0 then
-                        setChestStatus("Waiting for WK_DungeonChests")
+                        setChestStatus("Floating; waiting for WK_DungeonChests")
                         task.wait(1)
                     elseif not allChestsMarked(chests) then
                         if nextChestIndex > #chests then nextChestIndex = 1 end
@@ -2953,19 +2983,21 @@ for index, name in ipairs(TabNames) do
                         if chest and not openedChests[chest] then
                             local bodyPart = getChestBody(chest)
                             if bodyPart then
-                                local character = LocalPlayer.Character
-                                local root = character and character:FindFirstChild("HumanoidRootPart")
+                                root = getCurrentRoot()
                                 if root then
-                                    setChestStatus("Teleporting to " .. chest.Name, Theme.Accent)
+                                    setChestFloat(true, root)
+                                    setChestStatus("Floating to " .. chest.Name, Theme.Accent)
                                     root.CFrame = CFrame.new(
                                         bodyPart.Position + Vector3.new(0, 2, 4),
                                         bodyPart.Position
                                     )
                                     task.wait(math.random(8, 14) / 10)
                                     if not isLoopActive(thisLoop) then break end
+                                    root = getCurrentRoot()
+                                    if root then setChestFloat(true, root) end
 
-                                    if (root.Position - bodyPart.Position).Magnitude <= 12 then
-                                        setChestStatus("Waiting for prompt: " .. chest.Name, Theme.Accent)
+                                    if root and (root.Position - bodyPart.Position).Magnitude <= 12 then
+                                        setChestStatus("Floating; waiting for prompt: " .. chest.Name, Theme.Accent)
                                         local prompt
                                         local promptDeadline = os.clock() + 6
                                         repeat
@@ -2978,7 +3010,7 @@ for index, name in ipairs(TabNames) do
 
                                         if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
-                                            setChestStatus("Opening " .. chest.Name, Theme.Accent)
+                                            setChestStatus("Floating; opening " .. chest.Name, Theme.Accent)
                                             local fired = false
                                             if type(environment.fireproximityprompt) == "function" then
                                                 local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
@@ -2994,27 +3026,25 @@ for index, name in ipairs(TabNames) do
                                             end
                                             if fired then
                                                 markChestOpened(chest, bodyPart)
-                                                setChestStatus("✓ Opened " .. chest.Name,
+                                                setChestStatus("✓ Opened " .. chest.Name .. " (floating)",
                                                     Color3.fromRGB(95, 220, 140))
                                             else
                                                 setChestStatus("Could not activate " .. chest.Name,
                                                     Color3.fromRGB(240, 110, 110))
                                             end
                                         else
-                                            -- The chest is considered visited if its prompt never spawned nearby.
                                             markChestOpened(chest, bodyPart)
-                                            setChestStatus("No prompt appeared; marked " .. chest.Name .. " opened",
+                                            setChestStatus("No prompt; marked " .. chest.Name .. " opened",
                                                 Color3.fromRGB(240, 170, 80))
                                         end
                                     else
-                                        setChestStatus("Teleport still settling: " .. chest.Name,
+                                        setChestStatus("Character root missing or teleport settling",
                                             Color3.fromRGB(240, 170, 80))
                                     end
                                 else
                                     setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
                                 end
                             else
-                                -- No body means there is no usable destination; mark this chest to avoid a dead loop.
                                 markChestOpened(chest, nil)
                                 setChestStatus("No Body; marked " .. chest.Name .. " visited",
                                     Color3.fromRGB(240, 170, 80))
@@ -3024,49 +3054,53 @@ for index, name in ipairs(TabNames) do
                             task.wait(0.15)
                         end
                     else
-                        if not bossEngaged then
-                            local enemies = workspace:FindFirstChild("Enemies")
-                            local boss, bossRoot = findAliveBoss(enemies)
-                            if not boss then
-                                setChestStatus("All chests marked; waiting for boss", Theme.Accent)
-                                task.wait(1)
-                            else
-                                local character = LocalPlayer.Character
-                                local root = character and character:FindFirstChild("HumanoidRootPart")
-                                if root then
-                                    setChestStatus("Moving to boss: " .. boss.Name, Theme.Accent)
-                                    root.CFrame = CFrame.new(
-                                        bossRoot.Position + Vector3.new(0, 0, 8),
-                                        bossRoot.Position
-                                    )
-                                    task.wait(math.random(10, 16) / 10)
-                                    if not isLoopActive(thisLoop) then break end
-                                    if setLabyrinthAutoAttack then setLabyrinthAutoAttack(true) end
-                                    if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(true) end
-                                    bossEngaged = true
-                                    setChestStatus("Fighting boss: " .. boss.Name, Theme.Accent)
-                                    while isLoopActive(thisLoop) and boss.Parent == enemies do
-                                        local humanoid = boss:FindFirstChildOfClass("Humanoid")
-                                        if humanoid and humanoid.Health <= 0 then break end
-                                        task.wait(0.5)
-                                    end
-                                    if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
-                                    if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
-                                    if isLoopActive(thisLoop) then
-                                        setChestStatus("Boss defeated or gone; Farm toggles OFF",
-                                            Color3.fromRGB(95, 220, 140))
-                                        break
-                                    end
-                                else
-                                    setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
-                                    task.wait(1)
-                                end
-                            end
+                        -- Chests are complete. Stay floating until any live enemy appears.
+                        enemies = workspace:FindFirstChild("Enemies")
+                        local enemy, enemyRoot = findAliveEnemy(enemies)
+                        if not enemy then
+                            setChestFloat(true, getCurrentRoot())
+                            setChestStatus("All chests marked; floating and waiting for enemy spawn", Theme.Accent)
+                            task.wait(0.5)
                         else
-                            break
+                            setChestFloat(false)
+                            root = getCurrentRoot()
+                            if root then
+                                setChestStatus("Moving to enemy: " .. enemy.Name, Theme.Accent)
+                                root.CFrame = CFrame.new(
+                                    enemyRoot.Position + Vector3.new(0, 0, 8),
+                                    enemyRoot.Position
+                                )
+                                task.wait(math.random(10, 16) / 10)
+                                if not isLoopActive(thisLoop) then break end
+
+                                -- These setters update the Farm toggle visuals and their actual logic.
+                                if setLabyrinthAutoAttack then setLabyrinthAutoAttack(true) end
+                                if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(true) end
+                                setChestStatus("Fighting enemy: " .. enemy.Name, Theme.Accent)
+                                while isLoopActive(thisLoop) and enemy.Parent == enemies do
+                                    local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+                                    if not humanoid or humanoid.Health <= 0 then break end
+                                    task.wait(0.4)
+                                end
+                                if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
+                                if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
+                                if isLoopActive(thisLoop) then
+                                    setChestFloat(true, getCurrentRoot())
+                                    setChestStatus("Enemy defeated or gone; floating for next spawn",
+                                        Color3.fromRGB(95, 220, 140))
+                                    task.wait(0.5)
+                                end
+                            else
+                                setChestFloat(true, getCurrentRoot())
+                                setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
+                                task.wait(1)
+                            end
                         end
                     end
                 end
+                setChestFloat(false)
+                if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
+                if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
             end)
         end)
         setAutoOpenChest(false)
