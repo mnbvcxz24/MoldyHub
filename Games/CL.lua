@@ -2584,28 +2584,45 @@ for index, name in ipairs(TabNames) do
             return "Unknown"
         end
 
-        local function isRestockTimerZero(timerText)
+        local function parseRestockSeconds(timerText)
             if type(timerText) ~= "string" or timerText == "" or timerText == "Unknown" then
                 return nil
             end
 
             local normalized = string.lower(timerText)
-            local hasTimeUnit = string.find(normalized, ":", 1, true)
-                or string.find(normalized, "h", 1, true)
-                or string.find(normalized, "m", 1, true)
-                or string.find(normalized, "s", 1, true)
+            local days = tonumber(string.match(normalized, "(%d+)%s*d")) or 0
+            local hours = tonumber(string.match(normalized, "(%d+)%s*h")) or 0
+            local minutes = tonumber(string.match(normalized, "(%d+)%s*m")) or 0
+            local seconds = tonumber(string.match(normalized, "(%d+)%s*s")) or 0
+            local hasUnits = string.find(normalized, "%d+%s*[dhms]") ~= nil
 
-            local foundNumber = false
-            for numberText in string.gmatch(normalized, "%d+") do
-                foundNumber = true
-                if tonumber(numberText) ~= 0 then
-                    return false
-                end
+            if hasUnits then
+                return days * 86400 + hours * 3600 + minutes * 60 + seconds
             end
 
-            -- Also supports labels such as "Restock in 0" without a unit suffix.
-            if not hasTimeUnit then return foundNumber end
-            return foundNumber
+            local h, m, s = string.match(normalized, "(%d+):(%d+):(%d+)")
+            if h then
+                return tonumber(h) * 3600 + tonumber(m) * 60 + tonumber(s)
+            end
+
+            m, s = string.match(normalized, "(%d+):(%d+)")
+            if m then
+                return tonumber(m) * 60 + tonumber(s)
+            end
+
+            local numberText = string.match(normalized, "(%d+)")
+            if numberText then
+                return tonumber(numberText)
+            end
+            return nil
+        end
+
+        local function formatRestockCountdown(totalSeconds)
+            totalSeconds = math.max(0, math.floor(totalSeconds))
+            local hours = math.floor(totalSeconds / 3600)
+            local minutes = math.floor((totalSeconds % 3600) / 60)
+            local seconds = totalSeconds % 60
+            return string.format("%02d:%02d:%02d", hours, minutes, seconds)
         end
 
         local function getGrimoireStockInfo(itemFrame)
@@ -2712,6 +2729,10 @@ for index, name in ipairs(TabNames) do
         end
         watchGrimoireRows(grimoireRows)
 
+        local restockTargetTimestamp = nil
+        local lastObservedTimerText = nil
+        local restockCycleCompleted = false
+
         task.spawn(function()
             while card.Parent do
                 local currentRows = getGrimoireRows()
@@ -2723,38 +2744,66 @@ for index, name in ipairs(TabNames) do
                 end
 
                 local restockTimer = getRestockTimerText()
-                local timerIsZero = isRestockTimerZero(restockTimer)
+                local parsedSeconds = parseRestockSeconds(restockTimer)
+                local currentTimestamp = os.time()
 
-                if timerStatusLabel and timerStatusLabel.Parent then
-                    timerStatusLabel.Text = "Restock timer: " .. tostring(restockTimer)
+                -- Convert the game's displayed duration into a fixed wall-clock target.
+                -- If the game updates its text every second, keep syncing that target.
+                if parsedSeconds ~= nil and restockTimer ~= lastObservedTimerText then
+                    if parsedSeconds > 0 then
+                        if restockCycleCompleted then
+                            table.clear(notifiedThisRestock)
+                            table.clear(lastWebhookAttemptAt)
+                            restockCycleCompleted = false
+                        end
+                        restockTargetTimestamp = currentTimestamp + parsedSeconds
+                        restockCycleArmed = true
+                    elseif restockCycleArmed then
+                        restockTargetTimestamp = currentTimestamp
+                    end
+                    lastObservedTimerText = restockTimer
                 end
 
-                if timerIsZero == false then
-                    restockCycleArmed = true
-                    table.clear(notifiedThisRestock)
-                    table.clear(lastWebhookAttemptAt)
-                    if triggerStatusLabel and triggerStatusLabel.Parent then
-                        triggerStatusLabel.Text = grimoireNotifierEnabled
-                            and "Auto trigger: Countdown detected; waiting for 0"
-                            or "Auto trigger: Notifier OFF; countdown detected"
+                local secondsUntilRestock = restockTargetTimestamp
+                    and math.max(0, restockTargetTimestamp - currentTimestamp)
+                    or nil
+                local timerReached = secondsUntilRestock ~= nil and secondsUntilRestock <= 0
+                local estimatedSendAt = restockTargetTimestamp
+                    and os.date("%H:%M:%S", restockTargetTimestamp)
+                    or "Waiting"
+
+                if timerStatusLabel and timerStatusLabel.Parent then
+                    if secondsUntilRestock ~= nil then
+                        timerStatusLabel.Text = "Restock: " .. formatRestockCountdown(secondsUntilRestock)
+                            .. " | Send at: " .. estimatedSendAt
+                    else
+                        timerStatusLabel.Text = "Restock timer: " .. tostring(restockTimer)
                     end
-                elseif timerIsZero == nil then
+                end
+
+                if parsedSeconds == nil and restockTargetTimestamp == nil then
                     if triggerStatusLabel and triggerStatusLabel.Parent then
                         triggerStatusLabel.Text = "Auto trigger: Timer label not found or unreadable"
                     end
-                elseif timerIsZero == true and not restockCycleArmed then
+                elseif not restockCycleArmed then
                     if triggerStatusLabel and triggerStatusLabel.Parent then
-                        triggerStatusLabel.Text = "Auto trigger: Waiting to observe a countdown above 0"
+                        triggerStatusLabel.Text = "Auto trigger: Waiting for a countdown above 0"
                     end
-                elseif timerIsZero == true and restockCycleArmed and not grimoireRows then
-                    if triggerStatusLabel and triggerStatusLabel.Parent then
-                        triggerStatusLabel.Text = "Auto trigger: Timer is 0, but Grimoire Rows are missing"
-                    end
-                elseif timerIsZero == true and restockCycleArmed then
+                elseif not timerReached then
                     if triggerStatusLabel and triggerStatusLabel.Parent then
                         triggerStatusLabel.Text = grimoireNotifierEnabled
-                            and "Auto trigger: Timer is 0; checking selected stock"
-                            or "Auto trigger: Timer is 0; notifier is OFF"
+                            and "Auto trigger: Scheduled for " .. estimatedSendAt
+                            or "Auto trigger: Notifier OFF; scheduled for " .. estimatedSendAt
+                    end
+                elseif not grimoireRows then
+                    if triggerStatusLabel and triggerStatusLabel.Parent then
+                        triggerStatusLabel.Text = "Auto trigger: Send time reached, but Grimoire Rows are missing"
+                    end
+                else
+                    if triggerStatusLabel and triggerStatusLabel.Parent then
+                        triggerStatusLabel.Text = grimoireNotifierEnabled
+                            and "Auto trigger: Send time reached; checking selected stock"
+                            or "Auto trigger: Send time reached; notifier is OFF"
                     end
                     if grimoireNotifierEnabled then
                         for _, itemFrame in ipairs(grimoireRows:GetChildren()) do
@@ -2782,6 +2831,7 @@ for index, name in ipairs(TabNames) do
                             end
                         end
                     end
+                    restockCycleCompleted = true
                 end
 
                 task.wait(1)
