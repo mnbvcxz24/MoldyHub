@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.23"
+local deployver = "CL ver 2.24"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -942,8 +942,11 @@ for index, name in ipairs(TabNames) do
                         -- Use a per-skill ready timestamp so restarting a loop cannot
                         -- bypass cooldown, and do not add an extra post-cooldown delay.
                         local remainingCooldown = (skillNextReadyAt[slot] or 0) - os.clock()
-                        if remainingCooldown > 0 then
-                            task.wait(remainingCooldown)
+                        while remainingCooldown > 0
+                            and thisLoop == skillLoopIds[slot]
+                            and autoFarmEnabled do
+                            task.wait(math.min(remainingCooldown, 0.1))
+                            remainingCooldown = (skillNextReadyAt[slot] or 0) - os.clock()
                         end
                         if thisLoop ~= skillLoopIds[slot] or not autoFarmEnabled then
                             break
@@ -1001,6 +1004,9 @@ for index, name in ipairs(TabNames) do
                                 skillCastBusy = false
                                 skillCastBusySince = 0
                             end
+                        else
+                            -- No eligible target: yield instead of spinning at full CPU.
+                            task.wait(0.1)
                         end
 
                     else
