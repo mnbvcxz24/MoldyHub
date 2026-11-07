@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.27"
+local deployver = "CL ver 2.28"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3033,32 +3033,35 @@ for index, name in ipairs(TabNames) do
                                         if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
                                             setChestStatus("Anchored; opening " .. chest.Name, Theme.Accent)
+                                            local firePrompt = environment.fireproximityprompt
                                             local fired = false
-                                            -- The visible, enabled prompt is the trigger: activate it
-                                            -- immediately and hold for its configured duration.
-                                            if type(environment.fireproximityprompt) == "function" then
-                                                local fireOk, fireResult = pcall(
-                                                    environment.fireproximityprompt,
-                                                    prompt,
-                                                    math.max(0, tonumber(prompt.HoldDuration) or 0)
-                                                )
-                                                fired = fireOk and fireResult ~= false
-                                            end
-                                            if not fired then
-                                                fired = pcall(function()
-                                                    prompt:InputHoldBegin()
-                                                    task.wait(math.max(0.1, tonumber(prompt.HoldDuration) or 0))
-                                                    prompt:InputHoldEnd()
-                                                end)
+
+                                            -- fireproximityprompt is the executor-side trigger. Do not
+                                            -- treat InputHoldBegin/End returning without an error as proof
+                                            -- that the prompt was actually sent.
+                                            if type(firePrompt) == "function" then
+                                                local fireOk, fireError = pcall(firePrompt, prompt)
+                                                fired = fireOk
+                                                if not fireOk then
+                                                    setChestStatus("Prompt trigger error: " .. tostring(fireError),
+                                                        Color3.fromRGB(240, 110, 110))
+                                                end
+                                            else
+                                                setChestStatus("Executor missing fireproximityprompt; retrying " .. chest.Name,
+                                                    Color3.fromRGB(240, 170, 80))
                                             end
 
                                             if fired then
-                                                markChestOpened(chest, bodyPart)
-                                                setChestStatus("✓ Prompt activated: " .. chest.Name,
-                                                    Color3.fromRGB(95, 220, 140))
-                                            else
-                                                setChestStatus("Prompt visible but activation failed: " .. chest.Name,
-                                                    Color3.fromRGB(240, 110, 110))
+                                                task.wait(0.35)
+                                                if not prompt.Parent or not prompt.Enabled then
+                                                    markChestOpened(chest, bodyPart)
+                                                    setChestStatus("✓ Chest prompt consumed: " .. chest.Name,
+                                                        Color3.fromRGB(95, 220, 140))
+                                                else
+                                                    -- Keep this chest pending; the next loop retries it.
+                                                    setChestStatus("Prompt call returned but chest is still closed; retrying " .. chest.Name,
+                                                        Color3.fromRGB(240, 170, 80))
+                                                end
                                             end
                                         else
                                             -- Do not skip a chest just because its prompt did not appear.
