@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.21"
+local deployver = "CL ver 2.22"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -2921,40 +2921,41 @@ for index, name in ipairs(TabNames) do
             end
             return nil
         end
-        local floatVelocity
+        local floatPosition
         local floatLoopId = 0
         local function setChestFloat(enabled, root)
             floatLoopId = floatLoopId + 1
             local thisFloatLoop = floatLoopId
             if not enabled then
-                if floatVelocity then
-                    pcall(function() floatVelocity:Destroy() end)
-                    floatVelocity = nil
+                if floatPosition then
+                    pcall(function() floatPosition:Destroy() end)
+                    floatPosition = nil
                 end
                 return
             end
             if not root or not root.Parent then return end
-            if floatVelocity and floatVelocity.Parent == root then return end
-            if floatVelocity then pcall(function() floatVelocity:Destroy() end) end
+            if floatPosition and floatPosition.Parent == root then return end
+            if floatPosition then pcall(function() floatPosition:Destroy() end) end
 
-            -- Keep vertical support to prevent falling, but add gentle continuous
-            -- horizontal strafing so the player is not a stationary target.
-            floatVelocity = Instance.new("BodyVelocity")
-            floatVelocity.Name = "MoldyHubChestFloat"
-            floatVelocity.MaxForce = Vector3.new(1e7, 1e9, 1e7)
-            floatVelocity.P = 1e5
-            floatVelocity.Parent = root
+            -- Hold a stable hover point while gently moving forward, then backward.
+            floatPosition = Instance.new("BodyPosition")
+            floatPosition.Name = "MoldyHubChestFloat"
+            floatPosition.MaxForce = Vector3.new(1e7, 1e9, 1e7)
+            floatPosition.P = 2e4
+            floatPosition.D = 1e3
+            floatPosition.Position = root.Position
+            floatPosition.Parent = root
+
+            local anchorPosition = root.Position
+            local forwardDirection = root.CFrame.LookVector
             local startedAt = os.clock()
             task.spawn(function()
                 while thisFloatLoop == floatLoopId
-                    and floatVelocity and floatVelocity.Parent == root
+                    and floatPosition and floatPosition.Parent == root
                     and root.Parent do
                     local elapsed = os.clock() - startedAt
-                    floatVelocity.Velocity = Vector3.new(
-                        math.sin(elapsed * 1.8) * 6,
-                        0,
-                        math.cos(elapsed * 1.8) * 6
-                    )
+                    local forwardBackOffset = math.sin(elapsed * 1.5) * 3
+                    floatPosition.Position = anchorPosition + forwardDirection * forwardBackOffset
                     task.wait(0.12)
                 end
             end)
