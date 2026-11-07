@@ -296,7 +296,7 @@ local Content = Create("Frame", {
 Corner(Content, 12)
 
 local Pages, NavButtons = {}, {}
-local TabNames = {"Farm", "Settings", "Webhook"}
+local TabNames = {"Farm", "Settings", "Webhook", "Labyrinth"}
 
 local function CreatePage(index)
     local page = Create("ScrollingFrame", {
@@ -2840,6 +2840,102 @@ for index, name in ipairs(TabNames) do
             if rowsRemovedConnection then rowsRemovedConnection:Disconnect() end
         end)
 
+
+    elseif index == 4 then
+        -- Labyrinth chest automation: visit each chest and activate its prompt.
+        local autoOpenChestEnabled = false
+        local chestLoopId = 0
+        local chestStatus = Create("TextLabel", {
+            Parent = left,
+            Size = UDim2.new(1, 0, 0, 18),
+            BackgroundTransparency = 1,
+            Text = "Chest status: Idle",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local chestCard = CreateCard(left, "Auto open chest", 78)
+        local function getChestBody(chest)
+            local body = chest and chest:FindFirstChild("Body")
+            if not body then return nil end
+            if body:IsA("BasePart") then return body end
+            return body:FindFirstChildWhichIsA("BasePart", true)
+        end
+        local function getChestPrompt(chest)
+            local body = chest and chest:FindFirstChild("Body")
+            return body and body:FindFirstChild("ProximityPrompt", true)
+        end
+        local function setChestStatus(message, color)
+            if chestStatus and chestStatus.Parent then
+                chestStatus.Text = "Chest status: " .. tostring(message)
+                chestStatus.TextColor3 = color or Theme.Gray
+            end
+        end
+        local _, setAutoOpenChest = CreateToggle(chestCard, "Auto open chest", 34, function(enabled)
+            autoOpenChestEnabled = enabled
+            chestLoopId = chestLoopId + 1
+            local thisLoop = chestLoopId
+            if not enabled then
+                setChestStatus("Stopped")
+                return
+            end
+            setChestStatus("Searching for chests", Theme.Accent)
+            task.spawn(function()
+                local nextChestIndex = 1
+                while autoOpenChestEnabled and chestLoopId == thisLoop and chestCard.Parent do
+                    local chestFolder = workspace:FindFirstChild("WK_DungeonChests")
+                    local chests = chestFolder and chestFolder:GetChildren() or {}
+                    if #chests == 0 then
+                        setChestStatus("Waiting for WK_DungeonChests")
+                        task.wait(1)
+                    else
+                        if nextChestIndex > #chests then nextChestIndex = 1 end
+                        local chest = chests[nextChestIndex]
+                        nextChestIndex = nextChestIndex + 1
+                        local bodyPart = getChestBody(chest)
+                        local prompt = getChestPrompt(chest)
+                        if chest and bodyPart and prompt and prompt:IsA("ProximityPrompt") then
+                            local character = LocalPlayer.Character
+                            local root = character and character:FindFirstChild("HumanoidRootPart")
+                            if root then
+                                setChestStatus("Teleporting to " .. chest.Name, Theme.Accent)
+                                root.CFrame = CFrame.new(
+                                    bodyPart.Position + Vector3.new(0, 2, 4),
+                                    bodyPart.Position
+                                )
+                                task.wait(0.35)
+                                if (root.Position - bodyPart.Position).Magnitude <= 12 then
+                                    setChestStatus("Opening " .. chest.Name, Theme.Accent)
+                                    local fired = false
+                                    if type(environment.fireproximityprompt) == "function" then
+                                        fired = pcall(environment.fireproximityprompt, prompt)
+                                    end
+                                    if not fired then
+                                        local holdOk = pcall(function()
+                                            prompt:InputHoldBegin()
+                                            task.wait(math.max(0.1, prompt.HoldDuration))
+                                            prompt:InputHoldEnd()
+                                        end)
+                                        fired = holdOk
+                                    end
+                                    setChestStatus(fired and ("Opened " .. chest.Name) or ("Could not activate " .. chest.Name),
+                                        fired and Color3.fromRGB(95, 220, 140) or Color3.fromRGB(240, 110, 110))
+                                else
+                                    setChestStatus("Teleport failed: " .. chest.Name, Color3.fromRGB(240, 110, 110))
+                                end
+                            else
+                                setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
+                            end
+                        else
+                            setChestStatus("Skipping chest without Body prompt: " .. tostring(chest and chest.Name or "Unknown"))
+                        end
+                        task.wait(1)
+                    end
+                end
+            end)
+        end)
+        setAutoOpenChest(false)
     end
 end
 
