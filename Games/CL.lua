@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.31"
+local deployver = "CL ver 2.32"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3042,20 +3042,19 @@ for index, name in ipairs(TabNames) do
                                         if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
                                             setChestStatus("Anchored; opening " .. chest.Name, Theme.Accent)
-                                            -- Restore the original pre-sway prompt interaction:
-                                            -- fire the prompt, then use the normal hold-input fallback.
+                                            -- Respect the prompt's actual hold duration (dungeon chests use 1.6s).
+                                            -- A missing prompt is never treated as an opened chest; it stays eligible for retry.
                                             local fired = false
-                                            if type(environment.fireproximityprompt) == "function" then
+                                            local holdDuration = math.max(0.1, tonumber(prompt.HoldDuration) or 0)
+                                            local holdOk = pcall(function()
+                                                prompt:InputHoldBegin()
+                                                task.wait(holdDuration + 0.1)
+                                                prompt:InputHoldEnd()
+                                            end)
+                                            fired = holdOk
+                                            if not fired and type(environment.fireproximityprompt) == "function" then
                                                 local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
                                                 fired = fireOk and fireResult ~= false
-                                            end
-                                            if not fired then
-                                                local holdOk = pcall(function()
-                                                    prompt:InputHoldBegin()
-                                                    task.wait(math.max(0.1, tonumber(prompt.HoldDuration) or 0))
-                                                    prompt:InputHoldEnd()
-                                                end)
-                                                fired = holdOk
                                             end
 
                                             if fired then
