@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.38"
+local deployver = "CL ver 2.39"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -2989,7 +2989,7 @@ for index, name in ipairs(TabNames) do
                 setChestStatus("Stopped")
                 return
             end
-            setChestStatus("Anchored while opening chests", Theme.Accent)
+            setChestStatus("Searching for chests", Theme.Accent)
             task.spawn(function()
                 local nextChestIndex = 1
                 local chestFolder
@@ -3027,7 +3027,7 @@ for index, name in ipairs(TabNames) do
                                     root = getCurrentRoot()
 
                                     if root and (root.Position - bodyPart.Position).Magnitude <= 12 then
-                                        setChestStatus("Anchored; waiting for prompt: " .. chest.Name, Theme.Accent)
+                                        setChestStatus("Waiting for prompt: " .. chest.Name, Theme.Accent)
                                         local prompt
                                         local promptDeadline = os.clock() + 6
                                         repeat
@@ -3040,7 +3040,7 @@ for index, name in ipairs(TabNames) do
 
                                         if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
-                                            setChestStatus("Anchored; opening " .. chest.Name, Theme.Accent)
+                                            setChestStatus("Opening " .. chest.Name, Theme.Accent)
                                             -- Restore the previously working chest interaction: fire first, hold fallback.
                                             local fired = false
                                             if type(environment.fireproximityprompt) == "function" then
@@ -3121,7 +3121,6 @@ for index, name in ipairs(TabNames) do
                                     task.wait(0.5)
                                 end
                             else
-                                setChestAnchored(true, getCurrentRoot())
                                 setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
                                 task.wait(1)
                             end
