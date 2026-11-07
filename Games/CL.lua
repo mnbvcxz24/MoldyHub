@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.35"
+local deployver = "CL ver 2.36"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3042,28 +3042,13 @@ for index, name in ipairs(TabNames) do
                                         if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
                                             setChestStatus("Anchored; opening " .. chest.Name, Theme.Accent)
-                                            -- Respect the prompt's actual hold duration (dungeon chests use 1.6s).
-                                            -- A missing prompt is never treated as an opened chest; it stays eligible for retry.
+                                            -- Use the executor's prompt trigger directly instead of manual hold input.
                                             local fired = false
-                                            local holdDuration = math.max(2, tonumber(prompt.HoldDuration) or 0)
-                                            local holdOk = pcall(function()
-                                                prompt:InputHoldBegin()
-                                                task.wait(holdDuration + 0.1)
-                                                prompt:InputHoldEnd()
-                                            end)
-                                            fired = holdOk
-                                            task.wait(0.35)
-
-                                            -- If the hold completed but the prompt is still active, try the
-                                            -- executor prompt trigger as a second interaction method.
-                                            if prompt.Parent and prompt.Enabled
-                                                and type(environment.fireproximityprompt) == "function" then
+                                            if type(environment.fireproximityprompt) == "function" then
                                                 local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
-                                                if fireOk and fireResult ~= false then
-                                                    fired = true
-                                                    task.wait(0.5)
-                                                end
+                                                fired = fireOk and fireResult ~= false
                                             end
+                                            if fired then task.wait(0.5) end
 
                                             if fired then
                                                 if not chest.Parent or not prompt.Parent or not prompt.Enabled then
