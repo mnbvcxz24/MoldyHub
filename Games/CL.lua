@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.34"
+local deployver = "CL ver 2.35"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3052,21 +3052,26 @@ for index, name in ipairs(TabNames) do
                                                 prompt:InputHoldEnd()
                                             end)
                                             fired = holdOk
-                                            if not fired and type(environment.fireproximityprompt) == "function" then
+                                            task.wait(0.35)
+
+                                            -- If the hold completed but the prompt is still active, try the
+                                            -- executor prompt trigger as a second interaction method.
+                                            if prompt.Parent and prompt.Enabled
+                                                and type(environment.fireproximityprompt) == "function" then
                                                 local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
-                                                fired = fireOk and fireResult ~= false
+                                                if fireOk and fireResult ~= false then
+                                                    fired = true
+                                                    task.wait(0.5)
+                                                end
                                             end
 
                                             if fired then
-                                                task.wait(0.35)
                                                 if not chest.Parent or not prompt.Parent or not prompt.Enabled then
                                                     markChestOpened(chest, bodyPart)
                                                     setChestStatus("✓ Opened " .. chest.Name,
                                                         Color3.fromRGB(95, 220, 140))
                                                 else
-                                                    -- An enabled prompt alone does not mean activation failed.
-                                                    -- Leave it unmarked and let the normal chest cycle revisit it.
-                                                    setChestStatus("Prompt sent; chest not yet confirmed: " .. chest.Name,
+                                                    setChestStatus("Prompt still enabled after hold and trigger; chest not confirmed: " .. chest.Name,
                                                         Color3.fromRGB(240, 170, 80))
                                                 end
                                             else
