@@ -3060,13 +3060,14 @@ for index, name in ipairs(TabNames) do
 
                                             if fired then
                                                 task.wait(0.35)
-                                                if not prompt.Parent or not prompt.Enabled then
+                                                if not chest.Parent or not prompt.Parent or not prompt.Enabled then
                                                     markChestOpened(chest, bodyPart)
                                                     setChestStatus("✓ Opened " .. chest.Name,
                                                         Color3.fromRGB(95, 220, 140))
                                                 else
-                                                    -- Do not mark it; leave it eligible for another attempt.
-                                                    setChestStatus("Prompt still active; retrying " .. chest.Name,
+                                                    -- An enabled prompt alone does not mean activation failed.
+                                                    -- Leave it unmarked and let the normal chest cycle revisit it.
+                                                    setChestStatus("Prompt sent; chest not yet confirmed: " .. chest.Name,
                                                         Color3.fromRGB(240, 170, 80))
                                                 end
                                             else
