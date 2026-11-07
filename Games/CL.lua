@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.37"
+local deployver = "CL ver 2.38"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3000,7 +3000,6 @@ for index, name in ipairs(TabNames) do
                 end
                 while isLoopActive(thisLoop) do
                     local root = getCurrentRoot()
-                    if root then setChestAnchored(true, root) end
 
                     chestFolder = workspace:FindFirstChild("WK_DungeonChests")
                     local chests = chestFolder and chestFolder:GetChildren() or {}
@@ -3023,9 +3022,9 @@ for index, name in ipairs(TabNames) do
                                         bodyPart.Position
                                     )
                                     task.wait(math.random(8, 14) / 10)
+                                    setChestAnchored(false)
                                     if not isLoopActive(thisLoop) then break end
                                     root = getCurrentRoot()
-                                    if root then setChestAnchored(true, root) end
 
                                     if root and (root.Position - bodyPart.Position).Magnitude <= 12 then
                                         setChestStatus("Anchored; waiting for prompt: " .. chest.Name, Theme.Accent)
@@ -3042,23 +3041,25 @@ for index, name in ipairs(TabNames) do
                                         if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
                                             setChestStatus("Anchored; opening " .. chest.Name, Theme.Accent)
-                                            -- Use the executor's prompt trigger directly instead of manual hold input.
+                                            -- Restore the previously working chest interaction: fire first, hold fallback.
                                             local fired = false
                                             if type(environment.fireproximityprompt) == "function" then
                                                 local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
                                                 fired = fireOk and fireResult ~= false
                                             end
-                                            if fired then task.wait(0.5) end
+                                            if not fired then
+                                                local holdOk = pcall(function()
+                                                    prompt:InputHoldBegin()
+                                                    task.wait(math.max(0.1, tonumber(prompt.HoldDuration) or 0))
+                                                    prompt:InputHoldEnd()
+                                                end)
+                                                fired = holdOk
+                                            end
 
                                             if fired then
-                                                if not chest.Parent or not prompt.Parent or not prompt.Enabled then
-                                                    markChestOpened(chest, bodyPart)
-                                                    setChestStatus("✓ Opened " .. chest.Name,
-                                                        Color3.fromRGB(95, 220, 140))
-                                                else
-                                                    setChestStatus("Prompt still enabled after fireproximityprompt; chest not confirmed: " .. chest.Name,
-                                                        Color3.fromRGB(240, 170, 80))
-                                                end
+                                                markChestOpened(chest, bodyPart)
+                                                setChestStatus("✓ Opened " .. chest.Name,
+                                                    Color3.fromRGB(95, 220, 140))
                                             else
                                                 setChestStatus("Could not activate " .. chest.Name,
                                                     Color3.fromRGB(240, 110, 110))
@@ -3089,8 +3090,7 @@ for index, name in ipairs(TabNames) do
                         enemies = workspace:FindFirstChild("Enemies")
                         local enemy, enemyRoot = findAliveEnemy(enemies)
                         if not enemy then
-                            setChestAnchored(true, getCurrentRoot())
-                            setChestStatus("All chests marked; anchored and waiting for enemy spawn", Theme.Accent)
+                            setChestStatus("All chests marked; waiting for enemy spawn", Theme.Accent)
                             task.wait(0.5)
                         else
                             setChestAnchored(false)
@@ -3116,8 +3116,7 @@ for index, name in ipairs(TabNames) do
                                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
                                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
                                 if isLoopActive(thisLoop) then
-                                    setChestAnchored(true, getCurrentRoot())
-                                    setChestStatus("Enemy defeated or gone; anchored for next spawn",
+                                    setChestStatus("Enemy defeated or gone; waiting for next spawn",
                                         Color3.fromRGB(95, 220, 140))
                                     task.wait(0.5)
                                 end
