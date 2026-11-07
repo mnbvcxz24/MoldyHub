@@ -2842,9 +2842,10 @@ for index, name in ipairs(TabNames) do
 
 
     elseif index == 4 then
-        -- Labyrinth chest automation: visit each chest and activate its prompt.
+        -- Labyrinth chest automation: visit each chest, wait for its nearby prompt, then mark it opened.
         local autoOpenChestEnabled = false
         local chestLoopId = 0
+        local openedChests = {}
         local chestStatus = Create("TextLabel", {
             Parent = left,
             Size = UDim2.new(1, 0, 0, 18),
@@ -2872,6 +2873,31 @@ for index, name in ipairs(TabNames) do
                 chestStatus.TextColor3 = color or Theme.Gray
             end
         end
+        local function markChestOpened(chest, bodyPart)
+            openedChests[chest] = true
+            if not bodyPart:FindFirstChild("MoldyHubOpenedMarker") then
+                local marker = Create("BillboardGui", {
+                    Name = "MoldyHubOpenedMarker",
+                    Parent = bodyPart,
+                    Adornee = bodyPart,
+                    Size = UDim2.fromOffset(100, 24),
+                    StudsOffset = Vector3.new(0, 3, 0),
+                    AlwaysOnTop = true
+                })
+                local markerText = Create("TextLabel", {
+                    Parent = marker,
+                    Size = UDim2.fromScale(1, 1),
+                    BackgroundColor3 = Color3.fromRGB(24, 110, 65),
+                    BackgroundTransparency = 0.12,
+                    Text = "✓ OPENED",
+                    TextColor3 = Color3.fromRGB(255, 255, 255),
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 11,
+                    BorderSizePixel = 0
+                })
+                Corner(markerText, 6)
+            end
+        end
         local _, setAutoOpenChest = CreateToggle(chestCard, "Auto open chest", 34, function(enabled)
             autoOpenChestEnabled = enabled
             chestLoopId = chestLoopId + 1
@@ -2893,44 +2919,81 @@ for index, name in ipairs(TabNames) do
                         if nextChestIndex > #chests then nextChestIndex = 1 end
                         local chest = chests[nextChestIndex]
                         nextChestIndex = nextChestIndex + 1
-                        local bodyPart = getChestBody(chest)
-                        local prompt = getChestPrompt(chest)
-                        if chest and bodyPart and prompt and prompt:IsA("ProximityPrompt") then
-                            local character = LocalPlayer.Character
-                            local root = character and character:FindFirstChild("HumanoidRootPart")
-                            if root then
-                                setChestStatus("Teleporting to " .. chest.Name, Theme.Accent)
-                                root.CFrame = CFrame.new(
-                                    bodyPart.Position + Vector3.new(0, 2, 4),
-                                    bodyPart.Position
-                                )
-                                task.wait(0.35)
-                                if (root.Position - bodyPart.Position).Magnitude <= 12 then
-                                    setChestStatus("Opening " .. chest.Name, Theme.Accent)
-                                    local fired = false
-                                    if type(environment.fireproximityprompt) == "function" then
-                                        fired = pcall(environment.fireproximityprompt, prompt)
+                        if chest and not openedChests[chest] then
+                            local bodyPart = getChestBody(chest)
+                            if bodyPart then
+                                local character = LocalPlayer.Character
+                                local root = character and character:FindFirstChild("HumanoidRootPart")
+                                if root then
+                                    setChestStatus("Teleporting to " .. chest.Name, Theme.Accent)
+                                    root.CFrame = CFrame.new(
+                                        bodyPart.Position + Vector3.new(0, 2, 4),
+                                        bodyPart.Position
+                                    )
+
+                                    -- Allow extra time for replication/arrival before looking for the prompt.
+                                    task.wait(math.random(8, 14) / 10)
+                                    if not autoOpenChestEnabled or chestLoopId ~= thisLoop then break end
+
+                                    if (root.Position - bodyPart.Position).Magnitude <= 12 then
+                                        setChestStatus("Waiting for prompt: " .. chest.Name, Theme.Accent)
+                                        local prompt
+                                        local promptDeadline = os.clock() + 6
+                                        repeat
+                                            prompt = getChestPrompt(chest)
+                                            if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled then
+                                                break
+                                            end
+                                            task.wait(0.1)
+                                        until os.clock() >= promptDeadline
+                                            or not autoOpenChestEnabled
+                                            or chestLoopId ~= thisLoop
+
+                                        if not autoOpenChestEnabled or chestLoopId ~= thisLoop then break end
+                                        if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
+                                            setChestStatus("Opening " .. chest.Name, Theme.Accent)
+                                            local fired = false
+                                            if type(environment.fireproximityprompt) == "function" then
+                                                local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
+                                                fired = fireOk and fireResult ~= false
+                                            end
+                                            if not fired then
+                                                local holdOk = pcall(function()
+                                                    prompt:InputHoldBegin()
+                                                    task.wait(math.max(0.1, prompt.HoldDuration))
+                                                    prompt:InputHoldEnd()
+                                                end)
+                                                fired = holdOk
+                                            end
+
+                                            if fired then
+                                                markChestOpened(chest, bodyPart)
+                                                setChestStatus("✓ Opened " .. chest.Name,
+                                                    Color3.fromRGB(95, 220, 140))
+                                            else
+                                                setChestStatus("Could not activate " .. chest.Name,
+                                                    Color3.fromRGB(240, 110, 110))
+                                            end
+                                        else
+                                            setChestStatus("Prompt did not appear: " .. chest.Name,
+                                                Color3.fromRGB(240, 170, 80))
+                                        end
+                                    else
+                                        setChestStatus("Teleport still settling: " .. chest.Name,
+                                            Color3.fromRGB(240, 170, 80))
                                     end
-                                    if not fired then
-                                        local holdOk = pcall(function()
-                                            prompt:InputHoldBegin()
-                                            task.wait(math.max(0.1, prompt.HoldDuration))
-                                            prompt:InputHoldEnd()
-                                        end)
-                                        fired = holdOk
-                                    end
-                                    setChestStatus(fired and ("Opened " .. chest.Name) or ("Could not activate " .. chest.Name),
-                                        fired and Color3.fromRGB(95, 220, 140) or Color3.fromRGB(240, 110, 110))
                                 else
-                                    setChestStatus("Teleport failed: " .. chest.Name, Color3.fromRGB(240, 110, 110))
+                                    setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
                                 end
                             else
-                                setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
+                                setChestStatus("Chest Body not found: " .. chest.Name,
+                                    Color3.fromRGB(240, 110, 110))
                             end
+                            -- Small randomized cooldown prevents immediately chaining prompts while the game catches up.
+                            task.wait(math.random(12, 20) / 10)
                         else
-                            setChestStatus("Skipping chest without Body prompt: " .. tostring(chest and chest.Name or "Unknown"))
+                            task.wait(0.15)
                         end
-                        task.wait(1)
                     end
                 end
             end)
