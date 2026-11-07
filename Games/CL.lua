@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.33"
+local deployver = "CL ver 2.34"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -3045,7 +3045,7 @@ for index, name in ipairs(TabNames) do
                                             -- Respect the prompt's actual hold duration (dungeon chests use 1.6s).
                                             -- A missing prompt is never treated as an opened chest; it stays eligible for retry.
                                             local fired = false
-                                            local holdDuration = math.max(0.1, tonumber(prompt.HoldDuration) or 0)
+                                            local holdDuration = math.max(2, tonumber(prompt.HoldDuration) or 0)
                                             local holdOk = pcall(function()
                                                 prompt:InputHoldBegin()
                                                 task.wait(holdDuration + 0.1)
