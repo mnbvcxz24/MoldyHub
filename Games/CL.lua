@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.22"
+local deployver = "CL ver 2.23"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -670,6 +670,8 @@ for index, name in ipairs(TabNames) do
         local skillTargetAssignments = {}
         local skillLastTargets = {}
         local skillAdvancePending = {}
+        -- Track each slot's cooldown from the moment its key press completes.
+        local skillNextReadyAt = {C = 0, X = 0, Z = 0, V = 0}
         local skillCastBusy = false
         local skillCastBusySince = 0
         local targetClickLoopId = 0
@@ -937,6 +939,16 @@ for index, name in ipairs(TabNames) do
                             break
                         end
 
+                        -- Use a per-skill ready timestamp so restarting a loop cannot
+                        -- bypass cooldown, and do not add an extra post-cooldown delay.
+                        local remainingCooldown = (skillNextReadyAt[slot] or 0) - os.clock()
+                        if remainingCooldown > 0 then
+                            task.wait(remainingCooldown)
+                        end
+                        if thisLoop ~= skillLoopIds[slot] or not autoFarmEnabled then
+                            break
+                        end
+
                         local enemyRoot
                         if orbitSelectedTarget then
                             enemyRoot = getFarmTarget(root, enemies)
@@ -978,6 +990,9 @@ for index, name in ipairs(TabNames) do
                                         end)
                                     end
                                     if castOk then
+                                        -- Start this slot's cooldown from the completed key press.
+                                        skillNextReadyAt[slot] = os.clock()
+                                            + math.max(tonumber(skillData.Cooldown) or 1, 0.1)
                                         -- Mark advancement for the next ready cast; reservation stays
                                         -- active throughout this skill's cooldown.
                                         skillAdvancePending[slot] = true
@@ -988,11 +1003,6 @@ for index, name in ipairs(TabNames) do
                             end
                         end
 
-                        task.wait(math.max(tonumber(skillData.Cooldown) or 1, 0.1))
-                        if skillAdvancePending[slot] then
-                            -- Give the skill 2 extra seconds before assigning its next target.
-                            task.wait(2)
-                        end
                     else
                         task.wait(0.5)
                     end
