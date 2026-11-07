@@ -2914,7 +2914,7 @@ for index, name in ipairs(TabNames) do
                 if enemy:IsA("Model") then
                     local humanoid = enemy:FindFirstChildOfClass("Humanoid")
                     local root = enemy:FindFirstChild("HumanoidRootPart")
-                    if root and root:IsA("BasePart") and humanoid and humanoid.Health > 0 then
+                    if root and root:IsA("BasePart") and (not humanoid or humanoid.Health > 0) then
                         return enemy, root
                     end
                 end
@@ -3079,7 +3079,7 @@ for index, name in ipairs(TabNames) do
                                 setChestStatus("Fighting enemy: " .. enemy.Name, Theme.Accent)
                                 while isLoopActive(thisLoop) and enemy.Parent == enemies do
                                     local humanoid = enemy:FindFirstChildOfClass("Humanoid")
-                                    if not humanoid or humanoid.Health <= 0 then break end
+                                    if humanoid and humanoid.Health <= 0 then break end
                                     task.wait(0.4)
                                 end
                                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
