@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.28"
+local deployver = "CL ver 2.29"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -2866,6 +2866,15 @@ for index, name in ipairs(TabNames) do
         -- Labyrinth: mark every chest visited, then engage the boss with Farm toggles.
         local autoOpenChestEnabled = false
         local chestLoopId = 0
+
+        -- Clear stale chest ESP markers left behind by a previous script run.
+        -- The openedChests table is also recreated below, so every chest is
+        -- eligible for a fresh prompt check after rerunning the script.
+        for _, object in ipairs(workspace:GetDescendants()) do
+            if object.Name == "MoldyHubOpenedMarker" and object:IsA("BillboardGui") then
+                pcall(function() object:Destroy() end)
+            end
+        end
         local openedChests = {}
         local chestStatus = Create("TextLabel", {
             Parent = left,
