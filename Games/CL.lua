@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.24"
+local deployver = "CL ver 2.25"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -2937,44 +2937,30 @@ for index, name in ipairs(TabNames) do
             end
             return nil
         end
-        local floatPosition
-        local floatLoopId = 0
-        local function setChestFloat(enabled, root)
-            floatLoopId = floatLoopId + 1
-            local thisFloatLoop = floatLoopId
+        local anchoredChestRoot
+        local anchoredChestRootOriginalState
+        local function setChestAnchored(enabled, root)
             if not enabled then
-                if floatPosition then
-                    pcall(function() floatPosition:Destroy() end)
-                    floatPosition = nil
+                if anchoredChestRoot and anchoredChestRoot.Parent then
+                    pcall(function()
+                        anchoredChestRoot.Anchored = anchoredChestRootOriginalState == true
+                    end)
                 end
+                anchoredChestRoot = nil
+                anchoredChestRootOriginalState = nil
                 return
             end
             if not root or not root.Parent then return end
-            if floatPosition and floatPosition.Parent == root then return end
-            if floatPosition then pcall(function() floatPosition:Destroy() end) end
-
-            -- Hold a stable hover point while gently moving forward, then backward.
-            floatPosition = Instance.new("BodyPosition")
-            floatPosition.Name = "MoldyHubChestFloat"
-            floatPosition.MaxForce = Vector3.new(1e7, 1e9, 1e7)
-            floatPosition.P = 2e4
-            floatPosition.D = 1e3
-            floatPosition.Position = root.Position
-            floatPosition.Parent = root
-
-            local anchorPosition = root.Position
-            local forwardDirection = root.CFrame.LookVector
-            local startedAt = os.clock()
-            task.spawn(function()
-                while thisFloatLoop == floatLoopId
-                    and floatPosition and floatPosition.Parent == root
-                    and root.Parent do
-                    local elapsed = os.clock() - startedAt
-                    local forwardBackOffset = math.sin(elapsed * 1.5) * 3
-                    floatPosition.Position = anchorPosition + forwardDirection * forwardBackOffset
-                    task.wait(0.12)
-                end
-            end)
+            if anchoredChestRoot and anchoredChestRoot ~= root and anchoredChestRoot.Parent then
+                pcall(function()
+                    anchoredChestRoot.Anchored = anchoredChestRootOriginalState == true
+                end)
+            end
+            if anchoredChestRoot ~= root then
+                anchoredChestRoot = root
+                anchoredChestRootOriginalState = root.Anchored
+            end
+            pcall(function() root.Anchored = true end)
         end
         local function allChestsMarked(chests)
             if #chests == 0 then return false end
@@ -2988,13 +2974,13 @@ for index, name in ipairs(TabNames) do
             chestLoopId = chestLoopId + 1
             local thisLoop = chestLoopId
             if not enabled then
-                setChestFloat(false)
+                setChestAnchored(false)
                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
                 setChestStatus("Stopped")
                 return
             end
-            setChestStatus("Floating while opening chests", Theme.Accent)
+            setChestStatus("Anchored while opening chests", Theme.Accent)
             task.spawn(function()
                 local nextChestIndex = 1
                 local chestFolder
@@ -3005,12 +2991,12 @@ for index, name in ipairs(TabNames) do
                 end
                 while isLoopActive(thisLoop) do
                     local root = getCurrentRoot()
-                    if root then setChestFloat(true, root) end
+                    if root then setChestAnchored(true, root) end
 
                     chestFolder = workspace:FindFirstChild("WK_DungeonChests")
                     local chests = chestFolder and chestFolder:GetChildren() or {}
                     if #chests == 0 then
-                        setChestStatus("Floating; waiting for WK_DungeonChests")
+                        setChestStatus("Anchored; waiting for WK_DungeonChests")
                         task.wait(1)
                     elseif not allChestsMarked(chests) then
                         if nextChestIndex > #chests then nextChestIndex = 1 end
@@ -3021,8 +3007,8 @@ for index, name in ipairs(TabNames) do
                             if bodyPart then
                                 root = getCurrentRoot()
                                 if root then
-                                    setChestFloat(true, root)
-                                    setChestStatus("Floating to " .. chest.Name, Theme.Accent)
+                                    setChestAnchored(true, root)
+                                    setChestStatus("Anchored to " .. chest.Name, Theme.Accent)
                                     root.CFrame = CFrame.new(
                                         bodyPart.Position + Vector3.new(0, 2, 4),
                                         bodyPart.Position
@@ -3030,10 +3016,10 @@ for index, name in ipairs(TabNames) do
                                     task.wait(math.random(8, 14) / 10)
                                     if not isLoopActive(thisLoop) then break end
                                     root = getCurrentRoot()
-                                    if root then setChestFloat(true, root) end
+                                    if root then setChestAnchored(true, root) end
 
                                     if root and (root.Position - bodyPart.Position).Magnitude <= 12 then
-                                        setChestStatus("Floating; waiting for prompt: " .. chest.Name, Theme.Accent)
+                                        setChestStatus("Anchored; waiting for prompt: " .. chest.Name, Theme.Accent)
                                         local prompt
                                         local promptDeadline = os.clock() + 6
                                         repeat
@@ -3046,7 +3032,7 @@ for index, name in ipairs(TabNames) do
 
                                         if not isLoopActive(thisLoop) then break end
                                         if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
-                                            setChestStatus("Floating; opening " .. chest.Name, Theme.Accent)
+                                            setChestStatus("Anchored; opening " .. chest.Name, Theme.Accent)
                                             local fired = false
                                             if type(environment.fireproximityprompt) == "function" then
                                                 local fireOk, fireResult = pcall(environment.fireproximityprompt, prompt)
@@ -3062,7 +3048,7 @@ for index, name in ipairs(TabNames) do
                                             end
                                             if fired then
                                                 markChestOpened(chest, bodyPart)
-                                                setChestStatus("✓ Opened " .. chest.Name .. " (floating)",
+                                                setChestStatus("✓ Opened " .. chest.Name .. " (anchored)",
                                                     Color3.fromRGB(95, 220, 140))
                                             else
                                                 setChestStatus("Could not activate " .. chest.Name,
@@ -3090,15 +3076,15 @@ for index, name in ipairs(TabNames) do
                             task.wait(0.15)
                         end
                     else
-                        -- Chests are complete. Stay floating until any live enemy appears.
+                        -- Chests are complete. Stay anchored until any live enemy appears.
                         enemies = workspace:FindFirstChild("Enemies")
                         local enemy, enemyRoot = findAliveEnemy(enemies)
                         if not enemy then
-                            setChestFloat(true, getCurrentRoot())
-                            setChestStatus("All chests marked; floating and waiting for enemy spawn", Theme.Accent)
+                            setChestAnchored(true, getCurrentRoot())
+                            setChestStatus("All chests marked; anchored and waiting for enemy spawn", Theme.Accent)
                             task.wait(0.5)
                         else
-                            setChestFloat(false)
+                            setChestAnchored(false)
                             root = getCurrentRoot()
                             if root then
                                 setChestStatus("Moving to enemy: " .. enemy.Name, Theme.Accent)
@@ -3121,20 +3107,20 @@ for index, name in ipairs(TabNames) do
                                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
                                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
                                 if isLoopActive(thisLoop) then
-                                    setChestFloat(true, getCurrentRoot())
-                                    setChestStatus("Enemy defeated or gone; floating for next spawn",
+                                    setChestAnchored(true, getCurrentRoot())
+                                    setChestStatus("Enemy defeated or gone; anchored for next spawn",
                                         Color3.fromRGB(95, 220, 140))
                                     task.wait(0.5)
                                 end
                             else
-                                setChestFloat(true, getCurrentRoot())
+                                setChestAnchored(true, getCurrentRoot())
                                 setChestStatus("Character root not found", Color3.fromRGB(240, 110, 110))
                                 task.wait(1)
                             end
                         end
                     end
                 end
-                setChestFloat(false)
+                setChestAnchored(false)
                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
             end)
