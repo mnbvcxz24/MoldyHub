@@ -2090,6 +2090,30 @@ for index, name in ipairs(TabNames) do
             end
         end)
         setAntiAfk(savedConfig.antiAfk == true)
+
+        -- Auto Execute UI placeholder; execution backend is not configured yet.
+        local autoExecuteCard = CreateCard(left, "Auto Execute", 68)
+        local autoExecuteButton = Create("TextButton", {
+            Parent = autoExecuteCard,
+            Position = UDim2.fromOffset(12, 34),
+            Size = UDim2.new(1, -24, 0, 26),
+            BackgroundColor3 = Theme.Accent,
+            Text = "Set Auto Execute",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        Corner(autoExecuteButton, 5)
+        autoExecuteButton.MouseButton1Click:Connect(function()
+            autoExecuteButton.Text = "Auto Execute not configured"
+            task.delay(2, function()
+                if autoExecuteButton and autoExecuteButton.Parent then
+                    autoExecuteButton.Text = "Set Auto Execute"
+                end
+            end)
+        end)
     elseif index == 3 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
         -- Grimoire row frames.
