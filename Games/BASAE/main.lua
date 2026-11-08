@@ -3482,11 +3482,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end)
             end))
         end
-        Runtime.ReplicatedStorage = game:GetService("ReplicatedStorage")
-        for _, remote in ipairs(Runtime.ReplicatedStorage:GetDescendants()) do
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        for _, remote in ipairs(ReplicatedStorage:GetDescendants()) do
             BindAnimalBankEquip(remote)
         end
-        TrackPersistentConnection(Runtime.ReplicatedStorage.DescendantAdded:Connect(function(instance)
+        TrackPersistentConnection(ReplicatedStorage.DescendantAdded:Connect(function(instance)
             BindAnimalBankEquip(instance)
         end))
         local PendingReturnAfterFling = false
@@ -3621,9 +3621,9 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                                         elseif rarityNode:IsA("TextLabel") then targetRarity = rarityNode.Text end
                                     end
                                 end
-                                local dropRemote = Runtime.ReplicatedStorage:FindFirstChild("DropCarriedRemote")
+                                local dropRemote = ReplicatedStorage:FindFirstChild("DropCarriedRemote")
                                 local fired, fireError = pcall(function()
-                                    if not dropRemote then error("Runtime.ReplicatedStorage.DropCarriedRemote was not found") end
+                                    if not dropRemote then error("ReplicatedStorage.DropCarriedRemote was not found") end
                                     dropRemote:FireServer()
                                 end)
                                 if not fired then
