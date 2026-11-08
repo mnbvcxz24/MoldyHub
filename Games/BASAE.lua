@@ -7,6 +7,19 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
+local ConfigFilePath = "MoldyHub/BASAE_Config.json"
+local SavedConfig = {}
+local ConfigStorageAvailable = type(readfile) == "function" and type(writefile) == "function"
+if ConfigStorageAvailable then
+    pcall(function()
+        if type(isfile) == "function" and isfile(ConfigFilePath) then
+            local decoded = game:GetService("HttpService"):JSONDecode(readfile(ConfigFilePath))
+            if type(decoded) == "table" and decoded.Version == 1 then
+                SavedConfig = decoded
+            end
+        end
+    end)
+end
 local testver = "Deploy ver: 1.2"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
@@ -1039,6 +1052,13 @@ local function CreateButton(parent, text, callback)
 end
 -- TOGGLE
 local ToggleControllers = setmetatable({}, {__mode = "k"})
+local ConfigToggleControllers = {}
+local function GetConfigToggleKey(parent, text)
+    local parentName = parent and parent.Name or "Toggle"
+    local cleanParent = tostring(parentName):gsub("[^%w_%-]", "")
+    local cleanText = tostring(text or ""):gsub("[^%w_%-]", "")
+    return cleanParent .. (cleanText ~= "" and ("_" .. cleanText) or "_Main")
+end
 local function CreateToggle(parent, text, default, callback)
     local Compact = text ~= ""
     local Toggle = Create("TextButton", {
@@ -1105,6 +1125,11 @@ local function CreateToggle(parent, text, default, callback)
             return Enabled
         end
     }
+    local configKey = GetConfigToggleKey(parent, text)
+    ConfigToggleControllers[configKey] = ToggleControllers[Toggle]
+    if type(SavedConfig.Toggles) == "table" and type(SavedConfig.Toggles[configKey]) == "boolean" then
+        Enabled = SavedConfig.Toggles[configKey]
+    end
     Toggle.MouseButton1Click:Connect(function()
         Enabled = not Enabled
         Update(true)
@@ -5729,6 +5754,12 @@ for index, name in ipairs(UIConfig.SidebarNames) do
     elseif index == 6 then
         local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
         local ScaleOptions = {"50%", "75%", "100%"}
+        if type(SavedConfig.UIScale) == "number" then
+            UIScale.Scale = math.clamp(SavedConfig.UIScale, 50 / 75, 100 / 75)
+        end
+        if type(SavedConfig.Theme) == "string" and ThemePresets[SavedConfig.Theme] then
+            ApplyTheme(SavedConfig.Theme)
+        end
         CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
             local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
             if not scalePercent then return end
@@ -5757,7 +5788,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local AntiAFKToggle = CreateToggle(AntiAFKCard, "", true, function(enabled)
+        local AntiAFKToggle = CreateToggle(AntiAFKCard, "", type(SavedConfig.Toggles) == "table" and SavedConfig.Toggles.AntiAFK_Main ~= nil and SavedConfig.Toggles.AntiAFK_Main or true, function(enabled)
             AntiAFKEnabled = enabled
             AntiAFKStatus.Text = "Status: " .. (enabled and "Enabled" or "Disabled")
             AntiAFKStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
@@ -5776,11 +5807,53 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         Runtime.PersistentConnections = Runtime.PersistentConnections or {}
         table.insert(Runtime.PersistentConnections, AntiAFKConnection)
 
-        -- Settings UI placeholders: visual controls only; no persistence or auto-execute backend.
-        local ConfigSaveCard = CreateCard(Page, "Config Save", "Save your current settings.")
-        ConfigSaveCard.Size = UDim2.new(1, 0, 0, 104)
-        local ConfigSaveButton = CreateButton(ConfigSaveCard, "Save Config", nil)
-        ConfigSaveButton.Position = UDim2.fromOffset(11, 68)
+        local ConfigSaveCard = CreateCard(Page, "Config Save", "Save toggle states and interface preferences.")
+        ConfigSaveCard.Size = UDim2.new(1, 0, 0, 122)
+        local ConfigStatus = Create("TextLabel", {
+            Parent = ConfigSaveCard,
+            Position = UDim2.fromOffset(11, 51),
+            Size = UDim2.new(1, -22, 0, 14),
+            BackgroundTransparency = 1,
+            Text = ConfigStorageAvailable and "Status: Ready" or "Status: Executor file API unavailable",
+            TextColor3 = ConfigStorageAvailable and Theme.Gray or Color3.fromRGB(235, 120, 100),
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local ConfigSaveButton = CreateButton(ConfigSaveCard, "Save Config", function()
+            if not ConfigStorageAvailable then
+                ConfigStatus.Text = "Status: Executor file API unavailable"
+                ConfigStatus.TextColor3 = Color3.fromRGB(235, 120, 100)
+                return
+            end
+            local config = {
+                Version = 1,
+                SavedAt = os.time(),
+                Theme = ActiveThemeName,
+                UIScale = UIScale.Scale,
+                Toggles = {}
+            }
+            for key, controller in pairs(ConfigToggleControllers) do
+                if controller and type(controller.GetEnabled) == "function" then
+                    config.Toggles[key] = controller.GetEnabled()
+                end
+            end
+            local ok, err = pcall(function()
+                if type(isfolder) == "function" and not isfolder("MoldyHub") and type(makefolder) == "function" then
+                    makefolder("MoldyHub")
+                end
+                writefile(ConfigFilePath, game:GetService("HttpService"):JSONEncode(config))
+            end)
+            if ok then
+                SavedConfig = config
+                ConfigStatus.Text = "Status: Config saved"
+                ConfigStatus.TextColor3 = Theme.Accent
+            else
+                ConfigStatus.Text = "Status: Save failed - " .. tostring(err):sub(1, 70)
+                ConfigStatus.TextColor3 = Color3.fromRGB(235, 120, 100)
+            end
+        end)
+        ConfigSaveButton.Position = UDim2.fromOffset(11, 82)
         ConfigSaveButton.Size = UDim2.new(1, -22, 0, 27)
 
         local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Manage the auto-execute entry.")
