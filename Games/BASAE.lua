@@ -5788,7 +5788,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local AntiAFKToggle = CreateToggle(AntiAFKCard, "", type(SavedConfig.Toggles) == "table" and SavedConfig.Toggles.AntiAFK_Main ~= nil and SavedConfig.Toggles.AntiAFK_Main or true, function(enabled)
+        local SavedAntiAFK = true
+        if type(SavedConfig.Toggles) == "table" and type(SavedConfig.Toggles.AntiAFK_Main) == "boolean" then
+            SavedAntiAFK = SavedConfig.Toggles.AntiAFK_Main
+        end
+        local AntiAFKToggle = CreateToggle(AntiAFKCard, "", SavedAntiAFK, function(enabled)
             AntiAFKEnabled = enabled
             AntiAFKStatus.Text = "Status: " .. (enabled and "Enabled" or "Disabled")
             AntiAFKStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
