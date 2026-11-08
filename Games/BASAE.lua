@@ -1694,6 +1694,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local AutoBreakEnabled = false
         local AutoBreakGeneration = 0
         local RefreshEggFilters
+        local UpdateAutoBreakFilterButtonTexts
         local TitanicPriorityEnabled = false
         local AutoBreakControlLayout = {
             ZoneY = 42,
@@ -1784,7 +1785,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 RarityList.Size = UDim2.new(1, -22, 0, 140)
             end
             if PickupZoneList then PickupZoneList.Visible = false end
-            UpdateRarityFilterButtonText()
+            if UpdateRarityFilterButtonText then UpdateRarityFilterButtonText() end
             RarityList.Visible = RarityFilterOpen
             if ZoneList then ZoneList.Visible = false end
             if EggFilterList then EggFilterList.Visible = false end
@@ -1815,7 +1816,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 PickupZoneList.Size = UDim2.new(1, -22, 0, 140)
                 PickupZoneList.Visible = ZoneFilterOpen
             end
-            UpdatePickupZoneButtonText()
+            if UpdatePickupZoneButtonText then UpdatePickupZoneButtonText() end
         end)
         PickupZoneButton.Name = "AutoPickupZoneFilterButton"
         PickupZoneButton.Position = UDim2.fromOffset(11, 85)
@@ -2241,7 +2242,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 })
                 RarityButton.MouseButton1Click:Connect(function()
                     SelectedRarities[rarityName] = not SelectedRarities[rarityName] or nil
-                    UpdateRarityFilterButtonText()
+                    if UpdateRarityFilterButtonText then UpdateRarityFilterButtonText() end
                     RefreshRarityList()
                 end)
             end
@@ -2332,7 +2333,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             allButton.MouseButton1Click:Connect(function()
                 table.clear(SelectedPickupZones)
                 RefreshPickupZoneList()
-                UpdatePickupZoneButtonText()
+                if UpdatePickupZoneButtonText then UpdatePickupZoneButtonText() end
             end)
             for index, zone in ipairs(zones) do
                 local zoneName = zone.Name
@@ -2367,7 +2368,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         SelectedPickupZones[zoneName] = true
                     end
                     RefreshPickupZoneList()
-                    UpdatePickupZoneButtonText()
+                    if UpdatePickupZoneButtonText then UpdatePickupZoneButtonText() end
                 end)
             end
             PickupZoneList.CanvasSize = UDim2.new(0, 0, 0, PickupZoneLayout.AbsoluteContentSize.Y + 10)
@@ -2448,7 +2449,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 EggFilterList.Position = UDim2.new(0, EggFilterButton.Position.X.Offset, 0, EggFilterButton.Position.Y.Offset + EggFilterButton.AbsoluteSize.Y + 4)
                 EggFilterList.Size = UDim2.new(1, -22, 0, 140)
             end
-            UpdateAutoBreakFilterButtonTexts()
+            if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
             RarityFilterButton.Text = RarityFilterOpen and "Rarity ▲" or "Rarity ▼"
         end
         Create("TextLabel", {
@@ -2954,7 +2955,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 for _, zone in ipairs(zones) do SelectedZones[zone.Name] = selectEverything and true or nil end
                 RefreshZoneList()
                 RefreshEggList()
-                UpdateAutoBreakFilterButtonTexts()
+                if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
                 if RefreshEggFilters then RefreshEggFilters() end
             end)
             for zoneIndex, zone in ipairs(zones) do
@@ -2999,7 +3000,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     SelectedZones[zoneName] = not SelectedZones[zoneName] or nil
                     RefreshZoneList()
                     RefreshEggList()
-                    UpdateAutoBreakFilterButtonTexts()
+                    if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
                     if RefreshEggFilters then RefreshEggFilters() end
                 end)
             end
@@ -3041,7 +3042,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     if selectEverything then SelectedEggs[record.name] = nil else SelectedEggs[record.name] = false end
                 end
                 RefreshEggList()
-                UpdateAutoBreakFilterButtonTexts()
+                if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
                 if RefreshEggFilters then RefreshEggFilters() end
             end)
             if #records == 0 then
@@ -3102,7 +3103,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         SelectedEggs[eggName] = false
                     end
                     RefreshEggList()
-                    UpdateAutoBreakFilterButtonTexts()
+                    if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
                     if RefreshEggFilters then RefreshEggFilters() end
                 end)
             end
@@ -3133,7 +3134,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         EggFilterButton.MouseButton1Click:Connect(UpdateFilterPanelWithTitanic)
         RefreshZoneList()
         RefreshEggList()
-        UpdateAutoBreakFilterButtonTexts()
+        if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
         TrackPersistentConnection(ZoneBuilds.ChildAdded:Connect(function()
             RefreshZoneList()
             RefreshEggList()
