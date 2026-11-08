@@ -2376,7 +2376,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         RefreshPickupZoneList()
         local SelectedZones = {}
         local SelectedEggs = {}
-        local UpdateAutoBreakFilterButtonTexts
         local PreferredZoneName = nil
         local SortOrder = "Highest Luck"
         local SortFrame
