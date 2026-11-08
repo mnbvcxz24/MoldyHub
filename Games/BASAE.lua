@@ -150,7 +150,7 @@ local function Tween(object, properties, duration)
 end
 -- REMOVE ANY LEFTOVER UI FROM A PREVIOUS RUN
 pcall(function()
-    local oldUI = game.CoreGui:FindFirstChild("MoldyHub_BASAE_UI")
+    local oldUI = game.CoreGui:FindFirstChild("MoldyHub_BASAE_UI") or game.CoreGui:FindFirstChild("BASAESkripUI")
     if oldUI then oldUI:Destroy() end
     local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
     if oldStatusBar then oldStatusBar:Destroy() end
