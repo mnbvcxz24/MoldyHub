@@ -7,13 +7,18 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-local ConfigFilePath = "MoldyHub/BASAE_Config.json"
+local ConfigFilePath = "MoldyHub/MoldyHub_BASAE_Config.json"
+local LegacyConfigFilePath = "MoldyHub/BASAE_Config.json"
 local SavedConfig = {}
 local ConfigStorageAvailable = type(readfile) == "function" and type(writefile) == "function"
 if ConfigStorageAvailable then
     pcall(function()
-        if type(isfile) == "function" and isfile(ConfigFilePath) then
-            local decoded = game:GetService("HttpService"):JSONDecode(readfile(ConfigFilePath))
+        local configReadPath = ConfigFilePath
+        if type(isfile) == "function" and not isfile(configReadPath) and isfile(LegacyConfigFilePath) then
+            configReadPath = LegacyConfigFilePath
+        end
+        if type(isfile) == "function" and isfile(configReadPath) then
+            local decoded = game:GetService("HttpService"):JSONDecode(readfile(configReadPath))
             if type(decoded) == "table" and decoded.Version == 1 then
                 SavedConfig = decoded
             end
@@ -22,7 +27,7 @@ if ConfigStorageAvailable then
 end
 local testver = "Deploy ver: 1.2"
 local ScriptStartedAt = os.clock()
-local PreviousRuntimeCleanup = RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
+local PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
     pcall(PreviousRuntimeCleanup)
 end
@@ -31,7 +36,7 @@ local function TrackPersistentConnection(connection)
     if connection then table.insert(Runtime.PersistentConnections, connection) end
     return connection
 end
-RuntimeEnv.__BASAECleanup = function()
+RuntimeEnv.__MoldyHub_BASAE_Cleanup = function()
     Runtime.Stopped = true
     pcall(function()
         if type(Runtime.Shutdown) == "function" then
@@ -53,17 +58,17 @@ RuntimeEnv.__BASAECleanup = function()
         table.clear(Runtime.PersistentConnections or {})
     end)
     pcall(function()
-        local oldUI = game.CoreGui:FindFirstChild("BASAESkripUI")
+        local oldUI = game.CoreGui:FindFirstChild("MoldyHub_BASAE_UI") or game.CoreGui:FindFirstChild("BASAESkripUI")
         if oldUI then oldUI:Destroy() end
         local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
         if oldStatusBar then oldStatusBar:Destroy() end
     end)
     pcall(function()
         local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-        for _, name in ipairs({"BASE_Skrip_EggESP", "BASE_Skrip_BackpackESP"}) do
+        for _, name in ipairs({"MoldyHub_BASAE_EggESP", "MoldyHub_BASAE_BackpackESP", "BASE_Skrip_EggESP", "BASE_Skrip_BackpackESP"}) do
             local oldESP = playerGui and playerGui:FindFirstChild(name)
             if oldESP then
-                if name == "BASE_Skrip_BackpackESP" then
+                if name == "MoldyHub_BASAE_BackpackESP" or name == "BASE_Skrip_BackpackESP" then
                     for _, overlayRef in ipairs(oldESP:GetChildren()) do
                         if overlayRef:IsA("ObjectValue") then
                             local overlay = overlayRef.Value
@@ -145,14 +150,14 @@ local function Tween(object, properties, duration)
 end
 -- REMOVE ANY LEFTOVER UI FROM A PREVIOUS RUN
 pcall(function()
-    local oldUI = game.CoreGui:FindFirstChild("BASAESkripUI")
+    local oldUI = game.CoreGui:FindFirstChild("MoldyHub_BASAE_UI")
     if oldUI then oldUI:Destroy() end
     local oldStatusBar = game.CoreGui:FindFirstChild("MoldyHubStatusBarGui")
     if oldStatusBar then oldStatusBar:Destroy() end
 end)
 pcall(function()
     local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    for _, name in ipairs({"BASE_Skrip_EggESP", "BASE_Skrip_BackpackESP"}) do
+    for _, name in ipairs({"MoldyHub_BASAE_EggESP", "MoldyHub_BASAE_BackpackESP"}) do
         local oldESP = playerGui and playerGui:FindFirstChild(name)
         if oldESP then oldESP:Destroy() end
     end
@@ -316,7 +321,7 @@ end
 local ActiveThemeName = "Black + Electric Blue"
 -- SCREEN GUI
 local ScreenGui = Create("ScreenGui", {
-    Name = "BASAESkripUI",
+    Name = "MoldyHub_BASAE_UI",
     Parent = game.CoreGui,
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
@@ -3788,7 +3793,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             if signature and DroppedAnimalSignatures[signature] then
                 DroppedAnimalSignatures[signature] = nil
                 SetPickupTracking(pickup, "Skipped: just dropped in Zone 1")
-                pickup:SetAttribute("BASAE_Rarity", tostring(GetPetRarity(pickup) or "Unknown"))
+                pickup:SetAttribute("MoldyHub_BASAE_Rarity", tostring(GetPetRarity(pickup) or "Unknown"))
                 SetTrackerStatus("Skipped recently dropped animal: " .. pickup.Name .. " | rarity=" .. tostring(GetPetRarity(pickup) or "Unknown"))
                 return true
             end
@@ -3927,11 +3932,11 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         end
         function SetPickupTracking(pickup, status, cpsText)
             if not pickup or not pickup.Parent then return end
-            pickup:SetAttribute("BASAE_CPSCheckStatus", tostring(status or "Not checked"))
+            pickup:SetAttribute("MoldyHub_BASAE_CPSCheckStatus", tostring(status or "Not checked"))
             if cpsText ~= nil then
-                pickup:SetAttribute("BASAE_CPSCheckValue", tostring(cpsText))
+                pickup:SetAttribute("MoldyHub_BASAE_CPSCheckValue", tostring(cpsText))
             end
-            pickup:SetAttribute("BASAE_CPSCheckedAt", os.time())
+            pickup:SetAttribute("MoldyHub_BASAE_CPSCheckedAt", os.time())
         end
         function GetIndexNameLabel(animalName)
             local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -3986,7 +3991,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local function evaluationCancelled()
                 return ScriptShuttingDown or not AutoPickupEnabled or not pickup.Parent
             end
-            pickup:SetAttribute("BASAE_Qualified", false)
+            pickup:SetAttribute("MoldyHub_BASAE_Qualified", false)
             SetPickupTracking(pickup, "Checking")
             if evaluationCancelled() then
                 SetPickupTracking(pickup, "Cancelled: automation toggled")
@@ -4118,10 +4123,10 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             else
                 pickupPriority = 5
             end
-            pickup:SetAttribute("BASAE_Priority", pickupPriority)
-            pickup:SetAttribute("BASAE_Qualified", true)
+            pickup:SetAttribute("MoldyHub_BASAE_Priority", pickupPriority)
+            pickup:SetAttribute("MoldyHub_BASAE_Qualified", true)
             if PickupRequested then
-                local activePriority = ActivePickup and ActivePickup.Parent and (ActivePickup:GetAttribute("BASAE_Priority") or 5) or math.huge
+                local activePriority = ActivePickup and ActivePickup.Parent and (ActivePickup:GetAttribute("MoldyHub_BASAE_Priority") or 5) or math.huge
                 local activeWeight = ActivePickup and ActivePickup.Parent and GetPickupWeightKg(ActivePickup) or nil
                 local shouldPreempt = pickupPriority < activePriority
                 if pickupPriority == activePriority then
@@ -4193,7 +4198,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
             end)
             ActivePickupCPS = cps
-            ActivePickup:SetAttribute("BASAE_Priority", pickupPriority)
+            ActivePickup:SetAttribute("MoldyHub_BASAE_Priority", pickupPriority)
             PickupPhase = "ANIMAL_APPROACH"
             SetPickupTracking(pickup, "Selected for pickup", cpsText)
             PickupRequested = true
@@ -4259,7 +4264,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 PickupMovementConnection:Disconnect()
                 PickupMovementConnection = nil
             end
-            local animalMoveBindName = "BASAE_PickupAnimal_" .. tostring(pickupToken)
+            local animalMoveBindName = "MoldyHub_BASAE_PickupAnimal_" .. tostring(pickupToken)
             RunService:BindToRenderStep(animalMoveBindName, Enum.RenderPriority.Character.Value + 1, function()
                 if not PickupRequested or PickupGeneration ~= pickupToken or not pickup.Parent
                     or LocalPlayer.Character ~= moveCharacter or not moveRoot.Parent
@@ -4469,7 +4474,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     PickupMovementConnection:Disconnect()
                     PickupMovementConnection = nil
                 end
-                local promptMoveBindName = "BASAE_PickupPrompt_" .. tostring(pickupToken)
+                local promptMoveBindName = "MoldyHub_BASAE_PickupPrompt_" .. tostring(pickupToken)
                 RunService:BindToRenderStep(promptMoveBindName, Enum.RenderPriority.Character.Value + 1, function()
                     if not PickupRequested or PickupGeneration ~= pickupToken or not pickup.Parent or not prompt.Parent
                         or LocalPlayer.Character ~= character or not root.Parent or humanoid.Health <= 0 then
@@ -4715,7 +4720,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 PickupMonitorSeen[pickup] = nil
                 local pickupRarity = tostring(GetPetRarity(pickup) or "Unknown")
                 SetPickupTracking(pickup, "Detected")
-                pickup:SetAttribute("BASAE_Rarity", pickupRarity)
+                pickup:SetAttribute("MoldyHub_BASAE_Rarity", pickupRarity)
                 if not AutoPickupEnabled then
                     SetTrackerStatus("NEW ANIMAL: " .. pickup.Name .. " | rarity=" .. pickupRarity .. " | monitoring waits until Auto Pickup is ON.")
                     return
@@ -4996,7 +5001,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     recoveryPosition.X, recoveryPosition.Y, recoveryPosition.Z
                 ))
                 local RunService = game:GetService("RunService")
-                recoveryMoveBindName = "BASAEFlingRecovery_" .. tostring(flingToken)
+                recoveryMoveBindName = "MoldyHub_BASAE_FlingRecovery_" .. tostring(flingToken)
                 RunService:BindToRenderStep(recoveryMoveBindName, Enum.RenderPriority.Character.Value + 1, function()
                     if Runtime.Stopped or not PickupRequested or PickupGeneration ~= flingToken
                         or LocalPlayer.Character ~= character or not root.Parent or humanoid.Health <= 0 then
@@ -5916,7 +5921,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         })
         local ESPEnabled = false
         local ESPObjects = {}
-        local ESPFolder = Create("Folder", {Name = "BASE_Skrip_EggESP", Parent = LocalPlayer:WaitForChild("PlayerGui")})
+        local ESPFolder = Create("Folder", {Name = "MoldyHub_BASAE_EggESP", Parent = LocalPlayer:WaitForChild("PlayerGui")})
         local function ClearEggESP(egg)
             local gui = ESPObjects[egg]
             if gui then
@@ -6068,7 +6073,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
         local BackpackESPObjects = {}
         local BackpackESPConnections = {}
         local BackpackESPFolder = Create("Folder", {
-            Name = "BASE_Skrip_BackpackESP",
+            Name = "MoldyHub_BASAE_BackpackESP",
             Parent = LocalPlayer:WaitForChild("PlayerGui")
         })
         local BackpackESPRefs = {}
@@ -6218,7 +6223,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                         local overlay = BackpackESPObjects[card]
                         if not overlay or not overlay.Parent then
                             overlay = Instance.new("Frame")
-                            overlay.Name = "BASAEInventoryStatsOverlay"
+                            overlay.Name = "MoldyHub_BASAE_InventoryStatsOverlay"
                             overlay.BackgroundTransparency = 1
                             overlay.BorderSizePixel = 0
                             overlay.AnchorPoint = Vector2.new(0, 1)
