@@ -78,6 +78,7 @@ local UIConfig = {
         "Farm",
         "Events",
         "Misc. feature",
+        "Theme",
         "Settings"
     }
 }
@@ -5725,6 +5726,7 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             item.Row.BackgroundColor3 = item.Name == ActiveThemeName and Theme.Selected or Theme.SurfaceInput
         end
 
+    elseif index == 6 then
         local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
         local ScaleOptions = {"50%", "75%", "100%"}
         CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
