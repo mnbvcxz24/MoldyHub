@@ -296,7 +296,7 @@ local Content = Create("Frame", {
 Corner(Content, 12)
 
 local Pages, NavButtons = {}, {}
-local TabNames = {"Farm", "Settings", "Webhook", "Labyrinth"}
+local TabNames = {"Farm", "Webhook", "Labyrinth", "Settings"}
 
 local function CreatePage(index)
     local page = Create("ScrollingFrame", {
