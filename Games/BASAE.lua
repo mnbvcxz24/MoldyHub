@@ -26,7 +26,7 @@ if ConfigStorageAvailable then
         end
     end)
 end
-local testver = "Deploy ver: 1.3"
+local testver = "Deploy ver: 1.4"
 local ScriptStartedAt = os.clock()
 local PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
 if type(PreviousRuntimeCleanup) == "function" then
@@ -5479,51 +5479,28 @@ for index, name in ipairs(UIConfig.SidebarNames) do
             local movementWaypoints = nil
             local movementWaypointIndex = 1
             local pathComputePending = false
-            local lastPathAttemptAt = 0
             local lastRootPosition = root.Position
             local lastMovementProgressAt = os.clock()
-            local pathRequestId = 0
 
-            local function RequestEggPath()
-                if pathComputePending or os.clock() - lastPathAttemptAt < 0.35 then return end
-                pathComputePending = true
-                lastPathAttemptAt = os.clock()
-                pathRequestId += 1
-                local requestId = pathRequestId
-                local fromPosition = root.Position
-                local destination = target:GetPivot().Position
-                task.spawn(function()
-                    local path = PathfindingService:CreatePath({
-                        AgentRadius = 2,
-                        AgentHeight = 5,
-                        AgentCanJump = true,
-                        WaypointSpacing = 5
-                    })
-                    local ok = pcall(function()
-                        path:ComputeAsync(fromPosition, destination)
-                    end)
-                    if requestId ~= pathRequestId or MovementConnection == nil
-                        or CurrentTarget ~= target or not AutoBreakEnabled then
-                        pathComputePending = false
-                        return
-                    end
-                    if ok and path.Status == Enum.PathStatus.Success then
-                        movementWaypoints = path:GetWaypoints()
-                        movementWaypointIndex = (#movementWaypoints > 1) and 2 or 1
-                    else
-                        -- If pathfinding cannot produce a route, keep a direct fallback
-                        -- so open terrain and unusual map geometry remain traversable.
-                        movementWaypoints = nil
-                    end
-                    pathComputePending = false
-                end)
-            end
+            -- Compute the first route inline; avoid adding helper/async functions
+            -- because this script is close to the executor's function limit.
+            pcall(function()
+                local path = PathfindingService:CreatePath({
+                    AgentRadius = 2,
+                    AgentHeight = 5,
+                    AgentCanJump = true,
+                    WaypointSpacing = 5
+                })
+                path:ComputeAsync(root.Position, target:GetPivot().Position)
+                if path.Status == Enum.PathStatus.Success then
+                    movementWaypoints = path:GetWaypoints()
+                    movementWaypointIndex = (#movementWaypoints > 1) and 2 or 1
+                end
+            end)
 
-            RequestEggPath()
             MovementConnection = RunService.RenderStepped:Connect(function()
                 -- Animal pickup/return movement always owns the character over egg movement.
                 if PickupRequested or ReturningAfterPickup then
-                    pathRequestId += 1
                     if MovementConnection then
                         MovementConnection:Disconnect()
                         MovementConnection = nil
@@ -5532,7 +5509,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 end
                 if CurrentTarget ~= target or not IsEggAvailable(target) or not character.Parent
                 or humanoid.Health <= 0 then
-                    pathRequestId += 1
                     if CurrentTarget == target and not IsEggAvailable(target) then
                         CompletedEggs[target] = true
                         SetTrackerStatus("Target egg is no longer available or its HP reached 0; refreshing the egg list.")
@@ -5556,7 +5532,6 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                     targetPosition.Z - root.Position.Z
                 )
                 if targetOffset.Magnitude <= 4 then
-                    pathRequestId += 1
                     humanoid:Move(Vector3.zero, false)
                     MovementConnection:Disconnect()
                     MovementConnection = nil
@@ -5599,17 +5574,29 @@ for index, name in ipairs(UIConfig.SidebarNames) do
                 if (root.Position - lastRootPosition).Magnitude > 0.75 then
                     lastRootPosition = root.Position
                     lastMovementProgressAt = os.clock()
-                elseif os.clock() - lastMovementProgressAt > 1.75 then
-                    -- A wall or other obstruction stopped progress: discard the stale route.
-                    movementWaypoints = nil
-                    movementWaypointIndex = 1
-                    RequestEggPath()
+                elseif os.clock() - lastMovementProgressAt > 1.75 and not pathComputePending then
+                    -- Recalculate in this existing callback when an obstruction is detected.
+                    pathComputePending = true
+                    pcall(function()
+                        local path = PathfindingService:CreatePath({
+                            AgentRadius = 2,
+                            AgentHeight = 5,
+                            AgentCanJump = true,
+                            WaypointSpacing = 5
+                        })
+                        path:ComputeAsync(root.Position, target:GetPivot().Position)
+                        if path.Status == Enum.PathStatus.Success then
+                            movementWaypoints = path:GetWaypoints()
+                            movementWaypointIndex = (#movementWaypoints > 1) and 2 or 1
+                        else
+                            movementWaypoints = nil
+                        end
+                    end)
+                    pathComputePending = false
                     lastMovementProgressAt = os.clock()
                 end
 
                 if not movementWaypoints or movementWaypointIndex > #movementWaypoints then
-                    RequestEggPath()
-                    -- Brief direct fallback while a new path is being calculated.
                     humanoid:Move(targetOffset.Unit, false)
                     return
                 end
