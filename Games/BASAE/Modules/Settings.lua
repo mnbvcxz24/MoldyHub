@@ -62,12 +62,12 @@ return function(Context)
     Runtime.PersistentConnections = Runtime.PersistentConnections or {}
     table.insert(Runtime.PersistentConnections, AntiAFKConnection)
     
-    local ConfigSaveCard = CreateCard(Page, "Config Save", "Save a named config, remember it for the next launch, or return to default settings.")
-    ConfigSaveCard.Size = UDim2.new(1, 0, 0, 166)
+    local ConfigSaveCard = CreateCard(Page, "Config Save", "Save named configs, select one to load on rerun, or return to default.")
+    ConfigSaveCard.Size = UDim2.new(1, 0, 0, 190)
     local ConfigNameInput = Create("TextBox", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(11, 62),
-        Size = UDim2.new(1, -22, 0, 27),
+        Position = UDim2.fromOffset(11, 43),
+        Size = UDim2.new(1, -22, 0, 26),
         BackgroundColor3 = Theme.SurfaceInput,
         Text = ActiveConfigName or "MyConfig",
         PlaceholderText = "Enter config name",
@@ -80,9 +80,134 @@ return function(Context)
     })
     AddCorner(ConfigNameInput, 6)
     AddStroke(ConfigNameInput, Theme.Border, 1)
+
+    local ConfigDropdown = Create("TextButton", {
+        Parent = ConfigSaveCard,
+        Position = UDim2.fromOffset(11, 75),
+        Size = UDim2.new(1, -75, 0, 26),
+        BackgroundColor3 = Theme.SurfaceInput,
+        Text = "",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        ZIndex = 110
+    })
+    AddCorner(ConfigDropdown, 6)
+    AddStroke(ConfigDropdown, Theme.Border, 1)
+    local SelectedConfigName = ActiveConfigName
+    local ConfigDropdownLabel = Create("TextLabel", {
+        Parent = ConfigDropdown,
+        Position = UDim2.fromOffset(10, 0),
+        Size = UDim2.new(1, -24, 1, 0),
+        BackgroundTransparency = 1,
+        Text = SelectedConfigName or "Select saved config",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 111
+    })
+    Create("TextLabel", {
+        Parent = ConfigDropdown,
+        Position = UDim2.new(1, -20, 0, 0),
+        Size = UDim2.fromOffset(16, 26),
+        BackgroundTransparency = 1,
+        Text = "v",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.GothamBold,
+        TextSize = 9,
+        ZIndex = 111
+    })
+    local ConfigList = Create("Frame", {
+        Parent = ConfigDropdown,
+        Position = UDim2.new(0, 0, 1, 3),
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundColor3 = Theme.SurfaceInput,
+        BorderSizePixel = 0,
+        Visible = false,
+        ClipsDescendants = true,
+        ZIndex = 220
+    })
+    AddCorner(ConfigList, 6)
+    AddStroke(ConfigList, Theme.Border, 1)
+    local ConfigListLayout = Create("UIListLayout", {
+        Parent = ConfigList,
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    local ConfigOptions = {}
+    local function RefreshConfigOptions()
+        for _, child in ipairs(ConfigList:GetChildren()) do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+        ConfigOptions = {}
+        if type(listfiles) == "function" then
+            local ok, files = pcall(function() return listfiles(ConfigFolderPath) end)
+            if ok and type(files) == "table" then
+                for _, filePath in ipairs(files) do
+                    local fileName = tostring(filePath):match("[/\\]([^/\\]+)%.json$")
+                    if fileName and fileName:match("^[%w_%-]+$") then
+                        table.insert(ConfigOptions, fileName)
+                    end
+                end
+            end
+        end
+        table.sort(ConfigOptions, function(left, right) return string.lower(left) < string.lower(right) end)
+        if SelectedConfigName then
+            local found = false
+            for _, configName in ipairs(ConfigOptions) do
+                if configName == SelectedConfigName then found = true break end
+            end
+            if not found then SelectedConfigName = nil end
+        end
+        ConfigDropdownLabel.Text = SelectedConfigName or (#ConfigOptions > 0 and "Select saved config" or "No saved configs found")
+        for index, configName in ipairs(ConfigOptions) do
+            local option = Create("TextButton", {
+                Parent = ConfigList,
+                Size = UDim2.new(1, 0, 0, 24),
+                BackgroundTransparency = 1,
+                Text = configName,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 9,
+                BorderSizePixel = 0,
+                LayoutOrder = index,
+                ZIndex = 221
+            })
+            option.MouseButton1Click:Connect(function()
+                SelectedConfigName = configName
+                ConfigDropdownLabel.Text = configName
+                ConfigNameInput.Text = configName
+                ConfigList.Visible = false
+            end)
+        end
+        ConfigList.Size = UDim2.new(1, 0, 0, math.min(#ConfigOptions, 5) * 24)
+    end
+    ConfigDropdown.MouseButton1Click:Connect(function()
+        if #ConfigOptions == 0 then RefreshConfigOptions() end
+        ConfigList.Visible = not ConfigList.Visible
+    end)
+    local ConfigRefreshButton = Create("TextButton", {
+        Parent = ConfigSaveCard,
+        Position = UDim2.new(1, -55, 0, 75),
+        Size = UDim2.fromOffset(44, 26),
+        BackgroundColor3 = Theme.SurfaceInput,
+        Text = "Refresh",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 8,
+        BorderSizePixel = 0,
+        AutoButtonColor = false
+    })
+    AddCorner(ConfigRefreshButton, 6)
+    AddStroke(ConfigRefreshButton, Theme.Border, 1)
+    ConfigRefreshButton.MouseButton1Click:Connect(RefreshConfigOptions)
+
     local ConfigStatus = Create("TextLabel", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(11, 93),
+        Position = UDim2.fromOffset(11, 106),
         Size = UDim2.new(1, -22, 0, 14),
         BackgroundTransparency = 1,
         Text = ConfigStorageAvailable and (ActiveConfigName and ("Status: Active config - " .. ActiveConfigName) or "Status: Default config") or "Status: Executor file API unavailable",
@@ -109,7 +234,26 @@ return function(Context)
             error("Delta folder API unavailable")
         end
     end
-    local ConfigSaveButton = CreateButton(ConfigSaveCard, "Save Config", function()
+    local function CreateConfigActionButton(label, xScale, xOffset, color, hoverColor, callback)
+        local button = Create("TextButton", {
+            Parent = ConfigSaveCard,
+            Position = UDim2.new(xScale, xOffset, 0, 130),
+            Size = UDim2.new(1 / 3, -12, 0, 27),
+            BackgroundColor3 = color,
+            Text = label,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+            Font = Enum.Font.GothamMedium,
+            TextSize = 8,
+            BorderSizePixel = 0,
+            AutoButtonColor = false
+        })
+        AddCorner(button, 6)
+        button.MouseEnter:Connect(function() Tween(button, {BackgroundColor3 = hoverColor}) end)
+        button.MouseLeave:Connect(function() Tween(button, {BackgroundColor3 = color}) end)
+        button.MouseButton1Click:Connect(callback)
+        return button
+    end
+    CreateConfigActionButton("Save Config", 0, 11, Color3.fromRGB(38, 145, 76), Color3.fromRGB(48, 175, 91), function()
         if not ConfigStorageAvailable then
             SetConfigStatus("Executor file API unavailable", false)
             return
@@ -141,33 +285,36 @@ return function(Context)
         if ok then
             SavedConfig = config
             ActiveConfigName = configName
+            SelectedConfigName = configName
+            ConfigDropdownLabel.Text = configName
+            RefreshConfigOptions()
             SetConfigStatus("Saved and selected - " .. configName, true)
         else
             SetConfigStatus("Save failed - " .. tostring(err):sub(1, 65), false)
         end
     end)
-    ConfigSaveButton.Position = UDim2.fromOffset(11, 113)
-    ConfigSaveButton.Size = UDim2.new(0.5, -16, 0, 27)
-    local ConfigUnloadButton = Create("TextButton", {
-        Parent = ConfigSaveCard,
-        Position = UDim2.new(0.5, 5, 0, 113),
-        Size = UDim2.new(0.5, -16, 0, 27),
-        BackgroundColor3 = Color3.fromRGB(165, 95, 45),
-        Text = "Unload Config",
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        Font = Enum.Font.GothamMedium,
-        TextSize = 9,
-        BorderSizePixel = 0,
-        AutoButtonColor = false
-    })
-    AddCorner(ConfigUnloadButton, 6)
-    ConfigUnloadButton.MouseEnter:Connect(function()
-        Tween(ConfigUnloadButton, {BackgroundColor3 = Color3.fromRGB(190, 115, 55)})
+    CreateConfigActionButton("Load Selected", 1 / 3, 5, Color3.fromRGB(48, 105, 165), Color3.fromRGB(60, 130, 195), function()
+        if not SelectedConfigName then
+            SetConfigStatus("Select a saved config first", false)
+            return
+        end
+        local configPath = ConfigFolderPath .. "/" .. SelectedConfigName .. ".json"
+        local ok, result = pcall(function()
+            if type(isfile) == "function" and not isfile(configPath) then error("Config file not found") end
+            local decoded = game:GetService("HttpService"):JSONDecode(readfile(configPath))
+            if type(decoded) ~= "table" or decoded.Version ~= 1 then error("Invalid config file") end
+            writefile(ActiveConfigPath, SelectedConfigName)
+            return decoded
+        end)
+        if ok then
+            SavedConfig = result
+            ActiveConfigName = SelectedConfigName
+            SetConfigStatus("Selected " .. SelectedConfigName .. "; rerun BASAE to apply", true)
+        else
+            SetConfigStatus("Load failed - " .. tostring(result):sub(1, 65), false)
+        end
     end)
-    ConfigUnloadButton.MouseLeave:Connect(function()
-        Tween(ConfigUnloadButton, {BackgroundColor3 = Color3.fromRGB(165, 95, 45)})
-    end)
-    ConfigUnloadButton.MouseButton1Click:Connect(function()
+    CreateConfigActionButton("Unload Config", 2 / 3, 0, Color3.fromRGB(165, 95, 45), Color3.fromRGB(190, 115, 55), function()
         if type(writefile) ~= "function" then
             SetConfigStatus("Executor writefile API unavailable", false)
             return
@@ -178,11 +325,14 @@ return function(Context)
         end)
         if ok then
             ActiveConfigName = nil
+            SelectedConfigName = nil
+            ConfigDropdownLabel.Text = #ConfigOptions > 0 and "Select saved config" or "No saved configs found"
             SetConfigStatus("Default config selected; rerun BASAE to apply", true)
         else
             SetConfigStatus("Unload failed - " .. tostring(err):sub(1, 65), false)
         end
     end)
+    RefreshConfigOptions()
 
     local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Create or remove the MoldyHub auto-execute file.")
     AutoExecuteCard.Size = UDim2.new(1, 0, 0, 132)
