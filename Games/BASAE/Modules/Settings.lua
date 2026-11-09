@@ -6,24 +6,40 @@ return function(Context)
     local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
     local ScaleOptions = {"50%", "75%", "100%"}
     if type(SavedConfig.UIScale) == "number" then
-        UIScale.Scale = math.clamp(SavedConfig.UIScale, 50 / 75, 100 / 75)
+        UIScale.Scale = math.clamp(SavedConfig.UIScale, 0.5, 1)
     end
     if type(SavedConfig.Theme) == "string" and ThemePresets[SavedConfig.Theme] then
         ApplyTheme(SavedConfig.Theme)
     end
-    CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
+    local ScaleDropdown = CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
         local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
         if not scalePercent then return end
+
+        -- Preserve the window's current center while changing its UIScale.
+        local oldPosition = Main.AbsolutePosition
         local oldSize = Main.AbsoluteSize
-        UIScale.Scale = scalePercent / 75
-        local newSize = Main.AbsoluteSize
-        Main.Position = UDim2.new(
-            Main.Position.X.Scale,
-            Main.Position.X.Offset + (oldSize.X - newSize.X) / 2,
-            Main.Position.Y.Scale,
-            Main.Position.Y.Offset + (oldSize.Y - newSize.Y) / 2
-        )
+        local centerX = oldPosition.X + oldSize.X / 2
+        local centerY = oldPosition.Y + oldSize.Y / 2
+        UIScale.Scale = math.clamp(scalePercent / 100, 0.5, 1)
+
+        task.defer(function()
+            if not Main or not Main.Parent then return end
+            local newSize = Main.AbsoluteSize
+            local parentSize = Main.Parent.AbsoluteSize
+            Main.Position = UDim2.fromOffset(
+                centerX - newSize.X / 2,
+                centerY - newSize.Y / 2
+            )
+        end)
     end)
+    if ScaleDropdown then
+        for _, child in ipairs(ScaleDropdown:GetChildren()) do
+            if child:IsA("TextLabel") then
+                child.Text = "UI Scale: " .. tostring(math.floor(UIScale.Scale * 100 + 0.5)) .. "%"
+                break
+            end
+        end
+    end
     
     local AntiAFKCard = CreateCard(Page, "️  Anti AFK", "")
     AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
