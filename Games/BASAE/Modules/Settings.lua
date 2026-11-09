@@ -82,7 +82,7 @@ return function(Context)
     AddStroke(ConfigNameInput, Theme.Border, 1)
     local ConfigStatus = Create("TextLabel", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(93, 0),
+        Position = UDim2.fromOffset(11, 93),
         Size = UDim2.new(1, -22, 0, 14),
         BackgroundTransparency = 1,
         Text = ConfigStorageAvailable and (ActiveConfigName and ("Status: Active config - " .. ActiveConfigName) or "Status: Default config") or "Status: Executor file API unavailable",
