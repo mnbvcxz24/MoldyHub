@@ -69,7 +69,7 @@ return function(Context)
         Position = UDim2.fromOffset(11, 62),
         Size = UDim2.new(1, -22, 0, 26),
         BackgroundColor3 = Theme.SurfaceInput,
-        Text = ActiveConfigName or "MyConfig",
+        Text = ActiveConfigName or "",
         PlaceholderText = "Enter config name",
         PlaceholderColor3 = Theme.Gray,
         TextColor3 = Theme.Text,
