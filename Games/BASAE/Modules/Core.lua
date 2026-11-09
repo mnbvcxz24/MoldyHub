@@ -14,10 +14,10 @@ return function(Context)
     ConfigRootPath = "MoldyHub"
     ConfigFolderPath = ConfigRootPath .. "/config"
     LegacyConfigFolderPath = ConfigRootPath
-    ConfigFilePath = ConfigFolderPath .. "/MoldyHub_BASAE_Config.json"
+    ConfigFilePath = ConfigFolderPath .. "/moldyhub_basae_config.json"
     LegacyConfigFilePath = LegacyConfigFolderPath .. "/BASAE_Config.json"
     LegacyNamedConfigPath = LegacyConfigFolderPath
-    ActiveConfigPath = ConfigFolderPath .. "/ActiveBASAEConfig.txt"
+    ActiveConfigPath = ConfigFolderPath .. "/activebasaeconfig.txt"
     LegacyActiveConfigPath = LegacyConfigFolderPath .. "/ActiveBASAEConfig.txt"
     SavedConfig = {}
     ActiveConfigName = nil
@@ -60,7 +60,7 @@ return function(Context)
             end
         end)
     end
-    testver = "Deploy ver: 2.7"
+    testver = "Deploy ver: 2.8"
     ScriptStartedAt = os.clock()
     PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
     if type(PreviousRuntimeCleanup) == "function" then
