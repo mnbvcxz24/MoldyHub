@@ -222,7 +222,7 @@ return function(Context)
     end
     local function GetSafeConfigName()
         local rawName = tostring(ConfigNameInput.Text or "")
-        local safeName = rawName:gsub("[^%w_%-]", "")
+        local safeName = string.lower(rawName:gsub("[^%w_%-]", ""))
         if safeName == "" then return nil end
         return safeName
     end
