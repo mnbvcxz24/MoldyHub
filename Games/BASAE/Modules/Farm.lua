@@ -1725,21 +1725,33 @@ return function(Context)
         if not zone13 or not zone12 or not currentPosition then return nil, false end
         local ok, zoneCFrame, zoneSize, zone12Position = pcall(function()
             local cf, size = zone13:GetBoundingBox()
-            local zone12Pos = zone12:GetPivot().Position
-            return cf, size, zone12Pos
+            return cf, size, zone12:GetPivot().Position
         end)
         if not ok or not zoneCFrame or not zoneSize or not zone12Position then return nil, false end
+
+        -- Work in Zone13's local space so rotated builds are handled correctly.
+        -- Aim from the center of Zone13 directly toward Zone12, then intersect
+        -- that ray with the Zone13 bounding box instead of guessing an X/Z side.
         local currentLocal = zoneCFrame:PointToObjectSpace(currentPosition)
         local zone12Local = zoneCFrame:PointToObjectSpace(zone12Position)
         local halfX, halfZ = zoneSize.X * 0.5, zoneSize.Z * 0.5
         local inside = math.abs(currentLocal.X) <= halfX + 6
             and math.abs(currentLocal.Z) <= halfZ + 6
-        local edgeLocal
-        if math.abs(zone12Local.X) / math.max(halfX, 0.001) >= math.abs(zone12Local.Z) / math.max(halfZ, 0.001) then
-            edgeLocal = Vector3.new(zone12Local.X >= 0 and halfX or -halfX, currentLocal.Y, 0)
-        else
-            edgeLocal = Vector3.new(0, currentLocal.Y, zone12Local.Z >= 0 and halfZ or -halfZ)
-        end
+
+        local direction = Vector3.new(zone12Local.X, 0, zone12Local.Z)
+        if direction.Magnitude <= 0.001 then return nil, inside end
+        direction = direction.Unit
+
+        local xScale = math.abs(direction.X) > 0.001 and halfX / math.abs(direction.X) or math.huge
+        local zScale = math.abs(direction.Z) > 0.001 and halfZ / math.abs(direction.Z) or math.huge
+        local edgeDistance = math.min(xScale, zScale)
+        if edgeDistance == math.huge then return nil, inside end
+
+        local edgeLocal = Vector3.new(
+            direction.X * edgeDistance,
+            currentLocal.Y,
+            direction.Z * edgeDistance
+        )
         local edgeWorld = zoneCFrame:PointToWorldSpace(edgeLocal)
         return Vector3.new(edgeWorld.X, currentPosition.Y, edgeWorld.Z), inside
     end
