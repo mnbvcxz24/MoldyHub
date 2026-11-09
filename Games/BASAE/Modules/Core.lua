@@ -329,7 +329,7 @@ return function(Context)
         Parent = game.CoreGui,
         ResetOnSpawn = false,
         IgnoreGuiInset = true,
-        DisplayOrder = 999999,
+        DisplayOrder = 2,
         ZIndexBehavior = Enum.ZIndexBehavior.Global
     })
     ScreenGui.Enabled = false -- Keep the real interface hidden until Runtime completes.
@@ -415,14 +415,14 @@ return function(Context)
         end
     end
     -- COMPACT TOP STATUS BAR
-    -- Separate lower DisplayOrder keeps this decorative/draggable bar from
-    -- intercepting input intended for the main window when they overlap.
+    -- Keep the status bar just above Roblox CoreGui; the main window sits one
+    -- layer higher so it receives input when the two overlap.
     StatusBarGui = Create("ScreenGui", {
         Name = "MoldyHubStatusBarGui",
         Parent = game.CoreGui,
         ResetOnSpawn = false,
         IgnoreGuiInset = true,
-        DisplayOrder = 999998,
+        DisplayOrder = 1,
         ZIndexBehavior = Enum.ZIndexBehavior.Global
     })
     StatusBar = Create("Frame", {
