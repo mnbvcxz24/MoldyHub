@@ -2376,20 +2376,6 @@ return function(Context)
             end)
             return
         end
-        -- A selected rarity is a hard restriction, including for unindexed animals.
-        -- Other priority filters may add candidates, but must never override this selection.
-        local selectedRarityCount = 0
-        for _, selected in pairs(SelectedRarities) do
-            if selected then selectedRarityCount += 1 end
-        end
-        local rarityPriorityPickup = IsRarityAllowed(pickup)
-        if selectedRarityCount > 0 and not rarityPriorityPickup then
-            local actualRarity = GetPetRarity(pickup) or "Unknown"
-            SetPickupTracking(pickup, "Rejected: rarity not selected", tostring(actualRarity))
-            RejectPickupAndRestart("Filtered out " .. pickup.Name .. " | rarity " .. tostring(actualRarity) .. " is not selected.")
-            return
-        end
-
         local forceUnindexedPickup = false
         if UnindexedOnlyEnabled then
             local isUnindexed, indexDisplay = EvaluateUnindexedStatus(pickup)
@@ -2411,6 +2397,7 @@ return function(Context)
         local kgPriorityPickup, pickupWeightKg = false, nil
         local aboveLowestPriorityPickup = false
         local cpsPriorityPickup = false
+        local rarityPriorityPickup = false
         local cps, cpsText = -1, "CPS skipped for unindexed animal"
         local pickupPriority = 5
         if not forceUnindexedPickup then
@@ -2418,6 +2405,7 @@ return function(Context)
             if kgPriorityPickup then
                 SetPickupTracking(pickup, "KG threshold matched", tostring(pickupWeightKg) .. " KG")
             end
+            rarityPriorityPickup = IsRarityAllowed(pickup)
             SetPickupTracking(pickup, "CPS scan 1/2: warming up")
             local _, firstScanText = GetPetCPS(pickup)
             if evaluationCancelled() or not pickup.Parent then
@@ -2455,6 +2443,10 @@ return function(Context)
         if evaluationCancelled() or not pickup.Parent then
             SetPickupTracking(pickup, "Cancelled: automation toggled")
             return
+        end
+        local selectedRarityCount = 0
+        for _, selected in pairs(SelectedRarities) do
+            if selected then selectedRarityCount += 1 end
         end
         local anyPickupFilterEnabled = UnindexedOnlyEnabled or HighestCashEnabled
             or KGThresholdAmount > 0 or CPSFilter.amount > 0 or selectedRarityCount > 0
