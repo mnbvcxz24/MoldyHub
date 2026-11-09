@@ -1719,24 +1719,26 @@ return function(Context)
         end)
         return ok and pivot and pivot.Position or nil
     end
-    local function GetZone13BaseFacingEdge(basePosition, currentPosition)
+    local function GetZone13Zone12FacingEdge(currentPosition)
         local zone13 = ZoneBuilds and ZoneBuilds:FindFirstChild("Zone13")
-        if not zone13 or not basePosition or not currentPosition then return nil, false end
-        local ok, zoneCFrame, zoneSize = pcall(function()
+        local zone12 = ZoneBuilds and ZoneBuilds:FindFirstChild("Zone12")
+        if not zone13 or not zone12 or not currentPosition then return nil, false end
+        local ok, zoneCFrame, zoneSize, zone12Position = pcall(function()
             local cf, size = zone13:GetBoundingBox()
-            return cf, size
+            local zone12Pos = zone12:GetPivot().Position
+            return cf, size, zone12Pos
         end)
-        if not ok or not zoneCFrame or not zoneSize then return nil, false end
+        if not ok or not zoneCFrame or not zoneSize or not zone12Position then return nil, false end
         local currentLocal = zoneCFrame:PointToObjectSpace(currentPosition)
-        local baseLocal = zoneCFrame:PointToObjectSpace(basePosition)
+        local zone12Local = zoneCFrame:PointToObjectSpace(zone12Position)
         local halfX, halfZ = zoneSize.X * 0.5, zoneSize.Z * 0.5
         local inside = math.abs(currentLocal.X) <= halfX + 6
             and math.abs(currentLocal.Z) <= halfZ + 6
         local edgeLocal
-        if math.abs(baseLocal.X) / math.max(halfX, 0.001) >= math.abs(baseLocal.Z) / math.max(halfZ, 0.001) then
-            edgeLocal = Vector3.new(baseLocal.X >= 0 and halfX or -halfX, currentLocal.Y, 0)
+        if math.abs(zone12Local.X) / math.max(halfX, 0.001) >= math.abs(zone12Local.Z) / math.max(halfZ, 0.001) then
+            edgeLocal = Vector3.new(zone12Local.X >= 0 and halfX or -halfX, currentLocal.Y, 0)
         else
-            edgeLocal = Vector3.new(0, currentLocal.Y, baseLocal.Z >= 0 and halfZ or -halfZ)
+            edgeLocal = Vector3.new(0, currentLocal.Y, zone12Local.Z >= 0 and halfZ or -halfZ)
         end
         local edgeWorld = zoneCFrame:PointToWorldSpace(edgeLocal)
         return Vector3.new(edgeWorld.X, currentPosition.Y, edgeWorld.Z), inside
@@ -1907,11 +1909,11 @@ return function(Context)
                 end
                 if not returnEdgeChecked then
                     returnEdgeChecked = true
-                    local edgePosition, insideZone13 = GetZone13BaseFacingEdge(destination, root.Position)
+                    local edgePosition, insideZone13 = GetZone13Zone12FacingEdge(root.Position)
                     if insideZone13 then
                         returnEdgeWaypoint = edgePosition
                         if returnEdgeWaypoint then
-                            SetTrackerStatus("Zone 13 exit: moving to the edge facing base before the normal return route.")
+                            SetTrackerStatus("Zone 13 exit: moving to the edge facing Zone 12 before the normal return route.")
                         end
                     end
                 end
@@ -3819,7 +3821,7 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- Zone 13 approach uses its base-facing edge, then the egg.
+        -- Zone 13 approach uses its Zone 12-facing edge, then the egg.
         -- No pathfinding or route recalculation.
         local movementWaypoints = {}
         local movementWaypointIndex = 1
@@ -3827,7 +3829,7 @@ return function(Context)
         local targetZoneName = targetZone and targetZone.Name:gsub("%s+", ""):lower() or ""
         local useZone13Edge = false
         if targetZone and targetZoneName == "zone13" then
-            local edgePosition, insideZone13 = GetZone13BaseFacingEdge(targetPosition, root.Position)
+            local edgePosition, insideZone13 = GetZone13Zone12FacingEdge(root.Position)
             if not insideZone13 and edgePosition then
                 table.insert(movementWaypoints, edgePosition)
                 useZone13Edge = true
@@ -3835,7 +3837,7 @@ return function(Context)
         end
         table.insert(movementWaypoints, targetPosition)
         if useZone13Edge then
-            SetTrackerStatus("Zone 13 approach: moving to the edge facing base before the target egg.")
+            SetTrackerStatus("Zone 13 approach: moving to the edge facing Zone 12 before the target egg.")
         else
             SetTrackerStatus("Direct egg route: " .. target:GetFullName())
         end
