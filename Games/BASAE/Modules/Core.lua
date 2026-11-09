@@ -106,19 +106,19 @@ return function(Context)
     }
     -- THEME
     Theme = {
-        Background = Color3.fromRGB(5, 5, 7),
-        Sidebar = Color3.fromRGB(10, 10, 12),
-        Card = Color3.fromRGB(17, 17, 19),
-        Border = Color3.fromRGB(48, 39, 25),
-        Text = Color3.fromRGB(250, 247, 239),
-        DarkGray = Color3.fromRGB(208, 201, 187),
-        Gray = Color3.fromRGB(153, 146, 132),
-        LightGray = Color3.fromRGB(28, 27, 24),
-        SurfaceInput = Color3.fromRGB(22, 21, 18),
-        Selected = Color3.fromRGB(70, 47, 18),
-        SelectedText = Color3.fromRGB(255, 248, 230),
-        Accent = Color3.fromRGB(255, 181, 55),
-        AccentText = Color3.fromRGB(35, 21, 3)
+        Background = Color3.fromRGB(6, 12, 9),
+        Sidebar = Color3.fromRGB(11, 19, 14),
+        Card = Color3.fromRGB(17, 28, 21),
+        Border = Color3.fromRGB(37, 58, 42),
+        Text = Color3.fromRGB(244, 252, 242),
+        DarkGray = Color3.fromRGB(202, 216, 199),
+        Gray = Color3.fromRGB(145, 169, 141),
+        LightGray = Color3.fromRGB(25, 39, 28),
+        SurfaceInput = Color3.fromRGB(21, 34, 24),
+        Selected = Color3.fromRGB(36, 72, 36),
+        SelectedText = Color3.fromRGB(248, 255, 240),
+        Accent = Color3.fromRGB(174, 255, 74),
+        AccentText = Color3.fromRGB(19, 35, 4)
     }
     -- HELPER FUNCTIONS
     function Create(className, properties)
@@ -319,17 +319,17 @@ return function(Context)
             AccentText = Color3.fromRGB(19, 35, 4)
         }
     }
-    for key, color in pairs(ThemePresets["Black + Electric Blue"]) do
+    for key, color in pairs(ThemePresets["Forest Night + Lime"]) do
         Theme[key] = color
     end
-    ActiveThemeName = "Black + Electric Blue"
+    ActiveThemeName = "Forest Night + Lime"
     -- SCREEN GUI
     ScreenGui = Create("ScreenGui", {
         Name = "MoldyHub_BASAE_UI",
         Parent = game.CoreGui,
         ResetOnSpawn = false,
         IgnoreGuiInset = true,
-        DisplayOrder = 2,
+        DisplayOrder = 100,
         ZIndexBehavior = Enum.ZIndexBehavior.Global
     })
     ScreenGui.Enabled = false -- Keep the real interface hidden until Runtime completes.
@@ -422,7 +422,7 @@ return function(Context)
         Parent = game.CoreGui,
         ResetOnSpawn = false,
         IgnoreGuiInset = true,
-        DisplayOrder = 1,
+        DisplayOrder = 99,
         ZIndexBehavior = Enum.ZIndexBehavior.Global
     })
     StatusBar = Create("Frame", {
