@@ -339,10 +339,11 @@ return function(Context)
     end)
     RefreshConfigOptions()
 
-    local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Store or remove the MoldyHub loader in MoldyHub/autoexec. This folder alone does not enable automatic launch.")
-    AutoExecuteCard.Size = UDim2.new(1, 0, 0, 132)
+    local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Queue MoldyHub to run again after a teleport or reconnect.")
+    AutoExecuteCard.Size = UDim2.new(1, 0, 0, 158)
     local AutoExecuteFolderPath = "MoldyHub/autoexec"
-    local AutoExecutePath = AutoExecuteFolderPath .. "/MoldyHub_Execute.lua"
+    local AutoExecutePath = AutoExecuteFolderPath .. "/moldyhub_execute.lua"
+    local KeepMoldyHubPath = ConfigFolderPath .. "/keepmoldyhub.txt"
     local function EnsureAutoExecuteFolder()
         if type(makefolder) ~= "function" then error("Executor makefolder API unavailable") end
         if type(isfolder) ~= "function" or not isfolder(ConfigRootPath) then
@@ -351,11 +352,19 @@ return function(Context)
         if type(isfolder) ~= "function" or not isfolder(AutoExecuteFolderPath) then
             makefolder(AutoExecuteFolderPath)
         end
+        if type(isfolder) ~= "function" or not isfolder(ConfigFolderPath) then
+            makefolder(ConfigFolderPath)
+        end
     end
     local AutoExecuteSource = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/MoldyHub/Skrip/refs/heads/main/Loader.lua"))()'
+    local KeepMoldyHubEnabled = false
+    if type(isfile) == "function" and isfile(KeepMoldyHubPath) and type(readfile) == "function" then
+        local ok, value = pcall(readfile, KeepMoldyHubPath)
+        KeepMoldyHubEnabled = ok and tostring(value):lower():match("^%s*true%s*$") ~= nil
+    end
     local AutoExecuteStatus = Create("TextLabel", {
         Parent = AutoExecuteCard,
-        Position = UDim2.fromOffset(11, 43),
+        Position = UDim2.fromOffset(11, 69),
         Size = UDim2.new(1, -22, 0, 14),
         BackgroundTransparency = 1,
         Text = "Status: Ready",
@@ -367,6 +376,23 @@ return function(Context)
     local function SetAutoExecuteStatus(message, success)
         AutoExecuteStatus.Text = "Status: " .. message
         AutoExecuteStatus.TextColor3 = success and Color3.fromRGB(125, 220, 135) or Color3.fromRGB(235, 120, 100)
+    end
+    local KeepMoldyHubToggle = CreateToggle(AutoExecuteCard, "Keep after teleport", KeepMoldyHubEnabled, function(enabled)
+        KeepMoldyHubEnabled = enabled
+        local ok, err = pcall(function()
+            EnsureAutoExecuteFolder()
+            writefile(KeepMoldyHubPath, enabled and "true" or "false")
+        end)
+        if ok then
+            SetAutoExecuteStatus(enabled and "Keep after teleport enabled" or "Keep after teleport disabled", true)
+        else
+            KeepMoldyHubEnabled = not enabled
+            SetAutoExecuteStatus("Setting save failed - " .. tostring(err):sub(1, 55), false)
+        end
+    end)
+    if KeepMoldyHubToggle then
+        KeepMoldyHubToggle.Position = UDim2.new(1, -150, 0, 37)
+        KeepMoldyHubToggle.Size = UDim2.fromOffset(138, 24)
     end
     local function CreateAutoExecuteButton(buttonText, position, color, hoverColor, callback)
         local Button = Create("TextButton", {
@@ -393,7 +419,7 @@ return function(Context)
     end
     CreateAutoExecuteButton(
         "Load Auto Execute",
-        UDim2.fromOffset(11, 63),
+        UDim2.fromOffset(11, 89),
         Color3.fromRGB(38, 145, 76),
         Color3.fromRGB(48, 175, 91),
         function()
@@ -406,7 +432,7 @@ return function(Context)
                 writefile(AutoExecutePath, AutoExecuteSource)
             end)
             if ok then
-                SetAutoExecuteStatus("Created MoldyHub_Execute.lua", true)
+                SetAutoExecuteStatus("Created moldyhub_execute.lua", true)
             else
                 SetAutoExecuteStatus("Create failed - " .. tostring(err):sub(1, 65), false)
             end
@@ -414,7 +440,7 @@ return function(Context)
     )
     CreateAutoExecuteButton(
         "Unload Auto Execute",
-        UDim2.fromOffset(11, 96),
+        UDim2.fromOffset(11, 122),
         Color3.fromRGB(165, 55, 55),
         Color3.fromRGB(200, 65, 65),
         function()
@@ -429,11 +455,39 @@ return function(Context)
                 delfile(AutoExecutePath)
             end)
             if ok then
-                SetAutoExecuteStatus("Unloaded MoldyHub_Execute.lua", true)
+                SetAutoExecuteStatus("Unloaded moldyhub_execute.lua", true)
             else
                 SetAutoExecuteStatus("Unload failed - " .. tostring(err):sub(1, 65), false)
             end
         end
     )
+
+    -- Register one teleport listener. The setting is read at teleport time so
+    -- toggling KeepMoldyHub does not require rebuilding the connection.
+    local listenerEnv = type(getgenv) == "function" and getgenv() or _G
+    if not listenerEnv.MoldyHubKeepTeleportListener then
+        local teleportQueue = queue_on_teleport or queueonteleport
+        if type(teleportQueue) == "function" then
+            listenerEnv.MoldyHubKeepTeleportListener = true
+            local teleportQueued = false
+            LocalPlayer.OnTeleport:Connect(function()
+                if teleportQueued then return end
+                local shouldKeep = false
+                pcall(function()
+                    shouldKeep = type(readfile) == "function"
+                        and tostring(readfile(KeepMoldyHubPath)):lower():match("^%s*true%s*$") ~= nil
+                end)
+                if not shouldKeep then return end
+                teleportQueued = true
+                local ok, err = pcall(function()
+                    teleportQueue(AutoExecuteSource)
+                end)
+                if not ok then
+                    teleportQueued = false
+                    warn("[MoldyHub] Teleport queue failed: " .. tostring(err))
+                end
+            end)
+        end
+    end
     
 end
