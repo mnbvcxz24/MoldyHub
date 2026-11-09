@@ -187,6 +187,12 @@ for index, moduleName in ipairs(MODULES) do
     task.wait()
 end
 
+-- Reveal the main UI only after every module has finished loading.
+local mainUI = game:GetService("CoreGui"):FindFirstChild("MoldyHub_BASAE_UI")
+if mainUI then
+    mainUI.Enabled = true
+end
+
 SetLoadingStatus("BASAE loaded successfully!", #MODULES)
 task.wait(0.45)
 CloseLoadingScreen()
