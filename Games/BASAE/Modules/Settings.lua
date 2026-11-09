@@ -336,7 +336,6 @@ return function(Context)
 
     local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Create or remove the MoldyHub auto-execute file.")
     AutoExecuteCard.Size = UDim2.new(1, 0, 0, 132)
-    local AutoExecuteStagingPath = ConfigFolderPath .. "/MoldyHub_Execute.lua"
     local AutoExecutePath = "../Autoexecute/MoldyHub_Execute.lua"
     local AutoExecuteSource = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/MoldyHub/Skrip/refs/heads/main/Loader.lua"))()'
     local AutoExecuteStatus = Create("TextLabel", {
@@ -388,29 +387,12 @@ return function(Context)
                 return
             end
             local ok, err = pcall(function()
-                EnsureConfigFolder()
-                writefile(AutoExecuteStagingPath, AutoExecuteSource)
-                if type(readfile) ~= "function" then
-                    error("Executor readfile API unavailable")
-                end
-                local stagedContent = readfile(AutoExecuteStagingPath)
-                if stagedContent ~= AutoExecuteSource then
-                    error("Staging file verification failed")
-                end
-                writefile(AutoExecutePath, stagedContent)
-                local movedContent = readfile(AutoExecutePath)
-                if movedContent ~= AutoExecuteSource then
-                    error("Autoexecute destination verification failed")
-                end
-                if type(delfile) ~= "function" then
-                    error("Executor delfile API unavailable; staging file retained")
-                end
-                delfile(AutoExecuteStagingPath)
+                writefile(AutoExecutePath, AutoExecuteSource)
             end)
             if ok then
-                SetAutoExecuteStatus("Moved file to Delta/Autoexecute", true)
+                SetAutoExecuteStatus("Created MoldyHub_Execute.lua", true)
             else
-                SetAutoExecuteStatus("Move failed; staging copy kept - " .. tostring(err):sub(1, 48), false)
+                SetAutoExecuteStatus("Create failed - " .. tostring(err):sub(1, 65), false)
             end
         end
     )
