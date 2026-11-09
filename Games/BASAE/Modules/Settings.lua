@@ -114,7 +114,7 @@ return function(Context)
     
     local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Create or remove the MoldyHub auto-execute file.")
     AutoExecuteCard.Size = UDim2.new(1, 0, 0, 132)
-    local AutoExecutePath = "../Autoexecute/MoldyHub_Execute.txt"
+    local AutoExecutePath = "/storage/emulated/0/Delta/Autoexecute/MoldyHub_Execute.txt"
     local AutoExecuteSource = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/MoldyHub/Skrip/refs/heads/main/Loader.lua"))()'
     local AutoExecuteStatus = Create("TextLabel", {
         Parent = AutoExecuteCard,
@@ -168,7 +168,7 @@ return function(Context)
                 writefile(AutoExecutePath, AutoExecuteSource)
             end)
             if ok then
-                SetAutoExecuteStatus("Loaded MoldyHub_Execute.txt", true)
+                SetAutoExecuteStatus("Created MoldyHub_Execute.txt", true)
             else
                 SetAutoExecuteStatus("Load failed - " .. tostring(err):sub(1, 65), false)
             end
