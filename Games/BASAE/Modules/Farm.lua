@@ -1,5 +1,6 @@
--- FARM PAGE
+-- FARM PAGE - pending safe extraction of the large original farm branch.
 return function(Context)
-    Context.RegisterPage("Farm", "Automation and farming")
-    Context.AddCard("Farm", "Farm Features", "Farm functionality is being migrated from the preserved BASAE.lua reference. This reset removes the broken partial split.")
+    local Page = CreatePage(2, "Farm")
+    local Card = CreateCard(Page, "Farm Features", "The original Farm page is being migrated in smaller independent sections to stay below Luau's local-register limit.")
+    Card.Size = UDim2.new(1, 0, 0, 82)
 end
