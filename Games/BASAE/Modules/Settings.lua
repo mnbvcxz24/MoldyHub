@@ -229,8 +229,13 @@ return function(Context)
     local function EnsureConfigFolder()
         if type(isfolder) == "function" and isfolder(ConfigFolderPath) then return end
         if type(makefolder) == "function" then
-            makefolder(ConfigFolderPath)
-        elseif type(isfolder) == "function" then
+            if type(isfolder) ~= "function" or not isfolder(ConfigRootPath) then
+                makefolder(ConfigRootPath)
+            end
+            if type(isfolder) ~= "function" or not isfolder(ConfigFolderPath) then
+                makefolder(ConfigFolderPath)
+            end
+        else
             error("Delta folder API unavailable")
         end
     end
@@ -334,9 +339,19 @@ return function(Context)
     end)
     RefreshConfigOptions()
 
-    local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Create or remove the MoldyHub auto-execute file.")
+    local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Store or remove the MoldyHub loader in MoldyHub/autoexec. This folder alone does not enable automatic launch.")
     AutoExecuteCard.Size = UDim2.new(1, 0, 0, 132)
-    local AutoExecutePath = "../Autoexecute/MoldyHub_Execute.lua"
+    local AutoExecuteFolderPath = "MoldyHub/autoexec"
+    local AutoExecutePath = AutoExecuteFolderPath .. "/MoldyHub_Execute.lua"
+    local function EnsureAutoExecuteFolder()
+        if type(makefolder) ~= "function" then error("Executor makefolder API unavailable") end
+        if type(isfolder) ~= "function" or not isfolder(ConfigRootPath) then
+            makefolder(ConfigRootPath)
+        end
+        if type(isfolder) ~= "function" or not isfolder(AutoExecuteFolderPath) then
+            makefolder(AutoExecuteFolderPath)
+        end
+    end
     local AutoExecuteSource = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/MoldyHub/Skrip/refs/heads/main/Loader.lua"))()'
     local AutoExecuteStatus = Create("TextLabel", {
         Parent = AutoExecuteCard,
@@ -387,6 +402,7 @@ return function(Context)
                 return
             end
             local ok, err = pcall(function()
+                EnsureAutoExecuteFolder()
                 writefile(AutoExecutePath, AutoExecuteSource)
             end)
             if ok then
