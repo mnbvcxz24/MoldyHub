@@ -1719,6 +1719,28 @@ return function(Context)
         end)
         return ok and pivot and pivot.Position or nil
     end
+    local function GetZone13BaseFacingEdge(basePosition, currentPosition)
+        local zone13 = ZoneBuilds and ZoneBuilds:FindFirstChild("Zone13")
+        if not zone13 or not basePosition or not currentPosition then return nil, false end
+        local ok, zoneCFrame, zoneSize = pcall(function()
+            local cf, size = zone13:GetBoundingBox()
+            return cf, size
+        end)
+        if not ok or not zoneCFrame or not zoneSize then return nil, false end
+        local currentLocal = zoneCFrame:PointToObjectSpace(currentPosition)
+        local baseLocal = zoneCFrame:PointToObjectSpace(basePosition)
+        local halfX, halfZ = zoneSize.X * 0.5, zoneSize.Z * 0.5
+        local inside = math.abs(currentLocal.X) <= halfX + 6
+            and math.abs(currentLocal.Z) <= halfZ + 6
+        local edgeLocal
+        if math.abs(baseLocal.X) / math.max(halfX, 0.001) >= math.abs(baseLocal.Z) / math.max(halfZ, 0.001) then
+            edgeLocal = Vector3.new(baseLocal.X >= 0 and halfX or -halfX, currentLocal.Y, 0)
+        else
+            edgeLocal = Vector3.new(0, currentLocal.Y, baseLocal.Z >= 0 and halfZ or -halfZ)
+        end
+        local edgeWorld = zoneCFrame:PointToWorldSpace(edgeLocal)
+        return Vector3.new(edgeWorld.X, currentPosition.Y, edgeWorld.Z), inside
+    end
     function EquipHotbarOne()
         local Players = game:GetService("Players")
         local currentPlayer = LocalPlayer or Players.LocalPlayer
@@ -1821,6 +1843,8 @@ return function(Context)
             SetTrackerStatus(useZoneDrop and "Moving to Zone 1 to drop the animal." or "Returning to workspace.Build.ZoneHitboxes.SafeZone.")
             local moveStarted = os.clock()
             local lastReturnDistance = math.huge
+            local returnEdgeChecked = false
+            local returnEdgeWaypoint = nil
             local connection
             connection = game:GetService("RunService").RenderStepped:Connect(function()
                 if PickupGeneration ~= returnToken then
@@ -1881,8 +1905,25 @@ return function(Context)
                         if ok and pivot then destination = pivot.Position end
                     end
                 end
-                local horizontalDestination = Vector3.new(destination.X, root.Position.Y, destination.Z)
+                if not returnEdgeChecked then
+                    returnEdgeChecked = true
+                    local edgePosition, insideZone13 = GetZone13BaseFacingEdge(destination, root.Position)
+                    if insideZone13 then
+                        returnEdgeWaypoint = edgePosition
+                        if returnEdgeWaypoint then
+                            SetTrackerStatus("Zone 13 exit: moving to the edge facing base before the normal return route.")
+                        end
+                    end
+                end
+                local movementDestination = returnEdgeWaypoint or destination
+                local horizontalDestination = Vector3.new(movementDestination.X, root.Position.Y, movementDestination.Z)
                 local offset = horizontalDestination - root.Position
+                if returnEdgeWaypoint and offset.Magnitude <= 4 then
+                    returnEdgeWaypoint = nil
+                    humanoid:Move(Vector3.zero, false)
+                    TouchAutomationProgress("RETURNING_TO_BASE:ZONE13_EDGE")
+                    return
+                end
                 if offset.Magnitude < lastReturnDistance - 0.5 then
                     lastReturnDistance = offset.Magnitude
                     TouchAutomationProgress()
@@ -3777,31 +3818,23 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- Auto Break uses a single predictable route: Zone 13 center (only
-        -- when approaching it from outside), then the egg. No pathfinding or
-        -- route recalculation, so the character cannot oscillate between paths.
+        -- Zone 13 approach uses its base-facing edge, then the egg.
+        -- No pathfinding or route recalculation.
         local movementWaypoints = {}
         local movementWaypointIndex = 1
         local targetPosition = target:GetPivot().Position
         local targetZoneName = targetZone and targetZone.Name:gsub("%s+", ""):lower() or ""
-        local useZone13Center = false
+        local useZone13Edge = false
         if targetZone and targetZoneName == "zone13" then
-            local insideZone13 = false
-            pcall(function()
-                local zoneCFrame, zoneSize = targetZone:GetBoundingBox()
-                local localPosition = zoneCFrame:PointToObjectSpace(root.Position)
-                insideZone13 = math.abs(localPosition.X) <= zoneSize.X * 0.5 + 6
-                    and math.abs(localPosition.Z) <= zoneSize.Z * 0.5 + 6
-            end)
-            if not insideZone13 then
-                local centerPosition = targetZone:GetPivot().Position
-                table.insert(movementWaypoints, Vector3.new(centerPosition.X, targetPosition.Y, centerPosition.Z))
-                useZone13Center = true
+            local edgePosition, insideZone13 = GetZone13BaseFacingEdge(targetPosition, root.Position)
+            if not insideZone13 and edgePosition then
+                table.insert(movementWaypoints, edgePosition)
+                useZone13Edge = true
             end
         end
         table.insert(movementWaypoints, targetPosition)
-        if useZone13Center then
-            SetTrackerStatus("Zone 13 approach: moving to zone center before the target egg.")
+        if useZone13Edge then
+            SetTrackerStatus("Zone 13 approach: moving to the edge facing base before the target egg.")
         else
             SetTrackerStatus("Direct egg route: " .. target:GetFullName())
         end
