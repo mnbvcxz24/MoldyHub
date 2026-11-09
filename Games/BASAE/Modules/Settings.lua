@@ -66,7 +66,7 @@ return function(Context)
     ConfigSaveCard.Size = UDim2.new(1, 0, 0, 166)
     local ConfigNameInput = Create("TextBox", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(11, 48),
+        Position = UDim2.fromOffset(11, 62),
         Size = UDim2.new(1, -22, 0, 27),
         BackgroundColor3 = Theme.SurfaceInput,
         Text = ActiveConfigName or "MyConfig",
@@ -82,7 +82,7 @@ return function(Context)
     AddStroke(ConfigNameInput, Theme.Border, 1)
     local ConfigStatus = Create("TextLabel", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(11, 80),
+        Position = UDim2.fromOffset(93, 0),
         Size = UDim2.new(1, -22, 0, 14),
         BackgroundTransparency = 1,
         Text = ConfigStorageAvailable and (ActiveConfigName and ("Status: Active config - " .. ActiveConfigName) or "Status: Default config") or "Status: Executor file API unavailable",
@@ -146,11 +146,11 @@ return function(Context)
             SetConfigStatus("Save failed - " .. tostring(err):sub(1, 65), false)
         end
     end)
-    ConfigSaveButton.Position = UDim2.fromOffset(11, 101)
+    ConfigSaveButton.Position = UDim2.fromOffset(11, 113)
     ConfigSaveButton.Size = UDim2.new(0.5, -16, 0, 27)
     local ConfigUnloadButton = Create("TextButton", {
         Parent = ConfigSaveCard,
-        Position = UDim2.new(0.5, 5, 0, 101),
+        Position = UDim2.new(0.5, 5, 0, 113),
         Size = UDim2.new(0.5, -16, 0, 27),
         BackgroundColor3 = Color3.fromRGB(165, 95, 45),
         Text = "Unload Config",
