@@ -3777,38 +3777,34 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        local movementWaypoints = nil
+        -- Auto Break uses a single predictable route: Zone 13 center (only
+        -- when approaching it from outside), then the egg. No pathfinding or
+        -- route recalculation, so the character cannot oscillate between paths.
+        local movementWaypoints = {}
         local movementWaypointIndex = 1
-        local pathComputePending = false
-        local lastRootPosition = root.Position
-        local lastMovementProgressAt = os.clock()
-    
-        -- Compute the first route inline; avoid adding helper/async functions
-        -- because this script is close to the executor's function limit.
-        pcall(function()
-            local path = PathfindingService:CreatePath({
-                AgentRadius = 2,
-                AgentHeight = 5,
-                AgentCanJump = true,
-                WaypointSpacing = 5
-            })
-            path:ComputeAsync(root.Position, target:GetPivot().Position)
-            if path.Status == Enum.PathStatus.Success then
-                movementWaypoints = path:GetWaypoints()
-                -- Skip start/nearby waypoints after every route calculation.
-                -- This prevents turning back toward a point already reached.
-                movementWaypointIndex = 1
-                while movementWaypointIndex < #movementWaypoints do
-                    local candidateOffset = Vector3.new(
-                        movementWaypoints[movementWaypointIndex].Position.X - root.Position.X,
-                        0,
-                        movementWaypoints[movementWaypointIndex].Position.Z - root.Position.Z
-                    )
-                    if candidateOffset.Magnitude > 3.5 then break end
-                    movementWaypointIndex += 1
-                end
+        local targetPosition = target:GetPivot().Position
+        local targetZoneName = targetZone and targetZone.Name:gsub("%\s+", ""):lower() or ""
+        local useZone13Center = false
+        if targetZone and targetZoneName == "zone13" then
+            local insideZone13 = false
+            pcall(function()
+                local zoneCFrame, zoneSize = targetZone:GetBoundingBox()
+                local localPosition = zoneCFrame:PointToObjectSpace(root.Position)
+                insideZone13 = math.abs(localPosition.X) <= zoneSize.X * 0.5 + 6
+                    and math.abs(localPosition.Z) <= zoneSize.Z * 0.5 + 6
+            end)
+            if not insideZone13 then
+                local centerPosition = targetZone:GetPivot().Position
+                table.insert(movementWaypoints, Vector3.new(centerPosition.X, targetPosition.Y, centerPosition.Z))
+                useZone13Center = true
             end
-        end)
+        end
+        table.insert(movementWaypoints, targetPosition)
+        if useZone13Center then
+            SetTrackerStatus("Zone 13 approach: moving to zone center before the target egg.")
+        else
+            SetTrackerStatus("Direct egg route: " .. target:GetFullName())
+        end
     
         MovementConnection = RunService.RenderStepped:Connect(function()
             -- Animal pickup/return movement always owns the character over egg movement.
@@ -3883,56 +3879,20 @@ return function(Context)
                 return
             end
     
-            if (root.Position - lastRootPosition).Magnitude > 0.75 then
-                lastRootPosition = root.Position
-                lastMovementProgressAt = os.clock()
-            elseif os.clock() - lastMovementProgressAt > 5 and not pathComputePending then
-                -- Allow normal Roblox movement pauses before declaring the route stuck.
-                -- The old 1.75s timeout repeatedly restarted routes around corners.
-                pathComputePending = true
-                pcall(function()
-                    local path = PathfindingService:CreatePath({
-                        AgentRadius = 2,
-                        AgentHeight = 5,
-                        AgentCanJump = true,
-                        WaypointSpacing = 5
-                    })
-                    path:ComputeAsync(root.Position, target:GetPivot().Position)
-                    if path.Status == Enum.PathStatus.Success then
-                        movementWaypoints = path:GetWaypoints()
-                        -- Skip start/nearby waypoints after every route calculation.
-                        -- This prevents turning back toward a point already reached.
-                        movementWaypointIndex = 1
-                        while movementWaypointIndex < #movementWaypoints do
-                            local candidateOffset = Vector3.new(
-                                movementWaypoints[movementWaypointIndex].Position.X - root.Position.X,
-                                0,
-                                movementWaypoints[movementWaypointIndex].Position.Z - root.Position.Z
-                            )
-                            if candidateOffset.Magnitude > 3.5 then break end
-                            movementWaypointIndex += 1
-                        end
-                    end
-                end)
-                pathComputePending = false
-                lastMovementProgressAt = os.clock()
-            end
-    
-            if not movementWaypoints or movementWaypointIndex > #movementWaypoints then
+            local waypoint = movementWaypoints[movementWaypointIndex]
+            if not waypoint then
                 humanoid:Move(targetOffset.Unit, false)
                 return
             end
-    
-            local waypoint = movementWaypoints[movementWaypointIndex]
             local waypointOffset = Vector3.new(
-                waypoint.Position.X - root.Position.X,
+                waypoint.X - root.Position.X,
                 0,
-                waypoint.Position.Z - root.Position.Z
+                waypoint.Z - root.Position.Z
             )
-            if waypointOffset.Magnitude <= 3 then
+            if waypointOffset.Magnitude <= 4 then
                 movementWaypointIndex += 1
-                if waypoint.Action == Enum.PathWaypointAction.Jump then
-                    humanoid.Jump = true
+                if movementWaypointIndex > #movementWaypoints then
+                    humanoid:Move(Vector3.zero, false)
                 end
             elseif waypointOffset.Magnitude > 0.05 then
                 humanoid:Move(waypointOffset.Unit, false)
