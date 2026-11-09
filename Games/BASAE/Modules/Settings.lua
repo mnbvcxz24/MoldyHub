@@ -340,7 +340,7 @@ return function(Context)
     RefreshConfigOptions()
 
     local AutoExecuteCard = CreateCard(Page, "Keep Auto Execute", "Keep MoldyHub ready to run again after teleporting or reconnecting.")
-    AutoExecuteCard.Size = UDim2.new(1, 0, 0, 158)
+    AutoExecuteCard.Size = UDim2.new(1, 0, 0, 88)
     local AutoExecuteFolderPath = "MoldyHub/autoexec"
     local AutoExecutePath = AutoExecuteFolderPath .. "/moldyhub_execute.lua"
     local KeepMoldyHubPath = ConfigFolderPath .. "/keepmoldyhub.txt"
@@ -364,7 +364,7 @@ return function(Context)
     end
     local AutoExecuteStatus = Create("TextLabel", {
         Parent = AutoExecuteCard,
-        Position = UDim2.fromOffset(11, 69),
+        Position = UDim2.fromOffset(11, 58),
         Size = UDim2.new(1, -22, 0, 14),
         BackgroundTransparency = 1,
         Text = "Status: Ready",
@@ -377,7 +377,7 @@ return function(Context)
         AutoExecuteStatus.Text = "Status: " .. message
         AutoExecuteStatus.TextColor3 = success and Color3.fromRGB(125, 220, 135) or Color3.fromRGB(235, 120, 100)
     end
-    local KeepMoldyHubToggle = CreateToggle(AutoExecuteCard, "Keep after teleport", KeepMoldyHubEnabled, function(enabled)
+    local KeepMoldyHubToggle = CreateToggle(AutoExecuteCard, "Keep MH", KeepMoldyHubEnabled, function(enabled)
         KeepMoldyHubEnabled = enabled
         local ok, err = pcall(function()
             EnsureAutoExecuteFolder()
@@ -391,76 +391,9 @@ return function(Context)
         end
     end)
     if KeepMoldyHubToggle then
-        KeepMoldyHubToggle.Position = UDim2.new(1, -150, 0, 37)
+        KeepMoldyHubToggle.Position = UDim2.new(1, -150, 0, 8)
         KeepMoldyHubToggle.Size = UDim2.fromOffset(138, 24)
     end
-    local function CreateAutoExecuteButton(buttonText, position, color, hoverColor, callback)
-        local Button = Create("TextButton", {
-            Parent = AutoExecuteCard,
-            Size = UDim2.new(1, -22, 0, 27),
-            Position = position,
-            BackgroundColor3 = color,
-            Text = buttonText,
-            TextColor3 = Color3.fromRGB(255, 255, 255),
-            Font = Enum.Font.GothamMedium,
-            TextSize = 9,
-            BorderSizePixel = 0,
-            AutoButtonColor = false
-        })
-        AddCorner(Button, 6)
-        Button.MouseEnter:Connect(function()
-            Tween(Button, {BackgroundColor3 = hoverColor})
-        end)
-        Button.MouseLeave:Connect(function()
-            Tween(Button, {BackgroundColor3 = color})
-        end)
-        Button.MouseButton1Click:Connect(callback)
-        return Button
-    end
-    CreateAutoExecuteButton(
-        "Keep MH",
-        UDim2.fromOffset(11, 89),
-        Color3.fromRGB(38, 145, 76),
-        Color3.fromRGB(48, 175, 91),
-        function()
-            if type(writefile) ~= "function" then
-                SetAutoExecuteStatus("Executor writefile API unavailable", false)
-                return
-            end
-            local ok, err = pcall(function()
-                EnsureAutoExecuteFolder()
-                writefile(AutoExecutePath, AutoExecuteSource)
-            end)
-            if ok then
-                SetAutoExecuteStatus("Created moldyhub_execute.lua", true)
-            else
-                SetAutoExecuteStatus("Create failed - " .. tostring(err):sub(1, 65), false)
-            end
-        end
-    )
-    CreateAutoExecuteButton(
-        "Unkeep MH",
-        UDim2.fromOffset(11, 122),
-        Color3.fromRGB(165, 55, 55),
-        Color3.fromRGB(200, 65, 65),
-        function()
-            if type(delfile) ~= "function" then
-                SetAutoExecuteStatus("Executor delfile API unavailable", false)
-                return
-            end
-            local ok, err = pcall(function()
-                if type(isfile) == "function" and not isfile(AutoExecutePath) then
-                    error("Auto-execute file does not exist")
-                end
-                delfile(AutoExecutePath)
-            end)
-            if ok then
-                SetAutoExecuteStatus("Unloaded moldyhub_execute.lua", true)
-            else
-                SetAutoExecuteStatus("Unload failed - " .. tostring(err):sub(1, 65), false)
-            end
-        end
-    )
 
     -- Register one teleport listener. The setting is read at teleport time so
     -- toggling KeepMoldyHub does not require rebuilding the connection.
