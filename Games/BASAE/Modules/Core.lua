@@ -563,10 +563,10 @@ return function(Context)
     end)
     
     StatusBarDragging = false
-    StatusBarDragInput
-    StatusBarDragStart
-    StatusBarStartPosition
-    StatusBarStartAbsolutePosition
+    StatusBarDragInput = nil
+    StatusBarDragStart = nil
+    StatusBarStartPosition = nil
+    StatusBarStartAbsolutePosition = nil
     -- The status bar is intentionally unrestricted: it can be dragged over
     -- Roblox's top bar, chat, menu, and every other CoreGui area.
     function ClampStatusBarPosition(x, y)
@@ -612,7 +612,7 @@ return function(Context)
         end
     end)
     
-    StatusBarViewportConnection
+    StatusBarViewportConnection = nil
     function KeepStatusBarOnScreen()
         -- Intentionally do not reposition the bar on viewport changes.
         -- Its position is user-controlled and may overlap Roblox CoreGui.
@@ -782,8 +782,8 @@ return function(Context)
     SidebarButtons = {}
     CurrentPage = 1
     -- DEBUG CONSOLE
-    DebugConsoleList
-    DebugConsoleLayout
+    DebugConsoleList = nil
+    DebugConsoleLayout = nil
     DebugLogCount = 0
     MaxDebugLogs = 100
     function AddDebugLog(message)
@@ -1358,9 +1358,9 @@ return function(Context)
             CurrentPage = index
         end)
     end
-    ShutdownAutomation
-    CancelActiveAutomation
-    TouchAutomationProgress
+    ShutdownAutomation = nil
+    CancelActiveAutomation = nil
+    TouchAutomationProgress = nil
     AntiPaloEnabled = false
     Context.Initialized = true
 end
