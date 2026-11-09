@@ -1719,42 +1719,6 @@ return function(Context)
         end)
         return ok and pivot and pivot.Position or nil
     end
-    local function GetZone13Zone12FacingEdge(currentPosition)
-        local zone13 = ZoneBuilds and ZoneBuilds:FindFirstChild("Zone13")
-        local zone12 = ZoneBuilds and ZoneBuilds:FindFirstChild("Zone12")
-        if not zone13 or not zone12 or not currentPosition then return nil, false end
-        local ok, zoneCFrame, zoneSize, zone12Position = pcall(function()
-            local cf, size = zone13:GetBoundingBox()
-            return cf, size, zone12:GetPivot().Position
-        end)
-        if not ok or not zoneCFrame or not zoneSize or not zone12Position then return nil, false end
-
-        -- Work in Zone13's local space so rotated builds are handled correctly.
-        -- Aim from the center of Zone13 directly toward Zone12, then intersect
-        -- that ray with the Zone13 bounding box instead of guessing an X/Z side.
-        local currentLocal = zoneCFrame:PointToObjectSpace(currentPosition)
-        local zone12Local = zoneCFrame:PointToObjectSpace(zone12Position)
-        local halfX, halfZ = zoneSize.X * 0.5, zoneSize.Z * 0.5
-        local inside = math.abs(currentLocal.X) <= halfX + 6
-            and math.abs(currentLocal.Z) <= halfZ + 6
-
-        local direction = Vector3.new(zone12Local.X, 0, zone12Local.Z)
-        if direction.Magnitude <= 0.001 then return nil, inside end
-        direction = direction.Unit
-
-        local xScale = math.abs(direction.X) > 0.001 and halfX / math.abs(direction.X) or math.huge
-        local zScale = math.abs(direction.Z) > 0.001 and halfZ / math.abs(direction.Z) or math.huge
-        local edgeDistance = math.min(xScale, zScale)
-        if edgeDistance == math.huge then return nil, inside end
-
-        local edgeLocal = Vector3.new(
-            direction.X * edgeDistance,
-            currentLocal.Y,
-            direction.Z * edgeDistance
-        )
-        local edgeWorld = zoneCFrame:PointToWorldSpace(edgeLocal)
-        return Vector3.new(edgeWorld.X, currentPosition.Y, edgeWorld.Z), inside
-    end
     function EquipHotbarOne()
         local Players = game:GetService("Players")
         local currentPlayer = LocalPlayer or Players.LocalPlayer
@@ -1857,8 +1821,6 @@ return function(Context)
             SetTrackerStatus(useZoneDrop and "Moving to Zone 1 to drop the animal." or "Returning to workspace.Build.ZoneHitboxes.SafeZone.")
             local moveStarted = os.clock()
             local lastReturnDistance = math.huge
-            local returnEdgeChecked = false
-            local returnEdgeWaypoint = nil
             local connection
             connection = game:GetService("RunService").RenderStepped:Connect(function()
                 if PickupGeneration ~= returnToken then
@@ -1919,26 +1881,8 @@ return function(Context)
                         if ok and pivot then destination = pivot.Position end
                     end
                 end
-                if not returnEdgeChecked then
-                    returnEdgeChecked = true
-                    local edgePosition, insideZone13 = GetZone13Zone12FacingEdge(root.Position)
-                    if insideZone13 then
-                        returnEdgeWaypoint = edgePosition
-                        if returnEdgeWaypoint then
-                            SetTrackerStatus("Zone 13 exit: moving to the edge facing Zone 12 before the normal return route.")
-                        end
-                    end
-                end
-                local movementDestination = returnEdgeWaypoint or destination
-                local horizontalDestination = Vector3.new(movementDestination.X, root.Position.Y, movementDestination.Z)
+                local horizontalDestination = Vector3.new(destination.X, root.Position.Y, destination.Z)
                 local offset = horizontalDestination - root.Position
-                if returnEdgeWaypoint and offset.Magnitude <= 4 then
-                    returnEdgeWaypoint = nil
-                    lastReturnDistance = math.huge
-                    humanoid:Move(Vector3.zero, false)
-                    TouchAutomationProgress("RETURNING_TO_BASE:ZONE13_EDGE")
-                    return
-                end
                 if offset.Magnitude < lastReturnDistance - 0.5 then
                     lastReturnDistance = offset.Magnitude
                     TouchAutomationProgress()
@@ -3833,26 +3777,10 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- Zone 13 approach uses its Zone 12-facing edge, then the egg.
-        -- No pathfinding or route recalculation.
-        local movementWaypoints = {}
+        -- Move directly to the selected egg in every zone.
+        local movementWaypoints = {target:GetPivot().Position}
         local movementWaypointIndex = 1
-        local targetPosition = target:GetPivot().Position
-        local targetZoneName = targetZone and targetZone.Name:gsub("%s+", ""):lower() or ""
-        local useZone13Edge = false
-        if targetZone and targetZoneName == "zone13" then
-            local edgePosition, insideZone13 = GetZone13Zone12FacingEdge(root.Position)
-            if not insideZone13 and edgePosition then
-                table.insert(movementWaypoints, edgePosition)
-                useZone13Edge = true
-            end
-        end
-        table.insert(movementWaypoints, targetPosition)
-        if useZone13Edge then
-            SetTrackerStatus("Zone 13 approach: moving to the edge facing Zone 12 before the target egg.")
-        else
-            SetTrackerStatus("Direct egg route: " .. target:GetFullName())
-        end
+        SetTrackerStatus("Direct egg route: " .. target:GetFullName())
     
         MovementConnection = RunService.RenderStepped:Connect(function()
             -- Animal pickup/return movement always owns the character over egg movement.
