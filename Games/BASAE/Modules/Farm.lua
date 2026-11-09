@@ -1920,6 +1920,7 @@ return function(Context)
                 local offset = horizontalDestination - root.Position
                 if returnEdgeWaypoint and offset.Magnitude <= 4 then
                     returnEdgeWaypoint = nil
+                    lastReturnDistance = math.huge
                     humanoid:Move(Vector3.zero, false)
                     TouchAutomationProgress("RETURNING_TO_BASE:ZONE13_EDGE")
                     return
