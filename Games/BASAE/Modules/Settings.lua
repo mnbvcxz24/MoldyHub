@@ -62,23 +62,61 @@ return function(Context)
     Runtime.PersistentConnections = Runtime.PersistentConnections or {}
     table.insert(Runtime.PersistentConnections, AntiAFKConnection)
     
-    local ConfigSaveCard = CreateCard(Page, "Config Save", "Save feature toggles, farm filters, and interface preferences.")
-    ConfigSaveCard.Size = UDim2.new(1, 0, 0, 122)
+    local ConfigSaveCard = CreateCard(Page, "Config Save", "Save a named config, remember it for the next launch, or return to default settings.")
+    ConfigSaveCard.Size = UDim2.new(1, 0, 0, 166)
+    local ConfigNameInput = Create("TextBox", {
+        Parent = ConfigSaveCard,
+        Position = UDim2.fromOffset(11, 48),
+        Size = UDim2.new(1, -22, 0, 27),
+        BackgroundColor3 = Theme.SurfaceInput,
+        Text = ActiveConfigName or "MyConfig",
+        PlaceholderText = "Enter config name",
+        PlaceholderColor3 = Theme.Gray,
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        ClearTextOnFocus = false,
+        BorderSizePixel = 0
+    })
+    AddCorner(ConfigNameInput, 6)
+    AddStroke(ConfigNameInput, Theme.Border, 1)
     local ConfigStatus = Create("TextLabel", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(11, 51),
+        Position = UDim2.fromOffset(11, 80),
         Size = UDim2.new(1, -22, 0, 14),
         BackgroundTransparency = 1,
-        Text = ConfigStorageAvailable and "Status: Ready" or "Status: Executor file API unavailable",
+        Text = ConfigStorageAvailable and (ActiveConfigName and ("Status: Active config - " .. ActiveConfigName) or "Status: Default config") or "Status: Executor file API unavailable",
         TextColor3 = ConfigStorageAvailable and Theme.Gray or Color3.fromRGB(235, 120, 100),
         Font = Enum.Font.Gotham,
         TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Left
     })
+    local function SetConfigStatus(message, success)
+        ConfigStatus.Text = "Status: " .. message
+        ConfigStatus.TextColor3 = success and Theme.Accent or Color3.fromRGB(235, 120, 100)
+    end
+    local function GetSafeConfigName()
+        local rawName = tostring(ConfigNameInput.Text or "")
+        local safeName = rawName:gsub("[^%w_%-]", "")
+        if safeName == "" then return nil end
+        return safeName
+    end
+    local function EnsureConfigFolder()
+        if type(isfolder) == "function" and isfolder(ConfigFolderPath) then return end
+        if type(makefolder) == "function" then
+            makefolder(ConfigFolderPath)
+        elseif type(isfolder) == "function" then
+            error("Delta folder API unavailable")
+        end
+    end
     local ConfigSaveButton = CreateButton(ConfigSaveCard, "Save Config", function()
         if not ConfigStorageAvailable then
-            ConfigStatus.Text = "Status: Executor file API unavailable"
-            ConfigStatus.TextColor3 = Color3.fromRGB(235, 120, 100)
+            SetConfigStatus("Executor file API unavailable", false)
+            return
+        end
+        local configName = GetSafeConfigName()
+        if not configName then
+            SetConfigStatus("Enter a valid config name", false)
             return
         end
         local config = {
@@ -94,24 +132,58 @@ return function(Context)
                 config.Toggles[key] = controller.GetEnabled()
             end
         end
+        local configPath = ConfigFolderPath .. "/" .. configName .. ".json"
         local ok, err = pcall(function()
-            if type(isfolder) == "function" and not isfolder("MoldyHub") and type(makefolder) == "function" then
-                makefolder("MoldyHub")
-            end
-            writefile(ConfigFilePath, game:GetService("HttpService"):JSONEncode(config))
+            EnsureConfigFolder()
+            writefile(configPath, game:GetService("HttpService"):JSONEncode(config))
+            writefile(ActiveConfigPath, configName)
         end)
         if ok then
             SavedConfig = config
-            ConfigStatus.Text = "Status: Config saved"
-            ConfigStatus.TextColor3 = Theme.Accent
+            ActiveConfigName = configName
+            SetConfigStatus("Saved and selected - " .. configName, true)
         else
-            ConfigStatus.Text = "Status: Save failed - " .. tostring(err):sub(1, 70)
-            ConfigStatus.TextColor3 = Color3.fromRGB(235, 120, 100)
+            SetConfigStatus("Save failed - " .. tostring(err):sub(1, 65), false)
         end
     end)
-    ConfigSaveButton.Position = UDim2.fromOffset(11, 82)
-    ConfigSaveButton.Size = UDim2.new(1, -22, 0, 27)
-    
+    ConfigSaveButton.Position = UDim2.fromOffset(11, 101)
+    ConfigSaveButton.Size = UDim2.new(0.5, -16, 0, 27)
+    local ConfigUnloadButton = Create("TextButton", {
+        Parent = ConfigSaveCard,
+        Position = UDim2.new(0.5, 5, 0, 101),
+        Size = UDim2.new(0.5, -16, 0, 27),
+        BackgroundColor3 = Color3.fromRGB(165, 95, 45),
+        Text = "Unload Config",
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        Font = Enum.Font.GothamMedium,
+        TextSize = 9,
+        BorderSizePixel = 0,
+        AutoButtonColor = false
+    })
+    AddCorner(ConfigUnloadButton, 6)
+    ConfigUnloadButton.MouseEnter:Connect(function()
+        Tween(ConfigUnloadButton, {BackgroundColor3 = Color3.fromRGB(190, 115, 55)})
+    end)
+    ConfigUnloadButton.MouseLeave:Connect(function()
+        Tween(ConfigUnloadButton, {BackgroundColor3 = Color3.fromRGB(165, 95, 45)})
+    end)
+    ConfigUnloadButton.MouseButton1Click:Connect(function()
+        if type(writefile) ~= "function" then
+            SetConfigStatus("Executor writefile API unavailable", false)
+            return
+        end
+        local ok, err = pcall(function()
+            EnsureConfigFolder()
+            writefile(ActiveConfigPath, "DEFAULT")
+        end)
+        if ok then
+            ActiveConfigName = nil
+            SetConfigStatus("Default config selected; rerun BASAE to apply", true)
+        else
+            SetConfigStatus("Unload failed - " .. tostring(err):sub(1, 65), false)
+        end
+    end)
+
     local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Create or remove the MoldyHub auto-execute file.")
     AutoExecuteCard.Size = UDim2.new(1, 0, 0, 132)
     local AutoExecutePath = "../Autoexecute/MoldyHub_Execute.lua"
