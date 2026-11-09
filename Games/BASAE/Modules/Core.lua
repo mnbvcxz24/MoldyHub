@@ -11,10 +11,14 @@ return function(Context)
     VirtualUser = game:GetService("VirtualUser")
     LocalPlayer = Players.LocalPlayer
     RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-    ConfigFolderPath = "MoldyHub"
+    ConfigRootPath = "MoldyHub"
+    ConfigFolderPath = ConfigRootPath .. "/config"
+    LegacyConfigFolderPath = ConfigRootPath
     ConfigFilePath = ConfigFolderPath .. "/MoldyHub_BASAE_Config.json"
-    LegacyConfigFilePath = ConfigFolderPath .. "/BASAE_Config.json"
+    LegacyConfigFilePath = LegacyConfigFolderPath .. "/BASAE_Config.json"
+    LegacyNamedConfigPath = LegacyConfigFolderPath
     ActiveConfigPath = ConfigFolderPath .. "/ActiveBASAEConfig.txt"
+    LegacyActiveConfigPath = LegacyConfigFolderPath .. "/ActiveBASAEConfig.txt"
     SavedConfig = {}
     ActiveConfigName = nil
     ConfigStorageAvailable = type(readfile) == "function" and type(writefile) == "function"
@@ -23,6 +27,8 @@ return function(Context)
             local activeName
             if type(isfile) == "function" and isfile(ActiveConfigPath) then
                 activeName = tostring(readfile(ActiveConfigPath) or "")
+            elseif type(isfile) == "function" and isfile(LegacyActiveConfigPath) then
+                activeName = tostring(readfile(LegacyActiveConfigPath) or "")
             end
             if activeName == "DEFAULT" then
                 ActiveConfigName = nil
@@ -31,10 +37,18 @@ return function(Context)
                 if type(activeName) == "string" and activeName:match("^[%w_%-]+$") then
                     ActiveConfigName = activeName
                     configReadPath = ConfigFolderPath .. "/" .. activeName .. ".json"
+                    if type(isfile) == "function" and not isfile(configReadPath) then
+                        local legacyNamedPath = LegacyNamedConfigPath .. "/" .. activeName .. ".json"
+                        if isfile(legacyNamedPath) then configReadPath = legacyNamedPath end
+                    end
                 else
                     configReadPath = ConfigFilePath
-                    if type(isfile) == "function" and not isfile(configReadPath) and isfile(LegacyConfigFilePath) then
-                        configReadPath = LegacyConfigFilePath
+                    if type(isfile) == "function" and not isfile(configReadPath) then
+                        if isfile(LegacyNamedConfigPath .. "/MoldyHub_BASAE_Config.json") then
+                            configReadPath = LegacyNamedConfigPath .. "/MoldyHub_BASAE_Config.json"
+                        elseif isfile(LegacyConfigFilePath) then
+                            configReadPath = LegacyConfigFilePath
+                        end
                     end
                 end
                 if configReadPath and type(isfile) == "function" and isfile(configReadPath) then
@@ -46,7 +60,7 @@ return function(Context)
             end
         end)
     end
-    testver = "Deploy ver: 2.6"
+    testver = "Deploy ver: 2.7"
     ScriptStartedAt = os.clock()
     PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
     if type(PreviousRuntimeCleanup) == "function" then
