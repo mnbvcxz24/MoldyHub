@@ -97,9 +97,24 @@ return function(Context)
     if AutoPickupTitle then AutoPickupTitle.Size = UDim2.new(1, -78, 0, 22) end
     -- Auto Fuse removed: card, polling loop, toggles, and requirement scanning are intentionally disabled.
     local RarityFilterOpen = false
-    local RarityOptions = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine", "Celestial", "Inferno", "Void", "Omega", "Spectral", "Ethereal"}
+    local RarityOptions = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine", "Celestial", "Inferno", "Void", "Omega", "Spectral", "Ethereal", "Primordial"}
+    local SavedFarmConfig = type(SavedConfig.Farm) == "table" and SavedConfig.Farm or {}
+    local function RestoreNameSet(values)
+        local result = {}
+        if type(values) == "table" then
+            for _, value in ipairs(values) do
+                if type(value) == "string" and value ~= "" then result[value] = true end
+            end
+        end
+        return result
+    end
     local SelectedRarities = {}
-    local SelectedPickupZones = {}
+    if type(SavedFarmConfig.Rarities) == "table" then
+        for rarity, enabled in pairs(SavedFarmConfig.Rarities) do
+            if type(rarity) == "string" and enabled == true then SelectedRarities[rarity] = true end
+        end
+    end
+    local SelectedPickupZones = RestoreNameSet(SavedFarmConfig.PickupZones)
     local PickupZoneList
     local PickupZoneButton
     local RarityList
@@ -401,7 +416,7 @@ return function(Context)
             and string.format("[Auto Pickup] Coins/second minimum set to %s %s/s.", tostring(CPSFilter.amount), CPSFilter.unit)
             or "[Auto Pickup] Coins/second filter OFF.")
     end)
-    local function CreatePickupCheckbox(parent, labelText, yPosition, callback)
+    local function CreatePickupCheckbox(parent, labelText, yPosition, callback, defaultEnabled)
         local CheckboxBorder = Create("Frame", {
             Parent = parent,
             Name = "PickupOptionCheckboxBorder",
@@ -464,6 +479,7 @@ return function(Context)
         end
         Checkbox.MouseButton1Click:Connect(Toggle)
         Label.MouseButton1Click:Connect(Toggle)
+        if defaultEnabled == true then SetEnabled(true) end
         return Checkbox
     end
     local HighestCashEnabled = false
@@ -707,10 +723,13 @@ return function(Context)
         PickupZoneList.CanvasSize = UDim2.new(0, 0, 0, PickupZoneLayout.AbsoluteContentSize.Y + 10)
     end
     RefreshPickupZoneList()
-    local SelectedZones = {}
+    local SelectedZones = RestoreNameSet(SavedFarmConfig.Zones)
     local SelectedEggs = {}
+    for eggName in pairs(RestoreNameSet(SavedFarmConfig.DisabledEggs)) do
+        SelectedEggs[eggName] = false
+    end
     local PreferredZoneName = nil
-    local SortOrder = "Highest Luck"
+    local SortOrder = SavedFarmConfig.SortOrder == "Highest Kg" and "Highest Kg" or "Highest Luck"
     local SortFrame
     local ZoneFilterButton
     local EggFilterButton
@@ -1469,7 +1488,7 @@ return function(Context)
         TitanicPriorityEnabled = enabled
         AddDebugLog("[Auto Break] TITANIC priority " .. (enabled and "ON" or "OFF"))
         if RefreshEggFilters then RefreshEggFilters() end
-    end)
+    end, SavedFarmConfig.TitanicPriority == true)
     Card1.Size = UDim2.new(0.5, -5, 0, 190)
     AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
     local function UpdateAutoBreakCardHeights()
@@ -3970,6 +3989,33 @@ return function(Context)
             end
         end
     end)
+    GetFarmConfigSnapshot = function()
+        local pickupZones, zones, disabledEggs = {}, {}, {}
+        for zoneName, enabled in pairs(SelectedPickupZones) do
+            if enabled then table.insert(pickupZones, zoneName) end
+        end
+        for zoneName, enabled in pairs(SelectedZones) do
+            if enabled then table.insert(zones, zoneName) end
+        end
+        for eggName, enabled in pairs(SelectedEggs) do
+            if enabled == false then table.insert(disabledEggs, eggName) end
+        end
+        table.sort(pickupZones)
+        table.sort(zones)
+        table.sort(disabledEggs)
+        local rarities = {}
+        for rarityName, enabled in pairs(SelectedRarities) do
+            if enabled == true then rarities[rarityName] = true end
+        end
+        return {
+            Rarities = rarities,
+            PickupZones = pickupZones,
+            Zones = zones,
+            DisabledEggs = disabledEggs,
+            SortOrder = SortOrder,
+            TitanicPriority = TitanicPriorityEnabled
+        }
+    end
     RefreshEggFilters = function()
         if not AutoBreakEnabled then return end
         if CurrentTarget and IsEggAvailable(CurrentTarget) then
