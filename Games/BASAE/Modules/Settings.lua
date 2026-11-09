@@ -62,7 +62,7 @@ return function(Context)
     Runtime.PersistentConnections = Runtime.PersistentConnections or {}
     table.insert(Runtime.PersistentConnections, AntiAFKConnection)
     
-    local ConfigSaveCard = CreateCard(Page, "Config Save", "Save toggle states and interface preferences.")
+    local ConfigSaveCard = CreateCard(Page, "Config Save", "Save feature toggles, farm filters, and interface preferences.")
     ConfigSaveCard.Size = UDim2.new(1, 0, 0, 122)
     local ConfigStatus = Create("TextLabel", {
         Parent = ConfigSaveCard,
@@ -86,7 +86,8 @@ return function(Context)
             SavedAt = os.time(),
             Theme = ActiveThemeName,
             UIScale = UIScale.Scale,
-            Toggles = {}
+            Toggles = {},
+            Farm = type(GetFarmConfigSnapshot) == "function" and GetFarmConfigSnapshot() or nil
         }
         for key, controller in pairs(ConfigToggleControllers) do
             if controller and type(controller.GetEnabled) == "function" then
