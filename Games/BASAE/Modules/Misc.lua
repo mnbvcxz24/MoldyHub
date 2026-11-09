@@ -7,14 +7,14 @@ return function(Context)
         Name = "ESPFeatureCardsRow",
         Parent = Page,
         Position = UDim2.fromOffset(10, 10),
-        Size = UDim2.new(1, -20, 0, 100),
+        Size = UDim2.new(1, -20, 0, 88),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         LayoutOrder = 0
     })
     local ESPCard = CreateCard(ESPCardsRow, "Egg ESP", "Displays egg stats.")
     ESPCard.Position = UDim2.new(0, 0, 0, 0)
-    ESPCard.Size = UDim2.new(0.5, -5, 0, 100)
+    ESPCard.Size = UDim2.new(0.5, -5, 0, 88)
     ESPCard.LayoutOrder = 1
     local ESPStatus = Create("TextLabel", {
         Parent = ESPCard,
@@ -160,11 +160,11 @@ return function(Context)
     end
     local ESPTitle = ESPCard:FindFirstChildWhichIsA("TextLabel")
     if ESPTitle then ESPTitle.Size = UDim2.new(1, -78, 0, 22) end
-    ESPCard.Size = UDim2.new(0.5, -5, 0, 100)
+    ESPCard.Size = UDim2.new(0.5, -5, 0, 88)
     
     local BackpackESPCard = CreateCard(ESPCardsRow, "Backpack ESP", "Shows larger $/s and KG on inventory cards.")
     BackpackESPCard.Position = UDim2.new(0.5, 5, 0, 0)
-    BackpackESPCard.Size = UDim2.new(0.5, -5, 0, 100)
+    BackpackESPCard.Size = UDim2.new(0.5, -5, 0, 88)
     BackpackESPCard.LayoutOrder = 2
     local BackpackESPStatus = Create("TextLabel", {
         Parent = BackpackESPCard,
@@ -425,15 +425,15 @@ return function(Context)
     local MiscFeatureRow = Create("Frame", {
         Name = "MiscFeatureCardsRow",
         Parent = Page,
-        Position = UDim2.fromOffset(10, 120),
-        Size = UDim2.new(1, -20, 0, 110),
+        Position = UDim2.fromOffset(10, 108),
+        Size = UDim2.new(1, -20, 0, 93),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         LayoutOrder = 1
     })
     local AntiPaloCard = CreateCard(MiscFeatureRow, "️  Anti Knockback", "Prevents knockback and fling.")
     AntiPaloCard.Position = UDim2.new(0, 0, 0, 0)
-    AntiPaloCard.Size = UDim2.new(0.5, -5, 0, 100)
+    AntiPaloCard.Size = UDim2.new(0.5, -5, 0, 88)
     AntiPaloCard.LayoutOrder = 1
     local AntiPaloBusy = false
     local AntiPaloStatus = Create("TextLabel", {
@@ -468,7 +468,7 @@ return function(Context)
     
     local AuraCard = CreateCard(MiscFeatureRow, "️  Auto Boink", "Boink any enemy nearby.")
     AuraCard.Position = UDim2.new(0.5, 5, 0, 0)
-    AuraCard.Size = UDim2.new(0.5, -5, 0, 100)
+    AuraCard.Size = UDim2.new(0.5, -5, 0, 88)
     AuraCard.LayoutOrder = 2
     local AuraStatus = Create("TextLabel", {
         Parent = AuraCard,
@@ -637,5 +637,51 @@ return function(Context)
     end)
     AuraToggle.Position = UDim2.new(1, -58, 0, 7)
     AuraToggle.Size = UDim2.fromOffset(48, 24)
-    
+
+    local AnimalAutomationRow = Create("Frame", {
+        Name = "AnimalAutomationCardsRow",
+        Parent = Page,
+        Position = UDim2.fromOffset(10, 211),
+        Size = UDim2.new(1, -20, 0, 88),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        LayoutOrder = 2
+    })
+
+    local AutoMountBestAnimalCard = CreateCard(
+        AnimalAutomationRow,
+        "Auto mount best animal",
+        "Selects the animal with the highest $/s to mount."
+    )
+    AutoMountBestAnimalCard.Position = UDim2.new(0, 0, 0, 0)
+    AutoMountBestAnimalCard.Size = UDim2.new(0.5, -5, 0, 88)
+    AutoMountBestAnimalCard.LayoutOrder = 1
+    local AutoMountBestAnimalToggle = CreateToggle(AutoMountBestAnimalCard, "", false, function(enabled)
+        -- UI only; functionality will be added later.
+    end)
+    AutoMountBestAnimalToggle.Position = UDim2.new(1, -58, 0, 7)
+    AutoMountBestAnimalToggle.Size = UDim2.fromOffset(48, 24)
+    local AutoMountBestAnimalTitle = AutoMountBestAnimalCard:FindFirstChildWhichIsA("TextLabel")
+    if AutoMountBestAnimalTitle then
+        AutoMountBestAnimalTitle.Size = UDim2.new(1, -78, 0, 22)
+    end
+
+    local AutoPlaceBestAnimalCard = CreateCard(
+        AnimalAutomationRow,
+        "Auto place best animal",
+        "Selects the animal with the highest $/s to place."
+    )
+    AutoPlaceBestAnimalCard.Position = UDim2.new(0.5, 5, 0, 0)
+    AutoPlaceBestAnimalCard.Size = UDim2.new(0.5, -5, 0, 88)
+    AutoPlaceBestAnimalCard.LayoutOrder = 2
+    local AutoPlaceBestAnimalToggle = CreateToggle(AutoPlaceBestAnimalCard, "", false, function(enabled)
+        -- UI only; functionality will be added later.
+    end)
+    AutoPlaceBestAnimalToggle.Position = UDim2.new(1, -58, 0, 7)
+    AutoPlaceBestAnimalToggle.Size = UDim2.fromOffset(48, 24)
+    local AutoPlaceBestAnimalTitle = AutoPlaceBestAnimalCard:FindFirstChildWhichIsA("TextLabel")
+    if AutoPlaceBestAnimalTitle then
+        AutoPlaceBestAnimalTitle.Size = UDim2.new(1, -78, 0, 22)
+    end
+
 end
