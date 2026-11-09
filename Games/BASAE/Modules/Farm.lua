@@ -717,6 +717,31 @@ return function(Context)
     local SortLargestButton
     local SortSmallestButton
     local ZoneBuilds = workspace:WaitForChild("Build"):WaitForChild("ZoneBuilds")
+    -- Resolve the gate from the live workspace hierarchy; do not hardcode coordinates.
+    local function GetZone13GatePosition()
+        local zone12 = ZoneBuilds:FindFirstChild("Zone12")
+        local castleMap = zone12 and zone12:FindFirstChild("CastleMap")
+        local limit = castleMap and castleMap:FindFirstChild("Limit")
+        local gate = limit and limit:FindFirstChild("CastleGATE")
+        if not gate then return nil end
+        local ok, position = pcall(function()
+            if gate:IsA("BasePart") then return gate.Position end
+            return gate:GetPivot().Position
+        end)
+        return ok and position or nil
+    end
+    local function IsInsideZone13(position)
+        local zone13 = ZoneBuilds:FindFirstChild("Zone13")
+        if not zone13 or not position then return false end
+        local ok, cf, size = pcall(function()
+            local boxCFrame, boxSize = zone13:GetBoundingBox()
+            return boxCFrame, boxSize
+        end)
+        if not ok or not cf or not size then return false end
+        local localPosition = cf:PointToObjectSpace(position)
+        return math.abs(localPosition.X) <= size.X * 0.5 + 6
+            and math.abs(localPosition.Z) <= size.Z * 0.5 + 6
+    end
     function GetPickupZoneName(pickup)
         if not pickup or not pickup.Parent then return nil end
         local pickupPosition
@@ -1821,6 +1846,7 @@ return function(Context)
             SetTrackerStatus(useZoneDrop and "Moving to Zone 1 to drop the animal." or "Returning to workspace.Build.ZoneHitboxes.SafeZone.")
             local moveStarted = os.clock()
             local lastReturnDistance = math.huge
+            local returnGateWaypoint = IsInsideZone13(root.Position) and GetZone13GatePosition() or nil
             local connection
             connection = game:GetService("RunService").RenderStepped:Connect(function()
                 if PickupGeneration ~= returnToken then
@@ -1881,13 +1907,20 @@ return function(Context)
                         if ok and pivot then destination = pivot.Position end
                     end
                 end
-                local horizontalDestination = Vector3.new(destination.X, root.Position.Y, destination.Z)
+                local activeDestination = returnGateWaypoint or destination
+                local horizontalDestination = Vector3.new(activeDestination.X, root.Position.Y, activeDestination.Z)
                 local offset = horizontalDestination - root.Position
                 if offset.Magnitude < lastReturnDistance - 0.5 then
                     lastReturnDistance = offset.Magnitude
                     TouchAutomationProgress()
                 end
                 if offset.Magnitude <= 4 then
+                    if returnGateWaypoint then
+                        returnGateWaypoint = nil
+                        lastReturnDistance = math.huge
+                        TouchAutomationProgress("RETURNING_FROM_ZONE13:EXITED")
+                        SetTrackerStatus("Exited Zone 13 through CastleGATE; continuing to the normal return destination.")
+                    else
                     TouchAutomationProgress(useZoneDrop and "RETURNING_TO_ZONE1:ARRIVED" or "RETURNING_TO_BASE:ARRIVED")
                     humanoid:Move(Vector3.zero, false)
                     connection:Disconnect()
@@ -1979,6 +2012,7 @@ return function(Context)
                         end
                     end
                     return
+                    end
                 end
                 if os.clock() - moveStarted >= 60 then
                     humanoid:Move(Vector3.zero, false)
@@ -2558,6 +2592,9 @@ return function(Context)
             if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
             return
         end
+        local pickupZoneName = GetPickupZoneName(pickup)
+        local pickupGateWaypoint = pickupZoneName == "Zone13" and not IsInsideZone13(moveRoot.Position)
+            and GetZone13GatePosition() or nil
         local animalMoveStarted = os.clock()
         local lastAnimalProgressAt = os.clock()
         local bestAnimalDistance = math.huge
@@ -2579,7 +2616,12 @@ return function(Context)
                 if pickup:IsA("BasePart") then return pickup.Position end
             end)
             if ok and currentPosition then
-                local direction = Vector3.new(currentPosition.X - moveRoot.Position.X, 0, currentPosition.Z - moveRoot.Position.Z)
+                local moveTarget = pickupGateWaypoint or currentPosition
+                local direction = Vector3.new(moveTarget.X - moveRoot.Position.X, 0, moveTarget.Z - moveRoot.Position.Z)
+                if direction.Magnitude <= 4 and pickupGateWaypoint then
+                    pickupGateWaypoint = nil
+                    direction = Vector3.new(currentPosition.X - moveRoot.Position.X, 0, currentPosition.Z - moveRoot.Position.Z)
+                end
                 if direction.Magnitude > 4 then
                     moveHumanoid:Move(direction.Unit, false)
                 else
@@ -2611,8 +2653,14 @@ return function(Context)
                 pickupPosition = currentPosition
                 LastAnimalPickupPosition = currentPosition
             end
-            local animalOffset = Vector3.new(pickupPosition.X - moveRoot.Position.X, 0, pickupPosition.Z - moveRoot.Position.Z)
+            local activePickupTarget = pickupGateWaypoint or pickupPosition
+            local animalOffset = Vector3.new(activePickupTarget.X - moveRoot.Position.X, 0, activePickupTarget.Z - moveRoot.Position.Z)
             local animalDistance = animalOffset.Magnitude
+            if animalDistance <= 4 and pickupGateWaypoint then
+                pickupGateWaypoint = nil
+                animalOffset = Vector3.new(pickupPosition.X - moveRoot.Position.X, 0, pickupPosition.Z - moveRoot.Position.Z)
+                animalDistance = animalOffset.Magnitude
+            end
             if animalDistance <= 4 then break end
             local now = os.clock()
             if now - animalMoveStarted >= 25 then
@@ -3777,10 +3825,15 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- Move directly to the selected egg in every zone.
-        local movementWaypoints = {target:GetPivot().Position}
+        -- Enter Zone 13 through its live gate only when approaching from outside.
+        local movementWaypoints = {}
+        if targetZone and targetZone.Name == "Zone13" and not IsInsideZone13(root.Position) then
+            local gatePosition = GetZone13GatePosition()
+            if gatePosition then table.insert(movementWaypoints, gatePosition) end
+        end
+        table.insert(movementWaypoints, target:GetPivot().Position)
         local movementWaypointIndex = 1
-        SetTrackerStatus("Direct egg route: " .. target:GetFullName())
+        SetTrackerStatus("Moving to egg: " .. target:GetFullName())
     
         MovementConnection = RunService.RenderStepped:Connect(function()
             -- Animal pickup/return movement always owns the character over egg movement.
