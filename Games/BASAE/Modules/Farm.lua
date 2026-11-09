@@ -2301,19 +2301,16 @@ return function(Context)
         local indexList = index and index:FindFirstChild("IndexList")
         local scrollingFrame = indexList and indexList:FindFirstChild("ScrollingFrame")
         if not scrollingFrame then return nil end
-        local wanted = tostring(animalName):lower():gsub("[%s_%-]", "")
-        for _, zone in ipairs(scrollingFrame:GetChildren()) do
-            local animalList = zone:FindFirstChild("AnimalList")
-            if animalList then
-                for _, animalEntry in ipairs(animalList:GetChildren()) do
-                    local entryName = animalEntry.Name:lower():gsub("[%s_%-]", "")
-                    if entryName == wanted then
-                        local inner = animalEntry:FindFirstChild("Inner")
-                        local nameLabel = inner and inner:FindFirstChild("Name")
-                        if nameLabel and (nameLabel:IsA("TextLabel") or nameLabel:IsA("TextButton")) then
-                            return nameLabel
-                        end
-                    end
+        local wantedName = tostring(animalName)
+        for zoneNumber = 1, 12 do
+            local zone = scrollingFrame:FindFirstChild("Zone" .. tostring(zoneNumber))
+            local animalList = zone and zone:FindFirstChild("AnimalList")
+            local animalEntry = animalList and animalList:FindFirstChild(wantedName)
+            if animalEntry then
+                local inner = animalEntry:FindFirstChild("Inner")
+                local nameLabel = inner and inner:FindFirstChild("Name")
+                if nameLabel and (nameLabel:IsA("TextLabel") or nameLabel:IsA("TextButton")) then
+                    return nameLabel
                 end
             end
         end
@@ -2337,10 +2334,10 @@ return function(Context)
         if displayName == "???" then
             return true, displayName
         end
-        if displayName == "" then
-            return nil, "Index name is empty"
+        if displayName == tostring(pickup.Name) then
+            return false, displayName
         end
-        return false, displayName
+        return nil, "Index name mismatch: " .. tostring(displayName)
     end
     function EvaluatePickup(pickup)
         local function evaluationCancelled()
