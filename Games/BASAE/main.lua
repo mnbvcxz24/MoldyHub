@@ -4,6 +4,7 @@
 
 local CORE_GUI = game:GetService("CoreGui")
 local BASE_URL = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/BASAE/Modules/"
+local SharedEnv = type(getgenv) == "function" and getgenv() or _G
 local MODULES = {
     "Core", "UI", "Dashboard", "Farm", "Events", "Misc", "Theme", "Settings", "Runtime"
 }
@@ -110,6 +111,7 @@ for index, name in ipairs(MODULES) do
         assert(type(source)=="string" and #source>0,"Empty module source")
         local chunk, compileError = loadstring(source,"@BASAE/Modules/" .. name .. ".lua")
         assert(chunk,compileError or "Compilation failed")
+        if type(setfenv) == "function" then setfenv(chunk, SharedEnv) end
         return chunk
     end)
     if not ok then fail(name .. ": " .. tostring(result),index-1) end
