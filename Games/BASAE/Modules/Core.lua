@@ -323,6 +323,7 @@ local ActiveThemeName = "Black + Electric Blue"
 -- SCREEN GUI
 local ScreenGui = Create("ScreenGui", {
     Name = "MoldyHub_BASAE_UI",
+    Enabled = false, -- Keep the main UI hidden until the loader finishes.
     Parent = game.CoreGui,
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
