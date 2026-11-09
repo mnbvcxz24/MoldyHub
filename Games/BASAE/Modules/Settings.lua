@@ -339,7 +339,7 @@ return function(Context)
     end)
     RefreshConfigOptions()
 
-    local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Queue MoldyHub to run again after a teleport or reconnect.")
+    local AutoExecuteCard = CreateCard(Page, "Keep Auto Execute", "Keep MoldyHub ready to run again after teleporting or reconnecting.")
     AutoExecuteCard.Size = UDim2.new(1, 0, 0, 158)
     local AutoExecuteFolderPath = "MoldyHub/autoexec"
     local AutoExecutePath = AutoExecuteFolderPath .. "/moldyhub_execute.lua"
@@ -418,7 +418,7 @@ return function(Context)
         return Button
     end
     CreateAutoExecuteButton(
-        "Load Auto Execute",
+        "Keep MH",
         UDim2.fromOffset(11, 89),
         Color3.fromRGB(38, 145, 76),
         Color3.fromRGB(48, 175, 91),
@@ -439,7 +439,7 @@ return function(Context)
         end
     )
     CreateAutoExecuteButton(
-        "Unload Auto Execute",
+        "Unkeep MH",
         UDim2.fromOffset(11, 122),
         Color3.fromRGB(165, 55, 55),
         Color3.fromRGB(200, 65, 65),
