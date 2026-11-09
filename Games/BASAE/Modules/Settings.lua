@@ -355,8 +355,8 @@ return function(Context)
     end)
     RefreshConfigOptions()
 
-    local AutoExecuteCard = CreateCard(Page, "Keep Auto Execute", "Keep MoldyHub ready to run again after teleporting or reconnecting.")
-    AutoExecuteCard.Size = UDim2.new(1, 0, 0, 88)
+    local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Automatically run MoldyHub again after reconnecting.")
+    AutoExecuteCard.Size = UDim2.new(1, 0, 0, 68)
     local AutoExecuteFolderPath = "MoldyHub/autoexec"
     local AutoExecutePath = AutoExecuteFolderPath .. "/moldyhub_execute.lua"
     local KeepMoldyHubPath = ConfigFolderPath .. "/keepmoldyhub.txt"
@@ -378,32 +378,16 @@ return function(Context)
         local ok, value = pcall(readfile, KeepMoldyHubPath)
         KeepMoldyHubEnabled = ok and tostring(value):lower():match("^%s*true%s*$") ~= nil
     end
-    local AutoExecuteStatus = Create("TextLabel", {
-        Parent = AutoExecuteCard,
-        Position = UDim2.fromOffset(11, 58),
-        Size = UDim2.new(1, -22, 0, 14),
-        BackgroundTransparency = 1,
-        Text = "Status: Ready",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.Gotham,
-        TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-    local function SetAutoExecuteStatus(message, success)
-        AutoExecuteStatus.Text = "Status: " .. message
-        AutoExecuteStatus.TextColor3 = success and Color3.fromRGB(125, 220, 135) or Color3.fromRGB(235, 120, 100)
-    end
-    local KeepMoldyHubToggle = CreateToggle(AutoExecuteCard, "Keep MH", KeepMoldyHubEnabled, function(enabled)
+    local KeepMoldyHubToggle = CreateToggle(AutoExecuteCard, "", KeepMoldyHubEnabled, function(enabled)
         KeepMoldyHubEnabled = enabled
         local ok, err = pcall(function()
             EnsureAutoExecuteFolder()
+            if type(writefile) ~= "function" then error("Executor writefile API unavailable") end
             writefile(KeepMoldyHubPath, enabled and "true" or "false")
         end)
-        if ok then
-            SetAutoExecuteStatus(enabled and "Keep after teleport enabled" or "Keep after teleport disabled", true)
-        else
+        if not ok then
             KeepMoldyHubEnabled = not enabled
-            SetAutoExecuteStatus("Setting save failed - " .. tostring(err):sub(1, 55), false)
+            warn("[MoldyHub] Could not save reconnect setting: " .. tostring(err))
         end
     end)
     if KeepMoldyHubToggle then
@@ -411,11 +395,11 @@ return function(Context)
         KeepMoldyHubToggle.Size = UDim2.fromOffset(138, 24)
     end
 
-    -- Register one teleport listener. The setting is read at teleport time so
-    -- toggling KeepMoldyHub does not require rebuilding the connection.
+    -- Queue MoldyHub to run again when the client reconnects through a teleport.
+    -- The setting is read when the teleport begins.
     local listenerEnv = type(getgenv) == "function" and getgenv() or _G
-    -- The LocalPlayer instance changes after a teleport; use it as the
-    -- registration token so a fresh session installs a fresh listener.
+    -- The LocalPlayer instance changes after reconnecting; use it as the
+    -- registration token so the new session installs a fresh listener.
     if listenerEnv.MoldyHubKeepTeleportListenerPlayer ~= LocalPlayer then
         local teleportQueue = queue_on_teleport or queueonteleport
         if type(teleportQueue) == "function" then
