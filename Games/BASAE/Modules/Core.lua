@@ -11,25 +11,42 @@ return function(Context)
     VirtualUser = game:GetService("VirtualUser")
     LocalPlayer = Players.LocalPlayer
     RuntimeEnv = type(getgenv) == "function" and getgenv() or _G
-    ConfigFilePath = "MoldyHub/MoldyHub_BASAE_Config.json"
-    LegacyConfigFilePath = "MoldyHub/BASAE_Config.json"
+    ConfigFolderPath = "MoldyHub"
+    ConfigFilePath = ConfigFolderPath .. "/MoldyHub_BASAE_Config.json"
+    LegacyConfigFilePath = ConfigFolderPath .. "/BASAE_Config.json"
+    ActiveConfigPath = ConfigFolderPath .. "/ActiveBASAEConfig.txt"
     SavedConfig = {}
+    ActiveConfigName = nil
     ConfigStorageAvailable = type(readfile) == "function" and type(writefile) == "function"
     if ConfigStorageAvailable then
         pcall(function()
-            local configReadPath = ConfigFilePath
-            if type(isfile) == "function" and not isfile(configReadPath) and isfile(LegacyConfigFilePath) then
-                configReadPath = LegacyConfigFilePath
+            local activeName
+            if type(isfile) == "function" and isfile(ActiveConfigPath) then
+                activeName = tostring(readfile(ActiveConfigPath) or "")
             end
-            if type(isfile) == "function" and isfile(configReadPath) then
-                local decoded = game:GetService("HttpService"):JSONDecode(readfile(configReadPath))
-                if type(decoded) == "table" and decoded.Version == 1 then
-                    SavedConfig = decoded
+            if activeName == "DEFAULT" then
+                ActiveConfigName = nil
+            else
+                local configReadPath
+                if type(activeName) == "string" and activeName:match("^[%w_%-]+$") then
+                    ActiveConfigName = activeName
+                    configReadPath = ConfigFolderPath .. "/" .. activeName .. ".json"
+                else
+                    configReadPath = ConfigFilePath
+                    if type(isfile) == "function" and not isfile(configReadPath) and isfile(LegacyConfigFilePath) then
+                        configReadPath = LegacyConfigFilePath
+                    end
+                end
+                if configReadPath and type(isfile) == "function" and isfile(configReadPath) then
+                    local decoded = game:GetService("HttpService"):JSONDecode(readfile(configReadPath))
+                    if type(decoded) == "table" and decoded.Version == 1 then
+                        SavedConfig = decoded
+                    end
                 end
             end
         end)
     end
-    testver = "Deploy ver: 2.2"
+    testver = "Deploy ver: 2.3"
     ScriptStartedAt = os.clock()
     PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
     if type(PreviousRuntimeCleanup) == "function" then
