@@ -433,7 +433,7 @@ return function(Context)
     })
     local AntiPaloCard = CreateCard(MiscFeatureRow, "️  Anti Knockback", "Prevents knockback and fling.")
     AntiPaloCard.Position = UDim2.new(0, 0, 0, 0)
-    AntiPaloCard.Size = UDim2.new(0.5, -5, 0, 88)
+    AntiPaloCard.Size = UDim2.new(0.5, -5, 0, 82)
     AntiPaloCard.LayoutOrder = 1
     local AntiPaloBusy = false
     local AntiPaloStatus = Create("TextLabel", {
@@ -468,7 +468,7 @@ return function(Context)
     
     local AuraCard = CreateCard(MiscFeatureRow, "️  Auto Boink", "Boink any enemy nearby.")
     AuraCard.Position = UDim2.new(0.5, 5, 0, 0)
-    AuraCard.Size = UDim2.new(0.5, -5, 0, 88)
+    AuraCard.Size = UDim2.new(0.5, -5, 0, 92)
     AuraCard.LayoutOrder = 2
     local AuraStatus = Create("TextLabel", {
         Parent = AuraCard,
