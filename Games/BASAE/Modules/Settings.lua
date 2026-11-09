@@ -112,13 +112,90 @@ return function(Context)
     ConfigSaveButton.Position = UDim2.fromOffset(11, 82)
     ConfigSaveButton.Size = UDim2.new(1, -22, 0, 27)
     
-    local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Manage the auto-execute entry.")
-    AutoExecuteCard.Size = UDim2.new(1, 0, 0, 112)
-    local AutoExecuteLoadButton = CreateButton(AutoExecuteCard, "Load Auto Execute", nil)
-    AutoExecuteLoadButton.Position = UDim2.fromOffset(11, 43)
-    AutoExecuteLoadButton.Size = UDim2.new(1, -22, 0, 27)
-    local AutoExecuteUnloadButton = CreateButton(AutoExecuteCard, "Unload Auto Execute", nil)
-    AutoExecuteUnloadButton.Position = UDim2.fromOffset(11, 76)
-    AutoExecuteUnloadButton.Size = UDim2.new(1, -22, 0, 27)
+    local AutoExecuteCard = CreateCard(Page, "Auto Execute", "Create or remove the MoldyHub auto-execute file.")
+    AutoExecuteCard.Size = UDim2.new(1, 0, 0, 132)
+    local AutoExecutePath = "../Autoexecute/MoldyHub_Execute.txt"
+    local AutoExecuteSource = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/MoldyHub/Skrip/refs/heads/main/Loader.lua"))()'
+    local AutoExecuteStatus = Create("TextLabel", {
+        Parent = AutoExecuteCard,
+        Position = UDim2.fromOffset(11, 43),
+        Size = UDim2.new(1, -22, 0, 14),
+        BackgroundTransparency = 1,
+        Text = "Status: Ready",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    local function SetAutoExecuteStatus(message, success)
+        AutoExecuteStatus.Text = "Status: " .. message
+        AutoExecuteStatus.TextColor3 = success and Color3.fromRGB(125, 220, 135) or Color3.fromRGB(235, 120, 100)
+    end
+    local function CreateAutoExecuteButton(buttonText, position, color, hoverColor, callback)
+        local Button = Create("TextButton", {
+            Parent = AutoExecuteCard,
+            Size = UDim2.new(1, -22, 0, 27),
+            Position = position,
+            BackgroundColor3 = color,
+            Text = buttonText,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = false
+        })
+        AddCorner(Button, 6)
+        Button.MouseEnter:Connect(function()
+            Tween(Button, {BackgroundColor3 = hoverColor})
+        end)
+        Button.MouseLeave:Connect(function()
+            Tween(Button, {BackgroundColor3 = color})
+        end)
+        Button.MouseButton1Click:Connect(callback)
+        return Button
+    end
+    CreateAutoExecuteButton(
+        "Load Auto Execute",
+        UDim2.fromOffset(11, 63),
+        Color3.fromRGB(38, 145, 76),
+        Color3.fromRGB(48, 175, 91),
+        function()
+            if type(writefile) ~= "function" then
+                SetAutoExecuteStatus("Executor writefile API unavailable", false)
+                return
+            end
+            local ok, err = pcall(function()
+                writefile(AutoExecutePath, AutoExecuteSource)
+            end)
+            if ok then
+                SetAutoExecuteStatus("Loaded MoldyHub_Execute.txt", true)
+            else
+                SetAutoExecuteStatus("Load failed - " .. tostring(err):sub(1, 65), false)
+            end
+        end
+    )
+    CreateAutoExecuteButton(
+        "Unload Auto Execute",
+        UDim2.fromOffset(11, 96),
+        Color3.fromRGB(165, 55, 55),
+        Color3.fromRGB(200, 65, 65),
+        function()
+            if type(delfile) ~= "function" then
+                SetAutoExecuteStatus("Executor delfile API unavailable", false)
+                return
+            end
+            local ok, err = pcall(function()
+                if type(isfile) == "function" and not isfile(AutoExecutePath) then
+                    error("Auto-execute file does not exist")
+                end
+                delfile(AutoExecutePath)
+            end)
+            if ok then
+                SetAutoExecuteStatus("Unloaded MoldyHub_Execute.txt", true)
+            else
+                SetAutoExecuteStatus("Unload failed - " .. tostring(err):sub(1, 65), false)
+            end
+        end
+    )
     
 end
