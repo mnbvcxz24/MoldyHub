@@ -62,11 +62,11 @@ return function(Context)
     Runtime.PersistentConnections = Runtime.PersistentConnections or {}
     table.insert(Runtime.PersistentConnections, AntiAFKConnection)
     
-    local ConfigSaveCard = CreateCard(Page, "Config Save", "Save named configs, select one to load on rerun, or return to default.")
+    local ConfigSaveCard = CreateCard(Page, "Config Save", "Save named configs, load one on rerun, or restore defaults.")
     ConfigSaveCard.Size = UDim2.new(1, 0, 0, 190)
     local ConfigNameInput = Create("TextBox", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(11, 43),
+        Position = UDim2.fromOffset(11, 62),
         Size = UDim2.new(1, -22, 0, 26),
         BackgroundColor3 = Theme.SurfaceInput,
         Text = ActiveConfigName or "MyConfig",
@@ -83,7 +83,7 @@ return function(Context)
 
     local ConfigDropdown = Create("TextButton", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(11, 75),
+        Position = UDim2.fromOffset(11, 94),
         Size = UDim2.new(1, -75, 0, 26),
         BackgroundColor3 = Theme.SurfaceInput,
         Text = "",
@@ -191,7 +191,7 @@ return function(Context)
     end)
     local ConfigRefreshButton = Create("TextButton", {
         Parent = ConfigSaveCard,
-        Position = UDim2.new(1, -55, 0, 75),
+        Position = UDim2.new(1, -55, 0, 94),
         Size = UDim2.fromOffset(44, 26),
         BackgroundColor3 = Theme.SurfaceInput,
         Text = "Refresh",
@@ -207,7 +207,7 @@ return function(Context)
 
     local ConfigStatus = Create("TextLabel", {
         Parent = ConfigSaveCard,
-        Position = UDim2.fromOffset(11, 106),
+        Position = UDim2.fromOffset(11, 125),
         Size = UDim2.new(1, -22, 0, 14),
         BackgroundTransparency = 1,
         Text = ConfigStorageAvailable and (ActiveConfigName and ("Status: Active config - " .. ActiveConfigName) or "Status: Default config") or "Status: Executor file API unavailable",
@@ -242,7 +242,7 @@ return function(Context)
     local function CreateConfigActionButton(label, xScale, xOffset, color, hoverColor, callback)
         local button = Create("TextButton", {
             Parent = ConfigSaveCard,
-            Position = UDim2.new(xScale, xOffset, 0, 130),
+            Position = UDim2.new(xScale, xOffset, 0, 149),
             Size = UDim2.new(1 / 3, -12, 0, 27),
             BackgroundColor3 = color,
             Text = label,
