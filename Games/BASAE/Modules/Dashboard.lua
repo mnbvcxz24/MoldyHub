@@ -3,6 +3,19 @@ return function(Context)
     local index = 1
     local name = "Main"
     local Page = CreatePage(index, name)
+    local function ParseCPS(display)
+        if type(display) ~= "string" then return -1 end
+        local cleaned = display:gsub(",", ""):gsub("%s+", ""):gsub("%$", "")
+        cleaned = cleaned:gsub("/[sS]$", "")
+        local numberText, suffix = cleaned:match("^([%d%.]+)([%a]*)$")
+        local number = tonumber(numberText)
+        local scales = {k=1e3, m=1e6, b=1e9, t=1e12, qa=1e15, q=1e15, qi=1e18}
+        local scale = scales[(suffix or ""):lower()]
+        if number and number >= 0 and (not suffix or suffix == "" or scale) then
+            return number * (scale or 1)
+        end
+        return -1
+    end
     -- MAIN PAGE DASHBOARD
     -- Use the same padded two-column card layout as every other page.
     -- The page itself supplies the 12px outer margin; the column layout
