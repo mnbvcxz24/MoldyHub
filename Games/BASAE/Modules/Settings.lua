@@ -465,10 +465,12 @@ return function(Context)
     -- Register one teleport listener. The setting is read at teleport time so
     -- toggling KeepMoldyHub does not require rebuilding the connection.
     local listenerEnv = type(getgenv) == "function" and getgenv() or _G
-    if not listenerEnv.MoldyHubKeepTeleportListener then
+    -- The LocalPlayer instance changes after a teleport; use it as the
+    -- registration token so a fresh session installs a fresh listener.
+    if listenerEnv.MoldyHubKeepTeleportListenerPlayer ~= LocalPlayer then
         local teleportQueue = queue_on_teleport or queueonteleport
         if type(teleportQueue) == "function" then
-            listenerEnv.MoldyHubKeepTeleportListener = true
+            listenerEnv.MoldyHubKeepTeleportListenerPlayer = LocalPlayer
             local teleportQueued = false
             LocalPlayer.OnTeleport:Connect(function()
                 if teleportQueued then return end
