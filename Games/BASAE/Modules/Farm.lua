@@ -3795,7 +3795,18 @@ return function(Context)
             path:ComputeAsync(root.Position, target:GetPivot().Position)
             if path.Status == Enum.PathStatus.Success then
                 movementWaypoints = path:GetWaypoints()
-                movementWaypointIndex = (#movementWaypoints > 1) and 2 or 1
+                -- Skip start/nearby waypoints after every route calculation.
+                -- This prevents turning back toward a point already reached.
+                movementWaypointIndex = 1
+                while movementWaypointIndex < #movementWaypoints do
+                    local candidateOffset = Vector3.new(
+                        movementWaypoints[movementWaypointIndex].Position.X - root.Position.X,
+                        0,
+                        movementWaypoints[movementWaypointIndex].Position.Z - root.Position.Z
+                    )
+                    if candidateOffset.Magnitude > 3.5 then break end
+                    movementWaypointIndex += 1
+                end
             end
         end)
     
@@ -3875,8 +3886,9 @@ return function(Context)
             if (root.Position - lastRootPosition).Magnitude > 0.75 then
                 lastRootPosition = root.Position
                 lastMovementProgressAt = os.clock()
-            elseif os.clock() - lastMovementProgressAt > 1.75 and not pathComputePending then
-                -- Recalculate in this existing callback when an obstruction is detected.
+            elseif os.clock() - lastMovementProgressAt > 5 and not pathComputePending then
+                -- Allow normal Roblox movement pauses before declaring the route stuck.
+                -- The old 1.75s timeout repeatedly restarted routes around corners.
                 pathComputePending = true
                 pcall(function()
                     local path = PathfindingService:CreatePath({
@@ -3888,9 +3900,18 @@ return function(Context)
                     path:ComputeAsync(root.Position, target:GetPivot().Position)
                     if path.Status == Enum.PathStatus.Success then
                         movementWaypoints = path:GetWaypoints()
-                        movementWaypointIndex = (#movementWaypoints > 1) and 2 or 1
-                    else
-                        movementWaypoints = nil
+                        -- Skip start/nearby waypoints after every route calculation.
+                        -- This prevents turning back toward a point already reached.
+                        movementWaypointIndex = 1
+                        while movementWaypointIndex < #movementWaypoints do
+                            local candidateOffset = Vector3.new(
+                                movementWaypoints[movementWaypointIndex].Position.X - root.Position.X,
+                                0,
+                                movementWaypoints[movementWaypointIndex].Position.Z - root.Position.Z
+                            )
+                            if candidateOffset.Magnitude > 3.5 then break end
+                            movementWaypointIndex += 1
+                        end
                     end
                 end)
                 pathComputePending = false
