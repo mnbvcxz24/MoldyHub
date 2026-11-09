@@ -169,8 +169,8 @@ return function(Context)
     PickupZoneButton.Name = "AutoPickupZoneFilterButton"
     PickupZoneButton.Position = UDim2.fromOffset(11, 85)
     PickupZoneButton.Size = UDim2.new(1, -22, 0, 22)
-    local KGThresholdAmount = 0
-    local KGThresholdUnit = "K"
+    local KGThresholdAmount = type(SavedFarmConfig.KGThresholdAmount) == "number" and math.max(SavedFarmConfig.KGThresholdAmount, 0) or 0
+    local KGThresholdUnit = ({K = true, M = true, B = true, T = true, Qa = true})[SavedFarmConfig.KGThresholdUnit] and SavedFarmConfig.KGThresholdUnit or "K"
     Create("TextLabel", {
         Name = "ZoneFilterLabel",
         Parent = AutoPickupCard,
@@ -213,7 +213,7 @@ return function(Context)
         Position = UDim2.fromOffset(11, 126),
         Size = UDim2.new(1, -84, 0, 25),
         BackgroundColor3 = Theme.SurfaceInput,
-        Text = "",
+        Text = KGThresholdAmount > 0 and tostring(KGThresholdAmount) or "",
         PlaceholderText = "e.g. 100",
         PlaceholderColor3 = Theme.Gray,
         TextColor3 = Theme.Text,
@@ -226,7 +226,7 @@ return function(Context)
     AddStroke(KGThresholdInput, Theme.Border, 1)
     local KGUnitButton
     local KGUnitState = {options = {"K", "M", "B", "T", "Qa"}, open = false, list = nil}
-    KGUnitButton = CreateButton(AutoPickupCard, "K ▼", function()
+    KGUnitButton = CreateButton(AutoPickupCard, KGThresholdUnit .. " ▼", function()
         KGUnitState.open = not KGUnitState.open
         RarityFilterOpen = false
         ZoneFilterOpen = false
@@ -301,7 +301,7 @@ return function(Context)
             and string.format("[Auto Pickup] KG priority threshold set to %s %s KG.", tostring(KGThresholdAmount), KGThresholdUnit)
             or "[Auto Pickup] KG priority filter OFF.")
     end)
-    local CPSFilter = {amount = 0, unit = "K", options = {"K", "M", "B", "T", "Qa"}, open = false}
+    local CPSFilter = {amount = type(SavedFarmConfig.CPSAmount) == "number" and math.max(SavedFarmConfig.CPSAmount, 0) or 0, unit = ({K = true, M = true, B = true, T = true, Qa = true})[SavedFarmConfig.CPSUnit] and SavedFarmConfig.CPSUnit or "K", options = {"K", "M", "B", "T", "Qa"}, open = false}
     Create("TextLabel", {
         Name = "CPSUnitLabel",
         Parent = AutoPickupCard,
@@ -332,7 +332,7 @@ return function(Context)
         Position = UDim2.fromOffset(11, 169),
         Size = UDim2.new(1, -84, 0, 25),
         BackgroundColor3 = Theme.SurfaceInput,
-        Text = "",
+        Text = CPSFilter.amount > 0 and tostring(CPSFilter.amount) or "",
         PlaceholderText = "e.g. 100",
         PlaceholderColor3 = Theme.Gray,
         TextColor3 = Theme.Text,
@@ -344,7 +344,7 @@ return function(Context)
     })
     AddCorner(CPSFilter.input, 5)
     AddStroke(CPSFilter.input, Theme.Border, 1)
-    CPSFilter.button = CreateButton(AutoPickupCard, "K ▼", function()
+    CPSFilter.button = CreateButton(AutoPickupCard, CPSFilter.unit .. " ▼", function()
         CPSFilter.open = not CPSFilter.open
         RarityFilterOpen = false
         ZoneFilterOpen = false
@@ -482,26 +482,26 @@ return function(Context)
         if defaultEnabled == true then SetEnabled(true) end
         return Checkbox
     end
-    local HighestCashEnabled = false
+    local HighestCashEnabled = SavedFarmConfig.HighestCash == true
     local HighestCashToggle = CreatePickupCheckbox(AutoPickupCard, "Steal above your lowest $/s", 205, function(enabled)
         HighestCashEnabled = enabled
         AddDebugLog("[Auto Pickup] " .. (enabled and "Lowest placed CPS filter ON." or "Lowest placed CPS filter OFF."))
-    end)
-    local UnindexedOnlyEnabled = false
+    end, HighestCashEnabled)
+    local UnindexedOnlyEnabled = SavedFarmConfig.UnindexedOnly == true
     local UnindexedOnlyToggle = CreatePickupCheckbox(AutoPickupCard, "Steal not Index Animals", 231, function(enabled)
         UnindexedOnlyEnabled = enabled
         AddDebugLog("[Auto Pickup] " .. (enabled and "Unindexed-only verification ON." or "Unindexed-only verification OFF."))
-    end)
-    local DropInZone1Enabled = false
+    end, UnindexedOnlyEnabled)
+    local DropInZone1Enabled = SavedFarmConfig.DropInZone1 == true
     local DropInZone1Toggle = CreatePickupCheckbox(AutoPickupCard, "Drop the animal in Zone 1", 257, function(enabled)
         DropInZone1Enabled = enabled
         AddDebugLog("[Auto Pickup] Drop in Zone 1 " .. (enabled and "ON." or "OFF."))
-    end)
-    local PickUpWithMutationEnabled = false
+    end, DropInZone1Enabled)
+    local PickUpWithMutationEnabled = SavedFarmConfig.PickUpWithMutation == true
     local PickUpWithMutationToggle = CreatePickupCheckbox(AutoPickupCard, "Steal animal with mutation", 283, function(enabled)
         PickUpWithMutationEnabled = enabled
         AddDebugLog("[Auto Pickup] With Mutation " .. (enabled and "ON." or "OFF."))
-    end)
+    end, PickUpWithMutationEnabled)
     RarityList = Create("ScrollingFrame", {
         Name = "RarityFilterContainer",
         Parent = AutoPickupCard,
@@ -4013,7 +4013,15 @@ return function(Context)
             Zones = zones,
             DisabledEggs = disabledEggs,
             SortOrder = SortOrder,
-            TitanicPriority = TitanicPriorityEnabled
+            TitanicPriority = TitanicPriorityEnabled,
+            HighestCash = HighestCashEnabled,
+            UnindexedOnly = UnindexedOnlyEnabled,
+            DropInZone1 = DropInZone1Enabled,
+            PickUpWithMutation = PickUpWithMutationEnabled,
+            KGThresholdAmount = KGThresholdAmount,
+            KGThresholdUnit = KGThresholdUnit,
+            CPSAmount = CPSFilter.amount,
+            CPSUnit = CPSFilter.unit
         }
     end
     RefreshEggFilters = function()
