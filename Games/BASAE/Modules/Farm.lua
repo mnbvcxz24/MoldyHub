@@ -3783,7 +3783,7 @@ return function(Context)
         local movementWaypoints = {}
         local movementWaypointIndex = 1
         local targetPosition = target:GetPivot().Position
-        local targetZoneName = targetZone and targetZone.Name:gsub("%\s+", ""):lower() or ""
+        local targetZoneName = targetZone and targetZone.Name:gsub("%s+", ""):lower() or ""
         local useZone13Center = false
         if targetZone and targetZoneName == "zone13" then
             local insideZone13 = false
