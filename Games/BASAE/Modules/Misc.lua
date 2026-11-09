@@ -18,7 +18,7 @@ return function(Context)
     ESPCard.LayoutOrder = 1
     local ESPStatus = Create("TextLabel", {
         Parent = ESPCard,
-        Position = UDim2.fromOffset(11, 28),
+        Position = UDim2.fromOffset(11, 49),
         Size = UDim2.new(1, -22, 0, 18),
         BackgroundTransparency = 1,
         Text = "ESP is off",
@@ -638,6 +638,24 @@ return function(Context)
     AuraToggle.Position = UDim2.new(1, -58, 0, 7)
     AuraToggle.Size = UDim2.fromOffset(48, 24)
 
+    local function CompactCardDescription(card)
+        local titleFound = false
+        for _, child in ipairs(card:GetChildren()) do
+            if child:IsA("TextLabel") then
+                if not titleFound then
+                    titleFound = true
+                elseif child.Position.Y.Offset == 29 then
+                    child.Size = UDim2.new(1, -22, 0, 18)
+                    break
+                end
+            end
+        end
+    end
+    CompactCardDescription(ESPCard)
+    CompactCardDescription(BackpackESPCard)
+    CompactCardDescription(AntiPaloCard)
+    CompactCardDescription(AuraCard)
+
     local AnimalAutomationRow = Create("Frame", {
         Name = "AnimalAutomationCardsRow",
         Parent = Page,
@@ -683,5 +701,7 @@ return function(Context)
     if AutoPlaceBestAnimalTitle then
         AutoPlaceBestAnimalTitle.Size = UDim2.new(1, -78, 0, 22)
     end
+    CompactCardDescription(AutoMountBestAnimalCard)
+    CompactCardDescription(AutoPlaceBestAnimalCard)
 
 end
