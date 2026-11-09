@@ -950,7 +950,7 @@ return function(Context)
     local PriorityOptions = {"Highest Luck", "Highest Kg"}
     local PriorityOpen = false
     local PriorityOptionsFrame
-    local PriorityFilterButton = CreateButton(SortFrame, "Highest Luck ▼", function()
+    local PriorityFilterButton = CreateButton(SortFrame, SortOrder .. " ▼", function()
         PriorityOpen = not PriorityOpen
         if PriorityOptionsFrame then
             PriorityOptionsFrame.Visible = PriorityOpen
