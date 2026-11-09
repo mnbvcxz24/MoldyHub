@@ -41,6 +41,22 @@ return function(Context)
         end
     end
     
+    local StatusBarCard = CreateCard(Page, "Status Bar", "Show or hide the information bar above the screen.")
+    StatusBarCard.Size = UDim2.new(1, 0, 0, 68)
+    local SavedStatusBar = true
+    if type(SavedConfig.Toggles) == "table" and type(SavedConfig.Toggles.StatusBar_Main) == "boolean" then
+        SavedStatusBar = SavedConfig.Toggles.StatusBar_Main
+    end
+    local StatusBarToggle = CreateToggle(StatusBarCard, "", SavedStatusBar, function(enabled)
+        if StatusBar then
+            StatusBar.Visible = enabled
+        end
+    end)
+    StatusBarToggle.Position = UDim2.new(1, -58, 0, 7)
+    StatusBarToggle.Size = UDim2.fromOffset(48, 24)
+    local StatusBarTitle = StatusBarCard:FindFirstChildWhichIsA("TextLabel")
+    if StatusBarTitle then StatusBarTitle.Size = UDim2.new(1, -78, 0, 22) end
+
     local AntiAFKCard = CreateCard(Page, "️  Anti AFK", "")
     AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
     local AntiAFKEnabled = true
