@@ -65,7 +65,7 @@ return function(Context)
     if AutoBreakTitle then AutoBreakTitle.Size = UDim2.new(1, -78, 0, 22) end
     local AutoPickupCard = CreateCard(AutoRow, "Auto Steal", "")
     AutoPickupCard.Position = UDim2.new(0, 0, 0, 0)
-    AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
+    AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 340)
     local AutoPickupEnabled = false
     local CurrentTarget, ArrivedAtTarget, WaitingForPickup
     local PickupRequested, ReturningAfterPickup, FlingRecoveryActive, ScriptShuttingDown
@@ -109,6 +109,12 @@ return function(Context)
         return result
     end
     local SelectedRarities = {}
+    local SelectedMutationRarities = {}
+    if type(SavedFarmConfig.MutationRarities) == "table" then
+        for rarity, enabled in pairs(SavedFarmConfig.MutationRarities) do
+            if type(rarity) == "string" and enabled == true then SelectedMutationRarities[rarity] = true end
+        end
+    end
     if type(SavedFarmConfig.Rarities) == "table" then
         for rarity, enabled in pairs(SavedFarmConfig.Rarities) do
             if type(rarity) == "string" and enabled == true then SelectedRarities[rarity] = true end
@@ -502,6 +508,28 @@ return function(Context)
         PickUpWithMutationEnabled = enabled
         AddDebugLog("[Auto Pickup] With Mutation " .. (enabled and "ON." or "OFF."))
     end, PickUpWithMutationEnabled)
+    local MutationRarityFilterOpen = false
+    local MutationRarityList
+    local MutationRarityFilterButton = CreateButton(AutoPickupCard, "Mutation Rarity: All ▼", function()
+        MutationRarityFilterOpen = not MutationRarityFilterOpen
+        RarityFilterOpen = false
+        ZoneFilterOpen = false
+        EggFilterOpen = false
+        RarityList.Visible = false
+        if PickupZoneList then PickupZoneList.Visible = false end
+        if ZoneList then ZoneList.Visible = false end
+        if EggFilterList then EggFilterList.Visible = false end
+        if MutationRarityList then
+            MutationRarityList.Position = UDim2.fromOffset(11, 333)
+            MutationRarityList.Size = UDim2.new(1, -22, 0, 140)
+            MutationRarityList.Visible = MutationRarityFilterOpen
+        end
+        UpdateMutationRarityFilterButtonText()
+    end)
+    MutationRarityFilterButton.Name = "MutationRarityFilterButton"
+    MutationRarityFilterButton.Position = UDim2.fromOffset(11, 307)
+    MutationRarityFilterButton.Size = UDim2.new(1, -22, 0, 22)
+    MutationRarityFilterButton.TextSize = 8
     RarityList = Create("ScrollingFrame", {
         Name = "RarityFilterContainer",
         Parent = AutoPickupCard,
@@ -597,6 +625,68 @@ return function(Context)
         end
     end
     RefreshRarityList()
+    MutationRarityList = Create("ScrollingFrame", {
+        Name = "MutationRarityFilterContainer", Parent = AutoPickupCard,
+        Position = UDim2.fromOffset(11, 333), Size = UDim2.new(1, -22, 0, 140),
+        CanvasSize = UDim2.new(0, 0, 0, 0), ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Theme.Gray, BackgroundColor3 = Theme.SurfaceInput,
+        BorderSizePixel = 0, Visible = false, ZIndex = 120
+    })
+    AddCorner(MutationRarityList, 6)
+    local MutationRarityLayout = Create("UIListLayout", {
+        Parent = MutationRarityList, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    Create("UIPadding", {
+        Parent = MutationRarityList, PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5),
+        PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)
+    })
+    local function UpdateMutationRarityFilterButtonText()
+        local selected = {}
+        for _, rarityName in ipairs(RarityOptions) do
+            if SelectedMutationRarities[rarityName] then table.insert(selected, rarityName) end
+        end
+        local summary = #selected > 0 and table.concat(selected, ", ") or "All"
+        MutationRarityFilterButton.Text = "Mutation Rarity: " .. summary .. (MutationRarityFilterOpen and " ▲" or " ▼")
+        MutationRarityFilterButton.TextSize = 8
+    end
+    local function RefreshMutationRarityList()
+        for _, item in ipairs(MutationRarityList:GetChildren()) do
+            if item:IsA("TextButton") then item:Destroy() end
+        end
+        for rarityIndex, rarityName in ipairs(RarityOptions) do
+            local selected = SelectedMutationRarities[rarityName] == true
+            local rarityButton = Create("TextButton", {
+                Name = "MutationRarity_" .. rarityName, Parent = MutationRarityList,
+                Size = UDim2.new(1, -4, 0, 22),
+                BackgroundColor3 = selected and Theme.Selected or Theme.Card,
+                Text = "", BorderSizePixel = 0, LayoutOrder = rarityIndex,
+                AutoButtonColor = false, ZIndex = 121
+            })
+            AddCorner(rarityButton, 4)
+            Create("TextLabel", {
+                Parent = rarityButton, Position = UDim2.fromOffset(7, 0),
+                Size = UDim2.new(1, -28, 1, 0), BackgroundTransparency = 1,
+                Text = rarityName, TextColor3 = Theme.Text, Font = Enum.Font.Gotham,
+                TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 122
+            })
+            Create("TextLabel", {
+                Parent = rarityButton, AnchorPoint = Vector2.new(1, 0.5),
+                Position = UDim2.new(1, -7, 0.5, 0), Size = UDim2.fromOffset(14, 14),
+                BackgroundTransparency = 1, Text = selected and "✓" or "○",
+                TextColor3 = selected and Theme.Accent or Theme.Gray,
+                Font = Enum.Font.GothamBold, TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 122
+            })
+            rarityButton.MouseButton1Click:Connect(function()
+                SelectedMutationRarities[rarityName] = not SelectedMutationRarities[rarityName] or nil
+                UpdateMutationRarityFilterButtonText()
+                RefreshMutationRarityList()
+            end)
+        end
+        MutationRarityList.CanvasSize = UDim2.new(0, 0, 0, MutationRarityLayout.AbsoluteContentSize.Y + 10)
+    end
+    RefreshMutationRarityList()
+    UpdateMutationRarityFilterButtonText()
     UpdateRarityFilterButtonText = function()
         local selected = {}
         for _, rarityName in ipairs(RarityOptions) do
@@ -1490,10 +1580,10 @@ return function(Context)
         if RefreshEggFilters then RefreshEggFilters() end
     end, SavedFarmConfig.TitanicPriority == true)
     Card1.Size = UDim2.new(0.5, -5, 0, 190)
-    AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 316)
+    AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 340)
     local function UpdateAutoBreakCardHeights()
         local autoBreakBottom = math.max(AutoBreakControlLayout.TitanicY + AutoBreakControlLayout.Height + 12, 190)
-        local pickupBottom = 316
+        local pickupBottom = 340
         local sharedHeight = math.max(autoBreakBottom, pickupBottom)
         Card1.Size = UDim2.new(0.5, -5, 0, sharedHeight)
         AutoPickupCard.Size = UDim2.new(0.5, -5, 0, sharedHeight)
@@ -2222,6 +2312,22 @@ return function(Context)
         end
         return -1, "CPS unavailable: no CashPerSecond node found in animal model"
     end
+    function IsMutationRarityAllowed(pickup)
+        local selectedCount = 0
+        for _, selected in pairs(SelectedMutationRarities) do
+            if selected then selectedCount += 1 end
+        end
+        if selectedCount == 0 then return true end
+        local rarity = GetPetRarity(pickup)
+        if not rarity then
+            SetTrackerStatus("Cannot mutation-filter " .. pickup.Name .. ": Rarity value not found.")
+            return false
+        end
+        for selectedRarity, selected in pairs(SelectedMutationRarities) do
+            if selected and selectedRarity:lower() == rarity:lower() then return true end
+        end
+        return false
+    end
     function IsRarityAllowed(pickup)
         local selectedCount = 0
         for _, selected in pairs(SelectedRarities) do
@@ -2447,7 +2553,9 @@ return function(Context)
         end
         local anyPickupFilterEnabled = UnindexedOnlyEnabled or HighestCashEnabled
             or KGThresholdAmount > 0 or CPSFilter.amount > 0 or selectedRarityCount > 0
-        local mutationPickupMatch = PickUpWithMutationEnabled and GetPickupMutation(pickup) ~= "No Mutation"
+        local mutationPickupMatch = PickUpWithMutationEnabled
+            and GetPickupMutation(pickup) ~= "No Mutation"
+            and IsMutationRarityAllowed(pickup)
         local qualified = not anyPickupFilterEnabled or forceUnindexedPickup
             or aboveLowestPriorityPickup or kgPriorityPickup or cpsPriorityPickup or rarityPriorityPickup
             or mutationPickupMatch
@@ -4015,6 +4123,13 @@ return function(Context)
             UnindexedOnly = UnindexedOnlyEnabled,
             DropInZone1 = DropInZone1Enabled,
             PickUpWithMutation = PickUpWithMutationEnabled,
+            MutationRarities = (function()
+                local selected = {}
+                for rarityName, enabled in pairs(SelectedMutationRarities) do
+                    if enabled == true then selected[rarityName] = true end
+                end
+                return selected
+            end)(),
             KGThresholdAmount = KGThresholdAmount,
             KGThresholdUnit = KGThresholdUnit,
             CPSAmount = CPSFilter.amount,
