@@ -3978,17 +3978,8 @@ return function(Context)
             WaitingForPickup = false
             TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
             SetTrackerStatus("No egg detected in " .. waitingForZone11.Name .. "; moving to the zone model and waiting for an egg to appear.")
-            -- Model pivots can be anchored at the map/base origin; use the zone's
-            -- actual bounding-box center as the temporary movement destination.
-            local zoneTargetPosition
-            local zonePositionOk, zoneBounds = pcall(function()
-                return waitingForZone11:GetBoundingBox()
-            end)
-            if zonePositionOk and zoneBounds then
-                zoneTargetPosition = zoneBounds.Position
-            else
-                zoneTargetPosition = waitingForZone11:GetPivot().Position
-            end
+            -- Use the zone model's own pivot position as the temporary movement destination.
+            local zoneTargetPosition = waitingForZone11:GetPivot().Position
             local lastZone11ProgressAt = os.clock()
             MovementConnection = RunService.RenderStepped:Connect(function()
                 if PickupRequested or ReturningAfterPickup then
