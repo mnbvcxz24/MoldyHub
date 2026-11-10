@@ -2283,6 +2283,80 @@ return function(Context)
 
         return "No Mutation"
     end
+    function GetPickupMutationNames(pickup)
+        if not pickup then return "No Mutation" end
+        local names = {}
+        local seen = {}
+        local function addName(value)
+            if value == nil then return end
+            local text = tostring(value):match("^%s*(.-)%s*$")
+            if text == "" or text:lower() == "false" or text:lower() == "none" or text:lower() == "nil" then
+                return
+            end
+            if not seen[text:lower()] then
+                seen[text:lower()] = true
+                table.insert(names, text)
+            end
+        end
+
+        addName(pickup:GetAttribute("Variant"))
+        for _, node in ipairs(pickup:GetDescendants()) do
+            local variant = node:GetAttribute("Variant")
+            if variant ~= nil then addName(variant) end
+
+            if node.Name == "AuraMutations" then
+                if node:IsA("ValueBase") then
+                    if node:IsA("BoolValue") then
+                        if node.Value then addName(node.Name) end
+                    else
+                        addName(node.Value)
+                    end
+                else
+                    for attributeName, attributeValue in pairs(node:GetAttributes()) do
+                        if type(attributeValue) == "boolean" then
+                            if attributeValue then addName(attributeName) end
+                        elseif attributeValue ~= nil then
+                            addName(attributeName)
+                        end
+                    end
+                    for _, mutation in ipairs(node:GetDescendants()) do
+                        if mutation:IsA("BoolValue") then
+                            if mutation.Value then addName(mutation.Name) end
+                        elseif mutation:IsA("ValueBase") then
+                            addName(mutation.Value)
+                        elseif mutation:IsA("TextLabel") or mutation:IsA("TextButton") or mutation:IsA("TextBox") then
+                            addName(mutation.Text)
+                        else
+                            for attributeName, attributeValue in pairs(mutation:GetAttributes()) do
+                                if type(attributeValue) == "boolean" then
+                                    if attributeValue then addName(attributeName) end
+                                elseif attributeValue ~= nil then
+                                    addName(attributeName)
+                                end
+                            end
+                            if #mutation:GetChildren() == 0 then
+                                addName(mutation.Name)
+                            end
+                        end
+                    end
+                    if #node:GetChildren() > 0 and #names == 0 then
+                        for _, child in ipairs(node:GetChildren()) do addName(child.Name) end
+                    end
+                end
+            end
+        end
+
+        table.sort(names)
+        return #names > 0 and table.concat(names, ", ") or "No Mutation"
+    end
+    function UpdatePickupMutationAttributes(pickup)
+        if not pickup or not pickup.Parent then return end
+        local mutationNames = GetPickupMutationNames(pickup)
+        local mutationDetected = GetPickupMutation(pickup) ~= "No Mutation"
+        pickup:SetAttribute("MoldyHub_BASAE_Mutation", mutationDetected and mutationNames or "No Mutation")
+        pickup:SetAttribute("MoldyHub_BASAE_MutationDetected", mutationDetected)
+        pickup:SetAttribute("MoldyHub_BASAE_MutationCheckedAt", os.time())
+    end
     function GetDroppedAnimalSignature(pickup, weight)
         if not pickup then return nil end
         for _, key in ipairs({"AnimalId", "AnimalID", "UniqueId", "UUID", "Id"}) do
@@ -2455,9 +2529,16 @@ return function(Context)
     end
     function SetPickupTracking(pickup, status, cpsText)
         if not pickup or not pickup.Parent then return end
-        pickup:SetAttribute("MoldyHub_BASAE_CPSCheckStatus", tostring(status or "Not checked"))
-        if cpsText ~= nil then
+        local trackingStatus = tostring(status or "Not checked")
+        pickup:SetAttribute("MoldyHub_BASAE_CPSCheckStatus", trackingStatus)
+        if cpsText ~= nil and ParseCPS(tostring(cpsText)) >= 0 then
             pickup:SetAttribute("MoldyHub_BASAE_CPSCheckValue", tostring(cpsText))
+            pickup:SetAttribute("MoldyHub_BASAE_CPSCheckNumericValue", ParseCPS(tostring(cpsText)))
+        elseif trackingStatus:lower():find("cps", 1, true)
+            and (trackingStatus:lower():find("failed", 1, true)
+                or trackingStatus:lower():find("unavailable", 1, true)) then
+            pickup:SetAttribute("MoldyHub_BASAE_CPSCheckValue", nil)
+            pickup:SetAttribute("MoldyHub_BASAE_CPSCheckNumericValue", nil)
         end
         pickup:SetAttribute("MoldyHub_BASAE_CPSCheckedAt", os.time())
     end
@@ -3253,11 +3334,18 @@ return function(Context)
     function BindAnimalPickups(folder)
         if not folder or not folder:IsA("Folder") and not folder:IsA("Model") then return end
         AnimalPickups = folder
+        for _, existingPickup in ipairs(folder:GetChildren()) do
+            if existingPickup:IsA("Model") then
+                existingPickup:SetAttribute("MoldyHub_BASAE_Rarity", tostring(GetPetRarity(existingPickup) or "Unknown"))
+                UpdatePickupMutationAttributes(existingPickup)
+            end
+        end
         TrackPersistentConnection(folder.ChildAdded:Connect(function(pickup)
             PickupMonitorSeen[pickup] = nil
             local pickupRarity = tostring(GetPetRarity(pickup) or "Unknown")
             SetPickupTracking(pickup, "Detected")
             pickup:SetAttribute("MoldyHub_BASAE_Rarity", pickupRarity)
+            UpdatePickupMutationAttributes(pickup)
             if not AutoPickupEnabled then
                 SetTrackerStatus("NEW ANIMAL: " .. pickup.Name .. " | rarity=" .. pickupRarity .. " | monitoring waits until Auto Pickup is ON.")
                 return
