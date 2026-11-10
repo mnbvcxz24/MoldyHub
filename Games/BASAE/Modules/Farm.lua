@@ -648,6 +648,11 @@ return function(Context)
         Parent = MutationRarityList, PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5),
         PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)
     })
+    MutationRarityLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        MutationRarityList.CanvasSize = UDim2.new(
+            0, 0, 0, MutationRarityLayout.AbsoluteContentSize.Y + 10
+        )
+    end)
     UpdateMutationRarityFilterButtonText = function()
         local selected = {}
         for _, rarityName in ipairs(RarityOptions) do
