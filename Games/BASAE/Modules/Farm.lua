@@ -3963,6 +3963,7 @@ return function(Context)
             TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
             SetTrackerStatus("No Zone 11 egg detected; moving to the Zone11 model and waiting for its egg to appear.")
             local zone11Position = waitingForZone11:GetPivot().Position
+            local lastZone11ProgressAt = os.clock()
             MovementConnection = RunService.RenderStepped:Connect(function()
                 if PickupRequested or ReturningAfterPickup then
                     if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
@@ -3973,6 +3974,10 @@ return function(Context)
                     if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
                     humanoid:Move(Vector3.zero, false)
                     return
+                end
+                if os.clock() - lastZone11ProgressAt >= 5 then
+                    lastZone11ProgressAt = os.clock()
+                    TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
                 end
 
                 -- Keep the normal direct Zone11.Eggs lookup; do not recursively search the zone.
