@@ -3917,6 +3917,125 @@ return function(Context)
             end
         end
         if not target then
+            local zone13Selected = false
+            for _, zoneName in ipairs(selectedZoneNames) do
+                if zoneName == "Zone13" then
+                    zone13Selected = true
+                    break
+                end
+            end
+            local gatePosition = zone13Selected and GetZone13GatePosition() or nil
+            if gatePosition then
+                local character = LocalPlayer.Character
+                local characterDeadline = os.clock() + 10
+                while not character and os.clock() < characterDeadline
+                    and not Runtime.Stopped and AutoBreakEnabled and startGeneration == AutoBreakGeneration do
+                    task.wait(0.1)
+                    character = LocalPlayer.Character
+                end
+                if not character or Runtime.Stopped or ScriptShuttingDown
+                    or not AutoBreakEnabled or startGeneration ~= AutoBreakGeneration then
+                    TouchAutomationProgress("IDLE")
+                    return
+                end
+                local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+                local root = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 5)
+                if not humanoid or not root or not AutoBreakEnabled or startGeneration ~= AutoBreakGeneration then
+                    SetTrackerStatus("Gate fallback cancelled: character parts were unavailable or Auto Break was disabled.")
+                    TouchAutomationProgress("IDLE")
+                    return
+                end
+
+                SetTrackerStatus("No eligible egg found in selected zones; moving to the Zone13 gate to trigger spawning.")
+                AddDebugLog("[Auto Break] No eligible egg found; approaching Zone13 CastleGATE.")
+                local lastEggScan = 0
+                local lastProgressUpdate = 0
+                local gateRescanQueued = false
+                MovementConnection = RunService.RenderStepped:Connect(function()
+                    if not AutoBreakEnabled or startGeneration ~= AutoBreakGeneration
+                        or Runtime.Stopped or ScriptShuttingDown
+                        or PickupRequested or ReturningAfterPickup
+                        or not character.Parent or humanoid.Health <= 0 then
+                        if MovementConnection then
+                            MovementConnection:Disconnect()
+                            MovementConnection = nil
+                        end
+                        humanoid:Move(Vector3.zero, false)
+                        return
+                    end
+
+                    if os.clock() - lastEggScan >= 0.35 then
+                        lastEggScan = os.clock()
+                        local spawnedEggFound = false
+                        for _, zoneName in ipairs(selectedZoneNames) do
+                            local zone = ZoneBuilds:FindFirstChild(zoneName)
+                            local eggsFolder = zone and zone:FindFirstChild("Eggs")
+                            if eggsFolder then
+                                for _, egg in ipairs(eggsFolder:GetChildren()) do
+                                    if (egg:IsA("Model") or egg:IsA("BasePart"))
+                                        and egg.Name:lower():find("egg", 1, true)
+                                        and IsEggAvailable(egg) then
+                                        local eggName = GetEggTypeName(egg.Name)
+                                        if SelectedEggs[eggName] ~= false then
+                                            spawnedEggFound = true
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                            if spawnedEggFound then break end
+                        end
+                        if spawnedEggFound then
+                            if MovementConnection then
+                                MovementConnection:Disconnect()
+                                MovementConnection = nil
+                            end
+                            humanoid:Move(Vector3.zero, false)
+                            SetTrackerStatus("Egg detected while approaching the Zone13 gate; refreshing target selection.")
+                            task.defer(function()
+                                if AutoBreakEnabled and startGeneration == AutoBreakGeneration
+                                    and not PickupRequested and not ReturningAfterPickup then
+                                    StartAutoBreak(true)
+                                end
+                            end)
+                            return
+                        end
+                    end
+
+                    local gateOffset = Vector3.new(
+                        gatePosition.X - root.Position.X,
+                        0,
+                        gatePosition.Z - root.Position.Z
+                    )
+                    if gateOffset.Magnitude <= 4 then
+                        if MovementConnection then
+                            MovementConnection:Disconnect()
+                            MovementConnection = nil
+                        end
+                        humanoid:Move(Vector3.zero, false)
+                        if not gateRescanQueued then
+                            gateRescanQueued = true
+                            SetTrackerStatus("Reached Zone13 gate; rescanning selected zones for newly spawned eggs.")
+                            TouchAutomationProgress("AUTO_BREAK:GATE_RESCAN")
+                            task.defer(function()
+                                task.wait(0.15)
+                                if AutoBreakEnabled and startGeneration == AutoBreakGeneration
+                                    and not PickupRequested and not ReturningAfterPickup then
+                                    StartAutoBreak(true)
+                                end
+                            end)
+                        end
+                        return
+                    end
+
+                    humanoid:Move(gateOffset.Unit, false)
+                    if os.clock() - lastProgressUpdate >= 1 then
+                        lastProgressUpdate = os.clock()
+                        TouchAutomationProgress("AUTO_BREAK:MOVING_TO_ZONE13_GATE")
+                    end
+                end)
+                return
+            end
             SetTrackerStatus("No target found. Select a zone and keep at least one egg type enabled.")
             TouchAutomationProgress("IDLE")
             return
