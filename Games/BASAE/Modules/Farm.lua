@@ -3918,17 +3918,33 @@ return function(Context)
             end
         end
         if not target then
-            local zone11Selected = false
-            for _, zoneName in ipairs(selectedZoneNames) do
-                if zoneName == "Zone11" then
-                    zone11Selected = true
-                    break
+            local fallbackZoneName = nil
+            if PreferredZoneName then
+                local preferredNumber = tonumber(PreferredZoneName:match("^Zone(%d+)$"))
+                if preferredNumber and preferredNumber >= 11 then
+                    for _, zoneName in ipairs(selectedZoneNames) do
+                        if zoneName == PreferredZoneName then
+                            fallbackZoneName = zoneName
+                            break
+                        end
+                    end
                 end
             end
-            if zone11Selected then
-                local zone11 = ZoneBuilds:FindFirstChild("Zone11")
-                if zone11 and zone11:IsA("Model") then
-                    waitingForZone11 = zone11
+            if not fallbackZoneName then
+                local fallbackZones = {}
+                for _, zoneName in ipairs(selectedZoneNames) do
+                    local zoneNumber = tonumber(zoneName:match("^Zone(%d+)$"))
+                    if zoneNumber and zoneNumber >= 11 then
+                        table.insert(fallbackZones, {name = zoneName, number = zoneNumber})
+                    end
+                end
+                table.sort(fallbackZones, function(a, b) return a.number < b.number end)
+                fallbackZoneName = fallbackZones[1] and fallbackZones[1].name or nil
+            end
+            if fallbackZoneName then
+                local fallbackZone = ZoneBuilds:FindFirstChild(fallbackZoneName)
+                if fallbackZone and fallbackZone:IsA("Model") then
+                    waitingForZone11 = fallbackZone
                 end
             end
             if not waitingForZone11 then
@@ -3957,11 +3973,11 @@ return function(Context)
             return
         end
         if waitingForZone11 then
-            PreferredZoneName = "Zone11"
+            PreferredZoneName = waitingForZone11.Name
             ArrivedAtTarget = false
             WaitingForPickup = false
             TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
-            SetTrackerStatus("No Zone 11 egg detected; moving to the Zone11 model and waiting for its egg to appear.")
+            SetTrackerStatus("No egg detected in " .. waitingForZone11.Name .. "; moving to the zone model and waiting for an egg to appear.")
             local zone11Position = waitingForZone11:GetPivot().Position
             local lastZone11ProgressAt = os.clock()
             MovementConnection = RunService.RenderStepped:Connect(function()
@@ -3980,7 +3996,7 @@ return function(Context)
                     TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
                 end
 
-                -- Keep the normal direct Zone11.Eggs lookup; do not recursively search the zone.
+                -- Keep the normal direct zone.Eggs lookup; do not recursively search the zone.
                 local eggsFolder = waitingForZone11:FindFirstChild("Eggs")
                 if eggsFolder then
                     for _, egg in ipairs(eggsFolder:GetChildren()) do
@@ -3991,7 +4007,7 @@ return function(Context)
                             if SelectedEggs[eggName] ~= false then
                                 if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
                                 humanoid:Move(Vector3.zero, false)
-                                SetTrackerStatus("Zone 11 egg detected: " .. egg:GetFullName() .. " | switching to the egg target.")
+                                SetTrackerStatus(waitingForZone11.Name .. " egg detected: " .. egg:GetFullName() .. " | switching to the egg target.")
                                 task.defer(function()
                                     if AutoBreakEnabled and startGeneration == AutoBreakGeneration
                                         and not PickupRequested and not ReturningAfterPickup then
