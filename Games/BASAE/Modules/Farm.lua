@@ -4018,7 +4018,7 @@ return function(Context)
                             SetTrackerStatus("Reached Zone13 gate; rescanning selected zones for newly spawned eggs.")
                             TouchAutomationProgress("AUTO_BREAK:GATE_RESCAN")
                             task.defer(function()
-                                task.wait(0.15)
+                                task.wait(1)
                                 if AutoBreakEnabled and startGeneration == AutoBreakGeneration
                                     and not PickupRequested and not ReturningAfterPickup then
                                     StartAutoBreak(true)
