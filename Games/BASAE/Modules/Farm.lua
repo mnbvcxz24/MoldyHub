@@ -3978,7 +3978,17 @@ return function(Context)
             WaitingForPickup = false
             TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
             SetTrackerStatus("No egg detected in " .. waitingForZone11.Name .. "; moving to the zone model and waiting for an egg to appear.")
-            local zone11Position = waitingForZone11:GetPivot().Position
+            -- Model pivots can be anchored at the map/base origin; use the zone's
+            -- actual bounding-box center as the temporary movement destination.
+            local zoneTargetPosition
+            local zonePositionOk, zoneBounds = pcall(function()
+                return waitingForZone11:GetBoundingBox()
+            end)
+            if zonePositionOk and zoneBounds then
+                zoneTargetPosition = zoneBounds.Position
+            else
+                zoneTargetPosition = waitingForZone11:GetPivot().Position
+            end
             local lastZone11ProgressAt = os.clock()
             MovementConnection = RunService.RenderStepped:Connect(function()
                 if PickupRequested or ReturningAfterPickup then
@@ -4021,9 +4031,9 @@ return function(Context)
                 end
 
                 local offset = Vector3.new(
-                    zone11Position.X - root.Position.X,
+                    zoneTargetPosition.X - root.Position.X,
                     0,
-                    zone11Position.Z - root.Position.Z
+                    zoneTargetPosition.Z - root.Position.Z
                 )
                 if offset.Magnitude <= 4 then
                     humanoid:Move(Vector3.zero, false)
