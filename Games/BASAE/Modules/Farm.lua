@@ -2606,6 +2606,7 @@ return function(Context)
         end
         local anyPickupFilterEnabled = UnindexedOnlyEnabled or HighestCashEnabled
             or KGThresholdAmount > 0 or CPSFilter.amount > 0 or selectedRarityCount > 0
+            or PickUpWithMutationEnabled
         local mutationPickupMatch = PickUpWithMutationEnabled
             and GetPickupMutation(pickup) ~= "No Mutation"
             and IsMutationRarityAllowed(pickup)
