@@ -521,8 +521,15 @@ return function(Context)
         if ZoneList then ZoneList.Visible = false end
         if EggFilterList then EggFilterList.Visible = false end
         if MutationRarityList then
-            MutationRarityList.Position = UDim2.fromOffset(11, 333)
-            MutationRarityList.Size = UDim2.new(1, -22, 0, 140)
+            local listHeight = 140
+            local buttonY = MutationRarityFilterButton.Position.Y.Offset
+            local buttonBottom = buttonY + MutationRarityFilterButton.AbsoluteSize.Y
+            local availableBelow = AutoPickupCard.AbsoluteSize.Y - buttonBottom
+            local listY = availableBelow >= listHeight + 4
+                and buttonBottom + 4
+                or buttonY - listHeight - 4
+            MutationRarityList.Position = UDim2.fromOffset(11, listY)
+            MutationRarityList.Size = UDim2.new(1, -22, 0, listHeight)
             MutationRarityList.Visible = MutationRarityFilterOpen
         end
         UpdateMutationRarityFilterButtonText()
