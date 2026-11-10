@@ -510,6 +510,7 @@ return function(Context)
     end, PickUpWithMutationEnabled)
     local MutationRarityFilterOpen = false
     local MutationRarityList
+    local UpdateMutationRarityFilterButtonText
     local MutationRarityFilterButton = CreateButton(AutoPickupCard, "Mutation Rarity: All ▼", function()
         MutationRarityFilterOpen = not MutationRarityFilterOpen
         RarityFilterOpen = false
@@ -640,7 +641,7 @@ return function(Context)
         Parent = MutationRarityList, PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5),
         PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)
     })
-    local function UpdateMutationRarityFilterButtonText()
+    UpdateMutationRarityFilterButtonText = function()
         local selected = {}
         for _, rarityName in ipairs(RarityOptions) do
             if SelectedMutationRarities[rarityName] then table.insert(selected, rarityName) end
