@@ -3827,7 +3827,6 @@ return function(Context)
         end
         table.sort(selectedZoneNames)
         local target = lockedTarget
-        local waitingForZone11 = nil
         if not target then
             local priorityCandidates = {}
             for _, zoneName in ipairs(selectedZoneNames) do
@@ -3918,40 +3917,9 @@ return function(Context)
             end
         end
         if not target then
-            local fallbackZoneName = nil
-            if PreferredZoneName then
-                local preferredNumber = tonumber(PreferredZoneName:match("^Zone(%d+)$"))
-                if preferredNumber and preferredNumber >= 11 then
-                    for _, zoneName in ipairs(selectedZoneNames) do
-                        if zoneName == PreferredZoneName then
-                            fallbackZoneName = zoneName
-                            break
-                        end
-                    end
-                end
-            end
-            if not fallbackZoneName then
-                local fallbackZones = {}
-                for _, zoneName in ipairs(selectedZoneNames) do
-                    local zoneNumber = tonumber(zoneName:match("^Zone(%d+)$"))
-                    if zoneNumber and zoneNumber >= 11 then
-                        table.insert(fallbackZones, {name = zoneName, number = zoneNumber})
-                    end
-                end
-                table.sort(fallbackZones, function(a, b) return a.number < b.number end)
-                fallbackZoneName = fallbackZones[1] and fallbackZones[1].name or nil
-            end
-            if fallbackZoneName then
-                local fallbackZone = ZoneBuilds:FindFirstChild(fallbackZoneName)
-                if fallbackZone and fallbackZone:IsA("Model") then
-                    waitingForZone11 = fallbackZone
-                end
-            end
-            if not waitingForZone11 then
-                SetTrackerStatus("No target found. Select a zone and keep at least one egg type enabled.")
-                TouchAutomationProgress("IDLE")
-                return
-            end
+            SetTrackerStatus("No target found. Select a zone and keep at least one egg type enabled.")
+            TouchAutomationProgress("IDLE")
+            return
         end
         local character = LocalPlayer.Character
         local characterDeadline = os.clock() + 10
@@ -3972,69 +3940,6 @@ return function(Context)
             SetTrackerStatus("Auto Break cancelled: character parts were unavailable or the toggle changed while waiting.")
             return
         end
-        if waitingForZone11 then
-            PreferredZoneName = waitingForZone11.Name
-            ArrivedAtTarget = false
-            WaitingForPickup = false
-            TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
-            SetTrackerStatus("No egg detected in " .. waitingForZone11.Name .. "; moving to the zone model and waiting for an egg to appear.")
-            -- Use the zone model's own pivot position as the temporary movement destination.
-            local zoneTargetPosition = waitingForZone11:GetPivot().Position
-            local lastZone11ProgressAt = os.clock()
-            MovementConnection = RunService.RenderStepped:Connect(function()
-                if PickupRequested or ReturningAfterPickup then
-                    if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
-                    return
-                end
-                if not AutoBreakEnabled or startGeneration ~= AutoBreakGeneration
-                    or not waitingForZone11.Parent or not character.Parent or humanoid.Health <= 0 then
-                    if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
-                    humanoid:Move(Vector3.zero, false)
-                    return
-                end
-                if os.clock() - lastZone11ProgressAt >= 5 then
-                    lastZone11ProgressAt = os.clock()
-                    TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
-                end
-
-                -- Keep the normal direct zone.Eggs lookup; do not recursively search the zone.
-                local eggsFolder = waitingForZone11:FindFirstChild("Eggs")
-                if eggsFolder then
-                    for _, egg in ipairs(eggsFolder:GetChildren()) do
-                        if (egg:IsA("Model") or egg:IsA("BasePart"))
-                            and egg.Name:lower():find("egg", 1, true)
-                            and IsEggAvailable(egg) then
-                            local eggName = GetEggTypeName(egg.Name)
-                            if SelectedEggs[eggName] ~= false then
-                                if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
-                                humanoid:Move(Vector3.zero, false)
-                                SetTrackerStatus(waitingForZone11.Name .. " egg detected: " .. egg:GetFullName() .. " | switching to the egg target.")
-                                task.defer(function()
-                                    if AutoBreakEnabled and startGeneration == AutoBreakGeneration
-                                        and not PickupRequested and not ReturningAfterPickup then
-                                        StartAutoBreak(true)
-                                    end
-                                end)
-                                return
-                            end
-                        end
-                    end
-                end
-
-                local offset = Vector3.new(
-                    zoneTargetPosition.X - root.Position.X,
-                    0,
-                    zoneTargetPosition.Z - root.Position.Z
-                )
-                if offset.Magnitude <= 4 then
-                    humanoid:Move(Vector3.zero, false)
-                elseif offset.Magnitude > 0.05 then
-                    humanoid:Move(offset.Unit, false)
-                end
-            end)
-            return
-        end
-
         CurrentTarget = target
         local targetEggsFolder = target.Parent
         local targetZone = targetEggsFolder and targetEggsFolder.Parent
