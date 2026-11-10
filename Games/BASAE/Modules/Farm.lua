@@ -3827,6 +3827,7 @@ return function(Context)
         end
         table.sort(selectedZoneNames)
         local target = lockedTarget
+        local waitingForZone11 = nil
         if not target then
             local priorityCandidates = {}
             for _, zoneName in ipairs(selectedZoneNames) do
@@ -3917,9 +3918,24 @@ return function(Context)
             end
         end
         if not target then
-            SetTrackerStatus("No target found. Select a zone and keep at least one egg type enabled.")
-            TouchAutomationProgress("IDLE")
-            return
+            local zone11Selected = false
+            for _, zoneName in ipairs(selectedZoneNames) do
+                if zoneName == "Zone11" then
+                    zone11Selected = true
+                    break
+                end
+            end
+            if zone11Selected then
+                local zone11 = ZoneBuilds:FindFirstChild("Zone11")
+                if zone11 and zone11:IsA("Model") then
+                    waitingForZone11 = zone11
+                end
+            end
+            if not waitingForZone11 then
+                SetTrackerStatus("No target found. Select a zone and keep at least one egg type enabled.")
+                TouchAutomationProgress("IDLE")
+                return
+            end
         end
         local character = LocalPlayer.Character
         local characterDeadline = os.clock() + 10
@@ -3940,6 +3956,63 @@ return function(Context)
             SetTrackerStatus("Auto Break cancelled: character parts were unavailable or the toggle changed while waiting.")
             return
         end
+        if waitingForZone11 then
+            PreferredZoneName = "Zone11"
+            ArrivedAtTarget = false
+            WaitingForPickup = false
+            TouchAutomationProgress("AUTO_BREAK:WAITING_ZONE11_EGG")
+            SetTrackerStatus("No Zone 11 egg detected; moving to the Zone11 model and waiting for its egg to appear.")
+            local zone11Position = waitingForZone11:GetPivot().Position
+            MovementConnection = RunService.RenderStepped:Connect(function()
+                if PickupRequested or ReturningAfterPickup then
+                    if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
+                    return
+                end
+                if not AutoBreakEnabled or startGeneration ~= AutoBreakGeneration
+                    or not waitingForZone11.Parent or not character.Parent or humanoid.Health <= 0 then
+                    if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
+                    humanoid:Move(Vector3.zero, false)
+                    return
+                end
+
+                -- Keep the normal direct Zone11.Eggs lookup; do not recursively search the zone.
+                local eggsFolder = waitingForZone11:FindFirstChild("Eggs")
+                if eggsFolder then
+                    for _, egg in ipairs(eggsFolder:GetChildren()) do
+                        if (egg:IsA("Model") or egg:IsA("BasePart"))
+                            and egg.Name:lower():find("egg", 1, true)
+                            and IsEggAvailable(egg) then
+                            local eggName = GetEggTypeName(egg.Name)
+                            if SelectedEggs[eggName] ~= false then
+                                if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
+                                humanoid:Move(Vector3.zero, false)
+                                SetTrackerStatus("Zone 11 egg detected: " .. egg:GetFullName() .. " | switching to the egg target.")
+                                task.defer(function()
+                                    if AutoBreakEnabled and startGeneration == AutoBreakGeneration
+                                        and not PickupRequested and not ReturningAfterPickup then
+                                        StartAutoBreak(true)
+                                    end
+                                end)
+                                return
+                            end
+                        end
+                    end
+                end
+
+                local offset = Vector3.new(
+                    zone11Position.X - root.Position.X,
+                    0,
+                    zone11Position.Z - root.Position.Z
+                )
+                if offset.Magnitude <= 4 then
+                    humanoid:Move(Vector3.zero, false)
+                elseif offset.Magnitude > 0.05 then
+                    humanoid:Move(offset.Unit, false)
+                end
+            end)
+            return
+        end
+
         CurrentTarget = target
         local targetEggsFolder = target.Parent
         local targetZone = targetEggsFolder and targetEggsFolder.Parent
