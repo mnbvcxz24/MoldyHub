@@ -2223,10 +2223,50 @@ return function(Context)
     end
     function GetPickupMutation(pickup)
         if not pickup then return "No Mutation" end
-        local variant = pickup:GetAttribute("Variant")
-        if variant ~= nil and tostring(variant) ~= "" then
-            return "Mutated"
+
+        local function HasMutationValue(value)
+            if value == nil then return false end
+            if type(value) == "boolean" then return value end
+            local text = tostring(value):match("^%s*(.-)%s*$"):lower()
+            return text ~= "" and text ~= "false" and text ~= "none" and text ~= "nil"
         end
+
+        -- Variant may be stored on the pickup wrapper or on its nested animal model.
+        local variant = pickup:GetAttribute("Variant")
+        if HasMutationValue(variant) then return "Mutated" end
+
+        for _, node in ipairs(pickup:GetDescendants()) do
+            if node:GetAttribute("Variant") ~= nil and HasMutationValue(node:GetAttribute("Variant")) then
+                return "Mutated"
+            end
+
+            -- The animal model can expose its mutations through an AuraMutations
+            -- container instead of the pickup wrapper's Variant attribute.
+            if node.Name == "AuraMutations" then
+                if node:IsA("ValueBase") then
+                    if HasMutationValue(node.Value) then return "Mutated" end
+                else
+                    for attributeName, attributeValue in pairs(node:GetAttributes()) do
+                        if HasMutationValue(attributeValue) then return "Mutated" end
+                    end
+                    for _, mutation in ipairs(node:GetDescendants()) do
+                        if mutation:IsA("ValueBase") then
+                            if HasMutationValue(mutation.Value) then return "Mutated" end
+                        elseif mutation:IsA("TextLabel") or mutation:IsA("TextButton") or mutation:IsA("TextBox") then
+                            if HasMutationValue(mutation.Text) then return "Mutated" end
+                        else
+                            for attributeName, attributeValue in pairs(mutation:GetAttributes()) do
+                                if HasMutationValue(attributeValue) then return "Mutated" end
+                            end
+                        end
+                    end
+                    -- Named mutation entries are commonly represented by empty
+                    -- marker folders/instances, so their presence also counts.
+                    if #node:GetChildren() > 0 then return "Mutated" end
+                end
+            end
+        end
+
         return "No Mutation"
     end
     function GetDroppedAnimalSignature(pickup, weight)
