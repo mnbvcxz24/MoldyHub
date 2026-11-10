@@ -538,6 +538,10 @@ return function(Context)
     MutationRarityFilterButton.Position = UDim2.fromOffset(11, 307)
     MutationRarityFilterButton.Size = UDim2.new(1, -22, 0, 22)
     MutationRarityFilterButton.TextSize = 8
+    -- Keep this control above the other filter widgets created later in the card.
+    MutationRarityFilterButton.ZIndex = 130
+    MutationRarityFilterButton.Active = true
+    MutationRarityFilterButton.Selectable = true
     RarityList = Create("ScrollingFrame", {
         Name = "RarityFilterContainer",
         Parent = AutoPickupCard,
@@ -638,7 +642,8 @@ return function(Context)
         Position = UDim2.fromOffset(11, 333), Size = UDim2.new(1, -22, 0, 140),
         CanvasSize = UDim2.new(0, 0, 0, 0), ScrollBarThickness = 3,
         ScrollBarImageColor3 = Theme.Gray, BackgroundColor3 = Theme.SurfaceInput,
-        BorderSizePixel = 0, Visible = false, ZIndex = 120
+        BorderSizePixel = 0, Visible = false, ZIndex = 140,
+        Active = true
     })
     AddCorner(MutationRarityList, 6)
     local MutationRarityLayout = Create("UIListLayout", {
@@ -673,14 +678,16 @@ return function(Context)
                 Size = UDim2.new(1, -4, 0, 22),
                 BackgroundColor3 = selected and Theme.Selected or Theme.Card,
                 Text = "", BorderSizePixel = 0, LayoutOrder = rarityIndex,
-                AutoButtonColor = false, ZIndex = 121
+                AutoButtonColor = false, ZIndex = 141,
+                Active = true, Selectable = true
             })
             AddCorner(rarityButton, 4)
             Create("TextLabel", {
                 Parent = rarityButton, Position = UDim2.fromOffset(7, 0),
                 Size = UDim2.new(1, -28, 1, 0), BackgroundTransparency = 1,
                 Text = rarityName, TextColor3 = Theme.Text, Font = Enum.Font.Gotham,
-                TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 122
+                TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 142,
+                Active = false
             })
             Create("TextLabel", {
                 Parent = rarityButton, AnchorPoint = Vector2.new(1, 0.5),
@@ -688,7 +695,8 @@ return function(Context)
                 BackgroundTransparency = 1, Text = selected and "✓" or "○",
                 TextColor3 = selected and Theme.Accent or Theme.Gray,
                 Font = Enum.Font.GothamBold, TextSize = 10,
-                TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 122
+                TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
+                ZIndex = 142, Active = false
             })
             rarityButton.MouseButton1Click:Connect(function()
                 SelectedMutationRarities[rarityName] = not SelectedMutationRarities[rarityName] or nil
