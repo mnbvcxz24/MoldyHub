@@ -511,7 +511,8 @@ return function(Context)
     local MutationRarityFilterOpen = false
     local MutationRarityList
     local UpdateMutationRarityFilterButtonText
-    local MutationRarityFilterButton = CreateButton(AutoPickupCard, "Mutation Rarity: All ▼", function()
+    local MutationRarityFilterButton
+    MutationRarityFilterButton = CreateButton(AutoPickupCard, "Mutation Rarity: All ▼", function()
         MutationRarityFilterOpen = not MutationRarityFilterOpen
         RarityFilterOpen = false
         ZoneFilterOpen = false
