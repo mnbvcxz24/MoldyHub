@@ -120,7 +120,7 @@ for index, name in ipairs(MODULES) do
     task.wait()
 end
 
-local Context = {Version="2.0-reset"}
+local Context = {Version="2.0.1"}
 for index, name in ipairs(MODULES) do
     progress("Initializing " .. name .. "...",index-1)
     local ok, initializer = pcall(initializers[index])
