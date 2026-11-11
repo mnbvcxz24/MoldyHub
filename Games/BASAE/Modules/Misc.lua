@@ -748,12 +748,7 @@ return function(Context)
         AutoMountBestAnimalStatus.TextColor3 = Theme.Accent
 
         local rideMounts = workspace:FindFirstChild("RideMounts")
-        if not rideMounts then
-            AutoMountBestAnimalStatus.Text = string.format("Best: %s | Speed: %s | Waiting...", bestName, tostring(bestSpeed))
-            return
-        end
-
-        if #rideMounts:GetChildren() > 0 then
+        if rideMounts and #rideMounts:GetChildren() > 0 then
             AutoMountBestAnimalLastRequest = nil
             AutoMountBestAnimalLastRequestAt = 0
             return
