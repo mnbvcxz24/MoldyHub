@@ -37,9 +37,13 @@ return function(Context)
     local SelectedAnimalName = "All animals"
     local WeightOrder = "Highest KG first"
     local MergeBusy = false
+    local MergeStatus
 
     local MergeToggle = CreateToggle(MergeCard, "", false, function(enabled)
         MergeEnabled = enabled
+        if MergeStatus then
+            MergeStatus.Text = enabled and "Running — scanning for 3 matching animals." or "Off — automation stopped."
+        end
         MergeGeneration += 1
         local generation = MergeGeneration
         if enabled then
@@ -118,7 +122,7 @@ return function(Context)
                                 warn("[BASAE Auto Merge] Remote call failed:", err)
                                 MergeEnabled = false
                                 MergeGeneration += 1
-                                MergeToggleController = nil
+                                if MergeStatus then MergeStatus.Text = "Stopped — remote call failed. Check the console." end
                             else
                                 print("[BASAE Auto Merge] Merge request sent:", chosenName,
                                     mergeList[1]:GetAttribute("WeightKg"),
@@ -143,6 +147,7 @@ return function(Context)
                                     warn("[BASAE Auto Merge] No inventory change detected; stopping to avoid repeated requests.")
                                     MergeEnabled = false
                                     MergeGeneration += 1
+                                    if MergeStatus then MergeStatus.Text = "Stopped — no inventory change detected after the request." end
                                 end
                             end
                         end
@@ -246,14 +251,15 @@ return function(Context)
         TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Left
     })
-    local WeightOrderButton = CreateButton(MergeCard, "Highest KG first ▼", function()
+    local WeightOrderButton
+    WeightOrderButton = CreateButton(MergeCard, "Highest KG first ▼", function()
         WeightOrder = WeightOrder == "Highest KG first" and "Lowest KG first" or "Highest KG first"
         WeightOrderButton.Text = WeightOrder .. " ▼"
     end)
     WeightOrderButton.Position = UDim2.fromOffset(11, 102)
     WeightOrderButton.Size = UDim2.new(1, -22, 0, 24)
 
-    local MergeStatus = Create("TextLabel", {
+    MergeStatus = Create("TextLabel", {
         Parent = MergeCard,
         Position = UDim2.fromOffset(11, 134),
         Size = UDim2.new(1, -22, 0, 30),
