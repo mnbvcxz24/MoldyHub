@@ -296,8 +296,7 @@ return function(Context)
         for _, tool in ipairs(backpack:GetChildren()) do
             if tool:IsA("Tool") then
                 local animalName = tool:GetAttribute("AnimalName")
-                local weight = ParseAnimalWeight(tool:GetAttribute("WeightKg"))
-                if typeof(animalName) == "string" and animalName ~= "" and weight then
+                local weight = ParseAnimalWeight(tool:GetAttribute("WeightKg"))                if typeof(animalName) == "string" and animalName ~= "" and weight then
                     totalTools += 1
                     table.insert(animals, {
                         Tool = tool,
@@ -596,8 +595,7 @@ return function(Context)
                 AuraPendingTarget = nil
             end
             AuraActionRunning = false
-            if AuraEnabled and AuraPendingTarget and not Runtime.Stopped then
-                local pending = AuraPendingTarget
+            if AuraEnabled and AuraPendingTarget and not Runtime.Stopped then                local pending = AuraPendingTarget
                 AuraPendingTarget = nil
                 QueueAuraAction(pending)
             end
@@ -998,4 +996,91 @@ return function(Context)
     CompactCardDescription(AutoMountBestAnimalCard)
     CompactCardDescription(AutoPlaceBestAnimalCard)
 
+    -- CONTENT-FIT CARD LAYOUT
+    -- Cards keep their own preferred widths instead of being forced into equal thirds.
+    local MiscCardsLayout = Create("Frame", {
+        Name = "MiscFeatureCardsLayout",
+        Parent = Page,
+        Position = UDim2.fromOffset(10, 10),
+        Size = UDim2.new(1, -20, 0, 76),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        LayoutOrder = 0
+    })
+
+    local miscCards = {
+        ESPCard,
+        BackpackESPCard,
+        AntiPaloCard,
+        AuraCard,
+        AutoMountBestAnimalCard,
+        AutoPlaceBestAnimalCard
+    }
+
+    for _, card in ipairs(miscCards) do
+        card.Parent = MiscCardsLayout
+    end
+    ESPCardsRow:Destroy()
+    AnimalAutomationRow:Destroy()
+
+    local TextService = game:GetService("TextService")
+    local function measureLabel(label)
+        if not label or label.Text == "" then return 0 end
+        local bounds = TextService:GetTextSize(
+            label.Text,
+            label.TextSize,
+            label.Font,
+            Vector2.new(10000, 100)
+        )
+        return bounds.X
+    end
+
+    local function getPreferredCardWidth(card)
+        local titleLabel
+        local descriptionLabel
+        for _, child in ipairs(card:GetChildren()) do
+            if child:IsA("TextLabel") then
+                if child.Position.Y.Offset == 8 then
+                    titleLabel = child
+                elseif child.Position.Y.Offset == 29 then
+                    descriptionLabel = child
+                end
+            end
+        end
+
+        local titleWidth = measureLabel(titleLabel) + 90
+        local descriptionWidth = measureLabel(descriptionLabel) + 22
+        return math.clamp(math.max(180, titleWidth, descriptionWidth), 180, 340)
+    end
+
+    local function RefreshMiscCardLayout()
+        local availableWidth = MiscCardsLayout.AbsoluteSize.X
+        if availableWidth <= 0 then return end
+
+        local x = 0
+        local y = 0
+        local rowHeight = 76
+        local horizontalGap = 10
+        local verticalGap = 10
+
+        for _, card in ipairs(miscCards) do
+            local cardWidth = math.min(getPreferredCardWidth(card), availableWidth)
+            if x > 0 and x + cardWidth > availableWidth then
+                x = 0
+                y += rowHeight + verticalGap
+            end
+
+            card.Position = UDim2.fromOffset(x, y)
+            card.Size = UDim2.fromOffset(cardWidth, rowHeight)
+            x += cardWidth + horizontalGap
+        end
+
+        MiscCardsLayout.Size = UDim2.new(1, -20, 0, y + rowHeight)
+    end
+
+    MiscCardsLayout:GetPropertyChangedSignal("AbsoluteSize"):Connect(RefreshMiscCardLayout)
+    Page:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        task.defer(RefreshMiscCardLayout)
+    end)
+    task.defer(RefreshMiscCardLayout)
 end
