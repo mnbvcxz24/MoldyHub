@@ -669,7 +669,7 @@ return function(Context)
     local AutoMountBestAnimalCard = CreateCard(
         AnimalAutomationRow,
         "Auto Mount Best Animal",
-        "Automatically mounts the rideable animal with the highest movement speed."
+        "Mounts your fastest rideable animal."
     )
     AutoMountBestAnimalCard.Position = UDim2.new(0, 0, 0, 0)
     AutoMountBestAnimalCard.Size = UDim2.new(0.5, -5, 0, 76)
@@ -806,14 +806,197 @@ return function(Context)
 
     local AutoPlaceBestAnimalCard = CreateCard(
         AnimalAutomationRow,
-        "Auto place best animal",
-        "Selects the animal with the highest $/s to place."
+        "Auto Place Best Animal",
+        "Equips the best backpack animal when it beats your lowest placed $/s."
     )
     AutoPlaceBestAnimalCard.Position = UDim2.new(0.5, 5, 0, 0)
     AutoPlaceBestAnimalCard.Size = UDim2.new(0.5, -5, 0, 76)
     AutoPlaceBestAnimalCard.LayoutOrder = 2
+    local AutoPlaceBestAnimalStatus = Create("TextLabel", {
+        Name = "AutoPlaceBestAnimalStatus",
+        Parent = AutoPlaceBestAnimalCard,
+        Position = UDim2.fromOffset(11, 49),
+        Size = UDim2.new(1, -22, 0, 18),
+        BackgroundTransparency = 1,
+        Text = "Status: OFF",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextWrapped = false,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center
+    })
+    local AutoPlaceBestAnimalEnabled = false
+    local AutoPlaceBestAnimalRequestPending = false
+    local AutoPlaceBestAnimalLastRequestAt = 0
+
+    local function ParseAutoPlaceCPS(display)
+        if type(display) ~= "string" then return -1 end
+        local cleaned = display:gsub(",", ""):gsub("%s+", ""):gsub("%$", "")
+        cleaned = cleaned:gsub("/[sS]$", "")
+        local numberText, suffix = cleaned:match("^([%d%.]+)([%a]*)$")
+        local number = tonumber(numberText)
+        local scales = {k = 1e3, m = 1e6, b = 1e9, t = 1e12, qa = 1e15, q = 1e15, qi = 1e18}
+        local scale = scales[(suffix or ""):lower()]
+        if number and number >= 0 and (not suffix or suffix == "" or scale) then
+            return number * (scale or 1)
+        end
+        return -1
+    end
+
+    local function ReadAutoPlaceModelCPS(model)
+        if not model then return -1 end
+        local root = model:FindFirstChild("RootPart")
+        local attachment = root and root:FindFirstChild("AnimalOverheadAttachment")
+        local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+        local cashFolder = overhead and overhead:FindFirstChild("CashPerSecond")
+        local cashLabel = cashFolder and cashFolder:FindFirstChild("CashPerSecond")
+        if cashLabel then
+            if cashLabel:IsA("TextLabel") or cashLabel:IsA("TextButton") or cashLabel:IsA("TextBox") then
+                local value = ParseAutoPlaceCPS(cashLabel.Text)
+                if value >= 0 then return value end
+            elseif cashLabel:IsA("ValueBase") then
+                local value = ParseAutoPlaceCPS(tostring(cashLabel.Value))
+                if value >= 0 then return value end
+            end
+        end
+
+        for _, node in ipairs(model:GetDescendants()) do
+            if node.Name == "CashPerSecond" then
+                if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+                    local value = ParseAutoPlaceCPS(node.Text)
+                    if value >= 0 then return value end
+                elseif node:IsA("ValueBase") then
+                    local value = ParseAutoPlaceCPS(tostring(node.Value))
+                    if value >= 0 then return value end
+                end
+                for _, child in ipairs(node:GetDescendants()) do
+                    if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+                        local value = ParseAutoPlaceCPS(child.Text)
+                        if value >= 0 then return value end
+                    elseif child:IsA("ValueBase") then
+                        local value = ParseAutoPlaceCPS(tostring(child.Value))
+                        if value >= 0 then return value end
+                    end
+                end
+            end
+        end
+        return -1
+    end
+
+    local function GetAutoPlaceLowestPlacedCPS()
+        local plots = workspace:FindFirstChild("Plots")
+        if not plots then return -1 end
+        for _, base in ipairs(plots:GetChildren()) do
+            local hitbox = base:FindFirstChild("Hitbox")
+            local info = hitbox and hitbox:FindFirstChild("PlayerInfoUi")
+            local nameLabel = info and info:FindFirstChild("Name")
+            if nameLabel and nameLabel:IsA("TextLabel") and nameLabel.Text == "Your Base" then
+                local placed = base:FindFirstChild("PlacedAnimals")
+                local lowest = math.huge
+                if placed then
+                    for _, animal in ipairs(placed:GetChildren()) do
+                        local value = ReadAutoPlaceModelCPS(animal)
+                        if value >= 0 and value < lowest then
+                            lowest = value
+                        end
+                    end
+                end
+                return lowest < math.huge and lowest or -1
+            end
+        end
+        return -1
+    end
+
+    local function GetAutoPlaceBestBackpackAnimal(lowestPlacedCPS)
+        local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+        if not backpack then return nil, -1 end
+        local bestTool, bestCPS
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                local model = tool:FindFirstChild("AnimalModel")
+                local value = ReadAutoPlaceModelCPS(model)
+                if value > lowestPlacedCPS and (bestCPS == nil or value > bestCPS) then
+                    bestTool = tool
+                    bestCPS = value
+                end
+            end
+        end
+        return bestTool, bestCPS or -1
+    end
+
+    local function UpdateAutoPlaceBestAnimal()
+        local lowestPlacedCPS = GetAutoPlaceLowestPlacedCPS()
+        if lowestPlacedCPS < 0 then
+            AutoPlaceBestAnimalRequestPending = false
+            AutoPlaceBestAnimalStatus.Text = "No placed animal $/s to compare"
+            AutoPlaceBestAnimalStatus.TextColor3 = Theme.Gray
+            return
+        end
+
+        local bestTool, bestCPS = GetAutoPlaceBestBackpackAnimal(lowestPlacedCPS)
+        if not bestTool then
+            AutoPlaceBestAnimalRequestPending = false
+            AutoPlaceBestAnimalStatus.Text = "No better backpack animal"
+            AutoPlaceBestAnimalStatus.TextColor3 = Theme.Gray
+            return
+        end
+
+        if AutoPlaceBestAnimalRequestPending then
+            AutoPlaceBestAnimalStatus.Text = string.format("Better found: %s | Waiting for update", bestTool.Name)
+            AutoPlaceBestAnimalStatus.TextColor3 = Theme.Accent
+            return
+        end
+
+        local now = os.clock()
+        if now - AutoPlaceBestAnimalLastRequestAt < 3 then return end
+        local remote = game:GetService("ReplicatedStorage"):FindFirstChild("PetsInventoryRemote")
+        if not remote or not remote:IsA("RemoteEvent") then
+            AutoPlaceBestAnimalStatus.Text = "PetsInventoryRemote not found"
+            AutoPlaceBestAnimalStatus.TextColor3 = Theme.Gray
+            return
+        end
+
+        local ok, err = pcall(function()
+            remote:FireServer("EquipBest", nil)
+        end)
+        AutoPlaceBestAnimalLastRequestAt = now
+        if ok then
+            AutoPlaceBestAnimalRequestPending = true
+            AutoPlaceBestAnimalStatus.Text = string.format("EquipBest sent | Better: %s", bestTool.Name)
+            AutoPlaceBestAnimalStatus.TextColor3 = Theme.Accent
+            AddDebugLog(string.format("[Auto Place Best Animal] EquipBest sent: backpack $/s %s > lowest placed $/s %s.", tostring(bestCPS), tostring(lowestPlacedCPS)))
+        else
+            AutoPlaceBestAnimalStatus.Text = "EquipBest request failed"
+            AutoPlaceBestAnimalStatus.TextColor3 = Theme.Gray
+            AddDebugLog("[Auto Place Best Animal] EquipBest failed: " .. tostring(err):gsub("[%r\\n]+", " "):sub(1, 180))
+        end
+    end
+
     local AutoPlaceBestAnimalToggle = CreateToggle(AutoPlaceBestAnimalCard, "", false, function(enabled)
-        -- UI only; functionality will be added later.
+        AutoPlaceBestAnimalEnabled = enabled
+        AutoPlaceBestAnimalRequestPending = false
+        AutoPlaceBestAnimalLastRequestAt = 0
+        if not enabled then
+            AutoPlaceBestAnimalStatus.Text = "Status: OFF"
+            AutoPlaceBestAnimalStatus.TextColor3 = Theme.Gray
+            return
+        end
+
+        AutoPlaceBestAnimalStatus.Text = "Scanning backpack $/s..."
+        AutoPlaceBestAnimalStatus.TextColor3 = Theme.Accent
+        task.spawn(function()
+            while AutoPlaceBestAnimalEnabled and not Runtime.Stopped and not ScriptShuttingDown and ScreenGui.Parent do
+                local ok, err = pcall(UpdateAutoPlaceBestAnimal)
+                if not ok then
+                    AutoPlaceBestAnimalStatus.Text = "Scan error"
+                    AutoPlaceBestAnimalStatus.TextColor3 = Theme.Gray
+                    AddDebugLog("[Auto Place Best Animal] " .. tostring(err):gsub("[%r\\n]+", " "):sub(1, 180))
+                end
+                task.wait(1)
+            end
+        end)
     end)
     AutoPlaceBestAnimalToggle.Position = UDim2.new(1, -58, 0, 7)
     AutoPlaceBestAnimalToggle.Size = UDim2.fromOffset(48, 24)
