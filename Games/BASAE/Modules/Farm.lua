@@ -2593,6 +2593,10 @@ return function(Context)
             return ScriptShuttingDown or not AutoPickupEnabled or not pickup.Parent
         end
         pickup:SetAttribute("MoldyHub_BASAE_Qualified", false)
+        pickup:SetAttribute("MoldyHub_BASAE_PickupReason", "Evaluating")
+        pickup:SetAttribute("MoldyHub_BASAE_DetectedCPS", nil)
+        pickup:SetAttribute("MoldyHub_BASAE_CPSMinimum", CPSFilter.amount > 0 and (CPSFilter.amount * (({K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15})[CPSFilter.unit] or 1)) or 0)
+        pickup:SetAttribute("MoldyHub_BASAE_CPSPassed", false)
         SetPickupTracking(pickup, "Checking")
         if evaluationCancelled() then
             SetPickupTracking(pickup, "Cancelled: automation toggled")
@@ -2644,9 +2648,13 @@ return function(Context)
         local aboveLowestPriorityPickup = false
         local cpsPriorityPickup = false
         local rarityPriorityPickup = false
-        local cps, cpsText = -1, "CPS skipped for unindexed animal"
+        local cps, cpsText = -1, "CPS scan pending"
         local pickupPriority = 5
-        if not forceUnindexedPickup then
+        if forceUnindexedPickup then
+            -- Keep the unindexed override behavior, but still record the animal's real CPS for diagnostics.
+            cps, cpsText = GetPetCPS(pickup)
+            SetPickupTracking(pickup, cps >= 0 and "CPS checked (unindexed override)" or "CPS read failed (unindexed override)", cpsText)
+        else
             kgPriorityPickup, pickupWeightKg = IsKGFilterMatch(pickup)
             if kgPriorityPickup then
                 SetPickupTracking(pickup, "KG threshold matched", tostring(pickupWeightKg) .. " KG")
@@ -2703,6 +2711,28 @@ return function(Context)
         local qualified = not anyPickupFilterEnabled or forceUnindexedPickup
             or aboveLowestPriorityPickup or kgPriorityPickup or cpsPriorityPickup or rarityPriorityPickup
             or mutationPickupMatch
+        local cpsScales = {K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15}
+        local minimumCPS = CPSFilter.amount > 0 and (CPSFilter.amount * (cpsScales[CPSFilter.unit] or 1)) or 0
+        pickup:SetAttribute("MoldyHub_BASAE_DetectedCPS", cps >= 0 and cps or nil)
+        pickup:SetAttribute("MoldyHub_BASAE_CPSMinimum", minimumCPS)
+        pickup:SetAttribute("MoldyHub_BASAE_CPSPassed", CPSFilter.amount <= 0 or (cps >= 0 and cps >= minimumCPS))
+        local pickupReason = "No pickup rule matched"
+        if forceUnindexedPickup then
+            pickupReason = "Unindexed override (bypassed normal filters)"
+        elseif aboveLowestPriorityPickup then
+            pickupReason = "Above lowest placed CPS"
+        elseif kgPriorityPickup then
+            pickupReason = "KG threshold matched"
+        elseif cpsPriorityPickup then
+            pickupReason = "Minimum CPS threshold matched"
+        elseif rarityPriorityPickup then
+            pickupReason = "Selected rarity matched"
+        elseif mutationPickupMatch then
+            pickupReason = "Selected mutation matched"
+        elseif not anyPickupFilterEnabled then
+            pickupReason = "No filters enabled (default pickup)"
+        end
+        pickup:SetAttribute("MoldyHub_BASAE_PickupReason", qualified and pickupReason or ("Rejected: " .. pickupReason))
         if not qualified then
             local reason = "no enabled pickup rule matched"
             if HighestCashEnabled and cps < 0 then
