@@ -248,19 +248,40 @@ return function(Context)
     local AnimalFilterButton = Create("TextButton", {
         Parent = MergeCard,
         Position = UDim2.fromOffset(11, 55),
-        Size = UDim2.new(1, -22, 0, 24),
+        Size = UDim2.new(1, -22, 0, 28),
         BackgroundColor3 = Theme.SurfaceInput,
-        Text = "Animal: All animals  ▼",
-        TextColor3 = Theme.Text,
-        Font = Enum.Font.Gotham,
-        TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        Text = "",
         BorderSizePixel = 0,
         AutoButtonColor = false,
         ZIndex = 20
     })
     AddCorner(AnimalFilterButton, 6)
     AddStroke(AnimalFilterButton, Theme.Border, 1)
+
+    local AnimalFilterCurrent = Create("TextLabel", {
+        Parent = AnimalFilterButton,
+        Position = UDim2.fromOffset(12, 0),
+        Size = UDim2.new(1, -35, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "Animal: All animals",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 21
+    })
+    Create("TextLabel", {
+        Parent = AnimalFilterButton,
+        Position = UDim2.new(1, -25, 0, 0),
+        Size = UDim2.fromOffset(20, 28),
+        BackgroundTransparency = 1,
+        Text = "v",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.GothamBold,
+        TextSize = 9,
+        ZIndex = 21
+    })
+
     local FilterPopup
 
     local function closeAnimalFilter()
@@ -298,7 +319,7 @@ return function(Context)
         FilterPopup = Create("ScrollingFrame", {
             Name = "BASAEAnimalFilterPopup",
             Parent = ScreenGui,
-            Position = UDim2.fromOffset(buttonPosition.X, buttonPosition.Y + buttonSize.Y + 4),
+            Position = UDim2.fromOffset(buttonPosition.X, buttonPosition.Y + buttonSize.Y + 5),
             Size = UDim2.fromOffset(buttonSize.X, math.min(160, #options * 26)),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
@@ -321,7 +342,6 @@ return function(Context)
                 TextColor3 = Theme.Text,
                 Font = Enum.Font.Gotham,
                 TextSize = 9,
-                TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
                 LayoutOrder = optionIndex,
                 ZIndex = 501,
@@ -330,7 +350,7 @@ return function(Context)
             })
             optionButton.MouseButton1Click:Connect(function()
                 SelectedAnimalName = option
-                AnimalFilterButton.Text = "Animal: " .. option .. "  ▼"
+                AnimalFilterCurrent.Text = "Animal: " .. option
                 closeAnimalFilter()
                 if MergeStatus and not MergeEnabled then
                     MergeStatus.Text = "Off — selected filter: " .. option
