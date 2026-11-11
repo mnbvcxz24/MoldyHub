@@ -14,9 +14,318 @@ return function(Context)
     local MergeCard = CreateCard(Page, "Auto Merge", "")
     MergeCard.Size = UDim2.new(1, 0, 0, 178)
 
-    -- AUTO PLACE EGGS UI (automation will be added separately)
+    -- AUTO PLACE EGGS
     local AutoPlaceEggsCard = CreateCard(Page, "Auto place eggs", "")
-    AutoPlaceEggsCard.Size = UDim2.new(1, 0, 0, 110)
+    AutoPlaceEggsCard.Size = UDim2.new(1, 0, 0, 132)
+    local RunService = game:GetService("RunService")
+    local AutoPlaceEggsEnabled = false
+    local AutoPlaceEggsGeneration = 0
+    local AutoPlaceEggsBusy = false
+    local AutoPlaceEggsStatus = Create("TextLabel", {
+        Parent = AutoPlaceEggsCard,
+        Position = UDim2.fromOffset(11, 43),
+        Size = UDim2.new(1, -22, 0, 55),
+        BackgroundTransparency = 1,
+        Text = "Off — scans your backpack and places eggs across your plot.",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 8,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top
+    })
+
+    local function getMyEggPlot()
+        local plots = workspace:FindFirstChild("Plots")
+        if not plots then return nil end
+        for _, plot in ipairs(plots:GetChildren()) do
+            local hitbox = plot:FindFirstChild("Hitbox")
+            local playerInfo = hitbox and hitbox:FindFirstChild("PlayerInfoUi")
+            local nameLabel = playerInfo and playerInfo:FindFirstChild("Name")
+            if nameLabel and nameLabel:IsA("TextLabel") and nameLabel.Text == "Your Base" then
+                return plot, hitbox
+            end
+        end
+        return nil
+    end
+
+    local function getBackpackEggs()
+        local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+        local eggs = {}
+        if not backpack then return eggs end
+        for _, item in ipairs(backpack:GetChildren()) do
+            if item:IsA("Tool") and item.Name:lower():find("egg", 1, true) then
+                table.insert(eggs, item)
+            end
+        end
+        return eggs
+    end
+
+    local function getPlacedEggs(plot)
+        local placed = {}
+        for _, descendant in ipairs(plot:GetDescendants()) do
+            if descendant.Name:sub(1, 9) == "MergeEgg_" and (descendant:IsA("Model") or descendant:IsA("BasePart")) then
+                local position
+                pcall(function()
+                    position = descendant:IsA("Model") and descendant:GetPivot().Position or descendant.Position
+                end)
+                if position then table.insert(placed, {Instance = descendant, Position = position}) end
+            end
+        end
+        return placed
+    end
+
+    local function getEggSpacing(placed)
+        for _, record in ipairs(placed) do
+            local object = record.Instance
+            local size
+            pcall(function()
+                if object:IsA("Model") then
+                    local _, bounds = object:GetBoundingBox()
+                    size = bounds
+                else
+                    size = object.Size
+                end
+            end)
+            if size then return math.max(size.X, size.Z) + 0.5 end
+        end
+        return 5
+    end
+
+    local function buildEggPositions(hitbox, placed)
+        local spacing = getEggSpacing(placed)
+        local halfX = math.max(0, hitbox.Size.X * 0.5 - spacing * 0.5)
+        local halfZ = math.max(0, hitbox.Size.Z * 0.5 - spacing * 0.5)
+        local y = hitbox.Position.Y + hitbox.Size.Y * 0.5
+        if #placed > 0 then y = placed[1].Position.Y end
+
+        local positions = {}
+        local x = -halfX
+        while x <= halfX + 0.01 do
+            local z = -halfZ
+            while z <= halfZ + 0.01 do
+                local worldPosition = hitbox.CFrame:PointToWorldSpace(Vector3.new(x, 0, z))
+                table.insert(positions, Vector3.new(worldPosition.X, y, worldPosition.Z))
+                z += spacing
+            end
+            x += spacing
+        end
+        return positions, spacing
+    end
+
+    local function findOpenEggPosition(positions, placed, spacing, attempted)
+        local minimumDistance = spacing * 0.8
+        for _, position in ipairs(positions) do
+            local key = string.format("%.1f:%.1f", position.X, position.Z)
+            if not attempted[key] then
+                local occupied = false
+                for _, record in ipairs(placed) do
+                    local dx = record.Position.X - position.X
+                    local dz = record.Position.Z - position.Z
+                    if math.sqrt(dx * dx + dz * dz) < minimumDistance then
+                        occupied = true
+                        break
+                    end
+                end
+                if not occupied then return position, key end
+            end
+        end
+        return nil
+    end
+
+    local function walkToPlotCenter(plot, hitbox, generation)
+        local character = LocalPlayer.Character
+        if not character then return false, "Character unavailable." end
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not root or humanoid.Health <= 0 then
+            return false, "Character parts unavailable."
+        end
+
+        local center = hitbox.Position
+        local startedAt = os.clock()
+        local lastProgressAt = startedAt
+        local bestDistance = math.huge
+        local bindName = "MoldyHub_BASAE_AutoPlaceEggs_" .. tostring(generation)
+        RunService:BindToRenderStep(bindName, Enum.RenderPriority.Character.Value + 1, function()
+            if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration
+                or LocalPlayer.Character ~= character or not character.Parent
+                or not root.Parent or humanoid.Health <= 0 then
+                humanoid:Move(Vector3.zero, false)
+                return
+            end
+            local direction = Vector3.new(center.X - root.Position.X, 0, center.Z - root.Position.Z)
+            if direction.Magnitude > 4 then
+                humanoid:Move(direction.Unit, false)
+            else
+                humanoid:Move(Vector3.zero, false)
+            end
+        end)
+
+        local arrived = false
+        while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration
+            and LocalPlayer.Character == character and character.Parent
+            and root.Parent and humanoid.Health > 0 do
+            local offset = Vector3.new(center.X - root.Position.X, 0, center.Z - root.Position.Z)
+            local distance = offset.Magnitude
+            if distance <= 4 then
+                arrived = true
+                break
+            end
+            if os.clock() - startedAt >= 30 then break end
+            if distance < bestDistance - 0.75 then
+                bestDistance = distance
+                lastProgressAt = os.clock()
+            elseif os.clock() - lastProgressAt >= 5 then
+                break
+            end
+            task.wait(0.05)
+        end
+
+        pcall(function() RunService:UnbindFromRenderStep(bindName) end)
+        if humanoid.Parent then humanoid:Move(Vector3.zero, false) end
+        if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration then
+            return false, "Stopped."
+        end
+        if not arrived then return false, "Could not reach the center of your plot." end
+        return true
+    end
+
+    local AutoPlaceEggsToggle = CreateToggle(AutoPlaceEggsCard, "", false, function(enabled)
+        AutoPlaceEggsEnabled = enabled
+        AutoPlaceEggsGeneration += 1
+        local generation = AutoPlaceEggsGeneration
+        if not enabled then
+            if AutoPlaceEggsStatus then AutoPlaceEggsStatus.Text = "Off — automation stopped." end
+            return
+        end
+        if AutoPlaceEggsBusy then
+            AutoPlaceEggsEnabled = false
+            AutoPlaceEggsGeneration += 1
+            if AutoPlaceEggsStatus then AutoPlaceEggsStatus.Text = "Already running — stopping the duplicate request." end
+            return
+        end
+
+        task.spawn(function()
+            if AutoPlaceEggsBusy then return end
+            AutoPlaceEggsBusy = true
+            local function finish(message)
+                AutoPlaceEggsEnabled = false
+                AutoPlaceEggsGeneration += 1
+                AutoPlaceEggsBusy = false
+                if AutoPlaceEggsStatus then AutoPlaceEggsStatus.Text = message end
+            end
+
+            local plot, hitbox = getMyEggPlot()
+            if not plot or not hitbox or not hitbox:IsA("BasePart") then
+                finish("Stopped — couldn't identify your plot and its Hitbox.")
+                return
+            end
+            local eggs = getBackpackEggs()
+            if #eggs == 0 then
+                finish("No eggs found in your backpack.")
+                return
+            end
+
+            AutoPlaceEggsStatus.Text = "Walking to the center of your plot before placing eggs..."
+            local reached, movementError = walkToPlotCenter(plot, hitbox, generation)
+            if not reached then
+                finish("Stopped — " .. tostring(movementError))
+                return
+            end
+
+            local attempted = {}
+            local rejectedPosition = nil
+            local notifyConnection
+            local notifyRemote = ReplicatedStorage:FindFirstChild("Notify")
+            if notifyRemote and notifyRemote:IsA("RemoteEvent") then
+                notifyConnection = notifyRemote.OnClientEvent:Connect(function(message)
+                    if typeof(message) == "string" and message:lower():find("can't place here", 1, true) then
+                        rejectedPosition = true
+                    end
+                end)
+            end
+
+            local placedCount = 0
+            local function cleanupNotify()
+                if notifyConnection then notifyConnection:Disconnect(); notifyConnection = nil end
+            end
+
+            while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration do
+                plot, hitbox = getMyEggPlot()
+                if not plot or not hitbox or not hitbox:IsA("BasePart") then
+                    cleanupNotify()
+                    finish("Stopped — your plot could no longer be found.")
+                    return
+                end
+                eggs = getBackpackEggs()
+                if #eggs == 0 then break end
+
+                local placed = getPlacedEggs(plot)
+                local positions, spacing = buildEggPositions(hitbox, placed)
+                local position, positionKey = findOpenEggPosition(positions, placed, spacing, attempted)
+                if not position then break end
+
+                local egg = eggs[1]
+                local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+                if not egg or not backpack or not egg:IsDescendantOf(backpack) then
+                    task.wait(0.1)
+                    continue
+                end
+
+                attempted[positionKey] = true
+                rejectedPosition = false
+                AutoPlaceEggsStatus.Text = string.format(
+                    "Placing %s — %d placed. Scanning from edge to edge...",
+                    egg.Name,
+                    placedCount
+                )
+                local ok, err = pcall(function()
+                    MergeRemote:FireServer("PlaceEgg", egg, position)
+                end)
+                if not ok then
+                    warn("[BASAE Auto Place Eggs] Remote call failed:", err)
+                    cleanupNotify()
+                    finish("Stopped — placement remote failed. Check console.")
+                    return
+                end
+
+                task.wait(0.45)
+                if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration then break end
+                local currentPlaced = getPlacedEggs(plot)
+                if #currentPlaced > #placed then
+                    placedCount += 1
+                elseif rejectedPosition then
+                    -- The server rejected this coordinate; continue with the next grid cell.
+                end
+                task.wait(0.15)
+            end
+
+            cleanupNotify()
+            if generation ~= AutoPlaceEggsGeneration then
+                AutoPlaceEggsBusy = false
+                return
+            end
+            local remaining = #getBackpackEggs()
+            if remaining == 0 then
+                finish(string.format("Done — placed %d egg(s). Your backpack is empty.", placedCount))
+            elseif not AutoPlaceEggsEnabled then
+                AutoPlaceEggsBusy = false
+            else
+                finish(string.format("Finished scanning — placed %d egg(s); %d egg(s) remain.", placedCount, remaining))
+            end
+        end)
+    end)
+    AutoPlaceEggsToggle.Position = UDim2.new(1, -58, 0, 7)
+    AutoPlaceEggsToggle.Size = UDim2.fromOffset(48, 24)
+    local AutoPlaceEggsTitle = AutoPlaceEggsCard:FindFirstChildWhichIsA("TextLabel")
+    if AutoPlaceEggsTitle then AutoPlaceEggsTitle.Size = UDim2.new(1, -78, 0, 22) end
+    AutoPlaceEggsToggle:GetPropertyChangedSignal("Visible"):Connect(function()
+        if not AutoPlaceEggsToggle.Visible then
+            AutoPlaceEggsEnabled = false
+            AutoPlaceEggsGeneration += 1
+        end
+    end)
 
     local MergeEnabled = false
     local MergeGeneration = 0
