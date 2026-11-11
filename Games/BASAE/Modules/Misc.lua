@@ -668,8 +668,8 @@ return function(Context)
 
     local AutoMountBestAnimalCard = CreateCard(
         AnimalAutomationRow,
-        "Auto mount best animal",
-        "Selects the animal with the highest $/s to mount."
+        "Auto Mount Best Animal",
+        "Automatically mounts the rideable animal with the highest movement speed."
     )
     AutoMountBestAnimalCard.Position = UDim2.new(0, 0, 0, 0)
     AutoMountBestAnimalCard.Size = UDim2.new(0.5, -5, 0, 76)
