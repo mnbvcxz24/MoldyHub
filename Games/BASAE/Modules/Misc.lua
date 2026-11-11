@@ -674,8 +674,133 @@ return function(Context)
     AutoMountBestAnimalCard.Position = UDim2.new(0, 0, 0, 0)
     AutoMountBestAnimalCard.Size = UDim2.new(0.5, -5, 0, 76)
     AutoMountBestAnimalCard.LayoutOrder = 1
+    local AutoMountBestAnimalStatus = Create("TextLabel", {
+        Name = "BestMountStatus",
+        Parent = AutoMountBestAnimalCard,
+        Position = UDim2.fromOffset(11, 49),
+        Size = UDim2.new(1, -22, 0, 18),
+        BackgroundTransparency = 1,
+        Text = "Best: scanning rideable mounts...",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextWrapped = false,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center
+    })
+    local AutoMountBestAnimalEnabled = false
+    local AutoMountBestAnimalLastRequest = nil
+    local AutoMountBestAnimalLastRequestAt = 0
+
+    local function ReadMountSpeed(speedObject)
+        if not speedObject then return nil end
+        local raw
+        if speedObject:IsA("ValueBase") then
+            raw = tostring(speedObject.Value)
+        elseif speedObject:IsA("TextLabel") or speedObject:IsA("TextButton") or speedObject:IsA("TextBox") then
+            raw = speedObject.Text
+        else
+            local value = speedObject:GetAttribute("Speed")
+            if value ~= nil then raw = tostring(value) end
+        end
+        if raw == nil then return nil end
+        raw = tostring(raw):gsub(",", "")
+        local numberText = raw:match("[-+]?%d+%.?%d*")
+        return numberText and tonumber(numberText) or nil
+    end
+
+    local function GetBestRideableMount()
+        local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+        local scatchel = playerGui and playerGui:FindFirstChild("Scatchel")
+        local hotbar = scatchel and scatchel:FindFirstChild("HotBarUi")
+        local inventory = hotbar and hotbar:FindFirstChild("Inventory")
+        local scrolling = inventory and inventory:FindFirstChild("ScrollingFrame")
+        if not scrolling then return nil, nil, "Waiting for mount inventory..." end
+
+        local bestName, bestSpeed
+        for _, mountEntry in ipairs(scrolling:GetChildren()) do
+            if mountEntry.Name:sub(1, 6) == "Mount_" then
+                local container = mountEntry:FindFirstChild("Container")
+                local speedObject = container and container:FindFirstChild("Speed")
+                local speed = ReadMountSpeed(speedObject)
+                if speed and (bestSpeed == nil or speed > bestSpeed) then
+                    bestName = mountEntry.Name:sub(7)
+                    bestSpeed = speed
+                end
+            end
+        end
+        if not bestName then
+            return nil, nil, "No readable rideable mounts found"
+        end
+        return bestName, bestSpeed
+    end
+
+    local function UpdateAutoMountBestAnimal()
+        local bestName, bestSpeed, scanMessage = GetBestRideableMount()
+        if not bestName then
+            AutoMountBestAnimalStatus.Text = scanMessage
+            AutoMountBestAnimalStatus.TextColor3 = Theme.Gray
+            return
+        end
+
+        AutoMountBestAnimalStatus.Text = string.format("Best: %s | Speed: %s", bestName, tostring(bestSpeed))
+        AutoMountBestAnimalStatus.TextColor3 = Theme.Accent
+
+        local rideMounts = workspace:FindFirstChild("RideMounts")
+        if not rideMounts then
+            AutoMountBestAnimalStatus.Text = string.format("Best: %s | Speed: %s | Waiting...", bestName, tostring(bestSpeed))
+            return
+        end
+
+        if #rideMounts:GetChildren() > 0 then
+            AutoMountBestAnimalLastRequest = nil
+            AutoMountBestAnimalLastRequestAt = 0
+            return
+        end
+
+        local now = os.clock()
+        if AutoMountBestAnimalLastRequest ~= bestName or now - AutoMountBestAnimalLastRequestAt >= 3 then
+            local rideRemote = game:GetService("ReplicatedStorage"):FindFirstChild("RideRemote")
+            if rideRemote and rideRemote:IsA("RemoteEvent") then
+                local ok, err = pcall(function()
+                    rideRemote:FireServer("Mount", bestName)
+                end)
+                if ok then
+                    AutoMountBestAnimalLastRequest = bestName
+                    AutoMountBestAnimalLastRequestAt = now
+                    AddDebugLog("[Auto Mount Best Animal] Requested mount: " .. bestName .. " (Speed: " .. tostring(bestSpeed) .. ").")
+                else
+                    AddDebugLog("[Auto Mount Best Animal] Mount request failed: " .. tostring(err))
+                end
+            else
+                AddDebugLog("[Auto Mount Best Animal] RideRemote RemoteEvent not found.")
+            end
+        end
+    end
+
     local AutoMountBestAnimalToggle = CreateToggle(AutoMountBestAnimalCard, "", false, function(enabled)
-        -- UI only; functionality will be added later.
+        AutoMountBestAnimalEnabled = enabled
+        if not enabled then
+            AutoMountBestAnimalStatus.Text = "Auto mount is off"
+            AutoMountBestAnimalStatus.TextColor3 = Theme.Gray
+            AutoMountBestAnimalLastRequest = nil
+            AutoMountBestAnimalLastRequestAt = 0
+            return
+        end
+
+        AutoMountBestAnimalStatus.Text = "Scanning rideable mounts..."
+        task.spawn(function()
+            while AutoMountBestAnimalEnabled and not Runtime.Stopped and not ScriptShuttingDown and ScreenGui.Parent do
+                local ok, err = pcall(UpdateAutoMountBestAnimal)
+                if not ok then
+                    AutoMountBestAnimalStatus.Text = "Mount scan error"
+                    AutoMountBestAnimalStatus.TextColor3 = Theme.Gray
+                    AddDebugLog("[Auto Mount Best Animal] " .. tostring(err):gsub("[%r\\n]+", " "):sub(1, 180))
+                end
+                task.wait(1)
+            end
+        end)
     end)
     AutoMountBestAnimalToggle.Position = UDim2.new(1, -58, 0, 7)
     AutoMountBestAnimalToggle.Size = UDim2.fromOffset(48, 24)
