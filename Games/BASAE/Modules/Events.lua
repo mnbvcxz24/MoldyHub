@@ -1,7 +1,7 @@
 -- BASAE EVENTS PAGE
 return function(Context)
     local index = 3
-    local name = "Events"
+    local name = "Eggs"
     local Page = CreatePage(index, name)
 
     -- AUTO MERGE
@@ -13,6 +13,10 @@ return function(Context)
 
     local MergeCard = CreateCard(Page, "Auto Merge", "")
     MergeCard.Size = UDim2.new(1, 0, 0, 178)
+
+    -- AUTO PLACE EGGS UI (automation will be added separately)
+    local AutoPlaceEggsCard = CreateCard(Page, "Auto place eggs", "")
+    AutoPlaceEggsCard.Size = UDim2.new(1, 0, 0, 110)
 
     local MergeEnabled = false
     local MergeGeneration = 0
