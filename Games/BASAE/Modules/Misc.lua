@@ -1070,3 +1070,4 @@ return function(Context)
         task.defer(RefreshMiscCardLayout)
     end)
     task.defer(RefreshMiscCardLayout)
+end
