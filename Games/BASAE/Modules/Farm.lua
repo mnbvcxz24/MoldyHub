@@ -2542,6 +2542,20 @@ return function(Context)
         end
         pickup:SetAttribute("MoldyHub_BASAE_CPSCheckedAt", os.time())
     end
+    function GetSelectedMutationIndexName()
+        local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+        local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
+        local frames = mainGui and mainGui:FindFirstChild("Frames")
+        local index = frames and frames:FindFirstChild("Index")
+        local requirementInfo = index and index:FindFirstChild("MutatedIndexRequirementInfo")
+        if not requirementInfo or not (requirementInfo:IsA("TextLabel") or requirementInfo:IsA("TextButton") or requirementInfo:IsA("TextBox")) then
+            return nil
+        end
+        local requirementText = tostring(requirementInfo.Text or "")
+        -- RichText example: Discover <font ...>80%</font> of the Gold index for ...
+        local mutationName = requirementText:match("[Oo]f the%s+([%w%s%-]+)%s+[Ii]ndex")
+        return mutationName and mutationName:match("^%s*(.-)%s*$") or nil
+    end
     function GetIndexNameLabel(animalName)
         local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
         local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
@@ -2566,25 +2580,32 @@ return function(Context)
         return nil
     end
     function EvaluateUnindexedStatus(pickup)
+        local mutationIndexName = GetSelectedMutationIndexName()
+        pickup:SetAttribute("MoldyHub_BASAE_SelectedMutationIndex", mutationIndexName or "Normal")
         local label = GetIndexNameLabel(pickup.Name)
         for attempt = 1, 8 do
             if label and label.Parent then break end
             if not pickup.Parent or not AutoPickupEnabled then
                 return nil, "verification cancelled"
             end
-            SetPickupTracking(pickup, string.format("Waiting for Index entry (%d/8)", attempt))
+            local currentMutationIndex = GetSelectedMutationIndexName()
+            if currentMutationIndex ~= mutationIndexName then
+                mutationIndexName = currentMutationIndex
+                pickup:SetAttribute("MoldyHub_BASAE_SelectedMutationIndex", mutationIndexName or "Normal")
+            end
+            SetPickupTracking(pickup, string.format("Waiting for %s Index entry (%d/8)", mutationIndexName or "Normal", attempt))
             task.wait(0.25)
             label = GetIndexNameLabel(pickup.Name)
         end
         if not label or not label.Parent then
-            return nil, "Index entry unavailable"
+            return nil, (mutationIndexName and (mutationIndexName .. " mutation Index entry unavailable") or "Index entry unavailable")
         end
         local displayName = tostring(label.Text or ""):match("^%s*(.-)%s*$")
         if displayName == "???" then
-            return true, displayName
+            return true, displayName .. " (" .. tostring(mutationIndexName or "Normal") .. " index)"
         end
         if displayName == tostring(pickup.Name) then
-            return false, displayName
+            return false, displayName .. " (" .. tostring(mutationIndexName or "Normal") .. " index)"
         end
         return nil, "Index name mismatch: " .. tostring(displayName)
     end
