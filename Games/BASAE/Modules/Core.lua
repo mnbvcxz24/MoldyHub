@@ -129,7 +129,7 @@ return function(Context)
         SidebarNames = {
             "Main",
             "Farm",
-            "Events",
+            "Eggs",
             "Misc. feature",
             "Theme",
             "Settings"
