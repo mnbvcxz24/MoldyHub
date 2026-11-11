@@ -14,7 +14,7 @@ return function(Context)
     })
     local ESPCard = CreateCard(ESPCardsRow, "Egg ESP", "Displays egg stats.")
     ESPCard.Position = UDim2.new(0, 0, 0, 0)
-    ESPCard.Size = UDim2.new(1/3, -7, 0, 76)
+    ESPCard.Size = UDim2.fromOffset(180, 76)
     ESPCard.LayoutOrder = 1
     local ESPStatus = Create("TextLabel", {
         Parent = ESPCard,
@@ -160,11 +160,11 @@ return function(Context)
     end
     local ESPTitle = ESPCard:FindFirstChildWhichIsA("TextLabel")
     if ESPTitle then ESPTitle.Size = UDim2.new(1, -78, 0, 22) end
-    ESPCard.Size = UDim2.new(0.5, -5, 0, 76)
+    ESPCard.Size = UDim2.fromOffset(180, 76)
     
     local BackpackESPCard = CreateCard(ESPCardsRow, "Backpack ESP", "Shows larger $/s and KG on inventory cards.")
     BackpackESPCard.Position = UDim2.new(1/3, 2.5, 0, 0)
-    BackpackESPCard.Size = UDim2.new(0.5, -5, 0, 76)
+    BackpackESPCard.Size = UDim2.fromOffset(180, 76)
     BackpackESPCard.LayoutOrder = 2
     local BackpackESPStatus = Create("TextLabel", {
         Parent = BackpackESPCard,
@@ -423,7 +423,7 @@ return function(Context)
     
     local AntiPaloCard = CreateCard(ESPCardsRow, "️  Anti Knockback", "Prevents knockback and fling.")
     AntiPaloCard.Position = UDim2.new(2/3, 5, 0, 0)
-    AntiPaloCard.Size = UDim2.new(1/3, -7, 0, 76)
+    AntiPaloCard.Size = UDim2.fromOffset(180, 76)
     AntiPaloCard.LayoutOrder = 1
     local AntiPaloBusy = false
     local AntiPaloStatus = Create("TextLabel", {
@@ -468,7 +468,7 @@ return function(Context)
 
     local AuraCard = CreateCard(AnimalAutomationRow, "️  Auto Boink", "Boink any enemy nearby.")
     AuraCard.Position = UDim2.new(0, 0, 0, 0)
-    AuraCard.Size = UDim2.new(1/3, -7, 0, 76)
+    AuraCard.Size = UDim2.fromOffset(180, 76)
     AuraCard.LayoutOrder = 2
     local AuraStatus = Create("TextLabel", {
         Parent = AuraCard,
@@ -661,7 +661,7 @@ return function(Context)
         "Mounts your fastest rideable animal."
     )
     AutoMountBestAnimalCard.Position = UDim2.new(0, 0, 0, 0)
-    AutoMountBestAnimalCard.Size = UDim2.new(1/3, -7, 0, 76)
+    AutoMountBestAnimalCard.Size = UDim2.fromOffset(180, 76)
     AutoMountBestAnimalCard.LayoutOrder = 1
     local AutoMountBestAnimalStatus = Create("TextLabel", {
         Name = "BestMountStatus",
@@ -799,7 +799,7 @@ return function(Context)
         "Equips the best backpack animal when it beats your lowest placed $/s."
     )
     AutoPlaceBestAnimalCard.Position = UDim2.new(2/3, 5, 0, 0)
-    AutoPlaceBestAnimalCard.Size = UDim2.new(1/3, -7, 0, 76)
+    AutoPlaceBestAnimalCard.Size = UDim2.fromOffset(180, 76)
     AutoPlaceBestAnimalCard.LayoutOrder = 2
     local AutoPlaceBestAnimalStatus = Create("TextLabel", {
         Name = "AutoPlaceBestAnimalStatus",
