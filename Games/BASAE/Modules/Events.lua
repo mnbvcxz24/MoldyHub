@@ -146,48 +146,52 @@ return function(Context)
         local startedAt = os.clock()
         local lastProgressAt = startedAt
         local bestDistance = math.huge
-        local bindName = "MoldyHub_BASAE_AutoPlaceEggs_" .. tostring(generation)
-        RunService:BindToRenderStep(bindName, Enum.RenderPriority.Character.Value + 1, function()
+        local arrived = false
+        local connection
+
+        -- Match Farm.lua: drive Humanoid:Move from RenderStepped in world space.
+        connection = RunService.RenderStepped:Connect(function()
             if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration
                 or LocalPlayer.Character ~= character or not character.Parent
                 or not root.Parent or humanoid.Health <= 0 then
                 humanoid:Move(Vector3.zero, false)
+                if connection then connection:Disconnect(); connection = nil end
                 return
             end
-            local direction = Vector3.new(center.X - root.Position.X, 0, center.Z - root.Position.Z)
-            if direction.Magnitude > 4 then
-                humanoid:Move(direction.Unit, false)
-            else
-                humanoid:Move(Vector3.zero, false)
-            end
-        end)
 
-        local arrived = false
-        while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration
-            and LocalPlayer.Character == character and character.Parent
-            and root.Parent and humanoid.Health > 0 do
             local offset = Vector3.new(center.X - root.Position.X, 0, center.Z - root.Position.Z)
             local distance = offset.Magnitude
             if distance <= 4 then
                 arrived = true
-                break
+                humanoid:Move(Vector3.zero, false)
+                if connection then connection:Disconnect(); connection = nil end
+                return
             end
-            if os.clock() - startedAt >= 30 then break end
-            if distance < bestDistance - 0.75 then
+
+            if distance < bestDistance - 0.5 then
                 bestDistance = distance
                 lastProgressAt = os.clock()
-            elseif os.clock() - lastProgressAt >= 5 then
-                break
             end
+            humanoid:Move(offset.Unit, false)
+        end)
+
+        while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration
+            and LocalPlayer.Character == character and character.Parent
+            and root.Parent and humanoid.Health > 0 do
+            if arrived then break end
+            if os.clock() - startedAt >= 60 then break end
+            if os.clock() - lastProgressAt >= 8 then break end
             task.wait(0.05)
         end
 
-        pcall(function() RunService:UnbindFromRenderStep(bindName) end)
+        if connection then connection:Disconnect(); connection = nil end
         if humanoid.Parent then humanoid:Move(Vector3.zero, false) end
         if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration then
             return false, "Stopped."
         end
-        if not arrived then return false, "Could not reach the center of your plot." end
+        if not arrived then
+            return false, string.format("Could not reach plot center (%.1f studs away).", (Vector3.new(center.X - root.Position.X, 0, center.Z - root.Position.Z)).Magnitude)
+        end
         return true
     end
 
@@ -280,15 +284,24 @@ return function(Context)
                     egg.Name,
                     placedCount
                 )
+                if not MergeRemote or not MergeRemote:IsA("RemoteEvent") then
+                    cleanupNotify()
+                    finish("Stopped — ReplicatedStorage.MergeMachineRemote is not a RemoteEvent.")
+                    return
+                end
+
+                AutoPlaceEggsStatus.Text = string.format("Sending PlaceEgg remote for %s...", egg.Name)
+                print("[BASAE Auto Place Eggs] FireServer PlaceEgg:", egg:GetFullName(), position)
                 local ok, err = pcall(function()
                     MergeRemote:FireServer("PlaceEgg", egg, position)
                 end)
                 if not ok then
-                    warn("[BASAE Auto Place Eggs] Remote call failed:", err)
+                    warn("[BASAE Auto Place Eggs] PlaceEgg FireServer failed:", err)
                     cleanupNotify()
-                    finish("Stopped — placement remote failed. Check console.")
+                    finish("Stopped — PlaceEgg FireServer failed: " .. tostring(err))
                     return
                 end
+                print("[BASAE Auto Place Eggs] PlaceEgg remote sent successfully.")
 
                 task.wait(0.45)
                 if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration then break end
