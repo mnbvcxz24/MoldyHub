@@ -314,9 +314,29 @@ return function(Context)
             end
         end
         local configPath = ConfigFolderPath .. "/" .. configName .. ".json"
+        local replacingExistingConfig = false
         local ok, err = pcall(function()
             EnsureConfigFolder()
-            writefile(configPath, game:GetService("HttpService"):JSONEncode(config))
+            replacingExistingConfig = type(isfile) == "function" and isfile(configPath) or false
+
+            -- Build a fresh JSON document and write the complete payload to the
+            -- selected path. Do not read/merge the previous config into this one.
+            local jsonPayload = game:GetService("HttpService"):JSONEncode(config)
+            writefile(configPath, jsonPayload)
+
+            -- Verify that the file now contains exactly the new document before
+            -- marking it as the active config.
+            local savedPayload = readfile(configPath)
+            if savedPayload ~= jsonPayload then
+                error("Config overwrite verification failed")
+            end
+            local verifiedConfig = game:GetService("HttpService"):JSONDecode(savedPayload)
+            if type(verifiedConfig) ~= "table"
+                or verifiedConfig.Version ~= config.Version
+                or verifiedConfig.SavedAt ~= config.SavedAt then
+                error("Saved config verification failed")
+            end
+
             writefile(ActiveConfigPath, configName)
         end)
         if ok then
@@ -325,7 +345,7 @@ return function(Context)
             SelectedConfigName = configName
             ConfigDropdownLabel.Text = configName
             RefreshConfigOptions()
-            SetConfigStatus("Saved and selected - " .. configName, true)
+            SetConfigStatus((replacingExistingConfig and "Overwritten and selected - " or "Saved and selected - ") .. configName, true)
         else
             SetConfigStatus("Save failed - " .. tostring(err):sub(1, 65), false)
         end
