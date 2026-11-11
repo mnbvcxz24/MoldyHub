@@ -996,13 +996,13 @@ return function(Context)
     CompactCardDescription(AutoMountBestAnimalCard)
     CompactCardDescription(AutoPlaceBestAnimalCard)
 
-    -- CONTENT-FIT CARD LAYOUT
-    -- Cards keep their own preferred widths instead of being forced into equal thirds.
+    -- THREE-COLUMN EQUAL CARD LAYOUT
+    -- Keep every Misc card the same size; fit text within each card.
     local MiscCardsLayout = Create("Frame", {
         Name = "MiscFeatureCardsLayout",
         Parent = Page,
         Position = UDim2.fromOffset(10, 10),
-        Size = UDim2.new(1, -20, 0, 76),
+        Size = UDim2.new(1, -20, 0, 162),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         LayoutOrder = 0
@@ -1023,59 +1023,46 @@ return function(Context)
     ESPCardsRow:Destroy()
     AnimalAutomationRow:Destroy()
 
-    local TextService = game:GetService("TextService")
-    local function measureLabel(label)
-        if not label or label.Text == "" then return 0 end
-        local bounds = TextService:GetTextSize(
-            label.Text,
-            label.TextSize,
-            label.Font,
-            Vector2.new(10000, 100)
-        )
-        return bounds.X
-    end
-
-    local function getPreferredCardWidth(card)
-        local titleLabel
-        local descriptionLabel
+    local function FitMiscCardText(card, cardWidth)
+        local titleFound = false
         for _, child in ipairs(card:GetChildren()) do
             if child:IsA("TextLabel") then
-                if child.Position.Y.Offset == 8 then
-                    titleLabel = child
+                if not titleFound and child.Position.Y.Offset == 8 then
+                    titleFound = true
+                    child.Size = UDim2.new(1, -78, 0, 22)
+                    child.TextWrapped = false
+                    child.TextTruncate = Enum.TextTruncate.AtEnd
                 elseif child.Position.Y.Offset == 29 then
-                    descriptionLabel = child
+                    child.Position = UDim2.fromOffset(11, 29)
+                    child.Size = UDim2.new(1, -22, 0, 18)
+                    child.TextWrapped = true
+                    child.TextTruncate = Enum.TextTruncate.AtEnd
+                    child.TextYAlignment = Enum.TextYAlignment.Top
                 end
             end
         end
-
-        local titleWidth = measureLabel(titleLabel) + 90
-        local descriptionWidth = measureLabel(descriptionLabel) + 22
-        return math.clamp(math.max(180, titleWidth, descriptionWidth), 180, 340)
     end
 
     local function RefreshMiscCardLayout()
         local availableWidth = MiscCardsLayout.AbsoluteSize.X
         if availableWidth <= 0 then return end
 
-        local x = 0
-        local y = 0
-        local rowHeight = 76
+        local columns = 3
         local horizontalGap = 10
         local verticalGap = 10
+        local cardHeight = 76
+        local cardWidth = math.floor((availableWidth - horizontalGap * (columns - 1)) / columns)
 
-        for _, card in ipairs(miscCards) do
-            local cardWidth = math.min(getPreferredCardWidth(card), availableWidth)
-            if x > 0 and x + cardWidth > availableWidth then
-                x = 0
-                y += rowHeight + verticalGap
-            end
-
-            card.Position = UDim2.fromOffset(x, y)
-            card.Size = UDim2.fromOffset(cardWidth, rowHeight)
-            x += cardWidth + horizontalGap
+        for index, card in ipairs(miscCards) do
+            local column = (index - 1) % columns
+            local row = math.floor((index - 1) / columns)
+            card.Position = UDim2.fromOffset(column * (cardWidth + horizontalGap), row * (cardHeight + verticalGap))
+            card.Size = UDim2.fromOffset(cardWidth, cardHeight)
+            FitMiscCardText(card, cardWidth)
         end
 
-        MiscCardsLayout.Size = UDim2.new(1, -20, 0, y + rowHeight)
+        local rows = math.ceil(#miscCards / columns)
+        MiscCardsLayout.Size = UDim2.new(1, -20, 0, rows * cardHeight + (rows - 1) * verticalGap)
     end
 
     MiscCardsLayout:GetPropertyChangedSignal("AbsoluteSize"):Connect(RefreshMiscCardLayout)
@@ -1083,4 +1070,3 @@ return function(Context)
         task.defer(RefreshMiscCardLayout)
     end)
     task.defer(RefreshMiscCardLayout)
-end
