@@ -2875,6 +2875,95 @@ for index, name in ipairs(TabNames) do
         local autoOpenChestEnabled = false
         local chestLoopId = 0
         local openedChests = {}
+        -- Auto Spire UI placeholder: controls are visual/config-only for now.
+        local spireCard = CreateCard(left, "Auto Spire", 148)
+        local spireEnabled = false
+        local spireStatus = Create("TextLabel", {
+            Parent = spireCard,
+            Position = UDim2.fromOffset(12, 61),
+            Size = UDim2.new(1, -24, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "Status: Idle",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local _, setSpireToggle = CreateToggle(spireCard, "Auto Spire", 34, function(enabled)
+            spireEnabled = enabled
+            spireStatus.Text = "Status: " .. (enabled and "Enabled (UI only)" or "Idle")
+            spireStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
+        end)
+        setSpireToggle(false)
+
+        Create("TextLabel", {
+            Parent = spireCard,
+            Position = UDim2.fromOffset(12, 87),
+            Size = UDim2.fromOffset(76, 20),
+            BackgroundTransparency = 1,
+            Text = "Difficulty",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local spireDifficulties = {"Any", "Easy", "Normal", "Hard", "Extreme"}
+        local spireDifficultyIndex = 1
+        local spireDifficultyButton = Create("TextButton", {
+            Parent = spireCard,
+            Position = UDim2.new(1, -116, 0, 84),
+            Size = UDim2.fromOffset(104, 23),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = spireDifficulties[spireDifficultyIndex],
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        Corner(spireDifficultyButton, 5)
+        Stroke(spireDifficultyButton, Theme.Border, 1)
+        spireDifficultyButton.MouseButton1Click:Connect(function()
+            spireDifficultyIndex = (spireDifficultyIndex % #spireDifficulties) + 1
+            spireDifficultyButton.Text = spireDifficulties[spireDifficultyIndex]
+        end)
+
+        Create("TextLabel", {
+            Parent = spireCard,
+            Position = UDim2.fromOffset(12, 116),
+            Size = UDim2.fromOffset(110, 20),
+            BackgroundTransparency = 1,
+            Text = "Leave at wave",
+            TextColor3 = Theme.DarkGray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local spireWaveInput = Create("TextBox", {
+            Parent = spireCard,
+            Position = UDim2.new(1, -66, 0, 112),
+            Size = UDim2.fromOffset(54, 23),
+            BackgroundColor3 = Theme.SurfaceInput,
+            TextColor3 = Theme.Text,
+            PlaceholderColor3 = Theme.Gray,
+            PlaceholderText = "e.g. 10",
+            Text = "",
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            ClearTextOnFocus = false,
+            BorderSizePixel = 0
+        })
+        Corner(spireWaveInput, 5)
+        Stroke(spireWaveInput, Theme.Border, 1)
+        spireWaveInput.FocusLost:Connect(function()
+            local wave = tonumber(spireWaveInput.Text)
+            if wave then
+                spireWaveInput.Text = tostring(math.max(1, math.floor(wave)))
+            else
+                spireWaveInput.Text = ""
+            end
+        end)
+
         local chestCard = CreateCard(left, "Auto open chest", 88)
         local chestStatus = Create("TextLabel", {
             Parent = chestCard,
