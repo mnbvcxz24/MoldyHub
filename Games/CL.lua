@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.35"
+local deployver = "CL ver 2.36"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -3472,18 +3472,29 @@ for index, name in ipairs(TabNames) do
             end
             return true
         end
+        local chestCombatOverride = false
+        local chestPreviousFarmEnabled = false
+        local chestPreviousOrbitEnabled = false
+        local function restoreChestCombatToggles()
+            if not chestCombatOverride then return end
+            chestCombatOverride = false
+            if setLabyrinthAutoAttack then setLabyrinthAutoAttack(chestPreviousFarmEnabled) end
+            if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(chestPreviousOrbitEnabled) end
+        end
         local _, setAutoOpenChest = CreateToggle(chestCard, "Auto open chest", 34, function(enabled)
             autoOpenChestEnabled = enabled
             savedConfig.autoOpenChest = enabled
             chestLoopId = chestLoopId + 1
             local thisLoop = chestLoopId
             if not enabled then
+                restoreChestCombatToggles()
                 setChestFloat(false)
-                if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
-                if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
                 setChestStatus("Stopped")
                 return
             end
+            chestPreviousFarmEnabled = savedConfig.autoFarm == true
+            chestPreviousOrbitEnabled = savedConfig.orbitEnabled == true
+            chestCombatOverride = false
             setChestStatus("Floating while opening chests", Theme.Accent)
             task.spawn(function()
                 local nextChestIndex = 1
@@ -3599,7 +3610,8 @@ for index, name in ipairs(TabNames) do
                                 task.wait(math.random(10, 16) / 10)
                                 if not isLoopActive(thisLoop) then break end
 
-                                -- These setters update the Farm toggle visuals and their actual logic.
+                                -- Temporarily enable combat toggles while clearing the spawned enemy.
+                                chestCombatOverride = true
                                 if setLabyrinthAutoAttack then setLabyrinthAutoAttack(true) end
                                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(true) end
                                 setChestStatus("Fighting enemy: " .. enemy.Name, Theme.Accent)
@@ -3608,8 +3620,7 @@ for index, name in ipairs(TabNames) do
                                     if not humanoid or humanoid.Health <= 0 then break end
                                     task.wait(0.4)
                                 end
-                                if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
-                                if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
+                                restoreChestCombatToggles()
                                 if isLoopActive(thisLoop) then
                                     setChestFloat(true, getCurrentRoot())
                                     setChestStatus("Enemy defeated or gone; floating for next spawn",
@@ -3625,8 +3636,7 @@ for index, name in ipairs(TabNames) do
                     end
                 end
                 setChestFloat(false)
-                if setLabyrinthAutoAttack then setLabyrinthAutoAttack(false) end
-                if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
+                restoreChestCombatToggles()
             end)
         end)
         setAutoOpenChest(savedConfig.autoOpenChest == true)
