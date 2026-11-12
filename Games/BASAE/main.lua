@@ -6,7 +6,7 @@ local CORE_GUI = game:GetService("CoreGui")
 local BASE_URL = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/BASAE/Modules/"
 local SharedEnv = type(getgenv) == "function" and getgenv() or _G
 local MODULES = {
-    "Core", "UI", "Dashboard", "Farm", "Events", "Misc", "Theme", "Settings", "Runtime"
+    "Core", "UI", "Dashboard", "Farm", "Eggs", "Misc", "Theme", "Settings", "Runtime"
 }
 
 pcall(function()
@@ -120,7 +120,7 @@ for index, name in ipairs(MODULES) do
     task.wait()
 end
 
-local Context = {Version="2.0.1"}
+local Context = {Version="2.0.2"}
 for index, name in ipairs(MODULES) do
     progress("Initializing " .. name .. "...",index-1)
     local ok, initializer = pcall(initializers[index])
