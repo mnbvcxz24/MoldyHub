@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.26"
+local deployver = "CL ver 2.27"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -16,6 +16,7 @@ local CONFIG_FOLDER_PATH = CONFIG_ROOT_PATH .. "/config"
 local CONFIG_FILE = CONFIG_FOLDER_PATH .. "/moldyhub_cl_config.json"
 local LEGACY_CONFIG_FILE = "MoldyHub_CL_Config.json"
 local ACTIVE_CONFIG_FILE = CONFIG_FOLDER_PATH .. "/activeclconfig.txt"
+local KEEP_MOLDYHUB_PATH = CONFIG_FOLDER_PATH .. "/keepmoldyhub.txt"
 local savedConfig = {}
 local configFileDetected = false
 local activeConfigName = nil
@@ -110,6 +111,87 @@ local function getConfigSnapshot()
 end
 
 loadSavedConfig()
+
+-- Auto-save runs independently of the Settings tab, so Farm changes are persisted
+-- even when the user never opens Configuration during that session.
+local lastAutoSaveSignature
+local autoSaveLoopRunning = false
+local function saveConfigToDisk(forceSave)
+    if savedConfig.autoSaveConfig ~= true and not forceSave then return true end
+    if type(environment.writefile) ~= "function" or type(environment.readfile) ~= "function" then
+        return false, "Executor file API unavailable"
+    end
+
+    local signatureOk, signature = pcall(function()
+        return HttpService:JSONEncode(savedConfig)
+    end)
+    if not signatureOk then return false, "Config encode failed" end
+    if not forceSave and signature == lastAutoSaveSignature then return true end
+
+    local ok, err = pcall(function()
+        ensureConfigFolder()
+        local config = getConfigSnapshot()
+        local jsonPayload = HttpService:JSONEncode(config)
+        environment.writefile(CONFIG_FILE, jsonPayload)
+        local savedPayload = environment.readfile(CONFIG_FILE)
+        if savedPayload ~= jsonPayload then error("Config write verification failed") end
+        local verified = HttpService:JSONDecode(savedPayload)
+        if type(verified) ~= "table"
+            or type(verified.Settings) ~= "table"
+            or verified.Version ~= 1
+            or verified.SavedAt ~= config.SavedAt then
+            error("Saved config verification failed")
+        end
+    end)
+
+    if not ok then return false, tostring(err) end
+    lastAutoSaveSignature = signature
+    configFileDetected = true
+    return true
+end
+
+local function startAutoSaveLoop()
+    if autoSaveLoopRunning or savedConfig.autoSaveConfig ~= true then return end
+    autoSaveLoopRunning = true
+    task.spawn(function()
+        while savedConfig.autoSaveConfig == true do
+            task.wait(1)
+            if savedConfig.autoSaveConfig == true then
+                local ok, err = saveConfigToDisk(false)
+                if not ok then warn("[MoldyHub] Auto-save failed: " .. tostring(err)) end
+            end
+        end
+        autoSaveLoopRunning = false
+    end)
+end
+
+-- Install reconnect execution immediately; it must not depend on opening Settings.
+local listenerEnv = environment
+if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
+    local teleportQueue = environment.queue_on_teleport or environment.queueonteleport
+        or queue_on_teleport or queueonteleport
+    if type(teleportQueue) == "function" then
+        listenerEnv.MoldyHubCLKeepTeleportListenerPlayer = LocalPlayer
+        local teleportQueued = false
+        LocalPlayer.OnTeleport:Connect(function()
+            if teleportQueued then return end
+            local shouldKeep = false
+            local raw = readConfigFile(KEEP_MOLDYHUB_PATH)
+            shouldKeep = raw ~= nil and tostring(raw):lower():match("^%s*true%s*$") ~= nil
+            if not shouldKeep then return end
+            teleportQueued = true
+            local source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
+            local ok, err = pcall(function() teleportQueue(source) end)
+            if not ok then
+                teleportQueued = false
+                warn("[MoldyHub] Teleport queue failed: " .. tostring(err))
+            end
+        end)
+    end
+end
+
+if savedConfig.autoSaveConfig == true then startAutoSaveLoop() end
+
 local previousCleanup = environment.CLMoldyHubCleanup
 if type(previousCleanup) == "function" then
     pcall(previousCleanup)
@@ -2085,7 +2167,9 @@ for index, name in ipairs(TabNames) do
             Position = UDim2.fromOffset(12, 34),
             Size = UDim2.new(1, -24, 0, 15),
             BackgroundTransparency = 1,
-            Text = configFileDetected and "Saved configuration detected" or "No config settings saved",
+            Text = configFileDetected
+                and (savedConfig.autoSaveConfig == true and "Saved settings loaded • Auto Save on" or "Saved settings loaded • Auto Save off")
+                or "No saved settings found",
             TextColor3 = configFileDetected and Color3.fromRGB(95, 220, 140) or Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
@@ -2098,59 +2182,14 @@ for index, name in ipairs(TabNames) do
         end
 
         local autoSaveConfigEnabled = savedConfig.autoSaveConfig == true
-        local autoSaveLoopRunning = false
-        local lastAutoSaveSignature
         local function saveAutoConfig(forceSave)
-            if not autoSaveConfigEnabled and not forceSave then return true end
-            if type(environment.writefile) ~= "function" or type(environment.readfile) ~= "function" then
-                setConfigStatus("Executor file API unavailable", false)
-                return false
-            end
-
-            local signatureOk, signature = pcall(function()
-                return HttpService:JSONEncode(savedConfig)
-            end)
-            if not signatureOk then
-                setConfigStatus("Auto Save failed - config encode error", false)
-                return false
-            end
-            if not forceSave and signature == lastAutoSaveSignature then return true end
-
-            local ok, err = pcall(function()
-                ensureConfigFolder()
-                local config = getConfigSnapshot()
-                local jsonPayload = HttpService:JSONEncode(config)
-                environment.writefile(CONFIG_FILE, jsonPayload)
-                local savedPayload = environment.readfile(CONFIG_FILE)
-                if savedPayload ~= jsonPayload then error("Config write verification failed") end
-                local verified = HttpService:JSONDecode(savedPayload)
-                if type(verified) ~= "table" or verified.Version ~= 1 or verified.SavedAt ~= config.SavedAt then
-                    error("Saved config verification failed")
-                end
-            end)
-
+            local ok, err = saveConfigToDisk(forceSave)
             if ok then
-                configFileDetected = true
-                lastAutoSaveSignature = signature
-                setConfigStatus(autoSaveConfigEnabled and "Auto-saved configuration" or "Auto Save disabled", true)
+                setConfigStatus(autoSaveConfigEnabled and "Auto-saved current settings" or "Auto Save disabled", true)
                 return true
             end
             setConfigStatus("Auto Save failed - " .. tostring(err):sub(1, 55), false)
             return false
-        end
-
-        local function startAutoSaveLoop()
-            if autoSaveLoopRunning or not autoSaveConfigEnabled then return end
-            autoSaveLoopRunning = true
-            task.spawn(function()
-                while autoSaveConfigEnabled and settingsCard.Parent do
-                    task.wait(1)
-                    if autoSaveConfigEnabled and settingsCard.Parent then
-                        saveAutoConfig(false)
-                    end
-                end
-                autoSaveLoopRunning = false
-            end)
         end
 
         local initializingAutoSaveToggle = true
@@ -2211,7 +2250,6 @@ for index, name in ipairs(TabNames) do
             TextTruncate = Enum.TextTruncate.AtEnd
         })
         local AUTO_EXECUTE_FOLDER = CONFIG_ROOT_PATH .. "/autoexec"
-        local KEEP_MOLDYHUB_PATH = CONFIG_FOLDER_PATH .. "/keepmoldyhub.txt"
         local function ensureAutoExecuteFolders()
             if type(environment.makefolder) ~= "function" then error("Executor makefolder API unavailable") end
             local function ensureFolder(path)
@@ -2253,33 +2291,6 @@ for index, name in ipairs(TabNames) do
             end
         end)
         setKeepMoldyHub(keepMoldyHubEnabled)
-
-        local listenerEnv = environment
-        if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
-            local teleportQueue = environment.queue_on_teleport or environment.queueonteleport or queue_on_teleport or queueonteleport
-            if type(teleportQueue) == "function" then
-                listenerEnv.MoldyHubCLKeepTeleportListenerPlayer = LocalPlayer
-                local teleportQueued = false
-                LocalPlayer.OnTeleport:Connect(function()
-                    if teleportQueued then return end
-                    local shouldKeep = false
-                    pcall(function()
-                        local raw = readConfigFile(KEEP_MOLDYHUB_PATH)
-                        shouldKeep = raw ~= nil and tostring(raw):lower():match("^%s*true%s*$") ~= nil
-                    end)
-                    if not shouldKeep then return end
-                    teleportQueued = true
-                    local source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
-                    local ok, err = pcall(function()
-                        teleportQueue(source)
-                    end)
-                    if not ok then
-                        teleportQueued = false
-                        warn("[MoldyHub] Teleport queue failed: " .. tostring(err))
-                    end
-                end)
-            end
-        end
 
     elseif index == 2 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
