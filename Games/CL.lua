@@ -2879,6 +2879,8 @@ for index, name in ipairs(TabNames) do
         local spireCard = CreateCard(left, "Auto Spire", 148)
         local spireEnabled = false
         local spireLoopId = 0
+        local spireDifficulties = {"Easy", "Medium", "Hard", "Extreme"}
+        local spireDifficultyIndex = 2
         local spireStatus = Create("TextLabel", {
             Parent = spireCard,
             Position = UDim2.fromOffset(12, 61),
@@ -3064,8 +3066,6 @@ for index, name in ipairs(TabNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local spireDifficulties = {"Easy", "Medium", "Hard", "Extreme"}
-        local spireDifficultyIndex = 2
         local spireDifficultyButton = Create("TextButton", {
             Parent = spireCard,
             Position = UDim2.new(1, -116, 0, 84),
