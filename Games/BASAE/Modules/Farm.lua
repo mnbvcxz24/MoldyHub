@@ -29,11 +29,14 @@ return function(Context)
     local RefreshEggFilters
     local UpdateAutoBreakFilterButtonTexts
     local TitanicPriorityEnabled = false
+    local CollectGemsEnabled = type(SavedConfig.Farm) == "table" and SavedConfig.Farm.CollectGems == true
+    local VisitedGemDrops = setmetatable({}, {__mode = "k"})
     local AutoBreakControlLayout = {
         ZoneY = 42,
         EggY = 81,
         HighLuckY = 126,
         TitanicY = 157,
+        CollectGemsY = 184,
         Height = 22,
         SidePadding = 11
     }
@@ -1616,6 +1619,11 @@ return function(Context)
         AddDebugLog("[Auto Break] TITANIC priority " .. (enabled and "ON" or "OFF"))
         if RefreshEggFilters then RefreshEggFilters() end
     end, SavedFarmConfig.TitanicPriority == true)
+    local CollectGemsToggle = CreatePickupCheckbox(Card1, "Collect Gems", AutoBreakControlLayout.CollectGemsY, function(enabled)
+        CollectGemsEnabled = enabled
+        table.clear(VisitedGemDrops)
+        AddDebugLog("[Auto Break] Gem collection " .. (enabled and "ON" or "OFF"))
+    end, SavedFarmConfig.CollectGems == true)
     Card1.Size = UDim2.new(0.5, -5, 0, 190)
     AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 340)
     local function UpdateAutoBreakCardHeights()
@@ -3996,6 +4004,52 @@ return function(Context)
             SetTrackerStatus(reason)
         end
     end
+    local function GetGemDropPosition(gem)
+        if not gem or not gem.Parent then return nil end
+        if gem:IsA("BasePart") then return gem.Position end
+        if gem:IsA("Model") then return gem:GetPivot().Position end
+        local part = gem:FindFirstChildWhichIsA("BasePart", true)
+        return part and part.Position or nil
+    end
+
+    local function MoveTowardGemDrop(root, humanoid)
+        if not CollectGemsEnabled or not AutoBreakEnabled or PickupRequested or ReturningAfterPickup then
+            return false
+        end
+        local dropsFolder = workspace:FindFirstChild("EggGemDrops")
+        if not dropsFolder then return false end
+
+        local nearestGem, nearestPosition, nearestDistance
+        for _, gem in ipairs(dropsFolder:GetChildren()) do
+            if gem.Name == "Gems" and not VisitedGemDrops[gem] then
+                local position = GetGemDropPosition(gem)
+                if position then
+                    local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
+                    local distance = offset.Magnitude
+                    if not nearestDistance or distance < nearestDistance then
+                        nearestGem, nearestPosition, nearestDistance = gem, position, distance
+                    end
+                end
+            end
+        end
+
+        if not nearestGem then return false end
+        if nearestDistance <= 5 then
+            VisitedGemDrops[nearestGem] = true
+            humanoid:Move(Vector3.zero, false)
+            TouchAutomationProgress("AUTO_BREAK:GEM_REACHED")
+            SetTrackerStatus("Reached gem drop; resuming Auto Break.")
+            return true
+        end
+
+        local offset = Vector3.new(nearestPosition.X - root.Position.X, 0, nearestPosition.Z - root.Position.Z)
+        if offset.Magnitude > 0.05 then
+            humanoid:Move(offset.Unit, false)
+        end
+        TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEM")
+        return true
+    end
+
     StartAutoBreak = function(forceRefresh)
         if not AutoBreakEnabled or ScriptShuttingDown then return end
         local startGeneration = AutoBreakGeneration
@@ -4173,6 +4227,8 @@ return function(Context)
                         return
                     end
 
+                    if MoveTowardGemDrop(root, humanoid) then return end
+
                     if os.clock() - lastEggScan >= 0.35 then
                         lastEggScan = os.clock()
                         local spawnedEggFound = false
@@ -4304,6 +4360,7 @@ return function(Context)
                 end
                 return
             end
+            if MoveTowardGemDrop(root, humanoid) then return end
             if CurrentTarget ~= target or not IsEggAvailable(target) or not character.Parent
             or humanoid.Health <= 0 then
                 if CurrentTarget == target and not IsEggAvailable(target) then
@@ -4515,6 +4572,7 @@ return function(Context)
             DisabledEggs = disabledEggs,
             SortOrder = SortOrder,
             TitanicPriority = TitanicPriorityEnabled,
+            CollectGems = CollectGemsEnabled,
             HighestCash = HighestCashEnabled,
             UnindexedOnly = UnindexedOnlyEnabled,
             DropInZone1 = DropInZone1Enabled,
