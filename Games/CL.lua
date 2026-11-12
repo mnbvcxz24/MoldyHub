@@ -8,13 +8,12 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.30"
+local deployver = "CL ver 2.31"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
 local CONFIG_FOLDER_PATH = CONFIG_ROOT_PATH .. "/config"
-local CONFIG_FILE = CONFIG_FOLDER_PATH .. "/moldyhub_cl_config.json"
-local LEGACY_CONFIG_FILE = "MoldyHub_CL_Config.json"
+local CONFIG_FILE = CONFIG_ROOT_PATH .. "/CL_HARD_SAVE_2026.json" -- Dedicated hardcoded CL settings file; independent of old config files.
 local ACTIVE_CONFIG_FILE = CONFIG_FOLDER_PATH .. "/activeclconfig.txt"
 local KEEP_MOLDYHUB_PATH = CONFIG_FOLDER_PATH .. "/keepmoldyhub.txt"
 local savedConfig = {}
@@ -24,10 +23,7 @@ local activeConfigName = nil
 
 local function readConfigFile(path)
     if type(environment.readfile) ~= "function" then return nil end
-    if type(environment.isfile) == "function" then
-        local existsOk, exists = pcall(environment.isfile, path)
-        if not existsOk or not exists then return nil end
-    end
+    -- Do not trust isfile(): some executors report false for valid files.
     local ok, value = pcall(environment.readfile, path)
     if ok and type(value) == "string" then return value end
     return nil
@@ -36,40 +32,17 @@ end
 local function loadSavedConfig()
     if type(environment.readfile) ~= "function" then return end
 
-    -- Prefer the single automatic config file; fall back to older named configs for migration.
-    local raw = readConfigFile(CONFIG_FILE) or readConfigFile(LEGACY_CONFIG_FILE)
-    if type(raw) == "string" and raw ~= "" then
-        local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
-        if ok and type(decoded) == "table" then
-            if type(decoded.Settings) == "table" then
-                savedConfig = decoded.Settings
-            else
-                for key, value in pairs(decoded) do
-                    if key ~= "Version" and key ~= "SavedAt" then
-                        savedConfig[key] = value
-                    end
-                end
-            end
-            configFileDetected = true
-            return
-        end
-    end
+    -- Load only the dedicated hardcoded file. Do not read or overwrite legacy/named configs.
+    local raw = readConfigFile(CONFIG_FILE)
+    if type(raw) ~= "string" or raw == "" then return end
 
-    local activeRaw = readConfigFile(ACTIVE_CONFIG_FILE)
-    if type(activeRaw) ~= "string" then
-        activeRaw = readConfigFile(CONFIG_ROOT_PATH .. "/ActiveCLConfig.txt")
-    end
-    local selectedName = activeRaw and activeRaw:match("^%s*([%w_%-]+)%s*$")
-    if not selectedName or selectedName == "DEFAULT" then return end
-
-    activeConfigName = selectedName
-    local namedRaw = readConfigFile(CONFIG_FOLDER_PATH .. "/" .. selectedName .. ".json")
-        or readConfigFile(CONFIG_ROOT_PATH .. "/" .. selectedName .. ".json")
-    if type(namedRaw) ~= "string" then return end
-
-    local ok, decoded = pcall(function() return HttpService:JSONDecode(namedRaw) end)
+    local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
     if ok and type(decoded) == "table" then
-        savedConfig = type(decoded.Settings) == "table" and decoded.Settings or decoded
+        if type(decoded.Settings) == "table" then
+            savedConfig = decoded.Settings
+        else
+            savedConfig = decoded
+        end
         configFileDetected = true
     end
 end
