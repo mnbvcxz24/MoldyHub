@@ -2305,6 +2305,7 @@ for index, name in ipairs(TabNames) do
                 configDropdownLabel.Text = configName
                 configFileDetected = true
                 lastAutoSaveSignature = signature
+                refreshConfigOptions()
                 setConfigStatus("Auto-saved - " .. configName, true)
                 return true
             end
@@ -2326,10 +2327,12 @@ for index, name in ipairs(TabNames) do
             end)
         end
 
+        local initializingAutoSaveToggle = true
         local _, setAutoSaveConfig = CreateToggle(settingsCard, "Auto Save Config", 113, function(enabled)
             autoSaveConfigEnabled = enabled
             savedConfig.autoSaveConfig = enabled
             lastAutoSaveSignature = nil
+            if initializingAutoSaveToggle then return end
             if saveAutoConfig(true) and enabled then
                 startAutoSaveLoop()
             end
@@ -2338,6 +2341,7 @@ for index, name in ipairs(TabNames) do
             end
         end)
         setAutoSaveConfig(autoSaveConfigEnabled)
+        initializingAutoSaveToggle = false
 
         createConfigActionButton("Load Selected", 0, 12, Color3.fromRGB(48, 105, 165), function()
             if not selectedConfigName then
@@ -2364,6 +2368,9 @@ for index, name in ipairs(TabNames) do
             end
         end)
         createConfigActionButton("Unload Config", 0.5, 6, Color3.fromRGB(165, 95, 45), function()
+            if autoSaveConfigEnabled then
+                setAutoSaveConfig(false)
+            end
             if type(environment.writefile) ~= "function" then
                 setConfigStatus("Executor writefile API unavailable", false)
                 return
