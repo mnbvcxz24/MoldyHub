@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.25"
+local deployver = "CL ver 2.26"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -33,47 +33,41 @@ end
 
 local function loadSavedConfig()
     if type(environment.readfile) ~= "function" then return end
+
+    -- Prefer the single automatic config file; fall back to older named configs for migration.
+    local raw = readConfigFile(CONFIG_FILE) or readConfigFile(LEGACY_CONFIG_FILE)
+    if type(raw) == "string" and raw ~= "" then
+        local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+        if ok and type(decoded) == "table" then
+            if type(decoded.Settings) == "table" then
+                savedConfig = decoded.Settings
+            else
+                for key, value in pairs(decoded) do
+                    if key ~= "Version" and key ~= "SavedAt" then
+                        savedConfig[key] = value
+                    end
+                end
+            end
+            configFileDetected = true
+            return
+        end
+    end
+
     local activeRaw = readConfigFile(ACTIVE_CONFIG_FILE)
     if type(activeRaw) ~= "string" then
         activeRaw = readConfigFile(CONFIG_ROOT_PATH .. "/ActiveCLConfig.txt")
     end
-
-    local configPath
     local selectedName = activeRaw and activeRaw:match("^%s*([%w_%-]+)%s*$")
-    if selectedName == "DEFAULT" then
-        activeConfigName = nil
-        return
-    elseif selectedName then
-        activeConfigName = selectedName
-        configPath = CONFIG_FOLDER_PATH .. "/" .. selectedName .. ".json"
-        local namedRaw = readConfigFile(configPath)
-        if not namedRaw then
-            namedRaw = readConfigFile(CONFIG_ROOT_PATH .. "/" .. selectedName .. ".json")
-        end
-        if namedRaw then
-            local ok, decoded = pcall(function() return HttpService:JSONDecode(namedRaw) end)
-            if ok and type(decoded) == "table" then
-                savedConfig = type(decoded.Settings) == "table" and decoded.Settings or decoded
-                configFileDetected = true
-                return
-            end
-        end
-    end
+    if not selectedName or selectedName == "DEFAULT" then return end
 
-    local raw = readConfigFile(CONFIG_FILE) or readConfigFile(LEGACY_CONFIG_FILE)
-    if type(raw) ~= "string" or raw == "" then return end
-    local decodedOk, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
-    if decodedOk and type(decoded) == "table" then
-        if type(decoded.Settings) == "table" then
-            savedConfig = decoded.Settings
-        else
-            savedConfig = {}
-            for key, value in pairs(decoded) do
-                if key ~= "Version" and key ~= "SavedAt" then
-                    savedConfig[key] = value
-                end
-            end
-        end
+    activeConfigName = selectedName
+    local namedRaw = readConfigFile(CONFIG_FOLDER_PATH .. "/" .. selectedName .. ".json")
+        or readConfigFile(CONFIG_ROOT_PATH .. "/" .. selectedName .. ".json")
+    if type(namedRaw) ~= "string" then return end
+
+    local ok, decoded = pcall(function() return HttpService:JSONDecode(namedRaw) end)
+    if ok and type(decoded) == "table" then
+        savedConfig = type(decoded.Settings) == "table" and decoded.Settings or decoded
         configFileDetected = true
     end
 end
@@ -2085,156 +2079,13 @@ for index, name in ipairs(TabNames) do
         end)
 
     elseif index == 4 then
-        local settingsCard = CreateCard(left, "Configuration", 190)
-        local configNameInput = Create("TextBox", {
-            Parent = settingsCard,
-            Position = UDim2.fromOffset(12, 34),
-            Size = UDim2.new(1, -24, 0, 24),
-            BackgroundColor3 = Theme.SurfaceInput,
-            Text = activeConfigName or "",
-            PlaceholderText = "Enter config name",
-            PlaceholderColor3 = Theme.Gray,
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            ClearTextOnFocus = false,
-            BorderSizePixel = 0
-        })
-        Corner(configNameInput, 5)
-        Stroke(configNameInput, Theme.Border, 1)
-
-        local configDropdown = Create("TextButton", {
-            Parent = settingsCard,
-            Position = UDim2.fromOffset(12, 63),
-            Size = UDim2.new(1, -82, 0, 24),
-            BackgroundColor3 = Theme.SurfaceInput,
-            Text = "",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            ZIndex = 30
-        })
-        Corner(configDropdown, 5)
-        Stroke(configDropdown, Theme.Border, 1)
-        local selectedConfigName = activeConfigName
-        local configDropdownLabel = Create("TextLabel", {
-            Parent = configDropdown,
-            Position = UDim2.fromOffset(9, 0),
-            Size = UDim2.new(1, -25, 1, 0),
-            BackgroundTransparency = 1,
-            Text = selectedConfigName or "Select saved config",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.Gotham,
-            TextSize = 8,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 31
-        })
-        Create("TextLabel", {
-            Parent = configDropdown,
-            Position = UDim2.new(1, -18, 0, 0),
-            Size = UDim2.fromOffset(14, 24),
-            BackgroundTransparency = 1,
-            Text = "v",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.GothamBold,
-            TextSize = 8,
-            ZIndex = 31
-        })
-        local configList = Create("Frame", {
-            Parent = configDropdown,
-            Position = UDim2.new(0, 0, 1, 3),
-            Size = UDim2.new(1, 0, 0, 0),
-            BackgroundColor3 = Theme.SurfaceInput,
-            BorderSizePixel = 0,
-            Visible = false,
-            ClipsDescendants = true,
-            ZIndex = 220
-        })
-        Corner(configList, 5)
-        Stroke(configList, Theme.Border, 1)
-        local configListLayout = Create("UIListLayout", {
-            Parent = configList,
-            SortOrder = Enum.SortOrder.LayoutOrder
-        })
-        local configOptions = {}
-        local function refreshConfigOptions()
-            for _, child in ipairs(configList:GetChildren()) do
-                if child:IsA("TextButton") then child:Destroy() end
-            end
-            configOptions = {}
-            if type(environment.listfiles) == "function" then
-                local ok, files = pcall(environment.listfiles, CONFIG_FOLDER_PATH)
-                if ok and type(files) == "table" then
-                    for _, filePath in ipairs(files) do
-                        local fileName = tostring(filePath):match("[/\\]([^/\\]+)%.json$")
-                        if fileName and fileName:match("^[%w_%-]+$") then
-                            table.insert(configOptions, fileName)
-                        end
-                    end
-                end
-            end
-            table.sort(configOptions, function(a, b)
-                return string.lower(a) < string.lower(b)
-            end)
-            if selectedConfigName then
-                local found = false
-                for _, name in ipairs(configOptions) do
-                    if name == selectedConfigName then found = true break end
-                end
-                if not found then selectedConfigName = nil end
-            end
-            configDropdownLabel.Text = selectedConfigName or (#configOptions > 0 and "Select saved config" or "No saved configs found")
-            for optionIndex, configName in ipairs(configOptions) do
-                local option = Create("TextButton", {
-                    Parent = configList,
-                    Size = UDim2.new(1, 0, 0, 23),
-                    BackgroundTransparency = 1,
-                    Text = configName,
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 8,
-                    BorderSizePixel = 0,
-                    LayoutOrder = optionIndex,
-                    ZIndex = 221
-                })
-                option.MouseButton1Click:Connect(function()
-                    selectedConfigName = configName
-                    configDropdownLabel.Text = configName
-                    configNameInput.Text = configName
-                    configList.Visible = false
-                end)
-            end
-            configList.Size = UDim2.new(1, 0, 0, math.min(#configOptions, 5) * 23)
-        end
-        configDropdown.MouseButton1Click:Connect(function()
-            if #configOptions == 0 then refreshConfigOptions() end
-            configList.Visible = not configList.Visible
-        end)
-
-        local refreshConfigButton = Create("TextButton", {
-            Parent = settingsCard,
-            Position = UDim2.new(1, -58, 0, 63),
-            Size = UDim2.fromOffset(46, 24),
-            BackgroundColor3 = Theme.SurfaceInput,
-            Text = "Refresh",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.GothamMedium,
-            TextSize = 7,
-            BorderSizePixel = 0,
-            AutoButtonColor = true
-        })
-        Corner(refreshConfigButton, 5)
-        Stroke(refreshConfigButton, Theme.Border, 1)
-
+        local settingsCard = CreateCard(left, "Configuration", 76)
         local saveStatus = Create("TextLabel", {
             Parent = settingsCard,
-            Position = UDim2.fromOffset(12, 91),
+            Position = UDim2.fromOffset(12, 34),
             Size = UDim2.new(1, -24, 0, 15),
             BackgroundTransparency = 1,
-            Text = configFileDetected and (activeConfigName and ("Active config: " .. activeConfigName) or "Saved settings available") or "No config settings saved",
+            Text = configFileDetected and "Saved configuration detected" or "No config settings saved",
             TextColor3 = configFileDetected and Color3.fromRGB(95, 220, 140) or Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
@@ -2244,23 +2095,6 @@ for index, name in ipairs(TabNames) do
         local function setConfigStatus(message, success)
             saveStatus.Text = tostring(message)
             saveStatus.TextColor3 = success and Color3.fromRGB(95, 220, 140) or Color3.fromRGB(240, 110, 110)
-        end
-        local function createConfigActionButton(label, xScale, xOffset, color, callback)
-            local button = Create("TextButton", {
-                Parent = settingsCard,
-                Position = UDim2.new(xScale, xOffset, 0, 145),
-                Size = UDim2.new(0.5, -18, 0, 26),
-                BackgroundColor3 = color,
-                Text = label,
-                TextColor3 = Color3.fromRGB(255, 255, 255),
-                Font = Enum.Font.GothamMedium,
-                TextSize = 7,
-                BorderSizePixel = 0,
-                AutoButtonColor = true
-            })
-            Corner(button, 5)
-            button.MouseButton1Click:Connect(callback)
-            return button
         end
 
         local autoSaveConfigEnabled = savedConfig.autoSaveConfig == true
@@ -2273,7 +2107,6 @@ for index, name in ipairs(TabNames) do
                 return false
             end
 
-            local configName = getSafeConfigName(configNameInput.Text) or activeConfigName or "Default"
             local signatureOk, signature = pcall(function()
                 return HttpService:JSONEncode(savedConfig)
             end)
@@ -2283,30 +2116,23 @@ for index, name in ipairs(TabNames) do
             end
             if not forceSave and signature == lastAutoSaveSignature then return true end
 
-            local configPath = CONFIG_FOLDER_PATH .. "/" .. configName .. ".json"
             local ok, err = pcall(function()
                 ensureConfigFolder()
                 local config = getConfigSnapshot()
                 local jsonPayload = HttpService:JSONEncode(config)
-                environment.writefile(configPath, jsonPayload)
-                local savedPayload = environment.readfile(configPath)
+                environment.writefile(CONFIG_FILE, jsonPayload)
+                local savedPayload = environment.readfile(CONFIG_FILE)
                 if savedPayload ~= jsonPayload then error("Config write verification failed") end
                 local verified = HttpService:JSONDecode(savedPayload)
                 if type(verified) ~= "table" or verified.Version ~= 1 or verified.SavedAt ~= config.SavedAt then
                     error("Saved config verification failed")
                 end
-                environment.writefile(ACTIVE_CONFIG_FILE, configName)
             end)
 
             if ok then
-                activeConfigName = configName
-                selectedConfigName = configName
-                configNameInput.Text = configName
-                configDropdownLabel.Text = configName
                 configFileDetected = true
                 lastAutoSaveSignature = signature
-                refreshConfigOptions()
-                setConfigStatus("Auto-saved - " .. configName, true)
+                setConfigStatus(autoSaveConfigEnabled and "Auto-saved configuration" or "Auto Save disabled", true)
                 return true
             end
             setConfigStatus("Auto Save failed - " .. tostring(err):sub(1, 55), false)
@@ -2328,11 +2154,12 @@ for index, name in ipairs(TabNames) do
         end
 
         local initializingAutoSaveToggle = true
-        local _, setAutoSaveConfig = CreateToggle(settingsCard, "Auto Save Config", 113, function(enabled)
+        local _, setAutoSaveConfig = CreateToggle(settingsCard, "Auto Save Config", 52, function(enabled)
             autoSaveConfigEnabled = enabled
             savedConfig.autoSaveConfig = enabled
             lastAutoSaveSignature = nil
             if initializingAutoSaveToggle then return end
+            -- Persist the toggle state itself, including when the user turns Auto Save off.
             if saveAutoConfig(true) and enabled then
                 startAutoSaveLoop()
             end
@@ -2342,55 +2169,6 @@ for index, name in ipairs(TabNames) do
         end)
         setAutoSaveConfig(autoSaveConfigEnabled)
         initializingAutoSaveToggle = false
-
-        createConfigActionButton("Load Selected", 0, 12, Color3.fromRGB(48, 105, 165), function()
-            if not selectedConfigName then
-                setConfigStatus("Select a saved config first", false)
-                return
-            end
-            local configPath = CONFIG_FOLDER_PATH .. "/" .. selectedConfigName .. ".json"
-            local ok, result = pcall(function()
-                local raw = readConfigFile(configPath)
-                if not raw then error("Config file not found") end
-                local decoded = HttpService:JSONDecode(raw)
-                if type(decoded) ~= "table" or decoded.Version ~= 1 or type(decoded.Settings) ~= "table" then
-                    error("Invalid config file")
-                end
-                environment.writefile(ACTIVE_CONFIG_FILE, selectedConfigName)
-                return decoded
-            end)
-            if ok then
-                activeConfigName = selectedConfigName
-                configFileDetected = true
-                setConfigStatus("Selected " .. selectedConfigName .. "; rerun CL to apply", true)
-            else
-                setConfigStatus("Load failed - " .. tostring(result):sub(1, 65), false)
-            end
-        end)
-        createConfigActionButton("Unload Config", 0.5, 6, Color3.fromRGB(165, 95, 45), function()
-            if autoSaveConfigEnabled then
-                setAutoSaveConfig(false)
-            end
-            if type(environment.writefile) ~= "function" then
-                setConfigStatus("Executor writefile API unavailable", false)
-                return
-            end
-            local ok, err = pcall(function()
-                ensureConfigFolder()
-                environment.writefile(ACTIVE_CONFIG_FILE, "DEFAULT")
-            end)
-            if ok then
-                activeConfigName = nil
-                selectedConfigName = nil
-                configDropdownLabel.Text = #configOptions > 0 and "Select saved config" or "No saved configs found"
-                configNameInput.Text = ""
-                setConfigStatus("Default config selected; rerun CL to apply", true)
-            else
-                setConfigStatus("Unload failed - " .. tostring(err):sub(1, 65), false)
-            end
-        end)
-        refreshConfigButton.MouseButton1Click:Connect(refreshConfigOptions)
-        refreshConfigOptions()
         if autoSaveConfigEnabled then startAutoSaveLoop() end
 
         local antiAfkCard = CreateCard(left, "Anti AFK", 64)
