@@ -18,6 +18,7 @@ local LEGACY_CONFIG_FILE = "MoldyHub_CL_Config.json"
 local ACTIVE_CONFIG_FILE = CONFIG_FOLDER_PATH .. "/activeclconfig.txt"
 local KEEP_MOLDYHUB_PATH = CONFIG_FOLDER_PATH .. "/keepmoldyhub.txt"
 local savedConfig = {}
+local configToggleControllers = {}
 local configFileDetected = false
 local activeConfigName = nil
 
@@ -103,6 +104,14 @@ local function getConfigSnapshot()
     for key, value in pairs(savedConfig) do
         snapshot[key] = value
     end
+    -- Like BASAE, capture the live UI controller state at save time instead of
+    -- trusting only the backing settings table.
+    for key, getter in pairs(configToggleControllers) do
+        if type(getter) == "function" then
+            local ok, value = pcall(getter)
+            if ok then snapshot[key] = value == true end
+        end
+    end
     return {
         Version = 1,
         SavedAt = os.time(),
@@ -111,6 +120,10 @@ local function getConfigSnapshot()
 end
 
 loadSavedConfig()
+-- Auto-save is enabled by default for new CL installs. Users can still explicitly turn it off.
+if type(savedConfig.autoSaveConfig) ~= "boolean" then
+    savedConfig.autoSaveConfig = true
+end
 
 -- Keep the reconnect flag in sync with the loaded configuration before teleport hooks run.
 if type(savedConfig.keepMoldyHub) == "boolean" and type(environment.writefile) == "function" then
@@ -130,15 +143,16 @@ local function saveConfigToDisk(forceSave)
         return false, "Executor file API unavailable"
     end
 
+    local snapshot = getConfigSnapshot()
     local signatureOk, signature = pcall(function()
-        return HttpService:JSONEncode(savedConfig)
+        return HttpService:JSONEncode(snapshot.Settings)
     end)
     if not signatureOk then return false, "Config encode failed" end
     if not forceSave and signature == lastAutoSaveSignature then return true end
 
     local ok, err = pcall(function()
         ensureConfigFolder()
-        local config = getConfigSnapshot()
+        local config = snapshot
         local jsonPayload = HttpService:JSONEncode(config)
         environment.writefile(CONFIG_FILE, jsonPayload)
         local savedPayload = environment.readfile(CONFIG_FILE)
@@ -532,7 +546,7 @@ local function CreateCard(parent, title, height)
     return card, titleLabel
 end
 
-local function CreateCardHeaderToggle(card, titleLabel, initialValue, callback)
+local function CreateCardHeaderToggle(card, titleLabel, initialValue, callback, configKey)
     titleLabel.Size = UDim2.new(1, -62, 0, 18)
     local button = Create("TextButton", {
         Parent = card,
@@ -560,6 +574,9 @@ local function CreateCardHeaderToggle(card, titleLabel, initialValue, callback)
     })
     Corner(knob, 20)
     local enabled = initialValue == true
+    if type(configKey) == "string" then
+        configToggleControllers[configKey] = function() return enabled end
+    end
     local function update()
         Tween(track, {BackgroundColor3 = enabled and Theme.Accent or Color3.fromRGB(49, 67, 82)})
         Tween(knob, {Position = enabled and UDim2.new(1, -12, 0, 2) or UDim2.fromOffset(2, 2)})
@@ -577,7 +594,7 @@ local function CreateCardHeaderToggle(card, titleLabel, initialValue, callback)
     end
 end
 
-local function CreateToggle(parent, label, y, callback)
+local function CreateToggle(parent, label, y, callback, configKey)
     local row = Create("TextButton", {
         Parent = parent,
         Position = UDim2.fromOffset(12, y),
@@ -614,6 +631,9 @@ local function CreateToggle(parent, label, y, callback)
     })
     Corner(knob, 20)
     local enabled = false
+    if type(configKey) == "string" then
+        configToggleControllers[configKey] = function() return enabled end
+    end
     local function update()
         Tween(switch, {BackgroundColor3 = enabled and Theme.Accent or Color3.fromRGB(49, 67, 82)})
         Tween(knob, {Position = enabled and UDim2.new(1, -12, 0, 2) or UDim2.fromOffset(2, 2)})
@@ -630,7 +650,7 @@ local function CreateToggle(parent, label, y, callback)
     return row, setEnabled
 end
 
-local function CreateCheckbox(parent, label, y, callback)
+local function CreateCheckbox(parent, label, y, callback, configKey)
     local row = Create("TextButton", {
         Parent = parent,
         Position = UDim2.fromOffset(12, y),
@@ -670,6 +690,9 @@ local function CreateCheckbox(parent, label, y, callback)
         TextXAlignment = Enum.TextXAlignment.Left
     })
     local checked = false
+    if type(configKey) == "string" then
+        configToggleControllers[configKey] = function() return checked end
+    end
     local function setChecked(value)
         checked = value == true
         box.BackgroundColor3 = checked and Theme.Accent or Theme.SurfaceInput
@@ -1271,34 +1294,34 @@ for index, name in ipairs(TabNames) do
             for _, slot in ipairs({"C", "X", "Z", "V"}) do
                 startSkillLoop(slot, enabled and skillEnabled[slot] == true)
             end
-        end)
+        end, "autoFarm")
         setLabyrinthAutoAttack = setAutoFarm
         local _, setUseM1 = CreateCheckbox(card, "Use M1", 34, function(checked)
             useM1Enabled = checked
             savedConfig.useM1 = checked
             updateM1Loop()
             startTargetClickLoop(autoFarmEnabled)
-        end)
+        end, "useM1")
         local _, setUseC = CreateCheckbox(card, "Use C", 52, function(checked)
             skillEnabled.C = checked
             savedConfig.skillC = checked
             startSkillLoop("C", checked and autoFarmEnabled)
-        end)
+        end, "skillC")
         local _, setUseX = CreateCheckbox(card, "Use X", 70, function(checked)
             skillEnabled.X = checked
             savedConfig.skillX = checked
             startSkillLoop("X", checked and autoFarmEnabled)
-        end)
+        end, "skillX")
         local _, setUseZ = CreateCheckbox(card, "Use Z", 88, function(checked)
             skillEnabled.Z = checked
             savedConfig.skillZ = checked
             startSkillLoop("Z", checked and autoFarmEnabled)
-        end)
+        end, "skillZ")
         local _, setUseV = CreateCheckbox(card, "Use V", 106, function(checked)
             skillEnabled.V = checked
             savedConfig.skillV = checked
             startSkillLoop("V", checked and autoFarmEnabled)
-        end)
+        end, "skillV")
 
         setUseM1(savedConfig.useM1 == true)
         setUseC(savedConfig.skillC == true)
@@ -1346,7 +1369,7 @@ for index, name in ipairs(TabNames) do
         local setOrbitHeaderToggle = CreateCardHeaderToggle(orbitCard, orbitTitle, savedConfig.orbitEnabled == true, function(enabled)
             savedConfig.orbitEnabled = enabled
             setOrbitEnabled(enabled)
-        end)
+        end, "orbitEnabled")
         -- Drive the actual header toggle as well as the orbit logic so its ON state is visible.
         setLabyrinthAutoOrbit = setOrbitHeaderToggle
 
@@ -2175,6 +2198,11 @@ for index, name in ipairs(TabNames) do
         refreshBossDifficultyFilter()
         updateBossFilterPanel()
 
+        task.defer(function()
+            if card.Parent then setAutoFarm(savedConfig.autoFarm == true) end
+            if orbitCard.Parent then setOrbitHeaderToggle(savedConfig.orbitEnabled == true) end
+        end)
+
         task.spawn(function()
             while bossCard.Parent do
                 refreshBossCurrencyCounts()
@@ -2227,7 +2255,7 @@ for index, name in ipairs(TabNames) do
             if not enabled then
                 setConfigStatus("Auto Save disabled", true)
             end
-        end)
+        end, "autoSaveConfig")
         setAutoSaveConfig(autoSaveConfigEnabled)
         initializingAutoSaveToggle = false
         if autoSaveConfigEnabled then startAutoSaveLoop() end
