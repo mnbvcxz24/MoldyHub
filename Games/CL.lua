@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.24"
+local deployver = "CL ver 2.25"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -2085,7 +2085,7 @@ for index, name in ipairs(TabNames) do
         end)
 
     elseif index == 4 then
-        local settingsCard = CreateCard(left, "Configuration", 160)
+        local settingsCard = CreateCard(left, "Configuration", 190)
         local configNameInput = Create("TextBox", {
             Parent = settingsCard,
             Position = UDim2.fromOffset(12, 34),
@@ -2248,8 +2248,8 @@ for index, name in ipairs(TabNames) do
         local function createConfigActionButton(label, xScale, xOffset, color, callback)
             local button = Create("TextButton", {
                 Parent = settingsCard,
-                Position = UDim2.new(xScale, xOffset, 0, 113),
-                Size = UDim2.new(1 / 3, -10, 0, 26),
+                Position = UDim2.new(xScale, xOffset, 0, 145),
+                Size = UDim2.new(0.5, -18, 0, 26),
                 BackgroundColor3 = color,
                 Text = label,
                 TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -2263,50 +2263,83 @@ for index, name in ipairs(TabNames) do
             return button
         end
 
-        createConfigActionButton("Save Config", 0, 12, Color3.fromRGB(38, 145, 76), function()
+        local autoSaveConfigEnabled = savedConfig.autoSaveConfig == true
+        local autoSaveLoopRunning = false
+        local lastAutoSaveSignature
+        local function saveAutoConfig(forceSave)
+            if not autoSaveConfigEnabled and not forceSave then return true end
             if type(environment.writefile) ~= "function" or type(environment.readfile) ~= "function" then
                 setConfigStatus("Executor file API unavailable", false)
-                return
+                return false
             end
-            local configName = getSafeConfigName(configNameInput.Text)
-            if not configName then
-                setConfigStatus("Enter a valid config name", false)
-                return
+
+            local configName = getSafeConfigName(configNameInput.Text) or activeConfigName or "Default"
+            local signatureOk, signature = pcall(function()
+                return HttpService:JSONEncode(savedConfig)
+            end)
+            if not signatureOk then
+                setConfigStatus("Auto Save failed - config encode error", false)
+                return false
             end
+            if not forceSave and signature == lastAutoSaveSignature then return true end
+
             local configPath = CONFIG_FOLDER_PATH .. "/" .. configName .. ".json"
-            local replacingExisting = false
             local ok, err = pcall(function()
                 ensureConfigFolder()
-                if type(environment.isfile) == "function" then
-                    local existsOk, exists = pcall(environment.isfile, configPath)
-                    replacingExisting = existsOk and exists == true
-                end
                 local config = getConfigSnapshot()
                 local jsonPayload = HttpService:JSONEncode(config)
                 environment.writefile(configPath, jsonPayload)
                 local savedPayload = environment.readfile(configPath)
-                if savedPayload ~= jsonPayload then
-                    error("Config write verification failed")
-                end
+                if savedPayload ~= jsonPayload then error("Config write verification failed") end
                 local verified = HttpService:JSONDecode(savedPayload)
                 if type(verified) ~= "table" or verified.Version ~= 1 or verified.SavedAt ~= config.SavedAt then
                     error("Saved config verification failed")
                 end
                 environment.writefile(ACTIVE_CONFIG_FILE, configName)
             end)
+
             if ok then
                 activeConfigName = configName
                 selectedConfigName = configName
-                configDropdownLabel.Text = configName
                 configNameInput.Text = configName
+                configDropdownLabel.Text = configName
                 configFileDetected = true
-                refreshConfigOptions()
-                setConfigStatus((replacingExisting and "Overwritten and selected - " or "Saved and selected - ") .. configName, true)
-            else
-                setConfigStatus("Save failed - " .. tostring(err):sub(1, 65), false)
+                lastAutoSaveSignature = signature
+                setConfigStatus("Auto-saved - " .. configName, true)
+                return true
+            end
+            setConfigStatus("Auto Save failed - " .. tostring(err):sub(1, 55), false)
+            return false
+        end
+
+        local function startAutoSaveLoop()
+            if autoSaveLoopRunning or not autoSaveConfigEnabled then return end
+            autoSaveLoopRunning = true
+            task.spawn(function()
+                while autoSaveConfigEnabled and settingsCard.Parent do
+                    task.wait(1)
+                    if autoSaveConfigEnabled and settingsCard.Parent then
+                        saveAutoConfig(false)
+                    end
+                end
+                autoSaveLoopRunning = false
+            end)
+        end
+
+        local _, setAutoSaveConfig = CreateToggle(settingsCard, "Auto Save Config", 113, function(enabled)
+            autoSaveConfigEnabled = enabled
+            savedConfig.autoSaveConfig = enabled
+            lastAutoSaveSignature = nil
+            if saveAutoConfig(true) and enabled then
+                startAutoSaveLoop()
+            end
+            if not enabled then
+                setConfigStatus("Auto Save disabled", true)
             end
         end)
-        createConfigActionButton("Load Selected", 1 / 3, 4, Color3.fromRGB(48, 105, 165), function()
+        setAutoSaveConfig(autoSaveConfigEnabled)
+
+        createConfigActionButton("Load Selected", 0, 12, Color3.fromRGB(48, 105, 165), function()
             if not selectedConfigName then
                 setConfigStatus("Select a saved config first", false)
                 return
@@ -2330,7 +2363,7 @@ for index, name in ipairs(TabNames) do
                 setConfigStatus("Load failed - " .. tostring(result):sub(1, 65), false)
             end
         end)
-        createConfigActionButton("Unload Config", 2 / 3, -4, Color3.fromRGB(165, 95, 45), function()
+        createConfigActionButton("Unload Config", 0.5, 6, Color3.fromRGB(165, 95, 45), function()
             if type(environment.writefile) ~= "function" then
                 setConfigStatus("Executor writefile API unavailable", false)
                 return
@@ -2351,6 +2384,7 @@ for index, name in ipairs(TabNames) do
         end)
         refreshConfigButton.MouseButton1Click:Connect(refreshConfigOptions)
         refreshConfigOptions()
+        if autoSaveConfigEnabled then startAutoSaveLoop() end
 
         local antiAfkCard = CreateCard(left, "Anti AFK", 64)
         local antiAfkConnection
