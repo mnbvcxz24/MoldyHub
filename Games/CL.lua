@@ -3253,7 +3253,8 @@ for index, name in ipairs(TabNames) do
         end
 
         local setAutoSpire
-        setAutoSpire = CreateToggle(spireCard, "Auto Spire", 34, function(enabled)
+        local spireToggleRow
+        spireToggleRow, setAutoSpire = CreateToggle(spireCard, "Auto Spire", 34, function(enabled)
             spireEnabled = enabled
             savedConfig.autoSpire = enabled
             spireLoopId = spireLoopId + 1
