@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.27"
+local deployver = "CL ver 2.28"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -159,18 +159,26 @@ local function saveConfigToDisk(forceSave)
 end
 
 local function startAutoSaveLoop()
-    if autoSaveLoopRunning or savedConfig.autoSaveConfig ~= true then return end
+    if autoSaveLoopRunning then return end
     autoSaveLoopRunning = true
+    -- Keep one worker alive even while Auto Save is OFF. This avoids the OFF->ON
+    -- race where a previous worker is still exiting and prevents a new worker.
     task.spawn(function()
-        while savedConfig.autoSaveConfig == true do
+        while true do
             task.wait(1)
             if savedConfig.autoSaveConfig == true then
                 local ok, err = saveConfigToDisk(false)
                 if not ok then warn("[MoldyHub] Auto-save failed: " .. tostring(err)) end
             end
         end
-        autoSaveLoopRunning = false
     end)
+end
+
+local function persistConfigIfEnabled()
+    if savedConfig.autoSaveConfig == true then
+        local ok, err = saveConfigToDisk(true)
+        if not ok then warn("[MoldyHub] Immediate config save failed: " .. tostring(err)) end
+    end
 end
 
 -- Install reconnect execution immediately; it must not depend on opening Settings.
@@ -187,8 +195,11 @@ if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
             local raw = readConfigFile(KEEP_MOLDYHUB_PATH)
             shouldKeep = raw ~= nil and tostring(raw):lower():match("^%s*true%s*$") ~= nil
             if not shouldKeep then return end
+            -- Capture the latest toggle states before the old client exits.
+            local saveOk, saveErr = saveConfigToDisk(true)
+            if not saveOk then warn("[MoldyHub] Pre-teleport config save failed: " .. tostring(saveErr)) end
             teleportQueued = true
-            local source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
+            local source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()
             local ok, err = pcall(function() teleportQueue(source) end)
             if not ok then
                 teleportQueued = false
@@ -198,7 +209,7 @@ if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
     end
 end
 
-if savedConfig.autoSaveConfig == true then startAutoSaveLoop() end
+startAutoSaveLoop()
 
 local previousCleanup = environment.CLMoldyHubCleanup
 if type(previousCleanup) == "function" then
@@ -553,6 +564,7 @@ local function CreateCardHeaderToggle(card, titleLabel, initialValue, callback)
         Tween(track, {BackgroundColor3 = enabled and Theme.Accent or Color3.fromRGB(49, 67, 82)})
         Tween(knob, {Position = enabled and UDim2.new(1, -12, 0, 2) or UDim2.fromOffset(2, 2)})
         if callback then callback(enabled) end
+        persistConfigIfEnabled()
     end
     button.MouseButton1Click:Connect(function()
         enabled = not enabled
@@ -606,6 +618,7 @@ local function CreateToggle(parent, label, y, callback)
         Tween(switch, {BackgroundColor3 = enabled and Theme.Accent or Color3.fromRGB(49, 67, 82)})
         Tween(knob, {Position = enabled and UDim2.new(1, -12, 0, 2) or UDim2.fromOffset(2, 2)})
         if callback then callback(enabled) end
+        persistConfigIfEnabled()
     end
     local function setEnabled(value)
         enabled = value == true
@@ -662,6 +675,7 @@ local function CreateCheckbox(parent, label, y, callback)
         box.BackgroundColor3 = checked and Theme.Accent or Theme.SurfaceInput
         mark.Visible = checked
         if callback then callback(checked) end
+        persistConfigIfEnabled()
     end
     row.MouseButton1Click:Connect(function()
         setChecked(not checked)
