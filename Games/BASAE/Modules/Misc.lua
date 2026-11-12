@@ -1088,15 +1088,24 @@ return function(Context)
         local columns = 3
         local horizontalGap = 10
         local verticalGap = 10
-        local cardHeight = 76
         local cardWidth = math.floor((availableWidth - horizontalGap * (columns - 1)) / columns)
+
+        -- Preserve equal-sized cards in the three-column grid while sizing
+        -- each row to the tallest card's actual content.
+        for _, card in ipairs(miscCards) do
+            card.Size = UDim2.fromOffset(cardWidth, 76)
+            FitMiscCardText(card, cardWidth)
+        end
+        local cardHeight = 42
+        for _, card in ipairs(miscCards) do
+            cardHeight = math.max(cardHeight, MeasureCardContentHeight(card, 9))
+        end
 
         for index, card in ipairs(miscCards) do
             local column = (index - 1) % columns
             local row = math.floor((index - 1) / columns)
             card.Position = UDim2.fromOffset(column * (cardWidth + horizontalGap), row * (cardHeight + verticalGap))
             card.Size = UDim2.fromOffset(cardWidth, cardHeight)
-            FitMiscCardText(card, cardWidth)
         end
 
         local rows = math.ceil(#miscCards / columns)
