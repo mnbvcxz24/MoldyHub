@@ -112,6 +112,14 @@ end
 
 loadSavedConfig()
 
+-- Keep the reconnect flag in sync with the loaded configuration before teleport hooks run.
+if type(savedConfig.keepMoldyHub) == "boolean" and type(environment.writefile) == "function" then
+    pcall(function()
+        ensureConfigFolder()
+        environment.writefile(KEEP_MOLDYHUB_PATH, savedConfig.keepMoldyHub and "true" or "false")
+    end)
+end
+
 -- Auto-save runs independently of the Settings tab, so Farm changes are persisted
 -- even when the user never opens Configuration during that session.
 local lastAutoSaveSignature
