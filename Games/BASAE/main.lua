@@ -134,6 +134,12 @@ for index, name in ipairs(MODULES) do
     task.wait()
 end
 
+-- Let Roblox calculate text and grid bounds before trimming card heights.
+task.wait(0.1)
+if type(FinalizeCardHeights) == "function" then
+    pcall(FinalizeCardHeights)
+end
+
 progress("BASAE ready!",#MODULES)
 task.wait(0.35)
 loading:Destroy()
