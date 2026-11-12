@@ -132,10 +132,9 @@ return function(Context)
         return math.max(0.75, size.X * 0.5), math.max(0.75, size.Z * 0.5)
     end
 
-    local function buildEggPositions(hitbox, placed, halfX, halfZ)
-        -- Use a fine, consistent grid. Existing large eggs only block their
-        -- actual footprint; they no longer make the entire grid excessively coarse.
-        local step = 2.5
+    local function buildEggPositions(hitbox, placed, halfX, halfZ, step)
+        -- Scan coarse-to-fine so tight gaps missed by the broad grid are checked too.
+        step = step or 2.5
         local edgeX = math.max(0, hitbox.Size.X * 0.5 - halfX - 0.25)
         local edgeZ = math.max(0, hitbox.Size.Z * 0.5 - halfZ - 0.25)
         local y = hitbox.Position.Y + hitbox.Size.Y * 0.5
@@ -281,7 +280,6 @@ return function(Context)
                 return
             end
 
-            local attempted = {}
             local rejectedPosition = nil
             local notifyConnection
             local notifyRemote = ReplicatedStorage:FindFirstChild("Notify")
@@ -322,19 +320,35 @@ return function(Context)
                 end
 
                 local eggPlaced = false
+                -- Each egg gets a fresh scan because its footprint may differ.
+                -- Failed positions remain excluded while the grid gets progressively finer.
+                local attempted = {}
+                local scanSteps = {2.5, 1.5, 1.0}
+                local scanStepIndex = 1
                 while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration and not eggPlaced do
                     plot, hitbox = getMyEggPlot()
                     if not plot or not hitbox or not hitbox:IsA("BasePart") then break end
 
                     local placed = getPlacedEggs(plot)
                     local candidateHalfX, candidateHalfZ = getEggFootprint(egg)
-                    local positions = buildEggPositions(hitbox, placed, candidateHalfX, candidateHalfZ)
+                    local scanStep = scanSteps[scanStepIndex]
+                    local positions = buildEggPositions(hitbox, placed, candidateHalfX, candidateHalfZ, scanStep)
                     local position, positionKey = findOpenEggPosition(
                         positions, placed, candidateHalfX, candidateHalfZ, attempted
                     )
                     if not position then
+                        if scanStepIndex < #scanSteps then
+                            scanStepIndex += 1
+                            AutoPlaceEggsStatus.Text = string.format(
+                                "Expanding scan — checking tighter gaps (%.1f-stud grid)...",
+                                scanSteps[scanStepIndex]
+                            )
+                            task.wait(0.1)
+                            continue
+                        end
+
                         AutoPlaceEggsStatus.Text = string.format(
-                            "No free position found — %d egg(s) placed; %d remain.",
+                            "Plot scan complete — no more valid spaces found. %d egg(s) placed; %d remain.",
                             placedCount,
                             #getBackpackEggs()
                         )
@@ -344,7 +358,8 @@ return function(Context)
                     attempted[positionKey] = true
                     rejectedPosition = false
                     AutoPlaceEggsStatus.Text = string.format(
-                        "Trying %s at a new position — %d placed...",
+                        "Scanning %.1f-stud grid — trying %s; %d placed...",
+                        scanStep,
                         egg.Name,
                         placedCount
                     )
