@@ -973,6 +973,83 @@ return function(Context)
         Pages[pageNumber] = PageClip
         return Page
     end
+    -- CARD SIZING
+    CreatedCards = {}
+    function MeasureCardContentHeight(card, bottomPadding)
+        if not card or not card.Parent then return 42 end
+        local contentBottom = 0
+        for _, child in ipairs(card:GetChildren()) do
+            if child:IsA("GuiObject") and child.Visible
+                and not child:IsA("ScrollingFrame") and child.ZIndex < 140 then
+                local childY = child.Position.Y.Offset
+                local childHeight = child.Size.Y.Offset
+                local hasLayout = false
+                for _, nested in ipairs(child:GetChildren()) do
+                    if nested:IsA("UIGridLayout") or nested:IsA("UIListLayout") then
+                        hasLayout = true
+                        childHeight = math.max(childHeight, nested.AbsoluteContentSize.Y)
+                    end
+                end
+                if child.Position.Y.Scale ~= 0 then
+                    childY = child.AbsolutePosition.Y - card.AbsolutePosition.Y
+                end
+                if child.Size.Y.Scale ~= 0 and not hasLayout then
+                    childHeight = child.AbsoluteSize.Y
+                end
+                contentBottom = math.max(contentBottom, childY + childHeight)
+            end
+        end
+        return math.max(42, math.ceil(contentBottom + (bottomPadding or 9)))
+    end
+
+    function FitCardToContent(card, bottomPadding)
+        if not card or not card.Parent then return 42 end
+        local height = MeasureCardContentHeight(card, bottomPadding)
+        card.Size = UDim2.new(card.Size.X.Scale, card.Size.X.Offset, 0, height)
+        return height
+    end
+
+    function FinalizeCardHeights()
+        -- Fit every card after all modules have created their controls.
+        -- Hidden dropdown/filter panels are overlays and never affect card height.
+        for _, card in ipairs(CreatedCards) do
+            if card and card.Parent then
+                FitCardToContent(card, 9)
+                if not card:GetAttribute("MoldyHubAutoFitConnected") then
+                    card:SetAttribute("MoldyHubAutoFitConnected", true)
+                    for _, child in ipairs(card:GetChildren()) do
+                        if child:IsA("GuiObject") then
+                            for _, nested in ipairs(child:GetChildren()) do
+                                if nested:IsA("UIGridLayout") or nested:IsA("UIListLayout") then
+                                    nested:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                                        if card.Parent then FitCardToContent(card, 9) end
+                                    end)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        -- Keep manual feature rows aligned with their fitted cards.
+        for _, pageClip in pairs(Pages or {}) do
+            local page = pageClip and pageClip:FindFirstChildWhichIsA("ScrollingFrame")
+            if page then
+                for _, row in ipairs(page:GetChildren()) do
+                    if row:IsA("Frame") and row.Name == "AutoControlsRow" then
+                        local tallest = 0
+                        for _, card in ipairs(row:GetChildren()) do
+                            if card:IsA("GuiObject") then
+                                tallest = math.max(tallest, card.AbsoluteSize.Y, card.Size.Y.Offset)
+                            end
+                        end
+                        if tallest > 0 then row.Size = UDim2.new(row.Size.X.Scale, row.Size.X.Offset, 0, tallest) end
+                    end
+                end
+            end
+        end
+    end
+
     -- CARD
     function CreateCard(parent, title, description)
         local columns = PageColumnMap and PageColumnMap[parent]
@@ -990,6 +1067,7 @@ return function(Context)
         })
         AddCorner(Card, 8)
         AddStroke(Card, Theme.Border, 1)
+        table.insert(CreatedCards, Card)
         Create("TextLabel", {
             Parent = Card,
             Position = UDim2.fromOffset(11, 8),
