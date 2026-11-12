@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.21"
+local deployver = "CL ver 2.22"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_FILE = "MoldyHub_CL_Config.json"
@@ -2875,9 +2875,10 @@ for index, name in ipairs(TabNames) do
         local autoOpenChestEnabled = false
         local chestLoopId = 0
         local openedChests = {}
-        -- Auto Spire UI placeholder: controls are visual/config-only for now.
+        -- Auto Spire: move to the pod, set difficulty, start, then leave at the configured wave.
         local spireCard = CreateCard(left, "Auto Spire", 148)
         local spireEnabled = false
+        local spireLoopId = 0
         local spireStatus = Create("TextLabel", {
             Parent = spireCard,
             Position = UDim2.fromOffset(12, 61),
@@ -2887,14 +2888,170 @@ for index, name in ipairs(TabNames) do
             TextColor3 = Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
-            TextXAlignment = Enum.TextXAlignment.Left
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
         })
-        local _, setSpireToggle = CreateToggle(spireCard, "Auto Spire", 34, function(enabled)
+        local function setSpireStatus(message, color)
+            if spireStatus and spireStatus.Parent then
+                spireStatus.Text = "Status: " .. tostring(message)
+                spireStatus.TextColor3 = color or Theme.Gray
+            end
+        end
+
+        CreateToggle(spireCard, "Auto Spire", 34, function(enabled)
             spireEnabled = enabled
-            spireStatus.Text = "Status: " .. (enabled and "Enabled (UI only)" or "Idle")
-            spireStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
+            spireLoopId = spireLoopId + 1
+            local thisLoop = spireLoopId
+            if not enabled then
+                setSpireStatus("Stopped")
+                return
+            end
+
+            setSpireStatus("Preparing portal...", Theme.Accent)
+            task.spawn(function()
+                local function isActive()
+                    return spireEnabled and spireLoopId == thisLoop and spireCard.Parent ~= nil
+                end
+                local function getPortalCenter(portal)
+                    if not portal then return nil end
+                    if portal:IsA("Model") then
+                        local ok, pivot = pcall(function()
+                            local boxCFrame = portal:GetBoundingBox()
+                            return boxCFrame
+                        end)
+                        if ok and pivot then return pivot.Position end
+                    elseif portal:IsA("BasePart") then
+                        return portal.Position
+                    end
+
+                    local minPoint, maxPoint
+                    for _, item in ipairs(portal:GetDescendants()) do
+                        if item:IsA("BasePart") then
+                            local half = item.Size * 0.5
+                            local p = item.Position
+                            local low = p - half
+                            local high = p + half
+                            minPoint = minPoint and Vector3.new(
+                                math.min(minPoint.X, low.X), math.min(minPoint.Y, low.Y), math.min(minPoint.Z, low.Z)
+                            ) or low
+                            maxPoint = maxPoint and Vector3.new(
+                                math.max(maxPoint.X, high.X), math.max(maxPoint.Y, high.Y), math.max(maxPoint.Z, high.Z)
+                            ) or high
+                        end
+                    end
+                    if minPoint and maxPoint then return (minPoint + maxPoint) * 0.5 end
+                    return nil
+                end
+
+                local portal = workspace:FindFirstChild("Map")
+                portal = portal and portal:FindFirstChild("Islands")
+                portal = portal and portal:FindFirstChild("STARTER_ISLAND")
+                portal = portal and portal:FindFirstChild("Teleporters")
+                portal = portal and portal:FindFirstChild("DungeonPads")
+                portal = portal and portal:FindFirstChild("Pod1")
+                local portalCenter = getPortalCenter(portal)
+                if not portalCenter then
+                    setSpireStatus("Pod1 portal not found", Color3.fromRGB(240, 110, 110))
+                    return
+                end
+
+                local character = LocalPlayer.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+                if not character or not humanoid or humanoid.Health <= 0 or not root then
+                    setSpireStatus("Character not ready", Color3.fromRGB(240, 110, 110))
+                    return
+                end
+
+                setSpireStatus("Moving to Pod1 center...", Theme.Accent)
+                root.CFrame = CFrame.new(portalCenter + Vector3.new(0, 3, 0))
+                local arrived = false
+                local arrivalDeadline = os.clock() + 8
+                repeat
+                    if not isActive() then return end
+                    character = LocalPlayer.Character
+                    root = character and character:FindFirstChild("HumanoidRootPart")
+                    if root and (root.Position - portalCenter).Magnitude <= 8 then
+                        arrived = true
+                        break
+                    end
+                    task.wait(0.1)
+                until os.clock() >= arrivalDeadline
+
+                if not isActive() then return end
+                if not arrived then
+                    setSpireStatus("Could not confirm portal position", Color3.fromRGB(240, 170, 80))
+                    return
+                end
+
+                local difficulty = spireDifficulties[spireDifficultyIndex]
+                setSpireStatus("Setting " .. difficulty .. " difficulty...", Theme.Accent)
+                local replicatedStorage = game:GetService("ReplicatedStorage")
+                local remotes = replicatedStorage:WaitForChild("Remotes")
+                local setDifficultyRemote = remotes:WaitForChild("DungeonPodSet")
+                local startDungeonRemote = remotes:WaitForChild("StartDungeon")
+                local difficultyOk, difficultyError = pcall(function()
+                    setDifficultyRemote:FireServer({Difficulty = difficulty})
+                end)
+                if not difficultyOk then
+                    setSpireStatus("Difficulty failed: " .. tostring(difficultyError), Color3.fromRGB(240, 110, 110))
+                    return
+                end
+                task.wait(0.3)
+                if not isActive() then return end
+
+                local startOk, startError = pcall(function()
+                    startDungeonRemote:FireServer()
+                end)
+                if not startOk then
+                    setSpireStatus("Start failed: " .. tostring(startError), Color3.fromRGB(240, 110, 110))
+                    return
+                end
+
+                local leaveWave = tonumber(spireWaveInput.Text)
+                if leaveWave then leaveWave = math.max(1, math.floor(leaveWave)) end
+                local waveLabel
+                local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+                local dungeonUI = playerGui:WaitForChild("DungeonUI", 20)
+                local container = dungeonUI and dungeonUI:WaitForChild("Container", 10)
+                local topBar = container and container:WaitForChild("TopBar", 10)
+                local mainFrame = topBar and topBar:WaitForChild("MainFrame", 10)
+                waveLabel = mainFrame and mainFrame:WaitForChild("Wave", 10)
+                if not waveLabel then
+                    setSpireStatus("Started; waiting for wave UI", Color3.fromRGB(240, 170, 80))
+                    return
+                end
+
+                setSpireStatus(leaveWave and ("Dungeon started; target wave " .. leaveWave) or "Dungeon started; no leave wave set", Theme.Accent)
+                while isActive() do
+                    local waveText = tostring(waveLabel.Text or "")
+                    local currentWave = tonumber(string.match(waveText, "%d+"))
+                    if currentWave then
+                        if leaveWave then
+                            setSpireStatus("Wave " .. currentWave .. " / " .. leaveWave, Theme.Accent)
+                            if currentWave >= leaveWave then
+                                setSpireStatus("Target reached; leaving dungeon...", Color3.fromRGB(95, 220, 140))
+                                local leaveRemote = replicatedStorage:WaitForChild("WK_Remotes"):WaitForChild("LeaveDungeon")
+                                local leaveOk, leaveError = pcall(function()
+                                    leaveRemote:FireServer()
+                                end)
+                                if leaveOk then
+                                    setSpireStatus("Left at wave " .. currentWave, Color3.fromRGB(95, 220, 140))
+                                else
+                                    setSpireStatus("Leave failed: " .. tostring(leaveError), Color3.fromRGB(240, 110, 110))
+                                end
+                                spireEnabled = false
+                                spireLoopId = spireLoopId + 1
+                                return
+                            end
+                        else
+                            setSpireStatus("Wave " .. currentWave .. " (set leave wave)", Theme.Accent)
+                        end
+                    end
+                    task.wait(0.25)
+                end
+            end)
         end)
-        setSpireToggle(false)
 
         Create("TextLabel", {
             Parent = spireCard,
@@ -2907,8 +3064,8 @@ for index, name in ipairs(TabNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local spireDifficulties = {"Any", "Easy", "Normal", "Hard", "Extreme"}
-        local spireDifficultyIndex = 1
+        local spireDifficulties = {"Easy", "Medium", "Hard", "Extreme"}
+        local spireDifficultyIndex = 2
         local spireDifficultyButton = Create("TextButton", {
             Parent = spireCard,
             Position = UDim2.new(1, -116, 0, 84),
