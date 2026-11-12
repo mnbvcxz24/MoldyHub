@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.29"
+local deployver = "CL ver 2.30"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -121,9 +121,7 @@ end
 
 loadSavedConfig()
 -- Auto-save is enabled by default for new CL installs. Users can still explicitly turn it off.
-if type(savedConfig.autoSaveConfig) ~= "boolean" then
-    savedConfig.autoSaveConfig = true
-end
+savedConfig.autoSaveConfig = true -- CL config persistence is always enabled.
 
 -- Keep the reconnect flag in sync with the loaded configuration before teleport hooks run.
 if type(savedConfig.keepMoldyHub) == "boolean" and type(environment.writefile) == "function" then
@@ -138,7 +136,7 @@ end
 local lastAutoSaveSignature
 local autoSaveLoopRunning = false
 local function saveConfigToDisk(forceSave)
-    if savedConfig.autoSaveConfig ~= true and not forceSave then return true end
+    -- CL settings are always persisted; the legacy toggle is retained for config compatibility.
     if type(environment.writefile) ~= "function" or type(environment.readfile) ~= "function" then
         return false, "Executor file API unavailable"
     end
@@ -180,19 +178,15 @@ local function startAutoSaveLoop()
     task.spawn(function()
         while true do
             task.wait(1)
-            if savedConfig.autoSaveConfig == true then
-                local ok, err = saveConfigToDisk(false)
-                if not ok then warn("[MoldyHub] Auto-save failed: " .. tostring(err)) end
-            end
+            local ok, err = saveConfigToDisk(false)
+            if not ok then warn("[MoldyHub] Auto-save failed: " .. tostring(err)) end
         end
     end)
 end
 
 local function persistConfigIfEnabled()
-    if savedConfig.autoSaveConfig == true then
-        local ok, err = saveConfigToDisk(true)
-        if not ok then warn("[MoldyHub] Immediate config save failed: " .. tostring(err)) end
-    end
+    local ok, err = saveConfigToDisk(true)
+    if not ok then warn("[MoldyHub] Immediate config save failed: " .. tostring(err)) end
 end
 
 -- Install reconnect execution immediately; it must not depend on opening Settings.
@@ -2231,7 +2225,7 @@ for index, name in ipairs(TabNames) do
             saveStatus.TextColor3 = success and Color3.fromRGB(95, 220, 140) or Color3.fromRGB(240, 110, 110)
         end
 
-        local autoSaveConfigEnabled = savedConfig.autoSaveConfig == true
+        local autoSaveConfigEnabled = true
         local function saveAutoConfig(forceSave)
             local ok, err = saveConfigToDisk(forceSave)
             if ok then
@@ -2243,20 +2237,16 @@ for index, name in ipairs(TabNames) do
         end
 
         local initializingAutoSaveToggle = true
-        local _, setAutoSaveConfig = CreateToggle(settingsCard, "Auto Save Config", 52, function(enabled)
-            autoSaveConfigEnabled = enabled
-            savedConfig.autoSaveConfig = enabled
+        local _, setAutoSaveConfig = CreateToggle(settingsCard, "Auto Save Config (Always On)", 52, function(enabled)
+            -- CL now always persists settings; do not allow a stale OFF value to disable saving.
+            autoSaveConfigEnabled = true
+            savedConfig.autoSaveConfig = true
             lastAutoSaveSignature = nil
             if initializingAutoSaveToggle then return end
-            -- Persist the toggle state itself, including when the user turns Auto Save off.
-            if saveAutoConfig(true) and enabled then
-                startAutoSaveLoop()
-            end
-            if not enabled then
-                setConfigStatus("Auto Save disabled", true)
-            end
+            saveAutoConfig(true)
+            startAutoSaveLoop()
         end, "autoSaveConfig")
-        setAutoSaveConfig(autoSaveConfigEnabled)
+        setAutoSaveConfig(true)
         initializingAutoSaveToggle = false
         if autoSaveConfigEnabled then startAutoSaveLoop() end
 
