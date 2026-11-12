@@ -47,10 +47,7 @@ return function(Context)
         if TouchAutomationProgress then
             TouchAutomationProgress(enabled and "AUTO_BREAK_ON" or "AUTO_BREAK_OFF")
         end
-        if not AutoBreakToggleInitialized then
-            AutoBreakToggleInitialized = true
-            return
-        end
+        AutoBreakToggleInitialized = true
         AddDebugLog("[Auto Break] Toggle " .. (enabled and "ON" or "OFF"))
         if enabled then
             if StartAutoBreak then StartAutoBreak() end
@@ -4475,4 +4472,26 @@ return function(Context)
             end
         end)
     end
+
+    -- Start saved Farm toggles only after all automation functions and monitors exist.
+    task.defer(function()
+        task.wait()
+        if Runtime.Stopped or ScriptShuttingDown then return end
+
+        if AutoPickupEnabled and AnimalPickups and AnimalPickups.Parent then
+            for _, pickup in ipairs(AnimalPickups:GetChildren()) do
+                if pickup:IsA("Model") and pickup.Parent == AnimalPickups
+                    and not PickupMonitorSeen[pickup] then
+                    PickupMonitorSeen[pickup] = true
+                    QueuePendingAnimalPickup(pickup)
+                end
+            end
+            SetTrackerStatus("Auto Steal startup scan complete; existing AnimalPickups queued for evaluation.")
+        end
+
+        if AutoBreakEnabled and StartAutoBreak then
+            AddDebugLog("[Auto Break] Starting saved ON state after Farm initialization.")
+            StartAutoBreak(true)
+        end
+    end)
 end
