@@ -4324,46 +4324,87 @@ return function(Context)
                 local hpWatchdogStarted = os.clock()
                 task.spawn(function()
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
-                        and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup
-                        and os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt) < 8 do
-                        task.wait(0.25)
-                    end
-                    if Runtime.Stopped or not AutoBreakEnabled or CurrentTarget ~= hpWatchdogTarget
-                        or not ArrivedAtTarget or PickupRequested or ReturningAfterPickup then
-                        return
-                    end
-                    if os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt) >= 8 then
-                        local currentPlayer = LocalPlayer
-                        local characterModel = currentPlayer and workspace:FindFirstChild(currentPlayer.Name)
-                        if not characterModel and currentPlayer then
-                            characterModel = currentPlayer.Character
-                        end
+                        and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
+                        local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt)
+                        if noDamageFor >= 3 then
+                            local currentPlayer = LocalPlayer
+                            local characterModel = currentPlayer and workspace:FindFirstChild(currentPlayer.Name)
+                            if not characterModel and currentPlayer then
+                                characterModel = currentPlayer.Character
+                            end
 
-                        local pickaxeVisible = false
-                        if characterModel then
-                            for _, descendant in ipairs(characterModel:GetDescendants()) do
-                                if descendant:IsA("Tool") and descendant.Name:lower() == "pickaxe" then
-                                    pickaxeVisible = true
-                                    break
+                            local pickaxeVisible = false
+                            if characterModel then
+                                for _, descendant in ipairs(characterModel:GetDescendants()) do
+                                    if descendant:IsA("Tool") and descendant.Name:lower() == "pickaxe" then
+                                        pickaxeVisible = true
+                                        break
+                                    end
                                 end
                             end
-                        end
 
-                        SetTrackerStatus("EGG HP WATCHDOG: no HP progress for 8s at " .. hpWatchdogTarget:GetFullName()
-                            .. (pickaxeVisible and "; Pickaxe already visible/equipped, restarting Auto Break."
-                                or "; Pickaxe not visible/equipped, selecting hotbar 1 and restarting Auto Break."))
-                        ArrivedAtTarget = false
-                        if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
-                        task.spawn(function()
                             if not pickaxeVisible then
+                                SetTrackerStatus("EGG HP WATCHDOG: no HP damage for 3s; Pickaxe not detected, selecting hotbar 1.")
                                 EquipHotbarOne()
                                 task.wait(0.2)
+                            else
+                                SetTrackerStatus("EGG HP WATCHDOG: no HP damage for 3s; Pickaxe is already equipped.")
                             end
-                            if AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
-                                and not PickupRequested and not ReturningAfterPickup and not WaitingForPickup then
-                                StartAutoBreak(true)
+
+                            if not AutoBreakEnabled or CurrentTarget ~= hpWatchdogTarget
+                                or PickupRequested or ReturningAfterPickup then
+                                return
                             end
-                        end)
+
+                            local playerGui = currentPlayer and currentPlayer:FindFirstChildOfClass("PlayerGui")
+                            local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
+                            local autoSwingButton = mainGui and mainGui:FindFirstChild("AutoSwing")
+                            local activated = false
+                            if autoSwingButton and autoSwingButton:IsA("GuiButton") then
+                                local ok, err = pcall(function()
+                                    autoSwingButton:Activate()
+                                end)
+                                activated = ok
+                                if not ok then
+                                    SetTrackerStatus("AutoSwing activation failed: " .. tostring(err))
+                                end
+                            else
+                                SetTrackerStatus("AutoSwing button not found at PlayerGui.MainGUI.AutoSwing.")
+                            end
+
+                            local progressAtActivation = LastEggHPProgressAt
+                            SetTrackerStatus(activated
+                                and "AutoSwing activated; checking for egg HP damage for 3 seconds."
+                                or "AutoSwing could not be activated; checking for egg HP damage for 3 seconds.")
+                            local verifyDeadline = os.clock() + 3
+                            while os.clock() < verifyDeadline
+                                and not Runtime.Stopped and AutoBreakEnabled
+                                and CurrentTarget == hpWatchdogTarget and ArrivedAtTarget
+                                and not PickupRequested and not ReturningAfterPickup
+                                and LastEggHPProgressAt <= progressAtActivation do
+                                task.wait(0.1)
+                            end
+
+                            if Runtime.Stopped or not AutoBreakEnabled or CurrentTarget ~= hpWatchdogTarget
+                                or PickupRequested or ReturningAfterPickup then
+                                return
+                            end
+
+                            if LastEggHPProgressAt > progressAtActivation then
+                                SetTrackerStatus("AutoSwing recovery verified: egg HP damage detected; continuing Auto Break.")
+                                hpWatchdogStarted = os.clock()
+                            else
+                                SetTrackerStatus("AutoSwing recovery failed: no egg HP damage after 3 seconds; restarting Auto Break.")
+                                ArrivedAtTarget = false
+                                if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
+                                if AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
+                                    and not PickupRequested and not ReturningAfterPickup and not WaitingForPickup then
+                                    StartAutoBreak(true)
+                                end
+                                return
+                            end
+                        end
+                        task.wait(0.25)
                     end
                 end)
                 return
