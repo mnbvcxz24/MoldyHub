@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.34"
+local deployver = "CL ver 2.35"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -147,7 +147,10 @@ end
 -- even when the user never opens Configuration during that session.
 local lastAutoSaveSignature
 local autoSaveLoopRunning = false
-local function saveConfigToDisk(forceSave)
+local function saveConfigToDisk(forceSave, expectedRunToken)
+    if expectedRunToken and environment.CLMoldyHubRunToken ~= expectedRunToken then
+        return false, "Stale script execution"
+    end
     if not configLoadCompleted then return false, "Config load has not completed" end
     -- CL settings are always persisted; the legacy toggle is retained for config compatibility.
     local writefile = getFileApi("writefile")
@@ -166,6 +169,9 @@ local function saveConfigToDisk(forceSave)
     local ok, err = pcall(function()
         local config = snapshot
         local jsonPayload = HttpService:JSONEncode(config)
+        if expectedRunToken and environment.CLMoldyHubRunToken ~= expectedRunToken then
+            error("Stale script execution")
+        end
         writefile(CONFIG_FILE, jsonPayload)
         local savedPayload = readfile(CONFIG_FILE)
         if savedPayload ~= jsonPayload then error("Config write verification failed") end
@@ -192,8 +198,8 @@ local function startAutoSaveLoop()
             task.wait(1)
             -- A rerun replaces the shared token; stop before writing stale UI state.
             if environment.CLMoldyHubRunToken ~= thisRunToken then break end
-            local ok, err = saveConfigToDisk(false)
-            if not ok and configLoadCompleted then
+            local ok, err = saveConfigToDisk(false, thisRunToken)
+            if not ok and err ~= "Stale script execution" and configLoadCompleted then
                 warn("[MoldyHub] Auto-save failed: " .. tostring(err))
             end
         end
@@ -201,7 +207,8 @@ local function startAutoSaveLoop()
     end)
 end
 local function persistConfigIfEnabled()
-    local ok, err = saveConfigToDisk(true)
+    if environment.CLMoldyHubRunToken ~= runToken then return end
+    local ok, err = saveConfigToDisk(true, runToken)
     if not ok then warn("[MoldyHub] Immediate config save failed: " .. tostring(err)) end
 end
 
@@ -214,6 +221,7 @@ if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
         listenerEnv.MoldyHubCLKeepTeleportListenerPlayer = LocalPlayer
         local teleportQueued = false
         LocalPlayer.OnTeleport:Connect(function()
+            if environment.CLMoldyHubRunToken ~= runToken then return end
             if teleportQueued then return end
             local shouldKeep = false
             local raw = readConfigFile(KEEP_MOLDYHUB_PATH)
