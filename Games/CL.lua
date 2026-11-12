@@ -8,20 +8,25 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.33"
+local deployver = "CL ver 2.34"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
 local CONFIG_FOLDER_PATH = CONFIG_ROOT_PATH .. "/config"
-local CONFIG_FILE = "MoldyHub_CL_AUTOSAVE_2026.json" -- Flat hardcoded filename; no folders required.
-local ACTIVE_CONFIG_FILE = CONFIG_FOLDER_PATH .. "/activeclconfig.txt"
+local CONFIG_FILE = "MoldyHub_CL_AUTOSAVE_2026.json" -- Current flat config file; no folders required.
+local CONFIG_READ_PATHS = {
+    CONFIG_FILE,
+    "MoldyHub/CL_HARD_SAVE_2026.json",
+    "MoldyHub_CL_Config.json"
+}
 local KEEP_MOLDYHUB_PATH = CONFIG_FOLDER_PATH .. "/keepmoldyhub.txt"
 local savedConfig = {}
 local configToggleControllers = {}
-local configFileDetected = false
 local configLoadStatus = "Not loaded yet"
 local configLoadCompleted = false
-local activeConfigName = nil
+-- A new execution invalidates the previous execution's autosave worker.
+local runToken = {}
+environment.CLMoldyHubRunToken = runToken
 
 local function getFileApi(name)
     local fn = environment and environment[name]
@@ -41,8 +46,7 @@ local function readConfigFile(path)
 end
 
 local function loadSavedConfig()
-    -- Executor APIs may become available a moment after the loader starts.
-    -- Retry before allowing auto-save to write defaults over an existing config.
+    -- Wait briefly for executor file functions, but never overwrite a file if loading failed.
     local readfile
     for attempt = 1, 20 do
         readfile = getFileApi("readfile")
@@ -50,39 +54,44 @@ local function loadSavedConfig()
         task.wait(0.25)
     end
     if not readfile then
-        configLoadStatus = "Load failed: readfile API unavailable"
-        configLoadCompleted = true
-        warn("[MoldyHub] CL config load failed: readfile API unavailable")
+        configLoadStatus = "Load blocked: readfile unavailable"
+        warn("[MoldyHub] CL config load blocked: readfile unavailable")
         return
     end
 
-    -- Load only the dedicated hardcoded file. Do not read or overwrite legacy/named configs.
-    local raw = readConfigFile(CONFIG_FILE)
-    if type(raw) ~= "string" or raw == "" then
-        configLoadStatus = "No saved file found: " .. CONFIG_FILE
+    local raw, loadedPath
+    for _, path in ipairs(CONFIG_READ_PATHS) do
+        local candidate = readConfigFile(path)
+        if type(candidate) == "string" and candidate ~= "" then
+            raw, loadedPath = candidate, path
+            break
+        end
+    end
+    if not raw then
+        configLoadStatus = "No saved config found; new config will be created"
         configLoadCompleted = true
-        warn("[MoldyHub] CL config not found at " .. CONFIG_FILE)
         return
     end
 
     local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
     if not ok or type(decoded) ~= "table" then
-        configLoadStatus = "Load failed: invalid JSON"
-        configLoadCompleted = true
-        warn("[MoldyHub] CL config JSON decode failed: " .. tostring(decoded))
+        configLoadStatus = "Load blocked: invalid JSON in " .. tostring(loadedPath)
+        warn("[MoldyHub] CL config load blocked: invalid JSON in " .. tostring(loadedPath))
         return
     end
-    if type(decoded.Settings) == "table" then
-        savedConfig = decoded.Settings
-    else
-        savedConfig = decoded
+    local settings = type(decoded.Settings) == "table" and decoded.Settings or decoded
+    if type(settings) ~= "table" then
+        configLoadStatus = "Load blocked: invalid settings in " .. tostring(loadedPath)
+        return
     end
-    configFileDetected = true
-    configLoadStatus = "Loaded: " .. CONFIG_FILE
-    configLoadCompleted = true
-    print("[MoldyHub] CL config loaded", "AutoFarm=", tostring(savedConfig.autoFarm), "Orbit=", tostring(savedConfig.orbitEnabled))
-end
 
+    savedConfig = settings
+    configLoadStatus = "Loaded settings from " .. tostring(loadedPath)
+    configLoadCompleted = true
+    print("[MoldyHub] CL config loaded from " .. tostring(loadedPath),
+        "AutoFarm=", tostring(savedConfig.autoFarm),
+        "Orbit=", tostring(savedConfig.orbitEnabled))
+end
 local function ensureConfigFolder()
     if type(environment.makefolder) ~= "function" then
         error("Executor makefolder API unavailable")
@@ -100,12 +109,6 @@ local function ensureConfigFolder()
     end
     ensureFolder(CONFIG_ROOT_PATH)
     ensureFolder(CONFIG_FOLDER_PATH)
-end
-
-local function getSafeConfigName(rawName)
-    local safeName = tostring(rawName or ""):gsub("[^%w_%-]", "")
-    if safeName == "" then return nil end
-    return string.sub(safeName, 1, 40)
 end
 
 local function getConfigSnapshot()
@@ -177,24 +180,26 @@ local function saveConfigToDisk(forceSave)
 
     if not ok then return false, tostring(err) end
     lastAutoSaveSignature = signature
-    configFileDetected = true
     return true
 end
 
 local function startAutoSaveLoop()
     if autoSaveLoopRunning then return end
     autoSaveLoopRunning = true
-    -- Keep one worker alive even while Auto Save is OFF. This avoids the OFF->ON
-    -- race where a previous worker is still exiting and prevents a new worker.
+    local thisRunToken = runToken
     task.spawn(function()
-        while true do
+        while environment.CLMoldyHubRunToken == thisRunToken do
             task.wait(1)
+            -- A rerun replaces the shared token; stop before writing stale UI state.
+            if environment.CLMoldyHubRunToken ~= thisRunToken then break end
             local ok, err = saveConfigToDisk(false)
-            if not ok then warn("[MoldyHub] Auto-save failed: " .. tostring(err)) end
+            if not ok and configLoadCompleted then
+                warn("[MoldyHub] Auto-save failed: " .. tostring(err))
+            end
         end
+        autoSaveLoopRunning = false
     end)
 end
-
 local function persistConfigIfEnabled()
     local ok, err = saveConfigToDisk(true)
     if not ok then warn("[MoldyHub] Immediate config save failed: " .. tostring(err)) end
@@ -2223,7 +2228,7 @@ for index, name in ipairs(TabNames) do
             Size = UDim2.new(1, -24, 0, 15),
             BackgroundTransparency = 1,
             Text = configLoadStatus,
-            TextColor3 = configFileDetected and Color3.fromRGB(95, 220, 140) or Theme.Gray,
+            TextColor3 = configLoadCompleted and Color3.fromRGB(95, 220, 140) or Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
             TextTruncate = Enum.TextTruncate.AtEnd,
