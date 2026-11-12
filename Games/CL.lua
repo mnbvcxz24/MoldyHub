@@ -2875,17 +2875,19 @@ for index, name in ipairs(TabNames) do
         local autoOpenChestEnabled = false
         local chestLoopId = 0
         local openedChests = {}
+        local chestCard = CreateCard(left, "Auto open chest", 88)
         local chestStatus = Create("TextLabel", {
-            Parent = left,
-            Size = UDim2.new(1, 0, 0, 18),
+            Parent = chestCard,
+            Position = UDim2.fromOffset(12, 62),
+            Size = UDim2.new(1, -24, 0, 18),
             BackgroundTransparency = 1,
             Text = "Chest status: Idle",
             TextColor3 = Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
-            TextXAlignment = Enum.TextXAlignment.Left
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
         })
-        local chestCard = CreateCard(left, "Auto open chest", 78)
         local function getChestBody(chest)
             local body = chest and chest:FindFirstChild("Body")
             if not body then return nil end
