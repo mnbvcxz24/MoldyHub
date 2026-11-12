@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.32"
+local deployver = "CL ver 2.33"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -19,6 +19,8 @@ local KEEP_MOLDYHUB_PATH = CONFIG_FOLDER_PATH .. "/keepmoldyhub.txt"
 local savedConfig = {}
 local configToggleControllers = {}
 local configFileDetected = false
+local configLoadStatus = "Not loaded yet"
+local configLoadCompleted = false
 local activeConfigName = nil
 
 local function getFileApi(name)
@@ -39,21 +41,46 @@ local function readConfigFile(path)
 end
 
 local function loadSavedConfig()
-    if not getFileApi("readfile") then return end
+    -- Executor APIs may become available a moment after the loader starts.
+    -- Retry before allowing auto-save to write defaults over an existing config.
+    local readfile
+    for attempt = 1, 20 do
+        readfile = getFileApi("readfile")
+        if readfile then break end
+        task.wait(0.25)
+    end
+    if not readfile then
+        configLoadStatus = "Load failed: readfile API unavailable"
+        configLoadCompleted = true
+        warn("[MoldyHub] CL config load failed: readfile API unavailable")
+        return
+    end
 
     -- Load only the dedicated hardcoded file. Do not read or overwrite legacy/named configs.
     local raw = readConfigFile(CONFIG_FILE)
-    if type(raw) ~= "string" or raw == "" then return end
+    if type(raw) ~= "string" or raw == "" then
+        configLoadStatus = "No saved file found: " .. CONFIG_FILE
+        configLoadCompleted = true
+        warn("[MoldyHub] CL config not found at " .. CONFIG_FILE)
+        return
+    end
 
     local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
-    if ok and type(decoded) == "table" then
-        if type(decoded.Settings) == "table" then
-            savedConfig = decoded.Settings
-        else
-            savedConfig = decoded
-        end
-        configFileDetected = true
+    if not ok or type(decoded) ~= "table" then
+        configLoadStatus = "Load failed: invalid JSON"
+        configLoadCompleted = true
+        warn("[MoldyHub] CL config JSON decode failed: " .. tostring(decoded))
+        return
     end
+    if type(decoded.Settings) == "table" then
+        savedConfig = decoded.Settings
+    else
+        savedConfig = decoded
+    end
+    configFileDetected = true
+    configLoadStatus = "Loaded: " .. CONFIG_FILE
+    configLoadCompleted = true
+    print("[MoldyHub] CL config loaded", "AutoFarm=", tostring(savedConfig.autoFarm), "Orbit=", tostring(savedConfig.orbitEnabled))
 end
 
 local function ensureConfigFolder()
@@ -118,6 +145,7 @@ end
 local lastAutoSaveSignature
 local autoSaveLoopRunning = false
 local function saveConfigToDisk(forceSave)
+    if not configLoadCompleted then return false, "Config load has not completed" end
     -- CL settings are always persisted; the legacy toggle is retained for config compatibility.
     local writefile = getFileApi("writefile")
     local readfile = getFileApi("readfile")
@@ -2194,9 +2222,7 @@ for index, name in ipairs(TabNames) do
             Position = UDim2.fromOffset(12, 34),
             Size = UDim2.new(1, -24, 0, 15),
             BackgroundTransparency = 1,
-            Text = configFileDetected
-                and (savedConfig.autoSaveConfig == true and "Saved settings loaded • Auto Save on" or "Saved settings loaded • Auto Save off")
-                or "No saved settings found",
+            Text = configLoadStatus,
             TextColor3 = configFileDetected and Color3.fromRGB(95, 220, 140) or Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
