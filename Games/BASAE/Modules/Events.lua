@@ -65,31 +65,35 @@ return function(Context)
         local placed = {}
         for _, descendant in ipairs(plot:GetDescendants()) do
             if descendant.Name:sub(1, 9) == "MergeEgg_" and (descendant:IsA("Model") or descendant:IsA("BasePart")) then
-                local position
+                local boundsCFrame, boundsSize
                 pcall(function()
-                    position = descendant:IsA("Model") and descendant:GetPivot().Position or descendant.Position
+                    if descendant:IsA("Model") then
+                        boundsCFrame, boundsSize = descendant:GetBoundingBox()
+                    else
+                        boundsCFrame, boundsSize = descendant.CFrame, descendant.Size
+                    end
                 end)
-                if position then table.insert(placed, {Instance = descendant, Position = position}) end
+                if boundsCFrame and boundsSize then
+                    table.insert(placed, {
+                        Instance = descendant,
+                        Position = boundsCFrame.Position,
+                        CFrame = boundsCFrame,
+                        Size = boundsSize
+                    })
+                end
             end
         end
         return placed
     end
 
     local function getEggSpacing(placed)
+        local largest = 0
         for _, record in ipairs(placed) do
-            local object = record.Instance
-            local size
-            pcall(function()
-                if object:IsA("Model") then
-                    local _, bounds = object:GetBoundingBox()
-                    size = bounds
-                else
-                    size = object.Size
-                end
-            end)
-            if size then return math.max(size.X, size.Z) + 0.5 end
+            if record.Size then
+                largest = math.max(largest, record.Size.X, record.Size.Z)
+            end
         end
-        return 5
+        return largest > 0 and (largest + 0.5) or 5
     end
 
     local function buildEggPositions(hitbox, placed)
@@ -114,15 +118,16 @@ return function(Context)
     end
 
     local function findOpenEggPosition(positions, placed, spacing, attempted)
-        local minimumDistance = spacing * 0.8
+        local candidateHalfSize = spacing * 0.45
         for _, position in ipairs(positions) do
             local key = string.format("%.1f:%.1f", position.X, position.Z)
             if not attempted[key] then
                 local occupied = false
                 for _, record in ipairs(placed) do
-                    local dx = record.Position.X - position.X
-                    local dz = record.Position.Z - position.Z
-                    if math.sqrt(dx * dx + dz * dz) < minimumDistance then
+                    local localPosition = record.CFrame:PointToObjectSpace(position)
+                    local halfX = record.Size.X * 0.5 + candidateHalfSize + 0.15
+                    local halfZ = record.Size.Z * 0.5 + candidateHalfSize + 0.15
+                    if math.abs(localPosition.X) < halfX and math.abs(localPosition.Z) < halfZ then
                         occupied = true
                         break
                     end
@@ -265,11 +270,6 @@ return function(Context)
                 eggs = getBackpackEggs()
                 if #eggs == 0 then break end
 
-                local placed = getPlacedEggs(plot)
-                local positions, spacing = buildEggPositions(hitbox, placed)
-                local position, positionKey = findOpenEggPosition(positions, placed, spacing, attempted)
-                if not position then break end
-
                 local egg = eggs[1]
                 local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
                 if not egg or not backpack or not egg:IsDescendantOf(backpack) then
@@ -277,41 +277,75 @@ return function(Context)
                     continue
                 end
 
-                attempted[positionKey] = true
-                rejectedPosition = false
-                AutoPlaceEggsStatus.Text = string.format(
-                    "Placing %s — %d placed. Scanning from edge to edge...",
-                    egg.Name,
-                    placedCount
-                )
                 if not MergeRemote or not MergeRemote:IsA("RemoteEvent") then
                     cleanupNotify()
                     finish("Stopped — ReplicatedStorage.MergeMachineRemote is not a RemoteEvent.")
                     return
                 end
 
-                AutoPlaceEggsStatus.Text = string.format("Sending PlaceEgg remote for %s...", egg.Name)
-                print("[BASAE Auto Place Eggs] FireServer PlaceEgg:", egg:GetFullName(), position)
-                local ok, err = pcall(function()
-                    MergeRemote:FireServer("PlaceEgg", egg, position)
-                end)
-                if not ok then
-                    warn("[BASAE Auto Place Eggs] PlaceEgg FireServer failed:", err)
-                    cleanupNotify()
-                    finish("Stopped — PlaceEgg FireServer failed: " .. tostring(err))
-                    return
-                end
-                print("[BASAE Auto Place Eggs] PlaceEgg remote sent successfully.")
+                local eggPlaced = false
+                while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration and not eggPlaced do
+                    plot, hitbox = getMyEggPlot()
+                    if not plot or not hitbox or not hitbox:IsA("BasePart") then break end
 
-                task.wait(0.45)
-                if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration then break end
-                local currentPlaced = getPlacedEggs(plot)
-                if #currentPlaced > #placed then
-                    placedCount += 1
-                elseif rejectedPosition then
-                    -- The server rejected this coordinate; continue with the next grid cell.
+                    local placed = getPlacedEggs(plot)
+                    local positions, spacing = buildEggPositions(hitbox, placed)
+                    local position, positionKey = findOpenEggPosition(positions, placed, spacing, attempted)
+                    if not position then
+                        AutoPlaceEggsStatus.Text = string.format(
+                            "No free position found — %d egg(s) placed; %d remain.",
+                            placedCount,
+                            #getBackpackEggs()
+                        )
+                        break
+                    end
+
+                    attempted[positionKey] = true
+                    rejectedPosition = false
+                    AutoPlaceEggsStatus.Text = string.format(
+                        "Trying %s at a new position — %d placed...",
+                        egg.Name,
+                        placedCount
+                    )
+                    print("[BASAE Auto Place Eggs] Trying position:", egg.Name, position)
+
+                    local ok, err = pcall(function()
+                        MergeRemote:FireServer("PlaceEgg", egg, position)
+                    end)
+                    if not ok then
+                        warn("[BASAE Auto Place Eggs] PlaceEgg FireServer failed:", err)
+                        cleanupNotify()
+                        finish("Stopped — PlaceEgg FireServer failed: " .. tostring(err))
+                        return
+                    end
+
+                    -- Confirm the server actually created a MergeEgg_ before moving to the next Tool.
+                    local confirmed = false
+                    local checkUntil = os.clock() + 1.8
+                    while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration and os.clock() < checkUntil do
+                        task.wait(0.15)
+                        local currentPlaced = getPlacedEggs(plot)
+                        if #currentPlaced > #placed then
+                            confirmed = true
+                            break
+                        end
+                    end
+
+                    if confirmed then
+                        placedCount += 1
+                        eggPlaced = true
+                        print("[BASAE Auto Place Eggs] Placement confirmed:", egg.Name, position)
+                        task.wait(0.15)
+                    else
+                        print("[BASAE Auto Place Eggs] No egg detected at position; retrying same egg:", egg.Name)
+                        task.wait(rejectedPosition and 0.1 or 0.2)
+                    end
                 end
-                task.wait(0.15)
+
+                if not eggPlaced then
+                    -- No candidate positions remain, or the feature was disabled.
+                    break
+                end
             end
 
             cleanupNotify()
