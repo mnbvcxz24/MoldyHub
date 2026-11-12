@@ -199,7 +199,7 @@ if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
             local saveOk, saveErr = saveConfigToDisk(true)
             if not saveOk then warn("[MoldyHub] Pre-teleport config save failed: " .. tostring(saveErr)) end
             teleportQueued = true
-            local source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()
+            local source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
             local ok, err = pcall(function() teleportQueue(source) end)
             if not ok then
                 teleportQueued = false
