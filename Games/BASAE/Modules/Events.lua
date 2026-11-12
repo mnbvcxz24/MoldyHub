@@ -819,6 +819,124 @@ return function(Context)
         TextYAlignment = Enum.TextYAlignment.Top
     })
 
+
+    -- AUTO HATCH EGGS
+    local AutoHatchEggsCard = CreateCard(Page, "Auto Hatch Eggs", "")
+    AutoHatchEggsCard.Size = UDim2.new(1, 0, 0, 112)
+
+    local AutoHatchEggsEnabled = false
+    local AutoHatchEggsGeneration = 0
+    local AutoHatchEggsLastRequest = {}
+    local AutoHatchEggsStatus = Create("TextLabel", {
+        Parent = AutoHatchEggsCard,
+        Position = UDim2.fromOffset(11, 43),
+        Size = UDim2.new(1, -22, 0, 58),
+        BackgroundTransparency = 1,
+        Text = "Off — automatically hatches placed eggs when their timer says Ready!.",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 8,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top
+    })
+
+    local AutoHatchEggsToggle = CreateToggle(AutoHatchEggsCard, "", false, function(enabled)
+        AutoHatchEggsEnabled = enabled
+        AutoHatchEggsGeneration += 1
+        local generation = AutoHatchEggsGeneration
+
+        if not enabled then
+            AutoHatchEggsStatus.Text = "Off — automation stopped."
+            return
+        end
+
+        AutoHatchEggsStatus.Text = "Running — scanning your plot for ready eggs..."
+        task.spawn(function()
+            local totalHatchRequests = 0
+            while AutoHatchEggsEnabled and generation == AutoHatchEggsGeneration do
+                local plot = getMyEggPlot()
+                if not plot then
+                    AutoHatchEggsStatus.Text = "Waiting — couldn't identify your plot."
+                    task.wait(1)
+                    continue
+                end
+
+                local readyCount = 0
+                local sentThisScan = 0
+                local liveEggs = {}
+
+                for _, eggModel in ipairs(plot:GetDescendants()) do
+                    if not AutoHatchEggsEnabled or generation ~= AutoHatchEggsGeneration then
+                        break
+                    end
+
+                    local eggId = eggModel.Name:match("^MergeEgg_(.+)$")
+                    if eggId and eggModel:IsA("Model") then
+                        liveEggs[eggModel] = true
+                        local hatchingUi = eggModel:FindFirstChild("EggHatchingUi")
+                        local timer = hatchingUi and hatchingUi:FindFirstChild("Timer")
+                        local timerText = timer and (timer:IsA("TextLabel") or timer:IsA("TextButton")) and timer.Text
+
+                        if typeof(timerText) == "string" and timerText:match("^%s*Ready!%s*$") then
+                            readyCount += 1
+                            local lastRequestAt = AutoHatchEggsLastRequest[eggModel] or 0
+                            if os.clock() - lastRequestAt >= 3 then
+                                local ok, err = pcall(function()
+                                    MergeRemote:FireServer("HatchEgg", eggId)
+                                end)
+                                if ok then
+                                    AutoHatchEggsLastRequest[eggModel] = os.clock()
+                                    totalHatchRequests += 1
+                                    sentThisScan += 1
+                                    print("[BASAE Auto Hatch Eggs] Hatch request sent:", eggId)
+                                    task.wait(0.15)
+                                else
+                                    warn("[BASAE Auto Hatch Eggs] HatchEgg request failed:", err)
+                                end
+                            end
+                        else
+                            -- If the timer resets, allow a future Ready! state to trigger again.
+                            AutoHatchEggsLastRequest[eggModel] = nil
+                        end
+                    end
+                end
+
+                for eggModel in pairs(AutoHatchEggsLastRequest) do
+                    if not liveEggs[eggModel] or not eggModel.Parent then
+                        AutoHatchEggsLastRequest[eggModel] = nil
+                    end
+                end
+
+                if readyCount > 0 then
+                    AutoHatchEggsStatus.Text = string.format(
+                        "Running — %d egg(s) ready; %d hatch request(s) sent this scan. Total requests: %d.",
+                        readyCount,
+                        sentThisScan,
+                        totalHatchRequests
+                    )
+                else
+                    AutoHatchEggsStatus.Text = string.format(
+                        "Running — waiting for eggs to become Ready!. Hatch requests sent: %d.",
+                        totalHatchRequests
+                    )
+                end
+                task.wait(0.5)
+            end
+        end)
+    end)
+    AutoHatchEggsToggle.Position = UDim2.new(1, -58, 0, 7)
+    AutoHatchEggsToggle.Size = UDim2.fromOffset(48, 24)
+    local AutoHatchEggsTitle = AutoHatchEggsCard:FindFirstChildWhichIsA("TextLabel")
+    if AutoHatchEggsTitle then AutoHatchEggsTitle.Size = UDim2.new(1, -78, 0, 22) end
+
+    AutoHatchEggsToggle:GetPropertyChangedSignal("Visible"):Connect(function()
+        if not AutoHatchEggsToggle.Visible then
+            AutoHatchEggsEnabled = false
+            AutoHatchEggsGeneration += 1
+        end
+    end)
+
     MergeToggle:GetPropertyChangedSignal("Visible"):Connect(function()
         if not MergeToggle.Visible then
             MergeEnabled = false
