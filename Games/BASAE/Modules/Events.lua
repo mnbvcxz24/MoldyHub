@@ -16,15 +16,16 @@ return function(Context)
 
     -- AUTO PLACE EGGS
     local AutoPlaceEggsCard = CreateCard(Page, "Auto place eggs", "")
-    AutoPlaceEggsCard.Size = UDim2.new(1, 0, 0, 132)
+    AutoPlaceEggsCard.Size = UDim2.new(1, 0, 0, 166)
     local RunService = game:GetService("RunService")
     local AutoPlaceEggsEnabled = false
     local AutoPlaceEggsGeneration = 0
     local AutoPlaceEggsBusy = false
+    local EggWeightOrder = "Highest KG first"
     local AutoPlaceEggsStatus = Create("TextLabel", {
         Parent = AutoPlaceEggsCard,
-        Position = UDim2.fromOffset(11, 43),
-        Size = UDim2.new(1, -22, 0, 55),
+        Position = UDim2.fromOffset(11, 96),
+        Size = UDim2.new(1, -22, 0, 58),
         BackgroundTransparency = 1,
         Text = "Off — scans your backpack and places eggs across your plot.",
         TextColor3 = Theme.Gray,
@@ -34,6 +35,32 @@ return function(Context)
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top
     })
+
+    local EggWeightOrderButton
+    EggWeightOrderButton = CreateButton(AutoPlaceEggsCard, "Highest KG first ▼", function()
+        EggWeightOrder = EggWeightOrder == "Highest KG first" and "Lowest KG first" or "Highest KG first"
+        EggWeightOrderButton.Text = EggWeightOrder .. " ▼"
+    end)
+    EggWeightOrderButton.Position = UDim2.fromOffset(11, 57)
+    EggWeightOrderButton.Size = UDim2.new(1, -22, 0, 26)
+
+    local function sortBackpackEggs(eggs)
+        table.sort(eggs, function(a, b)
+            local weightA = tonumber(a:GetAttribute("WeightKg"))
+            local weightB = tonumber(b:GetAttribute("WeightKg"))
+
+            -- Eggs without a readable WeightKg are kept after eggs with a known weight.
+            if weightA == nil then return false end
+            if weightB == nil then return true end
+            if weightA == weightB then return a.Name < b.Name end
+
+            if EggWeightOrder == "Highest KG first" then
+                return weightA > weightB
+            end
+            return weightA < weightB
+        end)
+        return eggs
+    end
 
     local function getMyEggPlot()
         local plots = workspace:FindFirstChild("Plots")
@@ -278,7 +305,7 @@ return function(Context)
                     finish("Stopped — your plot could no longer be found.")
                     return
                 end
-                eggs = getBackpackEggs()
+                eggs = sortBackpackEggs(getBackpackEggs())
                 if #eggs == 0 then break end
 
                 local egg = eggs[1]
