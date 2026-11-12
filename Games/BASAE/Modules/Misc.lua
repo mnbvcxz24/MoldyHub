@@ -703,25 +703,28 @@ return function(Context)
         local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
         if not playerGui then return nil, nil, "Waiting for player GUI..." end
 
-        -- Support both inventory GUI variants used by the game.
-        local inventoryRoots = {
-            playerGui:FindFirstChild("MobileScatchel"),
-            playerGui:FindFirstChild("Scatchel")
-        }
-
+        -- Check both inventory GUI variants without creating nil holes in an ipairs array.
         local scrolling
-        for _, root in ipairs(inventoryRoots) do
-            local hotbar = root and root:FindFirstChild("HotBarUi")
-            local inventory = hotbar and hotbar:FindFirstChild("Inventory")
-            local candidate = inventory and inventory:FindFirstChild("ScrollingFrame")
-            if candidate then
-                scrolling = candidate
-                break
+        local foundRoot = false
+        for _, rootName in ipairs({"MobileScatchel", "Scatchel"}) do
+            local root = playerGui:FindFirstChild(rootName)
+            if root then
+                foundRoot = true
+                local hotbar = root:FindFirstChild("HotBarUi", true)
+                local inventory = hotbar and hotbar:FindFirstChild("Inventory", true)
+                local candidate = inventory and inventory:FindFirstChild("ScrollingFrame", true)
+                if candidate then
+                    scrolling = candidate
+                    break
+                end
             end
         end
 
         if not scrolling then
-            return nil, nil, "Waiting for mount inventory..."
+            if not foundRoot then
+                return nil, nil, "Waiting for inventory GUI (MobileScatchel / Scatchel)..."
+            end
+            return nil, nil, "Waiting for HotBarUi > Inventory > ScrollingFrame..."
         end
 
         local mountEntries = {}
