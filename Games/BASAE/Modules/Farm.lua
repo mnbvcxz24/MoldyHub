@@ -4333,13 +4333,32 @@ return function(Context)
                         return
                     end
                     if os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt) >= 8 then
+                        local currentPlayer = LocalPlayer
+                        local characterModel = currentPlayer and workspace:FindFirstChild(currentPlayer.Name)
+                        if not characterModel and currentPlayer then
+                            characterModel = currentPlayer.Character
+                        end
+
+                        local pickaxeVisible = false
+                        if characterModel then
+                            for _, descendant in ipairs(characterModel:GetDescendants()) do
+                                if descendant:IsA("Tool") and descendant.Name:lower() == "pickaxe" then
+                                    pickaxeVisible = true
+                                    break
+                                end
+                            end
+                        end
+
                         SetTrackerStatus("EGG HP WATCHDOG: no HP progress for 8s at " .. hpWatchdogTarget:GetFullName()
-                            .. "; equipping pickaxe and restarting Auto Break.")
+                            .. (pickaxeVisible and "; Pickaxe already visible/equipped, restarting Auto Break."
+                                or "; Pickaxe not visible/equipped, selecting hotbar 1 and restarting Auto Break."))
                         ArrivedAtTarget = false
                         if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
                         task.spawn(function()
-                            EquipHotbarOne()
-                            task.wait(0.2)
+                            if not pickaxeVisible then
+                                EquipHotbarOne()
+                                task.wait(0.2)
+                            end
                             if AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                                 and not PickupRequested and not ReturningAfterPickup and not WaitingForPickup then
                                 StartAutoBreak(true)
