@@ -2881,6 +2881,7 @@ for index, name in ipairs(TabNames) do
         local spireLoopId = 0
         local spireDifficulties = {"Easy", "Medium", "Hard", "Extreme"}
         local spireDifficultyIndex = 2
+        local spireWaveInput
         local spireStatus = Create("TextLabel", {
             Parent = spireCard,
             Position = UDim2.fromOffset(12, 61),
@@ -3096,7 +3097,7 @@ for index, name in ipairs(TabNames) do
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        local spireWaveInput = Create("TextBox", {
+        spireWaveInput = Create("TextBox", {
             Parent = spireCard,
             Position = UDim2.new(1, -66, 0, 112),
             Size = UDim2.fromOffset(54, 23),
