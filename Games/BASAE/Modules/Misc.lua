@@ -701,26 +701,61 @@ return function(Context)
 
     local function GetBestRideableMount()
         local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-        local scatchel = playerGui and playerGui:FindFirstChild("Scatchel")
-        local hotbar = scatchel and scatchel:FindFirstChild("HotBarUi")
-        local inventory = hotbar and hotbar:FindFirstChild("Inventory")
-        local scrolling = inventory and inventory:FindFirstChild("ScrollingFrame")
-        if not scrolling then return nil, nil, "Waiting for mount inventory..." end
+        if not playerGui then return nil, nil, "Waiting for player GUI..." end
+
+        -- Support both inventory GUI variants used by the game.
+        local inventoryRoots = {
+            playerGui:FindFirstChild("MobileScatchel"),
+            playerGui:FindFirstChild("Scatchel")
+        }
+
+        local scrolling
+        for _, root in ipairs(inventoryRoots) do
+            local hotbar = root and root:FindFirstChild("HotBarUi")
+            local inventory = hotbar and hotbar:FindFirstChild("Inventory")
+            local candidate = inventory and inventory:FindFirstChild("ScrollingFrame")
+            if candidate then
+                scrolling = candidate
+                break
+            end
+        end
+
+        if not scrolling then
+            return nil, nil, "Waiting for mount inventory..."
+        end
+
+        local mountEntries = {}
+        for _, descendant in ipairs(scrolling:GetDescendants()) do
+            if descendant.Name:sub(1, 6) == "Mount_" then
+                table.insert(mountEntries, descendant)
+            end
+        end
+        for _, child in ipairs(scrolling:GetChildren()) do
+            if child.Name:sub(1, 6) == "Mount_" then
+                local found = false
+                for _, entry in ipairs(mountEntries) do
+                    if entry == child then found = true break end
+                end
+                if not found then table.insert(mountEntries, child) end
+            end
+        end
+
+        if #mountEntries == 0 then
+            return nil, nil, "Waiting for mount entries..."
+        end
 
         local bestName, bestSpeed
-        for _, mountEntry in ipairs(scrolling:GetChildren()) do
-            if mountEntry.Name:sub(1, 6) == "Mount_" then
-                local container = mountEntry:FindFirstChild("Container")
-                local speedObject = container and container:FindFirstChild("Speed")
-                local speed = ReadMountSpeed(speedObject)
-                if speed and (bestSpeed == nil or speed > bestSpeed) then
-                    bestName = mountEntry.Name:sub(7)
-                    bestSpeed = speed
-                end
+        for _, mountEntry in ipairs(mountEntries) do
+            local container = mountEntry:FindFirstChild("Container")
+            local speedObject = container and container:FindFirstChild("Speed")
+            local speed = ReadMountSpeed(speedObject)
+            if speed and (bestSpeed == nil or speed > bestSpeed) then
+                bestName = mountEntry.Name:sub(7)
+                bestSpeed = speed
             end
         end
         if not bestName then
-            return nil, nil, "No readable rideable mounts found"
+            return nil, nil, "Waiting for mount speed data..."
         end
         return bestName, bestSpeed
     end
