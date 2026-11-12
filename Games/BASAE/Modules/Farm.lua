@@ -94,7 +94,17 @@ return function(Context)
     if AutoPickupTitle then AutoPickupTitle.Size = UDim2.new(1, -78, 0, 22) end
     -- Auto Fuse removed: card, polling loop, toggles, and requirement scanning are intentionally disabled.
     local RarityFilterOpen = false
-    local RarityOptions = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine", "Celestial", "Inferno", "Void", "Omega", "Spectral", "Ethereal", "Primordial"}
+    local RaritiesFolder = game:GetService("ReplicatedStorage"):WaitForChild("Rarities")
+    local function GetRarityOptions()
+        local options = {}
+        for _, rarityObject in ipairs(RaritiesFolder:GetChildren()) do
+            table.insert(options, rarityObject.Name)
+        end
+        table.sort(options, function(a, b)
+            return a:lower() < b:lower()
+        end)
+        return options
+    end
     local SavedFarmConfig = type(SavedConfig.Farm) == "table" and SavedConfig.Farm or {}
     local function RestoreNameSet(values)
         local result = {}
@@ -600,7 +610,7 @@ return function(Context)
         for _, item in ipairs(RarityList:GetChildren()) do
             if item:IsA("TextButton") then item:Destroy() end
         end
-        for rarityIndex, rarityName in ipairs(RarityOptions) do
+        for rarityIndex, rarityName in ipairs(GetRarityOptions()) do
             local selected = SelectedRarities[rarityName] == true
             local RarityButton = Create("TextButton", {
                 Name = "Rarity_" .. rarityName, Parent = RarityList,
@@ -658,7 +668,7 @@ return function(Context)
     end)
     UpdateMutationRarityFilterButtonText = function()
         local selected = {}
-        for _, rarityName in ipairs(RarityOptions) do
+        for _, rarityName in ipairs(GetRarityOptions()) do
             if SelectedMutationRarities[rarityName] then table.insert(selected, rarityName) end
         end
         local summary = #selected > 0 and table.concat(selected, ", ") or "All"
@@ -669,7 +679,7 @@ return function(Context)
         for _, item in ipairs(MutationRarityList:GetChildren()) do
             if item:IsA("TextButton") then item:Destroy() end
         end
-        for rarityIndex, rarityName in ipairs(RarityOptions) do
+        for rarityIndex, rarityName in ipairs(GetRarityOptions()) do
             local selected = SelectedMutationRarities[rarityName] == true
             local rarityButton = Create("TextButton", {
                 Name = "MutationRarity_" .. rarityName, Parent = MutationRarityList,
@@ -708,7 +718,7 @@ return function(Context)
     UpdateMutationRarityFilterButtonText()
     UpdateRarityFilterButtonText = function()
         local selected = {}
-        for _, rarityName in ipairs(RarityOptions) do
+        for _, rarityName in ipairs(GetRarityOptions()) do
             if SelectedRarities[rarityName] then
                 table.insert(selected, rarityName)
             end
@@ -718,6 +728,14 @@ return function(Context)
         RarityFilterButton.TextSize = 8
         RarityFilterButton.TextXAlignment = Enum.TextXAlignment.Center
     end
+    local function RefreshRarityOptionsFromReplicatedStorage()
+        RefreshRarityList()
+        RefreshMutationRarityList()
+        UpdateRarityFilterButtonText()
+        UpdateMutationRarityFilterButtonText()
+    end
+    RaritiesFolder.ChildAdded:Connect(RefreshRarityOptionsFromReplicatedStorage)
+    RaritiesFolder.ChildRemoved:Connect(RefreshRarityOptionsFromReplicatedStorage)
     UpdatePickupZoneButtonText = function()
         local selected = {}
         for zoneName, enabled in pairs(SelectedPickupZones) do
