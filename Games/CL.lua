@@ -2011,7 +2011,7 @@ for index, name in ipairs(TabNames) do
             end
         end)
 
-    elseif index == 2 then
+    elseif index == 4 then
         local settingsRow = Create("Frame", {
             Parent = left,
             Size = UDim2.new(1, 0, 0, 0),
@@ -2114,7 +2114,7 @@ for index, name in ipairs(TabNames) do
                 end
             end)
         end)
-    elseif index == 3 then
+    elseif index == 2 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
         -- Grimoire row frames.
         local grimoireNotifierEnabled = false
@@ -2870,7 +2870,7 @@ for index, name in ipairs(TabNames) do
         end)
 
 
-    elseif index == 4 then
+    elseif index == 3 then
         -- Labyrinth: mark every chest visited, then engage the boss with Farm toggles.
         local autoOpenChestEnabled = false
         local chestLoopId = 0
