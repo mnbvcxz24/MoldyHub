@@ -8,12 +8,12 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.31"
+local deployver = "CL ver 2.32"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
 local CONFIG_FOLDER_PATH = CONFIG_ROOT_PATH .. "/config"
-local CONFIG_FILE = CONFIG_ROOT_PATH .. "/CL_HARD_SAVE_2026.json" -- Dedicated hardcoded CL settings file; independent of old config files.
+local CONFIG_FILE = "MoldyHub_CL_AUTOSAVE_2026.json" -- Flat hardcoded filename; no folders required.
 local ACTIVE_CONFIG_FILE = CONFIG_FOLDER_PATH .. "/activeclconfig.txt"
 local KEEP_MOLDYHUB_PATH = CONFIG_FOLDER_PATH .. "/keepmoldyhub.txt"
 local savedConfig = {}
@@ -21,16 +21,25 @@ local configToggleControllers = {}
 local configFileDetected = false
 local activeConfigName = nil
 
+local function getFileApi(name)
+    local fn = environment and environment[name]
+    if type(fn) == "function" then return fn end
+    fn = _G and _G[name]
+    if type(fn) == "function" then return fn end
+    return nil
+end
+
 local function readConfigFile(path)
-    if type(environment.readfile) ~= "function" then return nil end
+    local readfile = getFileApi("readfile")
+    if not readfile then return nil end
     -- Do not trust isfile(): some executors report false for valid files.
-    local ok, value = pcall(environment.readfile, path)
+    local ok, value = pcall(readfile, path)
     if ok and type(value) == "string" then return value end
     return nil
 end
 
 local function loadSavedConfig()
-    if type(environment.readfile) ~= "function" then return end
+    if not getFileApi("readfile") then return end
 
     -- Load only the dedicated hardcoded file. Do not read or overwrite legacy/named configs.
     local raw = readConfigFile(CONFIG_FILE)
@@ -110,8 +119,10 @@ local lastAutoSaveSignature
 local autoSaveLoopRunning = false
 local function saveConfigToDisk(forceSave)
     -- CL settings are always persisted; the legacy toggle is retained for config compatibility.
-    if type(environment.writefile) ~= "function" or type(environment.readfile) ~= "function" then
-        return false, "Executor file API unavailable"
+    local writefile = getFileApi("writefile")
+    local readfile = getFileApi("readfile")
+    if not writefile or not readfile then
+        return false, "Executor readfile/writefile API unavailable"
     end
 
     local snapshot = getConfigSnapshot()
@@ -122,11 +133,10 @@ local function saveConfigToDisk(forceSave)
     if not forceSave and signature == lastAutoSaveSignature then return true end
 
     local ok, err = pcall(function()
-        ensureConfigFolder()
         local config = snapshot
         local jsonPayload = HttpService:JSONEncode(config)
-        environment.writefile(CONFIG_FILE, jsonPayload)
-        local savedPayload = environment.readfile(CONFIG_FILE)
+        writefile(CONFIG_FILE, jsonPayload)
+        local savedPayload = readfile(CONFIG_FILE)
         if savedPayload ~= jsonPayload then error("Config write verification failed") end
         local verified = HttpService:JSONDecode(savedPayload)
         if type(verified) ~= "table"
