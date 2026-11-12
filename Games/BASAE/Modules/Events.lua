@@ -86,48 +86,59 @@ return function(Context)
         return placed
     end
 
-    local function getEggSpacing(placed)
-        local largest = 0
-        for _, record in ipairs(placed) do
-            if record.Size then
-                largest = math.max(largest, record.Size.X, record.Size.Z)
+    local function getEggFootprint(egg)
+        local size
+        pcall(function()
+            local _, boundsSize = egg:GetBoundingBox()
+            size = boundsSize
+        end)
+        if not size then
+            local largestX, largestZ = 0, 0
+            for _, descendant in ipairs(egg:GetDescendants()) do
+                if descendant:IsA("BasePart") then
+                    largestX = math.max(largestX, descendant.Size.X)
+                    largestZ = math.max(largestZ, descendant.Size.Z)
+                end
             end
+            size = Vector3.new(largestX, 0, largestZ)
         end
-        return largest > 0 and (largest + 0.5) or 5
+        return math.max(0.75, size.X * 0.5), math.max(0.75, size.Z * 0.5)
     end
 
-    local function buildEggPositions(hitbox, placed)
-        local spacing = getEggSpacing(placed)
-        local halfX = math.max(0, hitbox.Size.X * 0.5 - spacing * 0.5)
-        local halfZ = math.max(0, hitbox.Size.Z * 0.5 - spacing * 0.5)
+    local function buildEggPositions(hitbox, placed, halfX, halfZ)
+        -- Use a fine, consistent grid. Existing large eggs only block their
+        -- actual footprint; they no longer make the entire grid excessively coarse.
+        local step = 2.5
+        local edgeX = math.max(0, hitbox.Size.X * 0.5 - halfX - 0.25)
+        local edgeZ = math.max(0, hitbox.Size.Z * 0.5 - halfZ - 0.25)
         local y = hitbox.Position.Y + hitbox.Size.Y * 0.5
         if #placed > 0 then y = placed[1].Position.Y end
 
         local positions = {}
-        local x = -halfX
-        while x <= halfX + 0.01 do
-            local z = -halfZ
-            while z <= halfZ + 0.01 do
+        local x = -edgeX
+        while x <= edgeX + 0.01 do
+            local z = -edgeZ
+            while z <= edgeZ + 0.01 do
                 local worldPosition = hitbox.CFrame:PointToWorldSpace(Vector3.new(x, 0, z))
                 table.insert(positions, Vector3.new(worldPosition.X, y, worldPosition.Z))
-                z += spacing
+                z += step
             end
-            x += spacing
+            x += step
         end
-        return positions, spacing
+        return positions, step
     end
 
-    local function findOpenEggPosition(positions, placed, spacing, attempted)
-        local candidateHalfSize = spacing * 0.45
+    local function findOpenEggPosition(positions, placed, halfX, halfZ, attempted)
         for _, position in ipairs(positions) do
-            local key = string.format("%.1f:%.1f", position.X, position.Z)
+            local key = string.format("%.2f:%.2f", position.X, position.Z)
             if not attempted[key] then
                 local occupied = false
                 for _, record in ipairs(placed) do
                     local localPosition = record.CFrame:PointToObjectSpace(position)
-                    local halfX = record.Size.X * 0.5 + candidateHalfSize + 0.15
-                    local halfZ = record.Size.Z * 0.5 + candidateHalfSize + 0.15
-                    if math.abs(localPosition.X) < halfX and math.abs(localPosition.Z) < halfZ then
+                    local occupiedHalfX = record.Size.X * 0.5 + halfX + 0.2
+                    local occupiedHalfZ = record.Size.Z * 0.5 + halfZ + 0.2
+                    if math.abs(localPosition.X) < occupiedHalfX
+                        and math.abs(localPosition.Z) < occupiedHalfZ then
                         occupied = true
                         break
                     end
@@ -289,8 +300,11 @@ return function(Context)
                     if not plot or not hitbox or not hitbox:IsA("BasePart") then break end
 
                     local placed = getPlacedEggs(plot)
-                    local positions, spacing = buildEggPositions(hitbox, placed)
-                    local position, positionKey = findOpenEggPosition(positions, placed, spacing, attempted)
+                    local candidateHalfX, candidateHalfZ = getEggFootprint(egg)
+                    local positions = buildEggPositions(hitbox, placed, candidateHalfX, candidateHalfZ)
+                    local position, positionKey = findOpenEggPosition(
+                        positions, placed, candidateHalfX, candidateHalfZ, attempted
+                    )
                     if not position then
                         AutoPlaceEggsStatus.Text = string.format(
                             "No free position found — %d egg(s) placed; %d remain.",
@@ -309,6 +323,11 @@ return function(Context)
                     )
                     print("[BASAE Auto Place Eggs] Trying position:", egg.Name, position)
 
+                    local beforeInstances = {}
+                    for _, record in ipairs(placed) do
+                        beforeInstances[record.Instance] = true
+                    end
+
                     local ok, err = pcall(function()
                         MergeRemote:FireServer("PlaceEgg", egg, position)
                     end)
@@ -319,16 +338,25 @@ return function(Context)
                         return
                     end
 
-                    -- Confirm the server actually created a MergeEgg_ before moving to the next Tool.
+                    -- Wait for a new MergeEgg_ near this request. A different egg
+                    -- appearing elsewhere must not count as confirmation.
                     local confirmed = false
-                    local checkUntil = os.clock() + 1.8
+                    local checkUntil = os.clock() + 8
+                    local confirmRadius = math.max(4, candidateHalfX * 2, candidateHalfZ * 2)
                     while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration and os.clock() < checkUntil do
-                        task.wait(0.15)
+                        task.wait(0.2)
                         local currentPlaced = getPlacedEggs(plot)
-                        if #currentPlaced > #placed then
-                            confirmed = true
-                            break
+                        for _, record in ipairs(currentPlaced) do
+                            if not beforeInstances[record.Instance] then
+                                local dx = record.Position.X - position.X
+                                local dz = record.Position.Z - position.Z
+                                if (dx * dx + dz * dz) <= (confirmRadius * confirmRadius) then
+                                    confirmed = true
+                                    break
+                                end
+                            end
                         end
+                        if confirmed then break end
                     end
 
                     if confirmed then
