@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.23"
+local deployver = "CL ver 2.24"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -2410,13 +2410,16 @@ for index, name in ipairs(TabNames) do
             ensureFolder(AUTO_EXECUTE_FOLDER)
             ensureFolder(CONFIG_FOLDER_PATH)
         end
-        local keepMoldyHubEnabled = false
-        local keepRaw = readConfigFile(KEEP_MOLDYHUB_PATH)
-        if keepRaw and tostring(keepRaw):lower():match("^%s*true%s*$") then
-            keepMoldyHubEnabled = true
+        local keepMoldyHubEnabled
+        if type(savedConfig.keepMoldyHub) == "boolean" then
+            keepMoldyHubEnabled = savedConfig.keepMoldyHub
+        else
+            local keepRaw = readConfigFile(KEEP_MOLDYHUB_PATH)
+            keepMoldyHubEnabled = keepRaw and tostring(keepRaw):lower():match("^%s*true%s*$") ~= nil or false
         end
         local _, setKeepMoldyHub = CreateToggle(autoExecuteCard, "Keep MoldyHub after reconnect", 34, function(enabled)
             keepMoldyHubEnabled = enabled
+            savedConfig.keepMoldyHub = enabled
             local ok, err = pcall(function()
                 if type(environment.writefile) ~= "function" then error("Executor writefile API unavailable") end
                 ensureAutoExecuteFolders()
@@ -3249,8 +3252,10 @@ for index, name in ipairs(TabNames) do
             end
         end
 
-        CreateToggle(spireCard, "Auto Spire", 34, function(enabled)
+        local setAutoSpire
+        setAutoSpire = CreateToggle(spireCard, "Auto Spire", 34, function(enabled)
             spireEnabled = enabled
+            savedConfig.autoSpire = enabled
             spireLoopId = spireLoopId + 1
             local thisLoop = spireLoopId
             if not enabled then
@@ -3391,8 +3396,8 @@ for index, name in ipairs(TabNames) do
                                 else
                                     setSpireStatus("Leave failed: " .. tostring(leaveError), Color3.fromRGB(240, 110, 110))
                                 end
-                                spireEnabled = false
-                                spireLoopId = spireLoopId + 1
+                                setAutoSpire(false)
+                                setSpireStatus("Left at wave " .. currentWave, Color3.fromRGB(95, 220, 140))
                                 return
                             end
                         else
@@ -3473,6 +3478,8 @@ for index, name in ipairs(TabNames) do
                 savedConfig.spireLeaveWave = nil
             end
         end)
+        -- Restore Auto Spire only after its wave input and controls exist.
+        setAutoSpire(savedConfig.autoSpire == true)
 
         local chestCard = CreateCard(left, "Auto open chest", 88)
         local chestStatus = Create("TextLabel", {
@@ -3574,6 +3581,7 @@ for index, name in ipairs(TabNames) do
         end
         local _, setAutoOpenChest = CreateToggle(chestCard, "Auto open chest", 34, function(enabled)
             autoOpenChestEnabled = enabled
+            savedConfig.autoOpenChest = enabled
             chestLoopId = chestLoopId + 1
             local thisLoop = chestLoopId
             if not enabled then
@@ -3728,7 +3736,7 @@ for index, name in ipairs(TabNames) do
                 if setLabyrinthAutoOrbit then setLabyrinthAutoOrbit(false) end
             end)
         end)
-        setAutoOpenChest(false)
+        setAutoOpenChest(savedConfig.autoOpenChest == true)
     end
 end
 
