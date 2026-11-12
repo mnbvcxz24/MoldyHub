@@ -8,40 +8,113 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.22"
+local deployver = "CL ver 2.23"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
-local CONFIG_FILE = "MoldyHub_CL_Config.json"
+local CONFIG_ROOT_PATH = "MoldyHub"
+local CONFIG_FOLDER_PATH = CONFIG_ROOT_PATH .. "/config"
+local CONFIG_FILE = CONFIG_FOLDER_PATH .. "/moldyhub_cl_config.json"
+local LEGACY_CONFIG_FILE = "MoldyHub_CL_Config.json"
+local ACTIVE_CONFIG_FILE = CONFIG_FOLDER_PATH .. "/activeclconfig.txt"
 local savedConfig = {}
 local configFileDetected = false
-local function loadSavedConfig()
+local activeConfigName = nil
+
+local function readConfigFile(path)
+    if type(environment.readfile) ~= "function" then return nil end
     if type(environment.isfile) == "function" then
-        local existsOk, exists = pcall(environment.isfile, CONFIG_FILE)
-        if not existsOk or not exists then return end
+        local existsOk, exists = pcall(environment.isfile, path)
+        if not existsOk or not exists then return nil end
+    end
+    local ok, value = pcall(environment.readfile, path)
+    if ok and type(value) == "string" then return value end
+    return nil
+end
+
+local function loadSavedConfig()
+    if type(environment.readfile) ~= "function" then return end
+    local activeRaw = readConfigFile(ACTIVE_CONFIG_FILE)
+    if type(activeRaw) ~= "string" then
+        activeRaw = readConfigFile(CONFIG_ROOT_PATH .. "/ActiveCLConfig.txt")
+    end
+
+    local configPath
+    local selectedName = activeRaw and activeRaw:match("^%s*([%w_%-]+)%s*$")
+    if selectedName == "DEFAULT" then
+        activeConfigName = nil
+        return
+    elseif selectedName then
+        activeConfigName = selectedName
+        configPath = CONFIG_FOLDER_PATH .. "/" .. selectedName .. ".json"
+        local namedRaw = readConfigFile(configPath)
+        if not namedRaw then
+            namedRaw = readConfigFile(CONFIG_ROOT_PATH .. "/" .. selectedName .. ".json")
+        end
+        if namedRaw then
+            local ok, decoded = pcall(function() return HttpService:JSONDecode(namedRaw) end)
+            if ok and type(decoded) == "table" then
+                savedConfig = type(decoded.Settings) == "table" and decoded.Settings or decoded
+                configFileDetected = true
+                return
+            end
+        end
+    end
+
+    local raw = readConfigFile(CONFIG_FILE) or readConfigFile(LEGACY_CONFIG_FILE)
+    if type(raw) ~= "string" or raw == "" then return end
+    local decodedOk, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+    if decodedOk and type(decoded) == "table" then
+        if type(decoded.Settings) == "table" then
+            savedConfig = decoded.Settings
+        else
+            savedConfig = {}
+            for key, value in pairs(decoded) do
+                if key ~= "Version" and key ~= "SavedAt" then
+                    savedConfig[key] = value
+                end
+            end
+        end
         configFileDetected = true
     end
-    if type(environment.readfile) ~= "function" then return end
-    local ok, raw = pcall(environment.readfile, CONFIG_FILE)
-    if not ok or type(raw) ~= "string" then return end
-    configFileDetected = true
-    if raw == "" then return end
-    local decodedOk, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
-    if decodedOk and type(decoded) == "table" then savedConfig = decoded end
 end
-local function saveConfigToFile()
-    if type(environment.writefile) ~= "function" then
-        warn("[MoldyHub] This executor does not support writefile; config was not saved.")
-        return false
+
+local function ensureConfigFolder()
+    if type(environment.makefolder) ~= "function" then
+        error("Executor makefolder API unavailable")
     end
-    local ok, result = pcall(function()
-        environment.writefile(CONFIG_FILE, HttpService:JSONEncode(savedConfig))
-    end)
-    if not ok then
-        warn("[MoldyHub] Failed to save config: " .. tostring(result))
-        return false
+    local function ensureFolder(path)
+        if type(environment.isfolder) == "function" then
+            local ok, exists = pcall(environment.isfolder, path)
+            if ok and exists then return end
+        end
+        pcall(environment.makefolder, path)
+        if type(environment.isfolder) == "function" then
+            local ok, exists = pcall(environment.isfolder, path)
+            if ok and not exists then error("Could not create folder: " .. path) end
+        end
     end
-    return true
+    ensureFolder(CONFIG_ROOT_PATH)
+    ensureFolder(CONFIG_FOLDER_PATH)
 end
+
+local function getSafeConfigName(rawName)
+    local safeName = tostring(rawName or ""):gsub("[^%w_%-]", "")
+    if safeName == "" then return nil end
+    return string.sub(safeName, 1, 40)
+end
+
+local function getConfigSnapshot()
+    local snapshot = {}
+    for key, value in pairs(savedConfig) do
+        snapshot[key] = value
+    end
+    return {
+        Version = 1,
+        SavedAt = os.time(),
+        Settings = snapshot
+    }
+end
+
 loadSavedConfig()
 local previousCleanup = environment.CLMoldyHubCleanup
 if type(previousCleanup) == "function" then
@@ -2012,57 +2085,274 @@ for index, name in ipairs(TabNames) do
         end)
 
     elseif index == 4 then
-        local settingsRow = Create("Frame", {
-            Parent = left,
-            Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            BackgroundTransparency = 1
-        })
-        Create("UIListLayout", {
-            Parent = settingsRow,
-            FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 10),
-            SortOrder = Enum.SortOrder.LayoutOrder
-        })
-
-        local settingsCard = CreateCard(settingsRow, "Configuration", 104)
-        settingsCard.Size = UDim2.new(0.5, -5, 0, 0)
-        local saveButton = Create("TextButton", {
+        local settingsCard = CreateCard(left, "Configuration", 160)
+        local configNameInput = Create("TextBox", {
             Parent = settingsCard,
             Position = UDim2.fromOffset(12, 34),
-            Size = UDim2.new(1, -24, 0, 26),
-            BackgroundColor3 = Theme.Accent,
-            Text = "Save Config",
+            Size = UDim2.new(1, -24, 0, 24),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = activeConfigName or "",
+            PlaceholderText = "Enter config name",
+            PlaceholderColor3 = Theme.Gray,
             TextColor3 = Theme.Text,
-            Font = Enum.Font.GothamBold,
+            Font = Enum.Font.Gotham,
             TextSize = 9,
+            ClearTextOnFocus = false,
+            BorderSizePixel = 0
+        })
+        Corner(configNameInput, 5)
+        Stroke(configNameInput, Theme.Border, 1)
+
+        local configDropdown = Create("TextButton", {
+            Parent = settingsCard,
+            Position = UDim2.fromOffset(12, 63),
+            Size = UDim2.new(1, -82, 0, 24),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            ZIndex = 30
+        })
+        Corner(configDropdown, 5)
+        Stroke(configDropdown, Theme.Border, 1)
+        local selectedConfigName = activeConfigName
+        local configDropdownLabel = Create("TextLabel", {
+            Parent = configDropdown,
+            Position = UDim2.fromOffset(9, 0),
+            Size = UDim2.new(1, -25, 1, 0),
+            BackgroundTransparency = 1,
+            Text = selectedConfigName or "Select saved config",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 31
+        })
+        Create("TextLabel", {
+            Parent = configDropdown,
+            Position = UDim2.new(1, -18, 0, 0),
+            Size = UDim2.fromOffset(14, 24),
+            BackgroundTransparency = 1,
+            Text = "v",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.GothamBold,
+            TextSize = 8,
+            ZIndex = 31
+        })
+        local configList = Create("Frame", {
+            Parent = configDropdown,
+            Position = UDim2.new(0, 0, 1, 3),
+            Size = UDim2.new(1, 0, 0, 0),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            Visible = false,
+            ClipsDescendants = true,
+            ZIndex = 220
+        })
+        Corner(configList, 5)
+        Stroke(configList, Theme.Border, 1)
+        local configListLayout = Create("UIListLayout", {
+            Parent = configList,
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        local configOptions = {}
+        local function refreshConfigOptions()
+            for _, child in ipairs(configList:GetChildren()) do
+                if child:IsA("TextButton") then child:Destroy() end
+            end
+            configOptions = {}
+            if type(environment.listfiles) == "function" then
+                local ok, files = pcall(environment.listfiles, CONFIG_FOLDER_PATH)
+                if ok and type(files) == "table" then
+                    for _, filePath in ipairs(files) do
+                        local fileName = tostring(filePath):match("[/\\]([^/\\]+)%.json$")
+                        if fileName and fileName:match("^[%w_%-]+$") then
+                            table.insert(configOptions, fileName)
+                        end
+                    end
+                end
+            end
+            table.sort(configOptions, function(a, b)
+                return string.lower(a) < string.lower(b)
+            end)
+            if selectedConfigName then
+                local found = false
+                for _, name in ipairs(configOptions) do
+                    if name == selectedConfigName then found = true break end
+                end
+                if not found then selectedConfigName = nil end
+            end
+            configDropdownLabel.Text = selectedConfigName or (#configOptions > 0 and "Select saved config" or "No saved configs found")
+            for optionIndex, configName in ipairs(configOptions) do
+                local option = Create("TextButton", {
+                    Parent = configList,
+                    Size = UDim2.new(1, 0, 0, 23),
+                    BackgroundTransparency = 1,
+                    Text = configName,
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 8,
+                    BorderSizePixel = 0,
+                    LayoutOrder = optionIndex,
+                    ZIndex = 221
+                })
+                option.MouseButton1Click:Connect(function()
+                    selectedConfigName = configName
+                    configDropdownLabel.Text = configName
+                    configNameInput.Text = configName
+                    configList.Visible = false
+                end)
+            end
+            configList.Size = UDim2.new(1, 0, 0, math.min(#configOptions, 5) * 23)
+        end
+        configDropdown.MouseButton1Click:Connect(function()
+            if #configOptions == 0 then refreshConfigOptions() end
+            configList.Visible = not configList.Visible
+        end)
+
+        local refreshConfigButton = Create("TextButton", {
+            Parent = settingsCard,
+            Position = UDim2.new(1, -58, 0, 63),
+            Size = UDim2.fromOffset(46, 24),
+            BackgroundColor3 = Theme.SurfaceInput,
+            Text = "Refresh",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 7,
             BorderSizePixel = 0,
             AutoButtonColor = true
         })
-        Corner(saveButton, 5)
+        Corner(refreshConfigButton, 5)
+        Stroke(refreshConfigButton, Theme.Border, 1)
+
         local saveStatus = Create("TextLabel", {
             Parent = settingsCard,
-            Position = UDim2.fromOffset(12, 64),
-            Size = UDim2.new(1, -24, 0, 16),
+            Position = UDim2.fromOffset(12, 91),
+            Size = UDim2.new(1, -24, 0, 15),
             BackgroundTransparency = 1,
-            Text = configFileDetected and "Saved settings available" or "No saved settings",
+            Text = configFileDetected and (activeConfigName and ("Active config: " .. activeConfigName) or "Saved settings available") or "No config settings saved",
             TextColor3 = configFileDetected and Color3.fromRGB(95, 220, 140) or Theme.Gray,
             Font = Enum.Font.Gotham,
             TextSize = 8,
-            TextWrapped = false,
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Left
         })
-        saveButton.MouseButton1Click:Connect(function()
-            if saveConfigToFile() then
-                saveStatus.Text = "Settings saved"
-                saveStatus.TextColor3 = Color3.fromRGB(95, 220, 140)
+        local function setConfigStatus(message, success)
+            saveStatus.Text = tostring(message)
+            saveStatus.TextColor3 = success and Color3.fromRGB(95, 220, 140) or Color3.fromRGB(240, 110, 110)
+        end
+        local function createConfigActionButton(label, xScale, xOffset, color, callback)
+            local button = Create("TextButton", {
+                Parent = settingsCard,
+                Position = UDim2.new(xScale, xOffset, 0, 113),
+                Size = UDim2.new(1 / 3, -10, 0, 26),
+                BackgroundColor3 = color,
+                Text = label,
+                TextColor3 = Color3.fromRGB(255, 255, 255),
+                Font = Enum.Font.GothamMedium,
+                TextSize = 7,
+                BorderSizePixel = 0,
+                AutoButtonColor = true
+            })
+            Corner(button, 5)
+            button.MouseButton1Click:Connect(callback)
+            return button
+        end
+
+        createConfigActionButton("Save Config", 0, 12, Color3.fromRGB(38, 145, 76), function()
+            if type(environment.writefile) ~= "function" or type(environment.readfile) ~= "function" then
+                setConfigStatus("Executor file API unavailable", false)
+                return
+            end
+            local configName = getSafeConfigName(configNameInput.Text)
+            if not configName then
+                setConfigStatus("Enter a valid config name", false)
+                return
+            end
+            local configPath = CONFIG_FOLDER_PATH .. "/" .. configName .. ".json"
+            local replacingExisting = false
+            local ok, err = pcall(function()
+                ensureConfigFolder()
+                if type(environment.isfile) == "function" then
+                    local existsOk, exists = pcall(environment.isfile, configPath)
+                    replacingExisting = existsOk and exists == true
+                end
+                local config = getConfigSnapshot()
+                local jsonPayload = HttpService:JSONEncode(config)
+                environment.writefile(configPath, jsonPayload)
+                local savedPayload = environment.readfile(configPath)
+                if savedPayload ~= jsonPayload then
+                    error("Config write verification failed")
+                end
+                local verified = HttpService:JSONDecode(savedPayload)
+                if type(verified) ~= "table" or verified.Version ~= 1 or verified.SavedAt ~= config.SavedAt then
+                    error("Saved config verification failed")
+                end
+                environment.writefile(ACTIVE_CONFIG_FILE, configName)
+            end)
+            if ok then
+                activeConfigName = configName
+                selectedConfigName = configName
+                configDropdownLabel.Text = configName
+                configNameInput.Text = configName
+                configFileDetected = true
+                refreshConfigOptions()
+                setConfigStatus((replacingExisting and "Overwritten and selected - " or "Saved and selected - ") .. configName, true)
             else
-                saveStatus.Text = "Save failed"
-                saveStatus.TextColor3 = Color3.fromRGB(240, 110, 110)
+                setConfigStatus("Save failed - " .. tostring(err):sub(1, 65), false)
             end
         end)
+        createConfigActionButton("Load Selected", 1 / 3, 4, Color3.fromRGB(48, 105, 165), function()
+            if not selectedConfigName then
+                setConfigStatus("Select a saved config first", false)
+                return
+            end
+            local configPath = CONFIG_FOLDER_PATH .. "/" .. selectedConfigName .. ".json"
+            local ok, result = pcall(function()
+                local raw = readConfigFile(configPath)
+                if not raw then error("Config file not found") end
+                local decoded = HttpService:JSONDecode(raw)
+                if type(decoded) ~= "table" or decoded.Version ~= 1 or type(decoded.Settings) ~= "table" then
+                    error("Invalid config file")
+                end
+                environment.writefile(ACTIVE_CONFIG_FILE, selectedConfigName)
+                return decoded
+            end)
+            if ok then
+                activeConfigName = selectedConfigName
+                configFileDetected = true
+                setConfigStatus("Selected " .. selectedConfigName .. "; rerun CL to apply", true)
+            else
+                setConfigStatus("Load failed - " .. tostring(result):sub(1, 65), false)
+            end
+        end)
+        createConfigActionButton("Unload Config", 2 / 3, -4, Color3.fromRGB(165, 95, 45), function()
+            if type(environment.writefile) ~= "function" then
+                setConfigStatus("Executor writefile API unavailable", false)
+                return
+            end
+            local ok, err = pcall(function()
+                ensureConfigFolder()
+                environment.writefile(ACTIVE_CONFIG_FILE, "DEFAULT")
+            end)
+            if ok then
+                activeConfigName = nil
+                selectedConfigName = nil
+                configDropdownLabel.Text = #configOptions > 0 and "Select saved config" or "No saved configs found"
+                configNameInput.Text = ""
+                setConfigStatus("Default config selected; rerun CL to apply", true)
+            else
+                setConfigStatus("Unload failed - " .. tostring(err):sub(1, 65), false)
+            end
+        end)
+        refreshConfigButton.MouseButton1Click:Connect(refreshConfigOptions)
+        refreshConfigOptions()
 
+        local antiAfkCard = CreateCard(left, "Anti AFK", 64)
         local antiAfkConnection
         RegisterCleanup(function()
             if antiAfkConnection then
@@ -2070,15 +2360,12 @@ for index, name in ipairs(TabNames) do
                 antiAfkConnection = nil
             end
         end)
-        local card = CreateCard(settingsRow, "Anti AFK", 64)
-        card.Size = UDim2.new(0.5, -5, 0, 0)
-        local _, setAntiAfk = CreateToggle(card, "Anti AFK", 34, function(enabled)
+        local _, setAntiAfk = CreateToggle(antiAfkCard, "Anti AFK", 34, function(enabled)
             savedConfig.antiAfk = enabled
             if antiAfkConnection then
                 antiAfkConnection:Disconnect()
                 antiAfkConnection = nil
             end
-
             if enabled then
                 local VirtualUser = game:GetService("VirtualUser")
                 antiAfkConnection = LocalPlayer.Idled:Connect(function()
@@ -2091,29 +2378,87 @@ for index, name in ipairs(TabNames) do
         end)
         setAntiAfk(savedConfig.antiAfk == true)
 
-        -- Auto Execute UI placeholder; execution backend is not configured yet.
-        local autoExecuteCard = CreateCard(left, "Auto Execute", 68)
-        local autoExecuteButton = Create("TextButton", {
+        local autoExecuteCard = CreateCard(left, "Auto Execute", 70)
+        local autoExecuteStatus = Create("TextLabel", {
             Parent = autoExecuteCard,
-            Position = UDim2.fromOffset(12, 34),
-            Size = UDim2.new(1, -24, 0, 26),
-            BackgroundColor3 = Theme.Accent,
-            Text = "Set Auto Execute",
-            TextColor3 = Theme.Text,
-            Font = Enum.Font.GothamBold,
-            TextSize = 9,
-            BorderSizePixel = 0,
-            AutoButtonColor = true
+            Position = UDim2.fromOffset(12, 61),
+            Size = UDim2.new(1, -24, 0, 14),
+            BackgroundTransparency = 1,
+            Text = "Reconnect execution is disabled",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
         })
-        Corner(autoExecuteButton, 5)
-        autoExecuteButton.MouseButton1Click:Connect(function()
-            autoExecuteButton.Text = "Auto Execute not configured"
-            task.delay(2, function()
-                if autoExecuteButton and autoExecuteButton.Parent then
-                    autoExecuteButton.Text = "Set Auto Execute"
+        local AUTO_EXECUTE_FOLDER = CONFIG_ROOT_PATH .. "/autoexec"
+        local KEEP_MOLDYHUB_PATH = CONFIG_FOLDER_PATH .. "/keepmoldyhub.txt"
+        local function ensureAutoExecuteFolders()
+            if type(environment.makefolder) ~= "function" then error("Executor makefolder API unavailable") end
+            local function ensureFolder(path)
+                if type(environment.isfolder) == "function" then
+                    local ok, exists = pcall(environment.isfolder, path)
+                    if ok and exists then return end
                 end
+                pcall(environment.makefolder, path)
+                if type(environment.isfolder) == "function" then
+                    local ok, exists = pcall(environment.isfolder, path)
+                    if ok and not exists then error("Could not create folder: " .. path) end
+                end
+            end
+            ensureFolder(CONFIG_ROOT_PATH)
+            ensureFolder(AUTO_EXECUTE_FOLDER)
+            ensureFolder(CONFIG_FOLDER_PATH)
+        end
+        local keepMoldyHubEnabled = false
+        local keepRaw = readConfigFile(KEEP_MOLDYHUB_PATH)
+        if keepRaw and tostring(keepRaw):lower():match("^%s*true%s*$") then
+            keepMoldyHubEnabled = true
+        end
+        local _, setKeepMoldyHub = CreateToggle(autoExecuteCard, "Keep MoldyHub after reconnect", 34, function(enabled)
+            keepMoldyHubEnabled = enabled
+            local ok, err = pcall(function()
+                if type(environment.writefile) ~= "function" then error("Executor writefile API unavailable") end
+                ensureAutoExecuteFolders()
+                environment.writefile(KEEP_MOLDYHUB_PATH, enabled and "true" or "false")
             end)
+            if ok then
+                autoExecuteStatus.Text = enabled and "Reconnect execution is enabled" or "Reconnect execution is disabled"
+                autoExecuteStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
+            else
+                autoExecuteStatus.Text = "Could not save reconnect setting: " .. tostring(err)
+                autoExecuteStatus.TextColor3 = Color3.fromRGB(240, 110, 110)
+            end
         end)
+        setKeepMoldyHub(keepMoldyHubEnabled)
+
+        local listenerEnv = environment
+        if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
+            local teleportQueue = environment.queue_on_teleport or environment.queueonteleport or queue_on_teleport or queueonteleport
+            if type(teleportQueue) == "function" then
+                listenerEnv.MoldyHubCLKeepTeleportListenerPlayer = LocalPlayer
+                local teleportQueued = false
+                LocalPlayer.OnTeleport:Connect(function()
+                    if teleportQueued then return end
+                    local shouldKeep = false
+                    pcall(function()
+                        local raw = readConfigFile(KEEP_MOLDYHUB_PATH)
+                        shouldKeep = raw ~= nil and tostring(raw):lower():match("^%s*true%s*$") ~= nil
+                    end)
+                    if not shouldKeep then return end
+                    teleportQueued = true
+                    local source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
+                    local ok, err = pcall(function()
+                        teleportQueue(source)
+                    end)
+                    if not ok then
+                        teleportQueued = false
+                        warn("[MoldyHub] Teleport queue failed: " .. tostring(err))
+                    end
+                end)
+            end
+        end
+
     elseif index == 2 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
         -- Grimoire row frames.
@@ -2881,6 +3226,9 @@ for index, name in ipairs(TabNames) do
         local spireLoopId = 0
         local spireDifficulties = {"Easy", "Medium", "Hard", "Extreme"}
         local spireDifficultyIndex = 2
+        for difficultyIndex, difficultyName in ipairs(spireDifficulties) do
+            if difficultyName == savedConfig.spireDifficulty then spireDifficultyIndex = difficultyIndex break end
+        end
         local spireWaveInput
         local spireStatus = Create("TextLabel", {
             Parent = spireCard,
@@ -3084,6 +3432,7 @@ for index, name in ipairs(TabNames) do
         spireDifficultyButton.MouseButton1Click:Connect(function()
             spireDifficultyIndex = (spireDifficultyIndex % #spireDifficulties) + 1
             spireDifficultyButton.Text = spireDifficulties[spireDifficultyIndex]
+            savedConfig.spireDifficulty = spireDifficulties[spireDifficultyIndex]
         end)
 
         Create("TextLabel", {
@@ -3105,7 +3454,7 @@ for index, name in ipairs(TabNames) do
             TextColor3 = Theme.Text,
             PlaceholderColor3 = Theme.Gray,
             PlaceholderText = "e.g. 10",
-            Text = "",
+            Text = type(savedConfig.spireLeaveWave) == "number" and tostring(savedConfig.spireLeaveWave) or "",
             Font = Enum.Font.Gotham,
             TextSize = 9,
             ClearTextOnFocus = false,
@@ -3116,9 +3465,12 @@ for index, name in ipairs(TabNames) do
         spireWaveInput.FocusLost:Connect(function()
             local wave = tonumber(spireWaveInput.Text)
             if wave then
-                spireWaveInput.Text = tostring(math.max(1, math.floor(wave)))
+                wave = math.max(1, math.floor(wave))
+                spireWaveInput.Text = tostring(wave)
+                savedConfig.spireLeaveWave = wave
             else
                 spireWaveInput.Text = ""
+                savedConfig.spireLeaveWave = nil
             end
         end)
 
