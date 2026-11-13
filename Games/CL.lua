@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.46"
+local deployver = "CL ver 2.47"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -2412,6 +2412,7 @@ for index, name in ipairs(TabNames) do
         -- World Boss automation: read the island timer, wait at the saved location,
         -- then return to the island only when the timer expires.
         local worldBossCard, worldBossTitle = CreateCard(left, "Auto World Boss", 280)
+        worldBossCard.LayoutOrder = -100
         worldBossCard.Size = UDim2.new(1, 0, 0, 0)
         local worldBossStatus = Create("TextLabel", {
             Parent = worldBossCard,
