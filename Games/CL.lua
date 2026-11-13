@@ -222,15 +222,20 @@ if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
         LocalPlayer.OnTeleport:Connect(function()
             if environment.CLMoldyHubRunToken ~= runToken then return end
             if teleportQueued then return end
-            local shouldKeep = false
             local raw = readConfigFile(KEEP_MOLDYHUB_PATH)
-            shouldKeep = raw ~= nil and tostring(raw):lower():match("^%s*true%s*$") ~= nil
-            if not shouldKeep then return end
-            -- Capture the latest toggle states before the old client exits.
+            local shouldKeep = raw ~= nil and tostring(raw):lower():match("^%s*true%s*$") ~= nil
+            local shouldResumeSpire = savedConfig.autoSpire == true
+            if not shouldKeep and not shouldResumeSpire then return end
+            -- Persist current settings before the old game session exits.
             local saveOk, saveErr = saveConfigToDisk(true)
             if not saveOk then warn("[MoldyHub] Pre-teleport config save failed: " .. tostring(saveErr)) end
             teleportQueued = true
-            local source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
+            local source
+            if shouldResumeSpire then
+                source = 'local env = (getgenv and getgenv()) or _G; env.CLMoldyHubSpireResume = true; loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/CL.lua"))()'
+            else
+                source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
+            end
             local ok, err = pcall(function() teleportQueue(source) end)
             if not ok then
                 teleportQueued = false
@@ -3160,6 +3165,58 @@ for index, name in ipairs(TabNames) do
                 local function isActive()
                     return spireEnabled and spireLoopId == thisLoop and spireCard.Parent ~= nil
                 end
+                local leaveWave = tonumber(spireWaveInput and spireWaveInput.Text)
+                    or tonumber(savedConfig.spireLeaveWave)
+                if leaveWave then leaveWave = math.max(1, math.floor(leaveWave)) end
+
+                local function monitorDungeon(replicatedStorage)
+                    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+                    local dungeonUI = playerGui:WaitForChild("DungeonUI", 90)
+                    local container = dungeonUI and dungeonUI:WaitForChild("Container", 20)
+                    local topBar = container and container:WaitForChild("TopBar", 20)
+                    local mainFrame = topBar and topBar:WaitForChild("MainFrame", 20)
+                    local waveLabel = mainFrame and mainFrame:WaitForChild("Wave", 20)
+                    if not waveLabel then
+                        setSpireStatus("Waiting for dungeon wave UI timed out", Color3.fromRGB(240, 170, 80))
+                        return
+                    end
+
+                    setSpireStatus(leaveWave and ("Dungeon active; target wave " .. leaveWave)
+                        or "Dungeon active; monitoring waves", Theme.Accent)
+                    while isActive() do
+                        local waveText = tostring(waveLabel.Text or "")
+                        local currentWave = tonumber(string.match(waveText, "%d+"))
+                        if currentWave then
+                            if leaveWave then
+                                setSpireStatus("Wave " .. currentWave .. " / " .. leaveWave, Theme.Accent)
+                                if currentWave >= leaveWave then
+                                    setSpireStatus("Target reached; leaving dungeon...", Color3.fromRGB(95, 220, 140))
+                                    local leaveRemote = replicatedStorage:WaitForChild("WK_Remotes"):WaitForChild("LeaveDungeon")
+                                    local leaveOk, leaveError = pcall(function()
+                                        leaveRemote:FireServer()
+                                    end)
+                                    if not leaveOk then
+                                        setSpireStatus("Leave failed: " .. tostring(leaveError), Color3.fromRGB(240, 110, 110))
+                                        return
+                                    end
+                                    setAutoSpire(false)
+                                    setSpireStatus("Left at wave " .. currentWave, Color3.fromRGB(95, 220, 140))
+                                    return
+                                end
+                            else
+                                setSpireStatus("Wave " .. currentWave .. " (set leave wave)", Theme.Accent)
+                            end
+                        end
+                        task.wait(0.25)
+                    end
+                end
+
+                if environment.CLMoldyHubSpireResume == true then
+                    environment.CLMoldyHubSpireResume = nil
+                    setSpireStatus("Resuming dungeon after teleport...", Theme.Accent)
+                    monitorDungeon(game:GetService("ReplicatedStorage"))
+                    return
+                end
                 local function getPortalCenter(portal)
                     if not portal then return nil end
                     if portal:IsA("Model") then
@@ -3256,48 +3313,7 @@ for index, name in ipairs(TabNames) do
                     return
                 end
 
-                local leaveWave = tonumber(spireWaveInput.Text)
-                if leaveWave then leaveWave = math.max(1, math.floor(leaveWave)) end
-                local waveLabel
-                local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-                local dungeonUI = playerGui:WaitForChild("DungeonUI", 20)
-                local container = dungeonUI and dungeonUI:WaitForChild("Container", 10)
-                local topBar = container and container:WaitForChild("TopBar", 10)
-                local mainFrame = topBar and topBar:WaitForChild("MainFrame", 10)
-                waveLabel = mainFrame and mainFrame:WaitForChild("Wave", 10)
-                if not waveLabel then
-                    setSpireStatus("Started; waiting for wave UI", Color3.fromRGB(240, 170, 80))
-                    return
-                end
-
-                setSpireStatus(leaveWave and ("Dungeon started; target wave " .. leaveWave) or "Dungeon started; no leave wave set", Theme.Accent)
-                while isActive() do
-                    local waveText = tostring(waveLabel.Text or "")
-                    local currentWave = tonumber(string.match(waveText, "%d+"))
-                    if currentWave then
-                        if leaveWave then
-                            setSpireStatus("Wave " .. currentWave .. " / " .. leaveWave, Theme.Accent)
-                            if currentWave >= leaveWave then
-                                setSpireStatus("Target reached; leaving dungeon...", Color3.fromRGB(95, 220, 140))
-                                local leaveRemote = replicatedStorage:WaitForChild("WK_Remotes"):WaitForChild("LeaveDungeon")
-                                local leaveOk, leaveError = pcall(function()
-                                    leaveRemote:FireServer()
-                                end)
-                                if leaveOk then
-                                    setSpireStatus("Left at wave " .. currentWave, Color3.fromRGB(95, 220, 140))
-                                else
-                                    setSpireStatus("Leave failed: " .. tostring(leaveError), Color3.fromRGB(240, 110, 110))
-                                end
-                                setAutoSpire(false)
-                                setSpireStatus("Left at wave " .. currentWave, Color3.fromRGB(95, 220, 140))
-                                return
-                            end
-                        else
-                            setSpireStatus("Wave " .. currentWave .. " (set leave wave)", Theme.Accent)
-                        end
-                    end
-                    task.wait(0.25)
-                end
+                monitorDungeon(replicatedStorage)
             end)
         end)
 
