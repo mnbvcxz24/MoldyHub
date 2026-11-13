@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.41"
+local deployver = "CL ver 2.42"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -2908,47 +2908,6 @@ for index, name in ipairs(TabNames) do
             return "Unknown"
         end
 
-        local function parseRestockSeconds(timerText)
-            if type(timerText) ~= "string" or timerText == "" or timerText == "Unknown" then
-                return nil
-            end
-
-            local normalized = string.lower(timerText)
-            local days = tonumber(string.match(normalized, "(%d+)%s*d")) or 0
-            local hours = tonumber(string.match(normalized, "(%d+)%s*h")) or 0
-            local minutes = tonumber(string.match(normalized, "(%d+)%s*m")) or 0
-            local seconds = tonumber(string.match(normalized, "(%d+)%s*s")) or 0
-            local hasUnits = string.find(normalized, "%d+%s*[dhms]") ~= nil
-
-            if hasUnits then
-                return days * 86400 + hours * 3600 + minutes * 60 + seconds
-            end
-
-            local h, m, s = string.match(normalized, "(%d+):(%d+):(%d+)")
-            if h then
-                return tonumber(h) * 3600 + tonumber(m) * 60 + tonumber(s)
-            end
-
-            m, s = string.match(normalized, "(%d+):(%d+)")
-            if m then
-                return tonumber(m) * 60 + tonumber(s)
-            end
-
-            local numberText = string.match(normalized, "(%d+)")
-            if numberText then
-                return tonumber(numberText)
-            end
-            return nil
-        end
-
-        local function formatRestockCountdown(totalSeconds)
-            totalSeconds = math.max(0, math.floor(totalSeconds))
-            local hours = math.floor(totalSeconds / 3600)
-            local minutes = math.floor((totalSeconds % 3600) / 60)
-            local seconds = totalSeconds % 60
-            return string.format("%02d:%02d:%02d", hours, minutes, seconds)
-        end
-
         local function getGrimoireStockInfo(itemFrame)
             local coinBuy = itemFrame and itemFrame:FindFirstChild("CoinBuy")
             local costRow = coinBuy and coinBuy:FindFirstChild("CostRow")
@@ -3053,9 +3012,28 @@ for index, name in ipairs(TabNames) do
         end
         watchGrimoireRows(grimoireRows)
 
-        local restockTargetTimestamp = nil
-        local lastObservedTimerText = nil
-        local restockCycleCompleted = false
+        -- Align automatic webhook checks to local clock boundaries: 00:00, 02:00, 04:00...
+        local function getNextTwoHourBoundary(timestamp)
+            local date = os.date("*t", timestamp)
+            date.hour = math.floor(date.hour / 2) * 2
+            date.min = 0
+            date.sec = 0
+            local boundary = os.time(date)
+            if boundary <= timestamp then
+                date.hour = date.hour + 2
+                boundary = os.time(date)
+            end
+            return boundary
+        end
+
+        local function formatScheduleRemaining(totalSeconds)
+            local totalMinutes = math.max(0, math.ceil(totalSeconds / 60))
+            local hours = math.floor(totalMinutes / 60)
+            local minutes = totalMinutes % 60
+            return string.format("%02d:%02d", hours, minutes)
+        end
+
+        local nextWebhookBoundary = getNextTwoHourBoundary(os.time())
 
         task.spawn(function()
             while card.Parent do
@@ -3067,81 +3045,35 @@ for index, name in ipairs(TabNames) do
                     refreshGrimoireFilter()
                 end
 
-                local restockTimer = getRestockTimerText()
-                local parsedSeconds = parseRestockSeconds(restockTimer)
                 local currentTimestamp = os.time()
+                local secondsUntilCheck = math.max(0, nextWebhookBoundary - currentTimestamp)
+                local scheduledTime = os.date("%H:%M", nextWebhookBoundary)
 
-                -- Convert the game's displayed duration into a fixed wall-clock target.
-                -- If the game updates its text every second, keep syncing that target.
-                if parsedSeconds ~= nil and restockTimer ~= lastObservedTimerText then
-                    if parsedSeconds > 0 then
-                        if restockCycleCompleted then
-                            table.clear(notifiedThisRestock)
-                            table.clear(lastWebhookAttemptAt)
-                            restockCycleCompleted = false
-                        end
-                        restockTargetTimestamp = currentTimestamp + parsedSeconds
-                        restockCycleArmed = true
-                    elseif restockCycleArmed then
-                        restockTargetTimestamp = currentTimestamp
-                    end
-                    lastObservedTimerText = restockTimer
-                end
+                if currentTimestamp >= nextWebhookBoundary then
+                    -- A new two-hour clock window has started; allow one fresh notification per item.
+                    table.clear(notifiedThisRestock)
+                    table.clear(lastWebhookAttemptAt)
 
-                local secondsUntilRestock = restockTargetTimestamp
-                    and math.max(0, restockTargetTimestamp - currentTimestamp)
-                    or nil
-                local timerReached = secondsUntilRestock ~= nil and secondsUntilRestock <= 0
-                local estimatedSendAt = restockTargetTimestamp
-                    and os.date("%H:%M:%S", restockTargetTimestamp)
-                    or "Waiting"
-
-                if timerStatusLabel and timerStatusLabel.Parent then
-                    if secondsUntilRestock ~= nil then
-                        timerStatusLabel.Text = "Restock: " .. formatRestockCountdown(secondsUntilRestock)
-                            .. " | Send at: " .. estimatedSendAt
-                    else
-                        timerStatusLabel.Text = "Restock timer: " .. tostring(restockTimer)
-                    end
-                end
-
-                if parsedSeconds == nil and restockTargetTimestamp == nil then
-                    if triggerStatusLabel and triggerStatusLabel.Parent then
-                        triggerStatusLabel.Text = "Auto trigger: Timer label not found or unreadable"
-                    end
-                elseif not restockCycleArmed then
-                    if triggerStatusLabel and triggerStatusLabel.Parent then
-                        triggerStatusLabel.Text = "Auto trigger: Waiting for a countdown above 0"
-                    end
-                elseif not timerReached then
                     if triggerStatusLabel and triggerStatusLabel.Parent then
                         triggerStatusLabel.Text = grimoireNotifierEnabled
-                            and "Auto trigger: Scheduled for " .. estimatedSendAt
-                            or "Auto trigger: Notifier OFF; scheduled for " .. estimatedSendAt
+                            and "Auto trigger: Checking stock for " .. scheduledTime
+                            or "Auto trigger: " .. scheduledTime .. " reached; notifier is OFF"
                     end
-                elseif not grimoireRows then
-                    if triggerStatusLabel and triggerStatusLabel.Parent then
-                        triggerStatusLabel.Text = "Auto trigger: Send time reached, but Grimoire Rows are missing"
-                    end
-                else
-                    if triggerStatusLabel and triggerStatusLabel.Parent then
-                        triggerStatusLabel.Text = grimoireNotifierEnabled
-                            and "Auto trigger: Send time reached; checking selected stock"
-                            or "Auto trigger: Send time reached; notifier is OFF"
-                    end
-                    if grimoireNotifierEnabled then
+
+                    if grimoireNotifierEnabled and grimoireRows then
                         for _, itemFrame in ipairs(grimoireRows:GetChildren()) do
                             if itemFrame:IsA("Frame") and itemFrame.Name ~= "ShopItem" then
                                 local id = itemFrame.Name
-                                local lastAttempt = lastWebhookAttemptAt[id] or 0
-                                if grimoireFilter[id] == true
-                                    and not notifiedThisRestock[id]
-                                    and os.clock() - lastAttempt >= 10 then
+                                if grimoireFilter[id] == true and not notifiedThisRestock[id] then
                                     local inStock, priceText = getGrimoireStockInfo(itemFrame)
                                     if inStock == true then
                                         lastWebhookAttemptAt[id] = os.clock()
                                         task.spawn(function()
-                                            local success, result = sendGrimoireWebhook(id, priceText, restockTimer)
+                                            local success, result = sendGrimoireWebhook(
+                                                id,
+                                                priceText,
+                                                "2-hour schedule: " .. scheduledTime
+                                            )
                                             if success then
                                                 notifiedThisRestock[id] = true
                                                 setLastWebhookStatus(id .. " auto-sent (" .. tostring(result) .. ")")
@@ -3154,8 +3086,23 @@ for index, name in ipairs(TabNames) do
                                 end
                             end
                         end
+                    elseif grimoireNotifierEnabled and not grimoireRows then
+                        setLastWebhookStatus("Scheduled check reached, but Grimoire Rows are missing")
                     end
-                    restockCycleCompleted = true
+
+                    -- Advance to the next exact even-hour boundary; never add drift or extra minutes.
+                    nextWebhookBoundary = getNextTwoHourBoundary(currentTimestamp)
+                else
+                    if triggerStatusLabel and triggerStatusLabel.Parent then
+                        triggerStatusLabel.Text = grimoireNotifierEnabled
+                            and "Auto trigger: Next check at " .. scheduledTime
+                            or "Auto trigger: Notifier OFF; next check at " .. scheduledTime
+                    end
+                end
+
+                if timerStatusLabel and timerStatusLabel.Parent then
+                    timerStatusLabel.Text = "Next 2-hour check: " .. scheduledTime
+                        .. " | In: " .. formatScheduleRemaining(secondsUntilCheck)
                 end
 
                 task.wait(1)
@@ -3163,7 +3110,6 @@ for index, name in ipairs(TabNames) do
             if rowsAddedConnection then rowsAddedConnection:Disconnect() end
             if rowsRemovedConnection then rowsRemovedConnection:Disconnect() end
         end)
-
 
     elseif index == 3 then
         -- Labyrinth: mark every chest visited, then engage the boss with Farm toggles.
