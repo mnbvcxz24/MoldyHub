@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.42"
+local deployver = "CL ver 2.43"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -235,7 +235,7 @@ do
             teleportQueued = true
             local source
             if shouldResumeSpire then
-                source = 'local env = (getgenv and getgenv()) or _G; env.CLMoldyHubSpireResume = true; loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/CL.lua"))()'
+                source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/CL.lua"))()'
             else
                 source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
             end
@@ -3208,12 +3208,32 @@ for index, name in ipairs(TabNames) do
                     end
                 end
 
-                if environment.CLMoldyHubSpireResume == true then
-                    environment.CLMoldyHubSpireResume = nil
-                    setSpireStatus("Resuming dungeon after teleport...", Theme.Accent)
+                -- On every execution, first look for an already-running dungeon.
+                -- The destination game may need a few seconds to create its wave UI after teleport.
+                local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+                local activeWaveLabel
+                for attempt = 1, 5 do
+                    local dungeonUI = playerGui:FindFirstChild("DungeonUI")
+                    local container = dungeonUI and dungeonUI:FindFirstChild("Container")
+                    local topBar = container and container:FindFirstChild("TopBar")
+                    local mainFrame = topBar and topBar:FindFirstChild("MainFrame")
+                    local waveLabel = mainFrame and mainFrame:FindFirstChild("Wave")
+                    if waveLabel and waveLabel:IsA("TextLabel") then
+                        activeWaveLabel = waveLabel
+                        break
+                    end
+                    setSpireStatus("Checking for active dungeon (" .. attempt .. "/5)...", Theme.Accent)
+                    if attempt < 5 then task.wait(1) end
+                    if not isActive() then return end
+                end
+
+                if activeWaveLabel then
+                    setSpireStatus("Existing dungeon found; resuming wave monitor...", Theme.Accent)
                     monitorDungeon(game:GetService("ReplicatedStorage"))
                     return
                 end
+
+                setSpireStatus("No active dungeon found; preparing Pod1...", Theme.Accent)
                 local function getPortalCenter(portal)
                     if not portal then return nil end
                     if portal:IsA("Model") then
