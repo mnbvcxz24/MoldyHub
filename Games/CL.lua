@@ -2411,7 +2411,7 @@ for index, name in ipairs(TabNames) do
 
         -- World Boss automation: read the island timer, wait at the saved location,
         -- then return to the island only when the timer expires.
-        local worldBossCard, worldBossTitle = CreateCard(orbitColumn, "Auto World Boss", 280)
+        local worldBossCard, worldBossTitle = CreateCard(left, "Auto World Boss", 280)
         worldBossCard.Size = UDim2.new(1, 0, 0, 0)
         local worldBossStatus = Create("TextLabel", {
             Parent = worldBossCard,
