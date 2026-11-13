@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.43"
+local deployver = "CL ver 2.44"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -3012,18 +3012,13 @@ for index, name in ipairs(TabNames) do
         end
         watchGrimoireRows(grimoireRows)
 
-        -- Align automatic webhook checks to local clock boundaries: 00:00, 02:00, 04:00...
+        -- Philippines time (UTC+8): use UTC epoch arithmetic so executor timezone cannot shift checks.
+        -- UTC+8 is an exact multiple of two hours, so 2-hour boundaries remain epoch-aligned.
+        local PH_TIME_OFFSET = 8 * 60 * 60
+        local TWO_HOURS_SECONDS = 2 * 60 * 60
+
         local function getNextTwoHourBoundary(timestamp)
-            local date = os.date("*t", timestamp)
-            date.hour = math.floor(date.hour / 2) * 2
-            date.min = 0
-            date.sec = 0
-            local boundary = os.time(date)
-            if boundary <= timestamp then
-                date.hour = date.hour + 2
-                boundary = os.time(date)
-            end
-            return boundary
+            return (math.floor(timestamp / TWO_HOURS_SECONDS) + 1) * TWO_HOURS_SECONDS
         end
 
         local function formatScheduleRemaining(totalSeconds)
@@ -3047,7 +3042,7 @@ for index, name in ipairs(TabNames) do
 
                 local currentTimestamp = os.time()
                 local secondsUntilCheck = math.max(0, nextWebhookBoundary - currentTimestamp)
-                local scheduledTime = os.date("%H:%M", nextWebhookBoundary)
+                local scheduledTime = os.date("!%H:%M", nextWebhookBoundary + PH_TIME_OFFSET)
 
                 if currentTimestamp >= nextWebhookBoundary then
                     -- A new two-hour clock window has started; allow one fresh notification per item.
