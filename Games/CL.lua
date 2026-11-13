@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.47"
+local deployver = "CL ver 2.48"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -778,6 +778,214 @@ for index, name in ipairs(TabNames) do
     Pages[index] = page
     if index == 1 then
         -- Farm tab: one card, matching BASAE's compact card style.
+        -- World Boss automation: read the island timer, wait at the saved location,
+        -- then return to the island only when the timer expires.
+        local worldBossCard, worldBossTitle = CreateCard(left, "Auto World Boss", 280)
+        worldBossCard.LayoutOrder = -100
+        worldBossCard.Size = UDim2.new(1, 0, 0, 0)
+        local worldBossStatus = Create("TextLabel", {
+            Parent = worldBossCard,
+            Position = UDim2.fromOffset(12, 35),
+            Size = UDim2.new(1, -24, 0, 18),
+            BackgroundTransparency = 1,
+            Text = "Next spawn: --",
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
+        })
+        local worldBossLoopId = 0
+        local worldBossOriginalCFrame
+        local worldBossAtIsland = false
+
+        local function setWorldBossStatus(message, color)
+            if worldBossStatus and worldBossStatus.Parent then
+                worldBossStatus.Text = tostring(message)
+                worldBossStatus.TextColor3 = color or Theme.Gray
+            end
+        end
+
+        local function getWorldBossCharacterRoot()
+            local character = LocalPlayer.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if root and root:IsA("BasePart") then return root end
+            return nil
+        end
+
+        local function getWorldBossIsland()
+            local map = workspace:FindFirstChild("Map")
+            local islands = map and map:FindFirstChild("Islands")
+            return islands and islands:FindFirstChild("MIDNIGHTSON_ISLAND")
+        end
+
+        local function getWorldBossTimerObject()
+            local island = getWorldBossIsland()
+            local spawns = island and island:FindFirstChild("IslandSpawns")
+            local bossSpawns = spawns and spawns:FindFirstChild("BossSpawns")
+            local islandBoss = bossSpawns and bossSpawns:FindFirstChild("IslandBoss")
+            local spawnPoint = islandBoss and islandBoss:FindFirstChild("BossSpawnPoint")
+            local timerGui = spawnPoint and spawnPoint:FindFirstChild("WorldBossTimer")
+            return timerGui and timerGui:FindFirstChild("Timer")
+        end
+
+        local function parseWorldBossTimer(timerObject)
+            if not timerObject then return nil end
+            local raw
+            if timerObject:IsA("TextLabel") or timerObject:IsA("TextButton") or timerObject:IsA("TextBox") then
+                raw = timerObject.Text
+            elseif timerObject:IsA("ValueBase") then
+                raw = timerObject.Value
+            end
+            if type(raw) == "number" then return math.max(0, raw) end
+            if type(raw) ~= "string" then return nil end
+            raw = raw:gsub(",", ""):match("^%s*(.-)%s*$")
+            local numeric = tonumber(raw)
+            if numeric then return math.max(0, numeric) end
+            local parts = {}
+            for part in raw:gmatch("%d+") do table.insert(parts, tonumber(part)) end
+            if #parts == 2 then return parts[1] * 60 + parts[2] end
+            if #parts >= 3 then return parts[#parts - 2] * 3600 + parts[#parts - 1] * 60 + parts[#parts] end
+            return nil
+        end
+
+        local function formatWorldBossTime(seconds)
+            seconds = math.max(0, math.floor(seconds))
+            local hours = math.floor(seconds / 3600)
+            local minutes = math.floor((seconds % 3600) / 60)
+            local secs = seconds % 60
+            if hours > 0 then return string.format("%02d:%02d:%02d", hours, minutes, secs) end
+            return string.format("%02d:%02d", minutes, secs)
+        end
+
+        local function teleportWorldBossToIsland()
+            local island = getWorldBossIsland()
+            local root = getWorldBossCharacterRoot()
+            if not island or not root then return false end
+            local ok, pivot = pcall(function() return island:GetPivot() end)
+            if not ok then return false end
+            root.CFrame = pivot + Vector3.new(0, 4, 0)
+            worldBossAtIsland = true
+            return true
+        end
+
+        local function returnWorldBossToOriginal()
+            if not worldBossOriginalCFrame then return end
+            local root = getWorldBossCharacterRoot()
+            if root then root.CFrame = worldBossOriginalCFrame end
+            worldBossAtIsland = false
+        end
+
+        local function countNearbyWorldBossEnemies()
+            local root = getWorldBossCharacterRoot()
+            local enemies = workspace:FindFirstChild("Enemies")
+            if not root or not enemies then return 0 end
+            local count = 0
+            for _, enemy in ipairs(enemies:GetChildren()) do
+                if enemy:IsA("Model") then
+                    local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
+                    local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+                    if enemyRoot and enemyRoot:IsA("BasePart") and humanoid and humanoid.Health > 0
+                        and (enemyRoot.Position - root.Position).Magnitude <= 200 then
+                        count = count + 1
+                    end
+                end
+            end
+            return count
+        end
+
+        local setAutoWorldBoss = CreateCardHeaderToggle(
+            worldBossCard,
+            worldBossTitle,
+            savedConfig.autoWorldBoss == true,
+            function(enabled)
+                savedConfig.autoWorldBoss = enabled
+                worldBossLoopId = worldBossLoopId + 1
+                local thisLoop = worldBossLoopId
+                if not enabled then
+                    returnWorldBossToOriginal()
+                    setWorldBossStatus("Stopped")
+                    return
+                end
+
+                worldBossOriginalCFrame = nil
+                task.spawn(function()
+                    local function isWorldBossActive()
+                        return savedConfig.autoWorldBoss == true and worldBossLoopId == thisLoop
+                            and worldBossCard.Parent ~= nil
+                    end
+
+                    local originalRoot = getWorldBossCharacterRoot()
+                    if not originalRoot then
+                        setWorldBossStatus("Waiting for character", Color3.fromRGB(240, 170, 80))
+                        repeat task.wait(0.5); originalRoot = getWorldBossCharacterRoot()
+                        until originalRoot or not isWorldBossActive()
+                    end
+                    if not isWorldBossActive() then return end
+                    worldBossOriginalCFrame = originalRoot.CFrame
+
+                    if not teleportWorldBossToIsland() then
+                        setWorldBossStatus("Island or character not found", Color3.fromRGB(240, 110, 110))
+                        return
+                    end
+                    task.wait(0.5)
+                    local timerSeconds = parseWorldBossTimer(getWorldBossTimerObject())
+                    returnWorldBossToOriginal()
+                    if timerSeconds == nil then
+                        setWorldBossStatus("Timer unavailable; retrying", Color3.fromRGB(240, 170, 80))
+                    end
+
+                    while isWorldBossActive() do
+                        local timerObject = getWorldBossTimerObject()
+                        timerSeconds = parseWorldBossTimer(timerObject)
+                        if timerSeconds == nil then
+                            setWorldBossStatus("Waiting for spawn timer", Color3.fromRGB(240, 170, 80))
+                            task.wait(1)
+                        elseif timerSeconds > 0 then
+                            setWorldBossStatus("Next spawn: " .. formatWorldBossTime(timerSeconds))
+                            task.wait(1)
+                        else
+                            setWorldBossStatus("Spawn timer ended; checking island", Theme.Accent)
+                            if not teleportWorldBossToIsland() then
+                                setWorldBossStatus("Could not reach World Boss island", Color3.fromRGB(240, 110, 110))
+                                task.wait(2)
+                            else
+                                local foundEnemy = false
+                                -- Allow up to 10 seconds for the spawned enemy to appear.
+                                for attempt = 1, 20 do
+                                    if not isWorldBossActive() then break end
+                                    local nearbyCount = countNearbyWorldBossEnemies()
+                                    if nearbyCount > 0 then
+                                        foundEnemy = true
+                                        setWorldBossStatus("Enemy nearby (" .. nearbyCount .. "); fighting", Theme.Accent)
+                                        break
+                                    end
+                                    setWorldBossStatus("Waiting for enemy nearby (0/200 studs)")
+                                    task.wait(0.5)
+                                end
+
+                                if foundEnemy then
+                                    while isWorldBossActive() and countNearbyWorldBossEnemies() > 0 do
+                                        setWorldBossStatus("Fighting; enemies nearby: " .. countNearbyWorldBossEnemies(),
+                                            Theme.Accent)
+                                        task.wait(0.5)
+                                    end
+                                    setWorldBossStatus("No enemy within 200 studs; returning", Color3.fromRGB(95, 220, 140))
+                                else
+                                    setWorldBossStatus("No enemy within 200 studs; returning", Color3.fromRGB(240, 170, 80))
+                                end
+                                returnWorldBossToOriginal()
+                                task.wait(1)
+                            end
+                        end
+                    end
+                    returnWorldBossToOriginal()
+                end)
+            end,
+            "autoWorldBoss"
+        )
+        setAutoWorldBoss(savedConfig.autoWorldBoss == true)
+
         local autoFarmEnabled = false
         local useM1Enabled = false
         local m1LoopId = 0
@@ -2385,7 +2593,7 @@ for index, name in ipairs(TabNames) do
                         error("Executor writefile API unavailable")
                     end
                     local filePath = AUTO_EXECUTE_FOLDER .. "/MoldyHub_CL_Exec.txt"
-                    local loader = 'loadstring(game:HttpGet("https://pastefy.app/6oT19oKG/raw"))()'
+                    local loader = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/CL.lua"))()'
                     environment.writefile(filePath, loader)
                     if type(environment.isfile) == "function" then
                         local exists = environment.isfile(filePath)
@@ -2409,213 +2617,6 @@ for index, name in ipairs(TabNames) do
             end)
         end)
 
-        -- World Boss automation: read the island timer, wait at the saved location,
-        -- then return to the island only when the timer expires.
-        local worldBossCard, worldBossTitle = CreateCard(left, "Auto World Boss", 280)
-        worldBossCard.LayoutOrder = -100
-        worldBossCard.Size = UDim2.new(1, 0, 0, 0)
-        local worldBossStatus = Create("TextLabel", {
-            Parent = worldBossCard,
-            Position = UDim2.fromOffset(12, 35),
-            Size = UDim2.new(1, -24, 0, 18),
-            BackgroundTransparency = 1,
-            Text = "Next spawn: --",
-            TextColor3 = Theme.Gray,
-            Font = Enum.Font.Gotham,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd
-        })
-        local worldBossLoopId = 0
-        local worldBossOriginalCFrame
-        local worldBossAtIsland = false
-
-        local function setWorldBossStatus(message, color)
-            if worldBossStatus and worldBossStatus.Parent then
-                worldBossStatus.Text = tostring(message)
-                worldBossStatus.TextColor3 = color or Theme.Gray
-            end
-        end
-
-        local function getWorldBossCharacterRoot()
-            local character = LocalPlayer.Character
-            local root = character and character:FindFirstChild("HumanoidRootPart")
-            if root and root:IsA("BasePart") then return root end
-            return nil
-        end
-
-        local function getWorldBossIsland()
-            local map = workspace:FindFirstChild("Map")
-            local islands = map and map:FindFirstChild("Islands")
-            return islands and islands:FindFirstChild("MIDNIGHTSON_ISLAND")
-        end
-
-        local function getWorldBossTimerObject()
-            local island = getWorldBossIsland()
-            local spawns = island and island:FindFirstChild("IslandSpawns")
-            local bossSpawns = spawns and spawns:FindFirstChild("BossSpawns")
-            local islandBoss = bossSpawns and bossSpawns:FindFirstChild("IslandBoss")
-            local spawnPoint = islandBoss and islandBoss:FindFirstChild("BossSpawnPoint")
-            local timerGui = spawnPoint and spawnPoint:FindFirstChild("WorldBossTimer")
-            return timerGui and timerGui:FindFirstChild("Timer")
-        end
-
-        local function parseWorldBossTimer(timerObject)
-            if not timerObject then return nil end
-            local raw
-            if timerObject:IsA("TextLabel") or timerObject:IsA("TextButton") or timerObject:IsA("TextBox") then
-                raw = timerObject.Text
-            elseif timerObject:IsA("ValueBase") then
-                raw = timerObject.Value
-            end
-            if type(raw) == "number" then return math.max(0, raw) end
-            if type(raw) ~= "string" then return nil end
-            raw = raw:gsub(",", ""):match("^%s*(.-)%s*$")
-            local numeric = tonumber(raw)
-            if numeric then return math.max(0, numeric) end
-            local parts = {}
-            for part in raw:gmatch("%d+") do table.insert(parts, tonumber(part)) end
-            if #parts == 2 then return parts[1] * 60 + parts[2] end
-            if #parts >= 3 then return parts[#parts - 2] * 3600 + parts[#parts - 1] * 60 + parts[#parts] end
-            return nil
-        end
-
-        local function formatWorldBossTime(seconds)
-            seconds = math.max(0, math.floor(seconds))
-            local hours = math.floor(seconds / 3600)
-            local minutes = math.floor((seconds % 3600) / 60)
-            local secs = seconds % 60
-            if hours > 0 then return string.format("%02d:%02d:%02d", hours, minutes, secs) end
-            return string.format("%02d:%02d", minutes, secs)
-        end
-
-        local function teleportWorldBossToIsland()
-            local island = getWorldBossIsland()
-            local root = getWorldBossCharacterRoot()
-            if not island or not root then return false end
-            local ok, pivot = pcall(function() return island:GetPivot() end)
-            if not ok then return false end
-            root.CFrame = pivot + Vector3.new(0, 4, 0)
-            worldBossAtIsland = true
-            return true
-        end
-
-        local function returnWorldBossToOriginal()
-            if not worldBossOriginalCFrame then return end
-            local root = getWorldBossCharacterRoot()
-            if root then root.CFrame = worldBossOriginalCFrame end
-            worldBossAtIsland = false
-        end
-
-        local function countNearbyWorldBossEnemies()
-            local root = getWorldBossCharacterRoot()
-            local enemies = workspace:FindFirstChild("Enemies")
-            if not root or not enemies then return 0 end
-            local count = 0
-            for _, enemy in ipairs(enemies:GetChildren()) do
-                if enemy:IsA("Model") then
-                    local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-                    local humanoid = enemy:FindFirstChildOfClass("Humanoid")
-                    if enemyRoot and enemyRoot:IsA("BasePart") and humanoid and humanoid.Health > 0
-                        and (enemyRoot.Position - root.Position).Magnitude <= 200 then
-                        count = count + 1
-                    end
-                end
-            end
-            return count
-        end
-
-        local setAutoWorldBoss = CreateCardHeaderToggle(
-            worldBossCard,
-            worldBossTitle,
-            savedConfig.autoWorldBoss == true,
-            function(enabled)
-                savedConfig.autoWorldBoss = enabled
-                worldBossLoopId = worldBossLoopId + 1
-                local thisLoop = worldBossLoopId
-                if not enabled then
-                    returnWorldBossToOriginal()
-                    setWorldBossStatus("Stopped")
-                    return
-                end
-
-                worldBossOriginalCFrame = nil
-                task.spawn(function()
-                    local function isWorldBossActive()
-                        return savedConfig.autoWorldBoss == true and worldBossLoopId == thisLoop
-                            and worldBossCard.Parent ~= nil
-                    end
-
-                    local originalRoot = getWorldBossCharacterRoot()
-                    if not originalRoot then
-                        setWorldBossStatus("Waiting for character", Color3.fromRGB(240, 170, 80))
-                        repeat task.wait(0.5); originalRoot = getWorldBossCharacterRoot()
-                        until originalRoot or not isWorldBossActive()
-                    end
-                    if not isWorldBossActive() then return end
-                    worldBossOriginalCFrame = originalRoot.CFrame
-
-                    if not teleportWorldBossToIsland() then
-                        setWorldBossStatus("Island or character not found", Color3.fromRGB(240, 110, 110))
-                        return
-                    end
-                    task.wait(0.5)
-                    local timerSeconds = parseWorldBossTimer(getWorldBossTimerObject())
-                    returnWorldBossToOriginal()
-                    if timerSeconds == nil then
-                        setWorldBossStatus("Timer unavailable; retrying", Color3.fromRGB(240, 170, 80))
-                    end
-
-                    while isWorldBossActive() do
-                        local timerObject = getWorldBossTimerObject()
-                        timerSeconds = parseWorldBossTimer(timerObject)
-                        if timerSeconds == nil then
-                            setWorldBossStatus("Waiting for spawn timer", Color3.fromRGB(240, 170, 80))
-                            task.wait(1)
-                        elseif timerSeconds > 0 then
-                            setWorldBossStatus("Next spawn: " .. formatWorldBossTime(timerSeconds))
-                            task.wait(1)
-                        else
-                            setWorldBossStatus("Spawn timer ended; checking island", Theme.Accent)
-                            if not teleportWorldBossToIsland() then
-                                setWorldBossStatus("Could not reach World Boss island", Color3.fromRGB(240, 110, 110))
-                                task.wait(2)
-                            else
-                                local foundEnemy = false
-                                -- Allow up to 10 seconds for the spawned enemy to appear.
-                                for attempt = 1, 20 do
-                                    if not isWorldBossActive() then break end
-                                    local nearbyCount = countNearbyWorldBossEnemies()
-                                    if nearbyCount > 0 then
-                                        foundEnemy = true
-                                        setWorldBossStatus("Enemy nearby (" .. nearbyCount .. "); fighting", Theme.Accent)
-                                        break
-                                    end
-                                    setWorldBossStatus("Waiting for enemy nearby (0/200 studs)")
-                                    task.wait(0.5)
-                                end
-
-                                if foundEnemy then
-                                    while isWorldBossActive() and countNearbyWorldBossEnemies() > 0 do
-                                        setWorldBossStatus("Fighting; enemies nearby: " .. countNearbyWorldBossEnemies(),
-                                            Theme.Accent)
-                                        task.wait(0.5)
-                                    end
-                                    setWorldBossStatus("No enemy within 200 studs; returning", Color3.fromRGB(95, 220, 140))
-                                else
-                                    setWorldBossStatus("No enemy within 200 studs; returning", Color3.fromRGB(240, 170, 80))
-                                end
-                                returnWorldBossToOriginal()
-                                task.wait(1)
-                            end
-                        end
-                    end
-                    returnWorldBossToOriginal()
-                end)
-            end,
-            "autoWorldBoss"
-        )
-        setAutoWorldBoss(savedConfig.autoWorldBoss == true)
 
     elseif index == 2 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
