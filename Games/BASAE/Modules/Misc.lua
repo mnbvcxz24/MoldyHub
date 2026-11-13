@@ -440,9 +440,15 @@ return function(Context)
     })
     local AnimalESPEnabled = false
     local AnimalESPObjects = {}
+    local AnimalESPPlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    -- Remove ESP instances left behind by a previous script run.
+    local PreviousAnimalESPFolder = AnimalESPPlayerGui:FindFirstChild("MoldyHub_BASAE_AnimalESP")
+    if PreviousAnimalESPFolder then
+        PreviousAnimalESPFolder:Destroy()
+    end
     local AnimalESPFolder = Instance.new("Folder")
     AnimalESPFolder.Name = "MoldyHub_BASAE_AnimalESP"
-    AnimalESPFolder.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    AnimalESPFolder.Parent = AnimalESPPlayerGui
 
     local function AnimalESPReadText(node)
         if not node then return nil end
