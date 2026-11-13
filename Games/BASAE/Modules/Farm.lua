@@ -4064,7 +4064,7 @@ return function(Context)
             local dropsFolder = workspace:FindFirstChild("EggGemDrops")
             local nearestGem, nearestPosition, nearestDistance
             if dropsFolder then
-                for _, gem in ipairs(dropsFolder:GetChildren()) do
+                for _, gem in ipairs(dropsFolder:GetDescendants()) do
                     if gem.Name == "Gems" and not VisitedGemDrops[gem] then
                         local position = GetGemDropPosition(gem)
                         if position then
@@ -4083,7 +4083,7 @@ return function(Context)
                 task.wait(0.4)
                 local hasNewGem = false
                 if dropsFolder and dropsFolder.Parent then
-                    for _, gem in ipairs(dropsFolder:GetChildren()) do
+                    for _, gem in ipairs(dropsFolder:GetDescendants()) do
                         if gem.Name == "Gems" and not VisitedGemDrops[gem]
                             and GetGemDropPosition(gem) then
                             hasNewGem = true
@@ -4097,6 +4097,7 @@ return function(Context)
                 end
             else
                 local moveDeadline = os.clock() + 20
+                local lastMoveToAt = 0
                 while nearestGem.Parent and AutoBreakEnabled
                     and startGeneration == AutoBreakGeneration
                     and not Runtime.Stopped and not ScriptShuttingDown
@@ -4106,8 +4107,9 @@ return function(Context)
                     local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
                     if offset.Magnitude <= 4 then break end
                     if os.clock() >= moveDeadline then break end
-                    if offset.Magnitude > 0.05 then
-                        humanoid:Move(offset.Unit, false)
+                    if os.clock() - lastMoveToAt >= 1 then
+                        lastMoveToAt = os.clock()
+                        humanoid:MoveTo(position)
                     end
                     if os.clock() - lastProgressUpdate >= 1 then
                         lastProgressUpdate = os.clock()
