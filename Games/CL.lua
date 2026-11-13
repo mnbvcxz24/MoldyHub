@@ -213,13 +213,16 @@ end
 
 -- Install reconnect execution immediately; it must not depend on opening Settings.
 local listenerEnv = environment
-if listenerEnv.MoldyHubCLKeepTeleportListenerPlayer ~= LocalPlayer then
+if true then
+    if listenerEnv.MoldyHubCLKeepTeleportListenerConnection then
+        pcall(function() listenerEnv.MoldyHubCLKeepTeleportListenerConnection:Disconnect() end)
+        listenerEnv.MoldyHubCLKeepTeleportListenerConnection = nil
+    end
     local teleportQueue = environment.queue_on_teleport or environment.queueonteleport
         or queue_on_teleport or queueonteleport
     if type(teleportQueue) == "function" then
-        listenerEnv.MoldyHubCLKeepTeleportListenerPlayer = LocalPlayer
         local teleportQueued = false
-        LocalPlayer.OnTeleport:Connect(function()
+        listenerEnv.MoldyHubCLKeepTeleportListenerConnection = LocalPlayer.OnTeleport:Connect(function()
             if environment.CLMoldyHubRunToken ~= runToken then return end
             if teleportQueued then return end
             local raw = readConfigFile(KEEP_MOLDYHUB_PATH)
