@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.48"
+local deployver = "CL ver 2.49"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -1012,7 +1012,7 @@ for index, name in ipairs(TabNames) do
                                 else
                                     setWorldBossStatus("No enemy within 200 studs; returning", Color3.fromRGB(240, 170, 80))
                                 end
-                                if not returnWorldBossToOriginal(true) then
+                                if not returnWorldBossToOriginal() then
                                     setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
                                     task.wait(2)
                                 end
@@ -1020,7 +1020,7 @@ for index, name in ipairs(TabNames) do
                             end
                         end
                     end
-                    if worldBossOriginalCFrame and not returnWorldBossToOriginal(true) then
+                    if worldBossOriginalCFrame and not returnWorldBossToOriginal() then
                         setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
                     end
                 end)
