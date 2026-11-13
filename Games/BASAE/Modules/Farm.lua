@@ -4359,25 +4359,8 @@ return function(Context)
                 local hpWatchdogTarget = target
                 local hpWatchdogStarted = os.clock()
                 task.spawn(function()
-                    local lastPickaxeCheck = 0
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                         and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
-                        if os.clock() - lastPickaxeCheck >= 0.5 then
-                            lastPickaxeCheck = os.clock()
-                            local activeCharacter = LocalPlayer.Character
-                            local pickaxeEquipped = false
-                            if activeCharacter then
-                                for _, child in ipairs(activeCharacter:GetChildren()) do
-                                    if child:IsA("Tool") and child.Name:lower() == "pickaxe" then
-                                        pickaxeEquipped = true
-                                        break
-                                    end
-                                end
-                            end
-                            if not pickaxeEquipped then
-                                EquipHotbarOne()
-                            end
-                        end
                         local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt)
                         if noDamageFor >= 3 then
                             local currentPlayer = LocalPlayer
