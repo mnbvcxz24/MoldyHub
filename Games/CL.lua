@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.39"
+local deployver = "CL ver 2.40"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -2384,7 +2384,7 @@ for index, name in ipairs(TabNames) do
                     if type(environment.writefile) ~= "function" then
                         error("Executor writefile API unavailable")
                     end
-                    local filePath = AUTO_EXECUTE_FOLDER .. "/AutoSpire.lua"
+                    local filePath = AUTO_EXECUTE_FOLDER .. "/MoldyHub_CL_Exec.txt"
                     local loader = 'loadstring(game:HttpGet("https://pastefy.app/6oT19oKG/raw"))()'
                     environment.writefile(filePath, loader)
                     if type(environment.isfile) == "function" then
@@ -2397,7 +2397,7 @@ for index, name in ipairs(TabNames) do
                     end
                 end)
                 if ok then
-                    autoExecuteStatus.Text = "Created MoldyHub/autoexec/AutoSpire.lua"
+                    autoExecuteStatus.Text = "Created MoldyHub/autoexec/MoldyHub_CL_Exec.txt"
                     autoExecuteStatus.TextColor3 = Color3.fromRGB(95, 220, 140)
                     createAutoSpireButton.Text = "Recreate Auto Spire File"
                 else
