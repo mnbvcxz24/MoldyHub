@@ -131,23 +131,35 @@ return function(Context)
     end
 
     local function buildEggPositions(hitbox, placed, halfX, halfZ, step)
-        -- Scan coarse-to-fine so tight gaps missed by the broad grid are checked too.
+        -- Include both edges exactly; the previous incremental loop could leave
+        -- a final strip unchecked whenever the plot width was not divisible by step.
         step = step or 2.5
         local edgeX = math.max(0, hitbox.Size.X * 0.5 - halfX - 0.25)
         local edgeZ = math.max(0, hitbox.Size.Z * 0.5 - halfZ - 0.25)
         local y = hitbox.Position.Y + hitbox.Size.Y * 0.5
         if #placed > 0 then y = placed[1].Position.Y end
 
+        local function buildAxis(edge)
+            local values = {}
+            if edge <= 0.01 then
+                values[1] = 0
+                return values
+            end
+            local segments = math.max(1, math.ceil((edge * 2) / step))
+            for index = 0, segments do
+                table.insert(values, -edge + (edge * 2) * (index / segments))
+            end
+            return values
+        end
+
         local positions = {}
-        local x = -edgeX
-        while x <= edgeX + 0.01 do
-            local z = -edgeZ
-            while z <= edgeZ + 0.01 do
+        local xValues = buildAxis(edgeX)
+        local zValues = buildAxis(edgeZ)
+        for _, x in ipairs(xValues) do
+            for _, z in ipairs(zValues) do
                 local worldPosition = hitbox.CFrame:PointToWorldSpace(Vector3.new(x, 0, z))
                 table.insert(positions, Vector3.new(worldPosition.X, y, worldPosition.Z))
-                z += step
             end
-            x += step
         end
         return positions, step
     end
@@ -159,8 +171,8 @@ return function(Context)
                 local occupied = false
                 for _, record in ipairs(placed) do
                     local localPosition = record.CFrame:PointToObjectSpace(position)
-                    local occupiedHalfX = record.Size.X * 0.5 + halfX + 0.2
-                    local occupiedHalfZ = record.Size.Z * 0.5 + halfZ + 0.2
+                    local occupiedHalfX = record.Size.X * 0.5 + halfX + 0.05
+                    local occupiedHalfZ = record.Size.Z * 0.5 + halfZ + 0.05
                     if math.abs(localPosition.X) < occupiedHalfX
                         and math.abs(localPosition.Z) < occupiedHalfZ then
                         occupied = true
@@ -321,7 +333,7 @@ return function(Context)
                 -- Each egg gets a fresh scan because its footprint may differ.
                 -- Failed positions remain excluded while the grid gets progressively finer.
                 local attempted = {}
-                local scanSteps = {2.5, 1.5, 1.0}
+                local scanSteps = {2.5, 1.0, 0.5}
                 local scanStepIndex = 1
                 while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration and not eggPlaced do
                     plot, hitbox = getMyEggPlot()
