@@ -2285,119 +2285,36 @@ return function(Context)
         local attribute = pickup:GetAttribute("Rarity")
         return attribute and tostring(attribute) or nil
     end
-    function GetPickupMutation(pickup)
-        if not pickup then return "No Mutation" end
+    local function GetVisibleMutationLabel(pickup)
+        if not pickup then return nil end
 
-        local function HasMutationValue(value)
-            if value == nil then return false end
-            if type(value) == "boolean" then return value end
-            local text = tostring(value):match("^%s*(.-)%s*$"):lower()
-            return text ~= "" and text ~= "false" and text ~= "none" and text ~= "nil"
+        -- Mutation status is determined by the overhead UI visibility.
+        -- Its Text may show "Gold" even when the animal is not mutated,
+        -- so never use the text alone to detect a mutation.
+        local rootPart = pickup:FindFirstChild("RootPart")
+        local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
+        local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+        local mutationLabel = overhead and overhead:FindFirstChild("Mutation")
+
+        if mutationLabel and mutationLabel:IsA("GuiObject") and mutationLabel.Visible then
+            return mutationLabel
         end
-
-        -- Variant may be stored on the pickup wrapper or on its nested animal model.
-        local variant = pickup:GetAttribute("Variant")
-        if HasMutationValue(variant) then return "Mutated" end
-
-        for _, node in ipairs(pickup:GetDescendants()) do
-            if node:GetAttribute("Variant") ~= nil and HasMutationValue(node:GetAttribute("Variant")) then
-                return "Mutated"
-            end
-
-            -- The animal model can expose its mutations through an AuraMutations
-            -- container instead of the pickup wrapper's Variant attribute.
-            if node.Name == "AuraMutations" then
-                if node:IsA("ValueBase") then
-                    if HasMutationValue(node.Value) then return "Mutated" end
-                else
-                    for attributeName, attributeValue in pairs(node:GetAttributes()) do
-                        if HasMutationValue(attributeValue) then return "Mutated" end
-                    end
-                    for _, mutation in ipairs(node:GetDescendants()) do
-                        if mutation:IsA("ValueBase") then
-                            if HasMutationValue(mutation.Value) then return "Mutated" end
-                        elseif mutation:IsA("TextLabel") or mutation:IsA("TextButton") or mutation:IsA("TextBox") then
-                            if HasMutationValue(mutation.Text) then return "Mutated" end
-                        else
-                            for attributeName, attributeValue in pairs(mutation:GetAttributes()) do
-                                if HasMutationValue(attributeValue) then return "Mutated" end
-                            end
-                        end
-                    end
-                    -- Named mutation entries are commonly represented by empty
-                    -- marker folders/instances, so their presence also counts.
-                    if #node:GetChildren() > 0 then return "Mutated" end
-                end
-            end
-        end
-
-        return "No Mutation"
+        return nil
     end
+
+    function GetPickupMutation(pickup)
+        return GetVisibleMutationLabel(pickup) and "Mutated" or "No Mutation"
+    end
+
     function GetPickupMutationNames(pickup)
-        if not pickup then return "No Mutation" end
-        local names = {}
-        local seen = {}
-        local function addName(value)
-            if value == nil then return end
-            local text = tostring(value):match("^%s*(.-)%s*$")
-            if text == "" or text:lower() == "false" or text:lower() == "none" or text:lower() == "nil" then
-                return
-            end
-            if not seen[text:lower()] then
-                seen[text:lower()] = true
-                table.insert(names, text)
-            end
+        local mutationLabel = GetVisibleMutationLabel(pickup)
+        if not mutationLabel then return "No Mutation" end
+
+        local mutationName = ""
+        if mutationLabel:IsA("TextLabel") or mutationLabel:IsA("TextButton") or mutationLabel:IsA("TextBox") then
+            mutationName = tostring(mutationLabel.Text or ""):match("^%s*(.-)%s*$")
         end
-
-        addName(pickup:GetAttribute("Variant"))
-        for _, node in ipairs(pickup:GetDescendants()) do
-            local variant = node:GetAttribute("Variant")
-            if variant ~= nil then addName(variant) end
-
-            if node.Name == "AuraMutations" then
-                if node:IsA("ValueBase") then
-                    if node:IsA("BoolValue") then
-                        if node.Value then addName(node.Name) end
-                    else
-                        addName(node.Value)
-                    end
-                else
-                    for attributeName, attributeValue in pairs(node:GetAttributes()) do
-                        if type(attributeValue) == "boolean" then
-                            if attributeValue then addName(attributeName) end
-                        elseif attributeValue ~= nil then
-                            addName(attributeName)
-                        end
-                    end
-                    for _, mutation in ipairs(node:GetDescendants()) do
-                        if mutation:IsA("BoolValue") then
-                            if mutation.Value then addName(mutation.Name) end
-                        elseif mutation:IsA("ValueBase") then
-                            addName(mutation.Value)
-                        elseif mutation:IsA("TextLabel") or mutation:IsA("TextButton") or mutation:IsA("TextBox") then
-                            addName(mutation.Text)
-                        else
-                            for attributeName, attributeValue in pairs(mutation:GetAttributes()) do
-                                if type(attributeValue) == "boolean" then
-                                    if attributeValue then addName(attributeName) end
-                                elseif attributeValue ~= nil then
-                                    addName(attributeName)
-                                end
-                            end
-                            if #mutation:GetChildren() == 0 then
-                                addName(mutation.Name)
-                            end
-                        end
-                    end
-                    if #node:GetChildren() > 0 and #names == 0 then
-                        for _, child in ipairs(node:GetChildren()) do addName(child.Name) end
-                    end
-                end
-            end
-        end
-
-        table.sort(names)
-        return #names > 0 and table.concat(names, ", ") or "No Mutation"
+        return mutationName ~= "" and mutationName or "Mutated"
     end
     function UpdatePickupMutationAttributes(pickup)
         if not pickup or not pickup.Parent then return end
