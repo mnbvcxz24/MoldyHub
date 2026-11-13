@@ -31,8 +31,6 @@ return function(Context)
     local TitanicPriorityEnabled = false
     local CollectGemsEnabled = type(SavedConfig.Farm) == "table" and SavedConfig.Farm.CollectGems == true
     local VisitedGemDrops = setmetatable({}, {__mode = "k"})
-    local GemCollectionPending = false
-    local GemCollectionBusy = false
     local AutoBreakControlLayout = {
         ZoneY = 42,
         EggY = 81,
@@ -2215,8 +2213,6 @@ return function(Context)
             .. " | health=" .. tostring(health))
         if numericHealth and numericHealth <= 0 then
             TouchAutomationProgress("EGG_BROKEN")
-            GemCollectionPending = true
-            table.clear(VisitedGemDrops)
             CompletedEggs[target] = true
             WaitingForPickup = false
             ArrivedAtTarget = false
@@ -4016,131 +4012,41 @@ return function(Context)
         return part and part.Position or nil
     end
 
-    local function CollectPendingGemDrops(startGeneration)
-        if not GemCollectionPending then return true end
-        if not CollectGemsEnabled then
-            GemCollectionPending = false
-            table.clear(VisitedGemDrops)
+    local function MoveTowardGemDrop(root, humanoid)
+        if not CollectGemsEnabled or not AutoBreakEnabled or PickupRequested or ReturningAfterPickup then
+            return false
+        end
+        local dropsFolder = workspace:FindFirstChild("EggGemDrops")
+        if not dropsFolder then return false end
+
+        local nearestGem, nearestPosition, nearestDistance
+        for _, gem in ipairs(dropsFolder:GetChildren()) do
+            if gem.Name == "Gems" and not VisitedGemDrops[gem] then
+                local position = GetGemDropPosition(gem)
+                if position then
+                    local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
+                    local distance = offset.Magnitude
+                    if not nearestDistance or distance < nearestDistance then
+                        nearestGem, nearestPosition, nearestDistance = gem, position, distance
+                    end
+                end
+            end
+        end
+
+        if not nearestGem then return false end
+        if nearestDistance <= 5 then
+            VisitedGemDrops[nearestGem] = true
+            humanoid:Move(Vector3.zero, false)
+            TouchAutomationProgress("AUTO_BREAK:GEM_REACHED")
+            SetTrackerStatus("Reached gem drop; resuming Auto Break.")
             return true
         end
-        if GemCollectionBusy then return false end
-        GemCollectionBusy = true
 
-        -- Give Auto Steal a short window to claim the animal spawned by the broken egg.
-        task.wait(0.5)
-        if PickupRequested or ReturningAfterPickup or WaitingForPickup then
-            GemCollectionBusy = false
-            return false
+        local offset = Vector3.new(nearestPosition.X - root.Position.X, 0, nearestPosition.Z - root.Position.Z)
+        if offset.Magnitude > 0.05 then
+            humanoid:Move(offset.Unit, false)
         end
-
-        local character = LocalPlayer.Character
-        local deadline = os.clock() + 10
-        while not character and os.clock() < deadline
-            and AutoBreakEnabled and startGeneration == AutoBreakGeneration
-            and not Runtime.Stopped and not ScriptShuttingDown do
-            task.wait(0.1)
-            character = LocalPlayer.Character
-        end
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        local root = character and character:FindFirstChild("HumanoidRootPart")
-        if not humanoid or not root then
-            GemCollectionBusy = false
-            SetTrackerStatus("Gem collection paused: character parts are unavailable; it will retry before the next egg.")
-            return false
-        end
-
-        SetTrackerStatus("Egg broken; collecting every nearby EggGemDrops gem before selecting the next egg.")
-        local lastProgressUpdate = 0
-        while GemCollectionPending and AutoBreakEnabled
-            and startGeneration == AutoBreakGeneration
-            and not Runtime.Stopped and not ScriptShuttingDown do
-            if PickupRequested or ReturningAfterPickup or WaitingForPickup then
-                humanoid:Move(Vector3.zero, false)
-                GemCollectionBusy = false
-                SetTrackerStatus("Gem collection paused while Auto Steal finishes; it will resume afterward.")
-                return false
-            end
-
-            local dropsFolder = workspace:FindFirstChild("EggGemDrops")
-            local nearestGem, nearestPosition, nearestDistance
-            if dropsFolder then
-                for _, gem in ipairs(dropsFolder:GetDescendants()) do
-                    if gem.Name == "Gems" and not VisitedGemDrops[gem] then
-                        local position = GetGemDropPosition(gem)
-                        if position then
-                            local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
-                            local distance = offset.Magnitude
-                            if not nearestDistance or distance < nearestDistance then
-                                nearestGem, nearestPosition, nearestDistance = gem, position, distance
-                            end
-                        end
-                    end
-                end
-            end
-
-            if not nearestGem then
-                humanoid:Move(Vector3.zero, false)
-                task.wait(0.4)
-                local hasNewGem = false
-                if dropsFolder and dropsFolder.Parent then
-                    for _, gem in ipairs(dropsFolder:GetDescendants()) do
-                        if gem.Name == "Gems" and not VisitedGemDrops[gem]
-                            and GetGemDropPosition(gem) then
-                            hasNewGem = true
-                            break
-                        end
-                    end
-                end
-                if not hasNewGem then
-                    GemCollectionPending = false
-                    break
-                end
-            else
-                local moveDeadline = os.clock() + 20
-                local lastMoveToAt = 0
-                while nearestGem.Parent and AutoBreakEnabled
-                    and startGeneration == AutoBreakGeneration
-                    and not Runtime.Stopped and not ScriptShuttingDown
-                    and not PickupRequested and not ReturningAfterPickup and not WaitingForPickup do
-                    local position = GetGemDropPosition(nearestGem)
-                    if not position then break end
-                    local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
-                    if offset.Magnitude <= 4 then break end
-                    if os.clock() >= moveDeadline then break end
-                    if os.clock() - lastMoveToAt >= 1 then
-                        lastMoveToAt = os.clock()
-                        humanoid:MoveTo(position)
-                    end
-                    if os.clock() - lastProgressUpdate >= 1 then
-                        lastProgressUpdate = os.clock()
-                        TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEMS")
-                    end
-                    task.wait(0.05)
-                end
-                humanoid:Move(Vector3.zero, false)
-                if not nearestGem.Parent then
-                    VisitedGemDrops[nearestGem] = true
-                else
-                    local finalPosition = GetGemDropPosition(nearestGem)
-                    local finalOffset = finalPosition and Vector3.new(
-                        finalPosition.X - root.Position.X, 0, finalPosition.Z - root.Position.Z
-                    )
-                    if finalOffset and finalOffset.Magnitude <= 5 then
-                        VisitedGemDrops[nearestGem] = true
-                        SetTrackerStatus("Reached a gem drop; checking for remaining gems.")
-                        task.wait(0.35)
-                    elseif os.clock() >= moveDeadline then
-                        VisitedGemDrops[nearestGem] = true
-                        SetTrackerStatus("Skipped an unreachable gem drop after 20 seconds; continuing to the remaining drops.")
-                    end
-                end
-            end
-        end
-
-        humanoid:Move(Vector3.zero, false)
-        GemCollectionBusy = false
-        if GemCollectionPending then return false end
-        SetTrackerStatus("Gem collection complete; selecting the next egg.")
+        TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEM")
         return true
     end
 
@@ -4164,7 +4070,6 @@ return function(Context)
             SetTrackerStatus("Auto Break start ignored: broken target is waiting for its AnimalPickups entry.")
             return
         end
-        if GemCollectionPending and not CollectPendingGemDrops(startGeneration) then return end
         local lockedTarget = CurrentTarget
         if lockedTarget and IsEggConfirmedComplete(lockedTarget) then
             CompletedEggs[lockedTarget] = true
@@ -4322,7 +4227,8 @@ return function(Context)
                         return
                     end
 
-        
+                    if MoveTowardGemDrop(root, humanoid) then return end
+
                     if os.clock() - lastEggScan >= 0.35 then
                         lastEggScan = os.clock()
                         local spawnedEggFound = false
@@ -4454,6 +4360,7 @@ return function(Context)
                 end
                 return
             end
+            if MoveTowardGemDrop(root, humanoid) then return end
             if CurrentTarget ~= target or not IsEggAvailable(target) or not character.Parent
             or humanoid.Health <= 0 then
                 if CurrentTarget == target and not IsEggAvailable(target) then
