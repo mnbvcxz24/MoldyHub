@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.38"
+local deployver = "CL ver 2.39"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -2305,10 +2305,10 @@ for index, name in ipairs(TabNames) do
         end)
         setAntiAfk(savedConfig.antiAfk == true)
 
-        local autoExecuteCard = CreateCard(left, "Auto Execute", 70)
+        local autoExecuteCard = CreateCard(left, "Auto Execute", 102)
         local autoExecuteStatus = Create("TextLabel", {
             Parent = autoExecuteCard,
-            Position = UDim2.fromOffset(12, 61),
+            Position = UDim2.fromOffset(12, 82),
             Size = UDim2.new(1, -24, 0, 14),
             BackgroundTransparency = 1,
             Text = "Reconnect execution is disabled",
@@ -2360,6 +2360,54 @@ for index, name in ipairs(TabNames) do
             end
         end)
         setKeepMoldyHub(keepMoldyHubEnabled)
+
+        local createAutoSpireButton = Create("TextButton", {
+            Parent = autoExecuteCard,
+            Position = UDim2.fromOffset(12, 34),
+            Size = UDim2.new(1, -24, 0, 24),
+            BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0,
+            Text = "Create Auto Spire File",
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 9,
+            AutoButtonColor = true
+        })
+        Corner(createAutoSpireButton, 5)
+        Stroke(createAutoSpireButton, Theme.Border, 1)
+        createAutoSpireButton.MouseButton1Click:Connect(function()
+            createAutoSpireButton.Active = false
+            createAutoSpireButton.Text = "Creating..."
+            task.spawn(function()
+                local ok, err = pcall(function()
+                    ensureAutoExecuteFolders()
+                    if type(environment.writefile) ~= "function" then
+                        error("Executor writefile API unavailable")
+                    end
+                    local filePath = AUTO_EXECUTE_FOLDER .. "/AutoSpire.lua"
+                    local loader = 'loadstring(game:HttpGet("https://pastefy.app/6oT19oKG/raw"))()'
+                    environment.writefile(filePath, loader)
+                    if type(environment.isfile) == "function" then
+                        local exists = environment.isfile(filePath)
+                        if not exists then error("Auto Spire file was not created") end
+                    end
+                    if type(environment.readfile) == "function" then
+                        local saved = environment.readfile(filePath)
+                        if saved ~= loader then error("Auto Spire file verification failed") end
+                    end
+                end)
+                if ok then
+                    autoExecuteStatus.Text = "Created MoldyHub/autoexec/AutoSpire.lua"
+                    autoExecuteStatus.TextColor3 = Color3.fromRGB(95, 220, 140)
+                    createAutoSpireButton.Text = "Recreate Auto Spire File"
+                else
+                    autoExecuteStatus.Text = "Auto Spire file failed: " .. tostring(err):sub(1, 70)
+                    autoExecuteStatus.TextColor3 = Color3.fromRGB(240, 110, 110)
+                    createAutoSpireButton.Text = "Retry Create Auto Spire File"
+                end
+                createAutoSpireButton.Active = true
+            end)
+        end)
 
     elseif index == 2 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
