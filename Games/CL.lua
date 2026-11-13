@@ -235,7 +235,7 @@ do
             teleportQueued = true
             local source
             if shouldResumeSpire then
-                source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/CL.lua"))()'
+                source = 'loadstring(game:HttpGet("https://pastefy.app/6oT19oKG/raw"))()'
             else
                 source = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/MoldyHubLoader"))()'
             end
@@ -2593,7 +2593,7 @@ for index, name in ipairs(TabNames) do
                         error("Executor writefile API unavailable")
                     end
                     local filePath = AUTO_EXECUTE_FOLDER .. "/MoldyHub_CL_Exec.txt"
-                    local loader = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/CL.lua"))()'
+                    local loader = 'loadstring(game:HttpGet("https://pastefy.app/6oT19oKG/raw"))()'
                     environment.writefile(filePath, loader)
                     if type(environment.isfile) == "function" then
                         local exists = environment.isfile(filePath)
