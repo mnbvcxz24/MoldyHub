@@ -870,10 +870,41 @@ for index, name in ipairs(TabNames) do
         end
 
         local function returnWorldBossToOriginal()
-            if not worldBossOriginalCFrame then return end
-            local root = getWorldBossCharacterRoot()
-            if root then root.CFrame = worldBossOriginalCFrame end
-            worldBossAtIsland = false
+            if not worldBossOriginalCFrame then
+                worldBossAtIsland = false
+                return true
+            end
+
+            -- Character can be temporarily missing while Roblox respawns it.
+            -- Keep the saved CFrame until the return teleport is confirmed.
+            for attempt = 1, 20 do
+                local character = LocalPlayer.Character
+                local root = getWorldBossCharacterRoot()
+
+                if character and root then
+                    local targetCFrame = worldBossOriginalCFrame
+                    local moved = pcall(function()
+                        character:PivotTo(targetCFrame)
+                        root.CFrame = targetCFrame
+                    end)
+
+                    if moved then
+                        task.wait(0.2)
+                        local currentRoot = getWorldBossCharacterRoot()
+                        if currentRoot and (currentRoot.Position - targetCFrame.Position).Magnitude <= 12 then
+                            worldBossAtIsland = false
+                            worldBossOriginalCFrame = nil
+                            return true
+                        end
+                    end
+                end
+
+                task.wait(0.5)
+            end
+
+            -- Do not discard the return location; a later retry can still use it.
+            worldBossAtIsland = true
+            return false
         end
 
         local function countNearbyWorldBossEnemies()
@@ -903,8 +934,15 @@ for index, name in ipairs(TabNames) do
                 worldBossLoopId = worldBossLoopId + 1
                 local thisLoop = worldBossLoopId
                 if not enabled then
-                    returnWorldBossToOriginal()
-                    setWorldBossStatus("Stopped")
+                    setWorldBossStatus("Returning to saved position", Theme.Accent)
+                    task.spawn(function()
+                        local returned = returnWorldBossToOriginal()
+                        if returned then
+                            setWorldBossStatus("Stopped")
+                        else
+                            setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
+                        end
+                    end)
                     return
                 end
 
@@ -974,12 +1012,17 @@ for index, name in ipairs(TabNames) do
                                 else
                                     setWorldBossStatus("No enemy within 200 studs; returning", Color3.fromRGB(240, 170, 80))
                                 end
-                                returnWorldBossToOriginal()
+                                if not returnWorldBossToOriginal() then
+                                    setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
+                                    task.wait(2)
+                                end
                                 task.wait(1)
                             end
                         end
                     end
-                    returnWorldBossToOriginal()
+                    if worldBossOriginalCFrame and not returnWorldBossToOriginal() then
+                        setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
+                    end
                 end)
             end,
             "autoWorldBoss"
