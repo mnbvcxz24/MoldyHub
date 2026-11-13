@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.40"
+local deployver = "CL ver 2.41"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -2367,7 +2367,7 @@ for index, name in ipairs(TabNames) do
             Size = UDim2.new(1, -24, 0, 24),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
-            Text = "Create Auto Spire File",
+            Text = "Create MoldyHub CL Exec File",
             TextColor3 = Theme.Text,
             Font = Enum.Font.GothamMedium,
             TextSize = 9,
@@ -2399,11 +2399,11 @@ for index, name in ipairs(TabNames) do
                 if ok then
                     autoExecuteStatus.Text = "Created MoldyHub/autoexec/MoldyHub_CL_Exec.txt"
                     autoExecuteStatus.TextColor3 = Color3.fromRGB(95, 220, 140)
-                    createAutoSpireButton.Text = "Recreate Auto Spire File"
+                    createAutoSpireButton.Text = "Recreate MoldyHub CL Exec File"
                 else
                     autoExecuteStatus.Text = "Auto Spire file failed: " .. tostring(err):sub(1, 70)
                     autoExecuteStatus.TextColor3 = Color3.fromRGB(240, 110, 110)
-                    createAutoSpireButton.Text = "Retry Create Auto Spire File"
+                    createAutoSpireButton.Text = "Retry Create MoldyHub CL Exec File"
                 end
                 createAutoSpireButton.Active = true
             end)
