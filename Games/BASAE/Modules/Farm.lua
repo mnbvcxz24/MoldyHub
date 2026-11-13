@@ -4452,7 +4452,6 @@ return function(Context)
                 end
                 return
             end
-            if MoveTowardGemDrop(root, humanoid) then return end
             if CurrentTarget ~= target or not IsEggAvailable(target) or not character.Parent
             or humanoid.Health <= 0 then
                 if CurrentTarget == target and not IsEggAvailable(target) then
