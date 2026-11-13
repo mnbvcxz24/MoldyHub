@@ -69,6 +69,7 @@ return function(Context)
     local AutoPickupEnabled = false
     local AnimalESPEnabled = false
     local RefreshAnimalESP
+    local AnimalPickups
     local CurrentTarget, ArrivedAtTarget, WaitingForPickup
     local PickupRequested, ReturningAfterPickup, FlingRecoveryActive, ScriptShuttingDown
     local PickupMonitorSeen = setmetatable({}, {__mode = "k"})
@@ -1895,7 +1896,7 @@ return function(Context)
         return true
     end
     local HitEvent = game:GetService("ReplicatedStorage"):WaitForChild("EggHitConfirmed")
-    local AnimalPickups = workspace:FindFirstChild("AnimalPickups")
+    AnimalPickups = workspace:FindFirstChild("AnimalPickups")
     local function GetSafeZonePosition()
         local build = workspace:FindFirstChild("Build")
         local hitboxes = build and build:FindFirstChild("ZoneHitboxes")
