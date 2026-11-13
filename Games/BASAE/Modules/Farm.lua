@@ -65,10 +65,8 @@ return function(Context)
     if AutoBreakTitle then AutoBreakTitle.Size = UDim2.new(1, -78, 0, 22) end
     local AutoPickupCard = CreateCard(AutoRow, "Auto Steal", "")
     AutoPickupCard.Position = UDim2.new(0, 0, 0, 0)
-    AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 366)
+    AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 340)
     local AutoPickupEnabled = false
-    local AnimalESPEnabled = false
-    local RefreshAnimalESP
     local AnimalPickups
     local CurrentTarget, ArrivedAtTarget, WaitingForPickup
     local PickupRequested, ReturningAfterPickup, FlingRecoveryActive, ScriptShuttingDown
@@ -501,15 +499,6 @@ return function(Context)
         if defaultEnabled == true then SetEnabled(true) end
         return Checkbox
     end
-    CreatePickupCheckbox(AutoPickupCard, "Animal ESP", 337, function(enabled)
-        AnimalESPEnabled = enabled
-        if RefreshAnimalESP and AnimalPickups and AnimalPickups.Parent then
-            for _, animal in ipairs(AnimalPickups:GetChildren()) do
-                RefreshAnimalESP(animal)
-            end
-        end
-        AddDebugLog("[Animal ESP] " .. (enabled and "ON." or "OFF."))
-    end, false)
     local HighestCashEnabled = SavedFarmConfig.HighestCash == true
     local HighestCashToggle = CreatePickupCheckbox(AutoPickupCard, "Steal above your lowest $/s", 205, function(enabled)
         HighestCashEnabled = enabled
@@ -1911,55 +1900,53 @@ return function(Context)
         return ok and pivot and pivot.Position or nil
     end
     function EquipHotbarOne()
-        local Players = game:GetService("Players")
-        local currentPlayer = LocalPlayer or Players.LocalPlayer
-        if not currentPlayer then
-            SetTrackerStatus("Hotbar 1 select failed: LocalPlayer unavailable.")
+        local currentPlayer = LocalPlayer or game:GetService("Players").LocalPlayer
+        local character = currentPlayer and currentPlayer.Character
+        if not currentPlayer or not character then
+            SetTrackerStatus("Pickaxe equip failed: character unavailable.")
             return false
         end
-    
-        local character = currentPlayer.Character
-        if not character then
-            local ok, result = pcall(function()
-                return currentPlayer.CharacterAdded:Wait()
-            end)
-            if ok then character = result end
-        end
-        if not character then
-            SetTrackerStatus("Hotbar 1 select failed: character not loaded.")
-            return false
-        end
-    
+
         local humanoid = character:FindFirstChildOfClass("Humanoid")
             or character:WaitForChild("Humanoid", 5)
-        if not humanoid then
-            SetTrackerStatus("Hotbar 1 select failed: Humanoid not ready.")
+        if not humanoid or humanoid.Health <= 0 then
+            SetTrackerStatus("Pickaxe equip failed: Humanoid unavailable or dead.")
             return false
         end
-        if humanoid.Health <= 0 then
-            SetTrackerStatus("Hotbar 1 select failed: character is dead.")
+
+        -- Never press hotbar 1 blindly: it may select an empty/other slot and unequip
+        -- the pickaxe. Keep the existing pickaxe equipped or equip the actual Tool.
+        local pickaxe
+        for _, child in ipairs(character:GetChildren()) do
+            if child:IsA("Tool") and child.Name:lower() == "pickaxe" then
+                return true
+            end
+        end
+        local backpack = currentPlayer:FindFirstChildOfClass("Backpack")
+        if backpack then
+            for _, child in ipairs(backpack:GetChildren()) do
+                if child:IsA("Tool") and child.Name:lower() == "pickaxe" then
+                    pickaxe = child
+                    break
+                end
+            end
+        end
+        if not pickaxe then
+            SetTrackerStatus("Pickaxe equip skipped: Pickaxe Tool not found in Character or Backpack.")
             return false
         end
-    
-        if currentPlayer.Character ~= character or not character.Parent then
-            SetTrackerStatus("Hotbar 1 select failed: character changed before selection.")
-            return false
-        end
-    
+
         local ok, err = pcall(function()
-            local virtualInput = game:GetService("VirtualInputManager")
-            virtualInput:SendKeyEvent(true, Enum.KeyCode.One, false, game)
-            task.wait(0.05)
-            virtualInput:SendKeyEvent(false, Enum.KeyCode.One, false, game)
+            humanoid:EquipTool(pickaxe)
         end)
         if not ok then
-            SetTrackerStatus("Hotbar 1 key selection failed: " .. tostring(err))
+            SetTrackerStatus("Pickaxe equip failed: " .. tostring(err))
             return false
         end
-    
         task.wait(0.15)
-        SetTrackerStatus("Selected hotbar slot 1.")
-        return true
+        local equipped = pickaxe.Parent == character
+        SetTrackerStatus(equipped and "Pickaxe equipped." or "Pickaxe equip requested; waiting for tool.")
+        return equipped
     end
     local AnimalBankEquipConnections = {}
     function BindAnimalBankEquip(remote)
@@ -2383,70 +2370,6 @@ return function(Context)
 
         table.sort(names)
         return #names > 0 and table.concat(names, ", ") or "No Mutation"
-    end
-    RefreshAnimalESP = function(pickup)
-        if not pickup or not pickup:IsA("Model") then return end
-        local existing = pickup:FindFirstChild("MoldyHubAnimalESP")
-        if not AnimalESPEnabled or not pickup.Parent then
-            if existing then existing:Destroy() end
-            return
-        end
-
-        local rootPart = pickup:FindFirstChild("RootPart") or pickup.PrimaryPart
-            or pickup:FindFirstChild("HumanoidRootPart")
-        if not rootPart or not rootPart:IsA("BasePart") then return end
-
-        local billboard = existing
-        if not billboard then
-            billboard = Instance.new("BillboardGui")
-            billboard.Name = "MoldyHubAnimalESP"
-            billboard.Adornee = rootPart
-            billboard.AlwaysOnTop = true
-            billboard.LightInfluence = 0
-            billboard.MaxDistance = 2500
-            billboard.Size = UDim2.fromOffset(260, 42)
-            billboard.StudsOffset = Vector3.new(0, 3.4, 0)
-            billboard.Parent = pickup
-
-            local label = Instance.new("TextLabel")
-            label.Name = "Info"
-            label.BackgroundTransparency = 1
-            label.Size = UDim2.fromScale(1, 1)
-            label.Font = Enum.Font.GothamSemibold
-            label.TextSize = 11
-            label.TextColor3 = Theme.Text
-            label.TextStrokeColor3 = Color3.new(0, 0, 0)
-            label.TextStrokeTransparency = 0.25
-            label.TextWrapped = true
-            label.TextXAlignment = Enum.TextXAlignment.Center
-            label.TextYAlignment = Enum.TextYAlignment.Center
-            label.Parent = billboard
-        else
-            billboard.Adornee = rootPart
-        end
-
-        local details = {}
-        local cps, cpsDisplay = GetPetCPS(pickup)
-        if cps and cps >= 0 then
-            table.insert(details, "CPS " .. tostring(cpsDisplay or cps))
-        end
-        local weight = GetAnimalWeightKg(pickup)
-        if weight and weight ~= "" then
-            table.insert(details, "KG " .. tostring(weight))
-        end
-        local mutation = GetPickupMutationNames(pickup)
-        if mutation and mutation ~= "" and mutation ~= "No Mutation" then
-            table.insert(details, "Mut " .. mutation)
-        end
-        local rarity = GetPetRarity(pickup)
-        if rarity and rarity ~= "" then
-            table.insert(details, tostring(rarity))
-        end
-
-        local label = billboard:FindFirstChild("Info")
-        if label then
-            label.Text = pickup.Name .. (#details > 0 and "\n" .. table.concat(details, " • ") or "")
-        end
     end
     function UpdatePickupMutationAttributes(pickup)
         if not pickup or not pickup.Parent then return end
@@ -3486,7 +3409,6 @@ return function(Context)
         AnimalPickups = folder
         for _, existingPickup in ipairs(folder:GetChildren()) do
             if existingPickup:IsA("Model") then
-                if RefreshAnimalESP then RefreshAnimalESP(existingPickup) end
                 existingPickup:SetAttribute("MoldyHub_BASAE_Rarity", tostring(GetPetRarity(existingPickup) or "Unknown"))
                 UpdatePickupMutationAttributes(existingPickup)
             end
@@ -3497,7 +3419,6 @@ return function(Context)
             SetPickupTracking(pickup, "Detected")
             pickup:SetAttribute("MoldyHub_BASAE_Rarity", pickupRarity)
             UpdatePickupMutationAttributes(pickup)
-            if RefreshAnimalESP then RefreshAnimalESP(pickup) end
             if not AutoPickupEnabled then
                 SetTrackerStatus("NEW ANIMAL: " .. pickup.Name .. " | rarity=" .. pickupRarity .. " | monitoring waits until Auto Pickup is ON.")
                 return
@@ -3512,22 +3433,6 @@ return function(Context)
         SetTrackerStatus("AnimalPickups folder detected; continuous monitoring is ready.")
     end
     if AnimalPickups then BindAnimalPickups(AnimalPickups) end
-    task.spawn(function()
-        while not Runtime.Stopped and not ScriptShuttingDown do
-            if AnimalESPEnabled and AnimalPickups and AnimalPickups.Parent then
-                for _, animal in ipairs(AnimalPickups:GetChildren()) do
-                    if animal:IsA("Model") then RefreshAnimalESP(animal) end
-                end
-            end
-            task.wait(0.5)
-        end
-        if AnimalPickups then
-            for _, animal in ipairs(AnimalPickups:GetChildren()) do
-                local esp = animal:FindFirstChild("MoldyHubAnimalESP")
-                if esp then esp:Destroy() end
-            end
-        end
-    end)
     task.spawn(function()
         while not Runtime.Stopped and not ScriptShuttingDown do
             if AutoPickupEnabled and AnimalPickups and AnimalPickups.Parent then
