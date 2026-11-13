@@ -8,14 +8,15 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.36"
+local deployver = "CL ver 2.37"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
 local CONFIG_FOLDER_PATH = CONFIG_ROOT_PATH .. "/config"
-local CONFIG_FILE = "MoldyHub_CL_AUTOSAVE_2026.json" -- Current flat config file; no folders required.
+local CONFIG_FILE = CONFIG_FOLDER_PATH .. "/moldyhub_cl_config.json"
 local CONFIG_READ_PATHS = {
     CONFIG_FILE,
+    "MoldyHub_CL_AUTOSAVE_2026.json", -- Previous flat config location.
     "MoldyHub/CL_HARD_SAVE_2026.json",
     "MoldyHub_CL_Config.json"
 }
@@ -88,9 +89,6 @@ local function loadSavedConfig()
     savedConfig = settings
     configLoadStatus = "Loaded settings from " .. tostring(loadedPath)
     configLoadCompleted = true
-    print("[MoldyHub] CL config loaded from " .. tostring(loadedPath),
-        "AutoFarm=", tostring(savedConfig.autoFarm),
-        "Orbit=", tostring(savedConfig.orbitEnabled))
 end
 local function ensureConfigFolder()
     if type(environment.makefolder) ~= "function" then
@@ -172,6 +170,7 @@ local function saveConfigToDisk(forceSave, expectedRunToken)
         if expectedRunToken and environment.CLMoldyHubRunToken ~= expectedRunToken then
             error("Stale script execution")
         end
+        ensureConfigFolder()
         writefile(CONFIG_FILE, jsonPayload)
         local savedPayload = readfile(CONFIG_FILE)
         if savedPayload ~= jsonPayload then error("Config write verification failed") end
