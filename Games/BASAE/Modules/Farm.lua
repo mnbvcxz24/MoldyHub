@@ -99,14 +99,42 @@ return function(Context)
     -- Auto Fuse removed: card, polling loop, toggles, and requirement scanning are intentionally disabled.
     local RarityFilterOpen = false
     local RaritiesFolder = game:GetService("ReplicatedStorage"):WaitForChild("Rarities")
+    -- Keep this list ordered from highest rarity to lowest. Add newly released
+    -- rarities at the top of this list so both rarity filters stay correctly sorted.
+    local HardcodedRarityOrder = {
+        "Primordial", "Ethereal", "Spectral", "Omega", "Void", "Inferno",
+        "Celestial", "Divine", "Eternal", "Secret", "Cosmic", "Mythic",
+        "Legendary", "Epic", "Rare", "Uncommon", "Common"
+    }
     local function GetRarityOptions()
-        local options = {}
+        local present = {}
         for _, rarityObject in ipairs(RaritiesFolder:GetChildren()) do
-            table.insert(options, rarityObject.Name)
+            present[rarityObject.Name] = true
         end
-        table.sort(options, function(a, b)
+
+        local options = {}
+        local ordered = {}
+        for _, rarityName in ipairs(HardcodedRarityOrder) do
+            if present[rarityName] then
+                table.insert(options, rarityName)
+                ordered[rarityName] = true
+            end
+        end
+
+        -- Unknown/new rarities appear above the known list until added to the
+        -- hardcoded order above. This keeps new game rarities visible immediately.
+        local newRarities = {}
+        for rarityName in pairs(present) do
+            if not ordered[rarityName] then
+                table.insert(newRarities, rarityName)
+            end
+        end
+        table.sort(newRarities, function(a, b)
             return a:lower() < b:lower()
         end)
+        for index = #newRarities, 1, -1 do
+            table.insert(options, 1, newRarities[index])
+        end
         return options
     end
     local SavedFarmConfig = type(SavedConfig.Farm) == "table" and SavedConfig.Farm or {}
