@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.37"
+local deployver = "CL ver 2.38"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -213,7 +213,7 @@ end
 
 -- Install reconnect execution immediately; it must not depend on opening Settings.
 local listenerEnv = environment
-if true then
+do
     if listenerEnv.MoldyHubCLKeepTeleportListenerConnection then
         pcall(function() listenerEnv.MoldyHubCLKeepTeleportListenerConnection:Disconnect() end)
         listenerEnv.MoldyHubCLKeepTeleportListenerConnection = nil
