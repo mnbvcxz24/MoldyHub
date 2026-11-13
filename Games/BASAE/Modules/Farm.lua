@@ -1956,7 +1956,7 @@ return function(Context)
         AnimalBankEquipConnections[remote] = TrackPersistentConnection(remote.OnClientEvent:Connect(function()
             task.delay(2, function()
                 if Runtime.Stopped then return end
-                SetTrackerStatus("Animal bank event received; equipping hotbar 1 after 2 seconds.")
+                SetTrackerStatus("Animal bank event received; restoring Pickaxe after 2 seconds.")
                 EquipHotbarOne()
             end)
         end))
@@ -2141,7 +2141,7 @@ return function(Context)
                             local equipped = EquipHotbarOne()
                             ReturningAfterPickup = false
                             if equipped then
-                                SetTrackerStatus(released and "Dropped in Zone 1; hotbar 1 equipped." or "Zone 1 drop unconfirmed; hotbar 1 equipped.")
+                                SetTrackerStatus(released and "Dropped in Zone 1; Pickaxe equipped." or "Zone 1 drop unconfirmed; Pickaxe equipped.")
                             end
                             if AutoBreakEnabled and StartAutoBreak then
                                 task.delay(0.2, function()
@@ -2151,11 +2151,11 @@ return function(Context)
                         end)
                     else
                         ReturningAfterPickup = false
-                        SetTrackerStatus("Reached base; waiting 2 seconds before equipping hotbar 1.")
+                        SetTrackerStatus("Reached base; waiting 2 seconds before restoring Pickaxe.")
                         task.delay(2, function()
                             if not ScriptShuttingDown and PickupGeneration == returnToken and not PickupRequested and not ReturningAfterPickup and AutoPickupEnabled and LocalPlayer.Character == character then
                                 local equipped = EquipHotbarOne()
-                                if equipped then SetTrackerStatus("Returned to base; hotbar 1 tool equipped.") end
+                                if equipped then SetTrackerStatus("Returned to base; Pickaxe equipped.") end
                             end
                         end)
                         if AutoBreakEnabled and StartAutoBreak then
@@ -4418,7 +4418,7 @@ return function(Context)
                             end
 
                             if not pickaxeVisible then
-                                SetTrackerStatus("EGG HP WATCHDOG: no HP damage for 3s; Pickaxe not detected, selecting hotbar 1.")
+                                SetTrackerStatus("EGG HP WATCHDOG: no HP damage for 3s; restoring Pickaxe.")
                                 EquipHotbarOne()
                                 task.wait(0.2)
                             else
