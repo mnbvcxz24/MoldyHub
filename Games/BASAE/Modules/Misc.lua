@@ -421,6 +421,210 @@ return function(Context)
     local BackpackESPTitle = BackpackESPCard:FindFirstChildWhichIsA("TextLabel")
     if BackpackESPTitle then BackpackESPTitle.Size = UDim2.new(1, -78, 0, 22) end
     
+    local AnimalESPCard = CreateCard(ESPCardsRow, "Animal ESP", "CPS • KG • Mutations • Rarity")
+    AnimalESPCard.Position = UDim2.new(2/3, 5, 0, 0)
+    AnimalESPCard.Size = UDim2.fromOffset(180, 76)
+    AnimalESPCard.LayoutOrder = 3
+    local AnimalESPStatus = Create("TextLabel", {
+        Parent = AnimalESPCard,
+        Position = UDim2.fromOffset(11, 49),
+        Size = UDim2.new(1, -22, 0, 18),
+        BackgroundTransparency = 1,
+        Text = "ESP is off",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top
+    })
+    local AnimalESPEnabled = false
+    local AnimalESPObjects = {}
+    local AnimalESPFolder = Instance.new("Folder")
+    AnimalESPFolder.Name = "MoldyHub_BASAE_AnimalESP"
+    AnimalESPFolder.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local function AnimalESPReadText(node)
+        if not node then return nil end
+        if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+            return node.Text ~= "" and node.Text or nil
+        elseif node:IsA("ValueBase") then
+            return tostring(node.Value)
+        end
+        return nil
+    end
+    local function AnimalESPGetValue(model, names)
+        for _, name in ipairs(names) do
+            local value = model:GetAttribute(name)
+            if value ~= nil and tostring(value) ~= "" then return tostring(value) end
+        end
+        for _, node in ipairs(model:GetDescendants()) do
+            for _, name in ipairs(names) do
+                local value = node:GetAttribute(name)
+                if value ~= nil and tostring(value) ~= "" then return tostring(value) end
+                if node.Name == name then
+                    value = AnimalESPReadText(node)
+                    if value and value ~= "" then return value end
+                end
+            end
+        end
+        return nil
+    end
+    local function AnimalESPGetCPS(model)
+        local names = {"CashPerSecond"}
+        for _, node in ipairs(model:GetDescendants()) do
+            if node.Name == "CashPerSecond" then
+                local text = AnimalESPReadText(node)
+                if not text then
+                    for _, child in ipairs(node:GetDescendants()) do
+                        text = AnimalESPReadText(child)
+                        if text then break end
+                    end
+                end
+                if text then return text end
+            end
+        end
+        return nil
+    end
+    local function AnimalESPGetMutation(model)
+        local values, seen = {}, {}
+        local function add(value)
+            if value == nil then return end
+            local valueText = tostring(value):match("^%s*(.-)%s*$")
+            if valueText == "" or valueText:lower() == "false"
+                or valueText:lower() == "none" or valueText:lower() == "nil" then return end
+            if not seen[valueText:lower()] then
+                seen[valueText:lower()] = true
+                table.insert(values, valueText)
+            end
+        end
+        add(model:GetAttribute("Variant"))
+        for _, node in ipairs(model:GetDescendants()) do
+            add(node:GetAttribute("Variant"))
+            if node.Name == "AuraMutations" then
+                if node:IsA("ValueBase") then
+                    if node:IsA("BoolValue") then
+                        if node.Value then add(node.Name) end
+                    else
+                        add(node.Value)
+                    end
+                else
+                    for attributeName, attributeValue in pairs(node:GetAttributes()) do
+                        if type(attributeValue) == "boolean" then
+                            if attributeValue then add(attributeName) end
+                        else
+                            add(attributeValue)
+                        end
+                    end
+                    for _, mutation in ipairs(node:GetDescendants()) do
+                        if mutation:IsA("BoolValue") then
+                            if mutation.Value then add(mutation.Name) end
+                        else
+                            add(AnimalESPReadText(mutation))
+                            for attributeName, attributeValue in pairs(mutation:GetAttributes()) do
+                                if type(attributeValue) == "boolean" then
+                                    if attributeValue then add(attributeName) end
+                                else
+                                    add(attributeValue)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        table.sort(values)
+        return #values > 0 and table.concat(values, ", ") or nil
+    end
+    local function ClearAnimalESP(model)
+        local gui = AnimalESPObjects[model]
+        if gui then gui:Destroy(); AnimalESPObjects[model] = nil end
+    end
+    local function UpdateAnimalESP()
+        local folder = workspace:FindFirstChild("AnimalPickups")
+        if not folder then
+            AnimalESPStatus.Text = "Waiting for animals..."
+            return
+        end
+        local seen, count = {}, 0
+        for _, animal in ipairs(folder:GetChildren()) do
+            if animal:IsA("Model") then
+                local root = animal:FindFirstChild("RootPart") or animal.PrimaryPart
+                    or animal:FindFirstChild("HumanoidRootPart")
+                if root and root:IsA("BasePart") then
+                    seen[animal] = true
+                    count += 1
+                    local gui = AnimalESPObjects[animal]
+                    if not gui or not gui.Parent then
+                        gui = Instance.new("BillboardGui")
+                        gui.Name = "MoldyHubAnimalESP"
+                        gui.Adornee = root
+                        gui.AlwaysOnTop = true
+                        gui.LightInfluence = 0
+                        gui.MaxDistance = 2500
+                        gui.Size = UDim2.fromOffset(260, 42)
+                        gui.StudsOffset = Vector3.new(0, 3.4, 0)
+                        gui.Parent = AnimalESPFolder
+                        local label = Instance.new("TextLabel")
+                        label.Name = "Info"
+                        label.BackgroundTransparency = 1
+                        label.Size = UDim2.fromScale(1, 1)
+                        label.Font = Enum.Font.GothamSemibold
+                        label.TextSize = 11
+                        label.TextColor3 = Theme.Text
+                        label.TextStrokeColor3 = Color3.new(0, 0, 0)
+                        label.TextStrokeTransparency = 0.25
+                        label.TextWrapped = true
+                        label.TextXAlignment = Enum.TextXAlignment.Center
+                        label.TextYAlignment = Enum.TextYAlignment.Center
+                        label.Parent = gui
+                        AnimalESPObjects[animal] = gui
+                    end
+                    gui.Adornee = root
+                    local details = {}
+                    local cps = AnimalESPGetCPS(animal)
+                    if cps then table.insert(details, "CPS " .. cps) end
+                    local kg = AnimalESPGetValue(animal, {"WeightKg", "WeightKG", "weightKg", "weightKG", "Weight", "weight"})
+                    if kg then table.insert(details, "KG " .. kg) end
+                    local mutation = AnimalESPGetMutation(animal)
+                    if mutation then table.insert(details, "Mut " .. mutation) end
+                    local rootPart = animal:FindFirstChild("RootPart")
+                    local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
+                    local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+                    local rarityFolder = overhead and overhead:FindFirstChild("Rarity")
+                    local rarityLabel = rarityFolder and rarityFolder:FindFirstChild("RarityLabel")
+                    local rarity = AnimalESPReadText(rarityLabel)
+                        or AnimalESPGetValue(animal, {"Rarity"})
+                    if rarity then table.insert(details, rarity) end
+                    gui.Info.Text = animal.Name .. (#details > 0 and "\\n" .. table.concat(details, " • ") or "")
+                end
+            end
+        end
+        for animal in pairs(AnimalESPObjects) do
+            if not seen[animal] or not animal.Parent then ClearAnimalESP(animal) end
+        end
+        AnimalESPStatus.Text = "ESP ON | Animals: " .. count
+    end
+    local AnimalESPToggle = CreateToggle(AnimalESPCard, "", false, function(enabled)
+        AnimalESPEnabled = enabled
+        if not enabled then
+            for animal in pairs(AnimalESPObjects) do ClearAnimalESP(animal) end
+            AnimalESPStatus.Text = "ESP is off"
+            return
+        end
+        AnimalESPStatus.Text = "Scanning animals..."
+        task.spawn(function()
+            while AnimalESPEnabled and not Runtime.Stopped and not ScriptShuttingDown do
+                pcall(UpdateAnimalESP)
+                task.wait(0.5)
+            end
+        end)
+    end)
+    AnimalESPToggle.Position = UDim2.new(1, -58, 0, 7)
+    AnimalESPToggle.Size = UDim2.fromOffset(48, 24)
+    local AnimalESPTitle = AnimalESPCard:FindFirstChildWhichIsA("TextLabel")
+    if AnimalESPTitle then AnimalESPTitle.Size = UDim2.new(1, -78, 0, 22) end
+
     local AntiPaloCard = CreateCard(ESPCardsRow, "️  Anti Knockback", "Prevents knockback and fling.")
     AntiPaloCard.Position = UDim2.new(2/3, 5, 0, 0)
     AntiPaloCard.Size = UDim2.fromOffset(180, 76)
@@ -652,6 +856,7 @@ return function(Context)
     end
     CompactCardDescription(ESPCard)
     CompactCardDescription(BackpackESPCard)
+    CompactCardDescription(AnimalESPCard)
     CompactCardDescription(AntiPaloCard)
     CompactCardDescription(AuraCard)
 
@@ -1049,6 +1254,7 @@ return function(Context)
     local miscCards = {
         ESPCard,
         BackpackESPCard,
+        AnimalESPCard,
         AntiPaloCard,
         AuraCard,
         AutoMountBestAnimalCard,
