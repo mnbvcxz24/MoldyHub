@@ -596,7 +596,7 @@ return function(Context)
                     local rarity = AnimalESPReadText(rarityLabel)
                         or AnimalESPGetValue(animal, {"Rarity"})
                     if rarity then table.insert(details, rarity) end
-                    gui.Info.Text = animal.Name .. (#details > 0 and "\\n" .. table.concat(details, " • ") or "")
+                    gui.Info.Text = animal.Name .. (#details > 0 and "\n" .. table.concat(details, " • ") or "")
                 end
             end
         end
