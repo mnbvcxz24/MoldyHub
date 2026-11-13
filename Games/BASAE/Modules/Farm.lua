@@ -4049,7 +4049,21 @@ return function(Context)
         return true
     end
 
+    local AutoBreakStartBusy = false
+    local StartAutoBreakInternal
     StartAutoBreak = function(forceRefresh)
+        if AutoBreakStartBusy then return end
+        AutoBreakStartBusy = true
+        local ok, err = pcall(function()
+            StartAutoBreakInternal(forceRefresh)
+        end)
+        AutoBreakStartBusy = false
+        if not ok then
+            SetTrackerStatus("Auto Break start failed: " .. tostring(err):gsub("[%r\\n]+", " "):sub(1, 180))
+            AddDebugLog("[Auto Break] Start failed: " .. tostring(err):gsub("[%r\\n]+", " "):sub(1, 180))
+        end
+    end
+    StartAutoBreakInternal = function(forceRefresh)
         if not AutoBreakEnabled or ScriptShuttingDown then return end
         local startGeneration = AutoBreakGeneration
         TouchAutomationProgress("AUTO_BREAK:SELECTING_TARGET")
@@ -4304,6 +4318,9 @@ return function(Context)
             TouchAutomationProgress("IDLE")
             return
         end
+        -- Reserve the selected egg before any character wait. Other start requests
+        -- must not race this selection and replace the target while parts load.
+        CurrentTarget = target
         local character = LocalPlayer.Character
         local characterDeadline = os.clock() + 10
         while not character and os.clock() < characterDeadline
@@ -4397,8 +4414,25 @@ return function(Context)
                 local hpWatchdogTarget = target
                 local hpWatchdogStarted = os.clock()
                 task.spawn(function()
+                    local lastPickaxeCheck = 0
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                         and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
+                        if os.clock() - lastPickaxeCheck >= 0.5 then
+                            lastPickaxeCheck = os.clock()
+                            local activeCharacter = LocalPlayer.Character
+                            local pickaxeEquipped = false
+                            if activeCharacter then
+                                for _, child in ipairs(activeCharacter:GetChildren()) do
+                                    if child:IsA("Tool") and child.Name:lower() == "pickaxe" then
+                                        pickaxeEquipped = true
+                                        break
+                                    end
+                                end
+                            end
+                            if not pickaxeEquipped then
+                                EquipHotbarOne()
+                            end
+                        end
                         local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt)
                         if noDamageFor >= 3 then
                             local currentPlayer = LocalPlayer
