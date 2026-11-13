@@ -4361,7 +4361,13 @@ return function(Context)
                 task.spawn(function()
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                         and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
-                        local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt)
+                        local gemMovementActive = MoveTowardGemDrop(root, humanoid)
+                        if gemMovementActive then
+                            -- Pause the egg HP watchdog while walking to a gem drop.
+                            hpWatchdogStarted = os.clock()
+                        end
+                        local noDamageFor = gemMovementActive and 0
+                            or (os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt))
                         if noDamageFor >= 3 then
                             local currentPlayer = LocalPlayer
                             local characterModel = currentPlayer and workspace:FindFirstChild(currentPlayer.Name)
