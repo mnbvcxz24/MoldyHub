@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.44"
+local deployver = "CL ver 2.45"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -2408,6 +2408,20 @@ for index, name in ipairs(TabNames) do
                 createAutoSpireButton.Active = true
             end)
         end)
+
+        -- World Boss card: UI toggle only; behavior will be added separately.
+        local worldBossCard, worldBossTitle = CreateCard(orbitColumn, "Auto World Boss", 280)
+        worldBossCard.Size = UDim2.new(1, 0, 0, 0)
+        local setAutoWorldBoss = CreateCardHeaderToggle(
+            worldBossCard,
+            worldBossTitle,
+            savedConfig.autoWorldBoss == true,
+            function(enabled)
+                savedConfig.autoWorldBoss = enabled
+            end,
+            "autoWorldBoss"
+        )
+        setAutoWorldBoss(savedConfig.autoWorldBoss == true)
 
     elseif index == 2 then
         -- Grimoire notifier UI. The filter list is populated from the shop's
