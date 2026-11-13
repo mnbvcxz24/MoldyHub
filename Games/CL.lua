@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local UI_NAME = "CLMoldyHubUI"
-local deployver = "CL ver 2.49"
+local deployver = "CL ver 2.50"
 local displayVersion = "v" .. (string.match(deployver, "[%d%.]+") or "1.1")
 local environment = (getgenv and getgenv()) or _G
 local CONFIG_ROOT_PATH = "MoldyHub"
@@ -869,20 +869,20 @@ for index, name in ipairs(TabNames) do
             return true
         end
 
-        local function returnWorldBossToOriginal(clearSavedPosition)
-            if not worldBossOriginalCFrame then
-                worldBossAtIsland = false
+        local function returnWorldBossToOriginal(targetCFrame, clearSavedPosition, sessionId)
+            targetCFrame = targetCFrame or worldBossOriginalCFrame
+            if not targetCFrame then
+                if worldBossLoopId == sessionId then worldBossAtIsland = false end
                 return true
             end
 
-            -- Character can be temporarily missing while Roblox respawns it.
-            -- Keep the saved CFrame until the return teleport is confirmed.
+            -- Use the immutable CFrame captured by this toggle session.
+            -- A rapid off/on must never redirect an older return task to the new spot.
             for attempt = 1, 20 do
                 local character = LocalPlayer.Character
                 local root = getWorldBossCharacterRoot()
 
                 if character and root then
-                    local targetCFrame = worldBossOriginalCFrame
                     local moved = pcall(function()
                         character:PivotTo(targetCFrame)
                         root.CFrame = targetCFrame
@@ -892,8 +892,10 @@ for index, name in ipairs(TabNames) do
                         task.wait(0.2)
                         local currentRoot = getWorldBossCharacterRoot()
                         if currentRoot and (currentRoot.Position - targetCFrame.Position).Magnitude <= 12 then
-                            worldBossAtIsland = false
-                            if clearSavedPosition then worldBossOriginalCFrame = nil end
+                            if worldBossLoopId == sessionId then
+                                worldBossAtIsland = false
+                                if clearSavedPosition then worldBossOriginalCFrame = nil end
+                            end
                             return true
                         end
                     end
@@ -902,8 +904,7 @@ for index, name in ipairs(TabNames) do
                 task.wait(0.5)
             end
 
-            -- Do not discard the return location; a later retry can still use it.
-            worldBossAtIsland = true
+            if worldBossLoopId == sessionId then worldBossAtIsland = true end
             return false
         end
 
@@ -934,19 +935,28 @@ for index, name in ipairs(TabNames) do
                 worldBossLoopId = worldBossLoopId + 1
                 local thisLoop = worldBossLoopId
                 if not enabled then
+                    local returnTarget = worldBossOriginalCFrame
                     setWorldBossStatus("Returning to saved position", Theme.Accent)
                     task.spawn(function()
-                        local returned = returnWorldBossToOriginal(true)
-                        if returned then
-                            setWorldBossStatus("Stopped")
-                        else
-                            setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
+                        local returned = returnWorldBossToOriginal(returnTarget, true, thisLoop)
+                        if worldBossLoopId == thisLoop then
+                            if returned then
+                                setWorldBossStatus("Stopped")
+                            else
+                                setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
+                            end
                         end
                     end)
                     return
                 end
 
                 worldBossOriginalCFrame = nil
+                local sessionCFrame
+                local startingRoot = getWorldBossCharacterRoot()
+                if startingRoot then
+                    sessionCFrame = startingRoot.CFrame
+                    worldBossOriginalCFrame = sessionCFrame
+                end
                 task.spawn(function()
                     local function isWorldBossActive()
                         return savedConfig.autoWorldBoss == true and worldBossLoopId == thisLoop
@@ -960,7 +970,10 @@ for index, name in ipairs(TabNames) do
                         until originalRoot or not isWorldBossActive()
                     end
                     if not isWorldBossActive() then return end
-                    worldBossOriginalCFrame = originalRoot.CFrame
+                    if not sessionCFrame then
+                        sessionCFrame = originalRoot.CFrame
+                        worldBossOriginalCFrame = sessionCFrame
+                    end
 
                     if not teleportWorldBossToIsland() then
                         setWorldBossStatus("Island or character not found", Color3.fromRGB(240, 110, 110))
@@ -968,7 +981,7 @@ for index, name in ipairs(TabNames) do
                     end
                     task.wait(0.5)
                     local timerSeconds = parseWorldBossTimer(getWorldBossTimerObject())
-                    returnWorldBossToOriginal()
+                    returnWorldBossToOriginal(sessionCFrame, false, thisLoop)
                     if timerSeconds == nil then
                         setWorldBossStatus("Timer unavailable; retrying", Color3.fromRGB(240, 170, 80))
                     end
@@ -1012,7 +1025,7 @@ for index, name in ipairs(TabNames) do
                                 else
                                     setWorldBossStatus("No enemy within 200 studs; returning", Color3.fromRGB(240, 170, 80))
                                 end
-                                if not returnWorldBossToOriginal() then
+                                if not returnWorldBossToOriginal(sessionCFrame, true, thisLoop) then
                                     setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
                                     task.wait(2)
                                 end
@@ -1020,7 +1033,7 @@ for index, name in ipairs(TabNames) do
                             end
                         end
                     end
-                    if worldBossOriginalCFrame and not returnWorldBossToOriginal() then
+                    if sessionCFrame and worldBossOriginalCFrame and not returnWorldBossToOriginal(sessionCFrame, true, thisLoop) then
                         setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
                     end
                 end)
