@@ -869,7 +869,7 @@ for index, name in ipairs(TabNames) do
             return true
         end
 
-        local function returnWorldBossToOriginal()
+        local function returnWorldBossToOriginal(clearSavedPosition)
             if not worldBossOriginalCFrame then
                 worldBossAtIsland = false
                 return true
@@ -893,7 +893,7 @@ for index, name in ipairs(TabNames) do
                         local currentRoot = getWorldBossCharacterRoot()
                         if currentRoot and (currentRoot.Position - targetCFrame.Position).Magnitude <= 12 then
                             worldBossAtIsland = false
-                            worldBossOriginalCFrame = nil
+                            if clearSavedPosition then worldBossOriginalCFrame = nil end
                             return true
                         end
                     end
@@ -936,7 +936,7 @@ for index, name in ipairs(TabNames) do
                 if not enabled then
                     setWorldBossStatus("Returning to saved position", Theme.Accent)
                     task.spawn(function()
-                        local returned = returnWorldBossToOriginal()
+                        local returned = returnWorldBossToOriginal(true)
                         if returned then
                             setWorldBossStatus("Stopped")
                         else
@@ -1012,7 +1012,7 @@ for index, name in ipairs(TabNames) do
                                 else
                                     setWorldBossStatus("No enemy within 200 studs; returning", Color3.fromRGB(240, 170, 80))
                                 end
-                                if not returnWorldBossToOriginal() then
+                                if not returnWorldBossToOriginal(true) then
                                     setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
                                     task.wait(2)
                                 end
@@ -1020,7 +1020,7 @@ for index, name in ipairs(TabNames) do
                             end
                         end
                     end
-                    if worldBossOriginalCFrame and not returnWorldBossToOriginal() then
+                    if worldBossOriginalCFrame and not returnWorldBossToOriginal(true) then
                         setWorldBossStatus("Return failed; saved position retained", Color3.fromRGB(240, 110, 110))
                     end
                 end)
