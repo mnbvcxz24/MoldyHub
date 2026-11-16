@@ -4405,28 +4405,10 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- Preserve the normal direct route for eggs in Zones 1-12.
-        -- Only eggs that are actually inside Zone13 or a higher zone need the
-        -- Zone12 CastleGATE waypoint before the final egg approach.
-        local movementWaypoints = {}
-        local targetNeedsZone13Gate = targetZone ~= nil and IsZone13OrHigher(targetZone.Name)
-        if targetNeedsZone13Gate then
-            local gatePosition = GetZone13GatePosition()
-            if gatePosition then
-                local gateOffset = Vector3.new(
-                    gatePosition.X - root.Position.X,
-                    0,
-                    gatePosition.Z - root.Position.Z
-                )
-                if gateOffset.Magnitude > 4 then
-                    table.insert(movementWaypoints, gatePosition)
-                end
-            else
-                SetTrackerStatus("Target egg is in Zone13 or higher, but CastleGATE could not be found at Zone12.CastleMap.Limit.CastleGATE.")
-                AddDebugLog("[Auto Break] Zone13+ target gate was not found; continuing with direct egg movement.")
-            end
-        end
-        table.insert(movementWaypoints, target:GetPivot().Position)
+        -- An eligible egg has already been selected, so use the original
+        -- direct-to-egg movement. CastleGATE routing belongs only to the
+        -- no-target fallback above, where it triggers Zone13+ egg spawning.
+        local movementWaypoints = {target:GetPivot().Position}
         local movementWaypointIndex = 1
         SetTrackerStatus("Moving to egg: " .. target:GetFullName())
     
