@@ -908,6 +908,10 @@ return function(Context)
         end)
         return ok and position or nil
     end
+    local function IsZone13OrHigher(zoneName)
+        local zoneNumber = tonumber(tostring(zoneName):match("^Zone(%d+)$"))
+        return zoneNumber ~= nil and zoneNumber >= 13
+    end
     local function IsInsideZone13(position)
         local zone13 = ZoneBuilds:FindFirstChild("Zone13")
         if not zone13 or not position then return false end
@@ -4159,14 +4163,14 @@ return function(Context)
             end
         end
         if not target then
-            local zone13Selected = false
+            local zone13OrHigherSelected = false
             for _, zoneName in ipairs(selectedZoneNames) do
-                if zoneName == "Zone13" then
-                    zone13Selected = true
+                if IsZone13OrHigher(zoneName) then
+                    zone13OrHigherSelected = true
                     break
                 end
             end
-            local gatePosition = zone13Selected and GetZone13GatePosition() or nil
+            local gatePosition = zone13OrHigherSelected and GetZone13GatePosition() or nil
             if gatePosition then
                 local character = LocalPlayer.Character
                 local characterDeadline = os.clock() + 10
@@ -4333,17 +4337,17 @@ return function(Context)
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
         -- Zone 13 is accessed through the live CastleGATE in Zone 12.
-        -- If Zone13 is among the selected zones, route through that gate before
+        -- If any Zone13-or-higher zone is selected, route through that gate before
         -- travelling to any selected egg, even when the selected egg is elsewhere.
         local movementWaypoints = {}
-        local zone13Selected = false
+        local zone13OrHigherSelected = false
         for _, zoneName in ipairs(selectedZoneNames) do
-            if zoneName == "Zone13" then
-                zone13Selected = true
+            if IsZone13OrHigher(zoneName) then
+                zone13OrHigherSelected = true
                 break
             end
         end
-        if zone13Selected then
+        if zone13OrHigherSelected then
             local gatePosition = GetZone13GatePosition()
             if gatePosition then
                 local gateOffset = Vector3.new(
@@ -4355,7 +4359,7 @@ return function(Context)
                     table.insert(movementWaypoints, gatePosition)
                 end
             else
-                SetTrackerStatus("Zone13 is selected, but CastleGATE could not be found at Zone12.CastleMap.Limit.CastleGATE.")
+                SetTrackerStatus("Zone13 or a higher zone is selected, but CastleGATE could not be found at Zone12.CastleMap.Limit.CastleGATE.")
                 AddDebugLog("[Auto Break] Zone13 gate was not found; continuing with direct egg movement.")
             end
         end
