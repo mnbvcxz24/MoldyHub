@@ -528,7 +528,7 @@ return function(Context)
         Checkbox.MouseButton1Click:Connect(Toggle)
         Label.MouseButton1Click:Connect(Toggle)
         if defaultEnabled == true then SetEnabled(true) end
-        return Checkbox
+        return Checkbox, Label
     end
     local HighestCashEnabled = SavedFarmConfig.HighestCash == true
     local HighestCashToggle = CreatePickupCheckbox(AutoPickupCard, "Steal above your lowest $/s", 205, function(enabled)
