@@ -4405,18 +4405,12 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- Zone 13 is accessed through the live CastleGATE in Zone 12.
-        -- If any Zone13-or-higher zone is selected, route through that gate before
-        -- travelling to any selected egg, even when the selected egg is elsewhere.
+        -- Preserve the normal direct route for eggs in Zones 1-12.
+        -- Only eggs that are actually inside Zone13 or a higher zone need the
+        -- Zone12 CastleGATE waypoint before the final egg approach.
         local movementWaypoints = {}
-        local zone13OrHigherSelected = false
-        for _, zoneName in ipairs(selectedZoneNames) do
-            if IsZone13OrHigher(zoneName) then
-                zone13OrHigherSelected = true
-                break
-            end
-        end
-        if zone13OrHigherSelected then
+        local targetNeedsZone13Gate = targetZone ~= nil and IsZone13OrHigher(targetZone.Name)
+        if targetNeedsZone13Gate then
             local gatePosition = GetZone13GatePosition()
             if gatePosition then
                 local gateOffset = Vector3.new(
@@ -4428,8 +4422,8 @@ return function(Context)
                     table.insert(movementWaypoints, gatePosition)
                 end
             else
-                SetTrackerStatus("Zone13 or a higher zone is selected, but CastleGATE could not be found at Zone12.CastleMap.Limit.CastleGATE.")
-                AddDebugLog("[Auto Break] Zone13 gate was not found; continuing with direct egg movement.")
+                SetTrackerStatus("Target egg is in Zone13 or higher, but CastleGATE could not be found at Zone12.CastleMap.Limit.CastleGATE.")
+                AddDebugLog("[Auto Break] Zone13+ target gate was not found; continuing with direct egg movement.")
             end
         end
         table.insert(movementWaypoints, target:GetPivot().Position)
