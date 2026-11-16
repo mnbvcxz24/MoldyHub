@@ -1663,6 +1663,20 @@ return function(Context)
         table.clear(VisitedGemDrops)
         AddDebugLog("[Auto Break] Gem collection " .. (enabled and "ON" or "OFF"))
     end, SavedFarmConfig.CollectGems == true)
+    local AutoBreakStatusLabel = Create("TextLabel", {
+        Name = "AutoBreakStatus",
+        Parent = Card1,
+        Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, 210),
+        Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, 30),
+        BackgroundTransparency = 1,
+        Text = "Status: Idle",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 8,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top
+    })
     Card1.Size = UDim2.new(0.5, -5, 0, 190)
     AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 340)
     local function UpdateAutoBreakCardHeights()
@@ -1886,7 +1900,11 @@ return function(Context)
     local FlingTargetAnimalName
     local FlingTargetWeightKg
     local HitEventConnection
-    local SetTrackerStatus
+    local SetTrackerStatus = function(message)
+        if AutoBreakStatusLabel and AutoBreakStatusLabel.Parent then
+            AutoBreakStatusLabel.Text = "Status: " .. tostring(message or "Idle")
+        end
+    end
     function SetPickupPhase(phase, message)
         PickupPhase = phase
         TouchAutomationProgress("PICKUP:" .. tostring(phase))
