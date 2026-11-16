@@ -3022,6 +3022,7 @@ return function(Context)
             end
             return nil
         end
+        local promptFallbackScanned = false
         repeat
             if PickupGeneration ~= pickupToken then return end
             prompt = nil
@@ -3041,6 +3042,27 @@ return function(Context)
                             if distance < nearestDistance and distance <= promptMatchRadius then
                                 nearestDistance = distance
                                 prompt = candidate
+                            end
+                        end
+                    end
+                end
+            end
+            -- PromptAnchor is the normal fast path. If it misses, do one broad
+            -- fallback scan rather than traversing the entire Workspace every poll.
+            if not prompt and promptAnchor and not promptFallbackScanned then
+                promptFallbackScanned = true
+                for _, candidate in ipairs(workspace:GetDescendants()) do
+                    if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
+                        totalStealPrompts += 1
+                        if candidate.Enabled then
+                            enabledStealPrompts += 1
+                            local candidatePosition = getPromptPosition(candidate)
+                            if candidatePosition then
+                                local distance = (candidatePosition - pickupPosition).Magnitude
+                                if distance < nearestDistance and distance <= promptMatchRadius then
+                                    nearestDistance = distance
+                                    prompt = candidate
+                                end
                             end
                         end
                     end
