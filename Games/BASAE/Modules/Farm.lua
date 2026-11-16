@@ -1286,7 +1286,7 @@ return function(Context)
         local infoNodes = info and buildNodes(info) or nil
         local function readValues(nodes, names)
             if not nodes then return nil end
-            for _, name in ipairs(names) do
+            for _, name in ipairs(WEIGHT_ATTRIBUTE_NAMES) do
                 for _, node in ipairs(nodes) do
                     local value = node:GetAttribute(name)
                     if value ~= nil then return tostring(value) end
@@ -1850,7 +1850,7 @@ return function(Context)
             if weight then return weight end
         end
         for _, node in ipairs(animal:GetDescendants()) do
-            for _, name in ipairs(names) do
+            for _, name in ipairs(WEIGHT_ATTRIBUTE_NAMES) do
                 local weight = ParseWeightKg(node:GetAttribute(name))
                 if weight then return weight end
                 if node.Name == name then
@@ -1892,7 +1892,7 @@ return function(Context)
             if value ~= nil then return tostring(value) end
         end
         for _, node in ipairs(animal:GetDescendants()) do
-            for _, name in ipairs(names) do
+            for _, name in ipairs(WEIGHT_ATTRIBUTE_NAMES) do
                 local value = node:GetAttribute(name)
                 if value ~= nil then return tostring(value) end
                 if node.Name == name then
@@ -4035,7 +4035,7 @@ return function(Context)
             CarriedAnimalWatch.Bind(child)
         end
     end))
-    StopAutoBreak = function(reason, preserveTargetState)
+    StopAutoBreak = function(reason, preserveTargetState, preserveArrivalState)
         TouchAutomationProgress(AutoBreakEnabled and "AUTO_BREAK_PAUSED" or "AUTO_BREAK_OFF")
         if MovementConnection then
             MovementConnection:Disconnect()
@@ -4046,8 +4046,10 @@ return function(Context)
         if humanoid and not PickupRequested and not ReturningAfterPickup then
             humanoid:Move(Vector3.zero, false)
         end
-        if not preserveTargetState then
+        if not preserveArrivalState then
             ArrivedAtTarget = false
+        end
+        if not preserveTargetState then
             WaitingForPickup = false
             CurrentTarget = nil
         end
@@ -4124,7 +4126,7 @@ return function(Context)
                         AutoBreakGeneration += 1
                         -- Stop the full Auto Break movement state while preserving its current egg target.
                         -- Clearing ArrivedAtTarget also prevents the egg HP watchdog from restarting attacks.
-                        StopAutoBreak("Auto Break paused; walking to collect gems.", true)
+                        StopAutoBreak("Auto Break paused; walking to collect gems.", true, true)
                         pcall(function() humanoid:UnequipTools() end)
                         TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEMS")
 
