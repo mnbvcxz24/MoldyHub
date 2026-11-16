@@ -4018,11 +4018,11 @@ return function(Context)
             SetTrackerStatus(reason)
         end
     end
-    local GemPickupPending = setmetatable({}, {__mode = "k"})
     local GEM_SEARCH_RADIUS = 30
-    local GEM_PICKUP_DISTANCE = 5
     local GEM_PICKUP_TIMEOUT = 3
     local GEM_RETRY_DELAY = 3
+    local GemDiversionActive = false
+    local GemDiversionLastEndedAt = 0
 
     local function GetGemDropPosition(gem)
         if not gem or not gem.Parent then return nil end
@@ -4032,12 +4032,9 @@ return function(Context)
         return part and part.Position or nil
     end
 
-    local function MoveTowardGemDrop(root, humanoid)
-        if not CollectGemsEnabled or not AutoBreakEnabled or PickupRequested or ReturningAfterPickup then
-            return false
-        end
+    local function FindNearestGemDrop(root)
         local dropsFolder = workspace:FindFirstChild("EggGemDrops")
-        if not dropsFolder then return false end
+        if not dropsFolder then return nil end
 
         local now = os.clock()
         local nearestGem, nearestPosition, nearestDistance
@@ -4047,8 +4044,7 @@ return function(Context)
                 if not retryAt or now - retryAt >= GEM_RETRY_DELAY then
                     local position = GetGemDropPosition(gem)
                     if position then
-                        local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
-                        local distance = offset.Magnitude
+                        local distance = (position - root.Position).Magnitude
                         if distance <= GEM_SEARCH_RADIUS and (not nearestDistance or distance < nearestDistance) then
                             nearestGem, nearestPosition, nearestDistance = gem, position, distance
                         end
@@ -4056,37 +4052,67 @@ return function(Context)
                 end
             end
         end
-
-        if not nearestGem then return false end
-
-        if nearestDistance <= GEM_PICKUP_DISTANCE then
-            local pendingAt = GemPickupPending[nearestGem]
-            if not pendingAt then
-                GemPickupPending[nearestGem] = now
-                pendingAt = now
-            end
-            humanoid:Move(Vector3.zero, false)
-            if now - pendingAt >= GEM_PICKUP_TIMEOUT then
-                -- The drop remained after the pickup window; back off briefly, then retry it.
-                GemPickupPending[nearestGem] = nil
-                VisitedGemDrops[nearestGem] = now
-                SetTrackerStatus("Gem pickup was not confirmed; will retry shortly.")
-                TouchAutomationProgress("AUTO_BREAK:GEM_RETRY")
-                return false
-            end
-            TouchAutomationProgress("AUTO_BREAK:VERIFYING_GEM")
-            SetTrackerStatus("Waiting for gem pickup confirmation.")
-            return true
-        end
-
-        GemPickupPending[nearestGem] = nil
-        local offset = Vector3.new(nearestPosition.X - root.Position.X, 0, nearestPosition.Z - root.Position.Z)
-        if offset.Magnitude > 0.05 then
-            humanoid:Move(offset.Unit, false)
-        end
-        TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEM")
-        return true
+        return nearestGem, nearestPosition
     end
+
+    -- Run independently of the egg movement connection so gems are collected
+    -- even while Auto Break is stationary and attacking an egg.
+    task.spawn(function()
+        while not Runtime.Stopped and not ScriptShuttingDown do
+            if CollectGemsEnabled and AutoBreakEnabled
+                and not PickupRequested and not ReturningAfterPickup and not FlingRecoveryActive
+                and not GemDiversionActive then
+                local character = LocalPlayer.Character
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                if root and humanoid and humanoid.Health > 0 then
+                    local gem, gemPosition = FindNearestGemDrop(root)
+                    if gem and gemPosition then
+                        GemDiversionActive = true
+                        local returnCFrame = root.CFrame
+                        humanoid:Move(Vector3.zero, false)
+                        local teleported = pcall(function()
+                            root.CFrame = CFrame.new(gemPosition) * returnCFrame.Rotation
+                        end)
+
+                        if teleported then
+                            SetTrackerStatus("Teleported to gem pickup position; waiting for collection.")
+                            TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEM")
+                            local deadline = os.clock() + GEM_PICKUP_TIMEOUT
+                            while gem.Parent and os.clock() < deadline
+                                and not Runtime.Stopped and AutoBreakEnabled
+                                and not PickupRequested and not ReturningAfterPickup do
+                                TouchAutomationProgress("AUTO_BREAK:VERIFYING_GEM")
+                                task.wait(0.1)
+                            end
+
+                            if not gem.Parent then
+                                VisitedGemDrops[gem] = nil
+                                SetTrackerStatus("Gem collected; returning to the current egg route.")
+                            else
+                                VisitedGemDrops[gem] = os.clock()
+                                SetTrackerStatus("Gem pickup not confirmed; will retry after a short delay.")
+                            end
+                        else
+                            VisitedGemDrops[gem] = os.clock()
+                            SetTrackerStatus("Gem teleport failed; will retry shortly.")
+                        end
+
+                        if root.Parent and character.Parent
+                            and not PickupRequested and not ReturningAfterPickup then
+                            pcall(function()
+                                root.CFrame = returnCFrame
+                                humanoid:Move(Vector3.zero, false)
+                            end)
+                        end
+                        GemDiversionLastEndedAt = os.clock()
+                        GemDiversionActive = false
+                    end
+                end
+            end
+            task.wait(0.1)
+        end
+    end)
 
     local AutoBreakStartBusy = false
     local StartAutoBreakInternal
@@ -4279,7 +4305,10 @@ return function(Context)
                         return
                     end
 
-                    if MoveTowardGemDrop(root, humanoid) then return end
+                    if GemDiversionActive then
+                        humanoid:Move(Vector3.zero, false)
+                        return
+                    end
 
                     if os.clock() - lastEggScan >= 0.35 then
                         lastEggScan = os.clock()
@@ -4421,7 +4450,10 @@ return function(Context)
                 end
                 return
             end
-            if MoveTowardGemDrop(root, humanoid) then return end
+            if GemDiversionActive then
+                humanoid:Move(Vector3.zero, false)
+                return
+            end
             if CurrentTarget ~= target or not IsEggAvailable(target) or not character.Parent
             or humanoid.Health <= 0 then
                 if CurrentTarget == target and not IsEggAvailable(target) then
@@ -4462,7 +4494,7 @@ return function(Context)
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                         and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
                         -- Do not divert movement while actively attacking an arrived egg.
-                        local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt)
+                        local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt, GemDiversionLastEndedAt)
                         if noDamageFor >= 3 then
                             local currentPlayer = LocalPlayer
                             local characterModel = currentPlayer and workspace:FindFirstChild(currentPlayer.Name)
