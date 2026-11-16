@@ -2659,16 +2659,20 @@ return function(Context)
         local indexList = index and index:FindFirstChild("IndexList")
         local scrollingFrame = indexList and indexList:FindFirstChild("ScrollingFrame")
         if not scrollingFrame then return nil end
+
+        -- Animal names (for example, "Bear") are Frame names under each
+        -- Zone's AnimalList. The Inner.Name text is the index status ("???"
+        -- when undiscovered), not the animal's instance name.
         local wantedName = tostring(animalName)
-        for zoneNumber = 1, 12 do
-            local zone = scrollingFrame:FindFirstChild("Zone" .. tostring(zoneNumber))
-            local animalList = zone and zone:FindFirstChild("AnimalList")
-            local animalEntry = animalList and animalList:FindFirstChild(wantedName)
-            if animalEntry then
-                local inner = animalEntry:FindFirstChild("Inner")
-                local nameLabel = inner and inner:FindFirstChild("Name")
-                if nameLabel and (nameLabel:IsA("TextLabel") or nameLabel:IsA("TextButton")) then
-                    return nameLabel
+        for _, descendant in ipairs(scrollingFrame:GetDescendants()) do
+            if descendant.Name == "AnimalList" then
+                local animalEntry = descendant:FindFirstChild(wantedName)
+                if animalEntry then
+                    local inner = animalEntry:FindFirstChild("Inner")
+                    local nameLabel = inner and inner:FindFirstChild("Name")
+                    if nameLabel and (nameLabel:IsA("TextLabel") or nameLabel:IsA("TextButton")) then
+                        return nameLabel
+                    end
                 end
             end
         end
