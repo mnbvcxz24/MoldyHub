@@ -1749,6 +1749,7 @@ return function(Context)
     ReturningAfterPickup = false
     local ActivePickup
     local LastAnimalPickupPosition
+    local LastAnimalPickupZoneName
     local ActivePickupCPS = -1
     local PickupPhase = "IDLE"
     local PickupGeneration = 0
@@ -2056,6 +2057,8 @@ return function(Context)
         end
         if ReturningAfterPickup then return end
         local useZoneDrop = DropInZone1Enabled == true
+        -- Preserve the source zone before ClearPickupLock releases ActivePickup.
+        local returnPickupZoneName = LastAnimalPickupZoneName or GetPickupZoneName(ActivePickup)
         ClearPickupLock()
         ReturningAfterPickup = true
         local returnToken = PickupGeneration
@@ -2076,7 +2079,9 @@ return function(Context)
             SetTrackerStatus(useZoneDrop and "Moving to Zone 1 to drop the animal." or "Returning to workspace.Build.ZoneHitboxes.SafeZone.")
             local moveStarted = os.clock()
             local lastReturnDistance = math.huge
-            local returnGateWaypoint = IsInsideZone13(root.Position) and GetZone13GatePosition() or nil
+            -- Zone13+ pickups must return through CastleGATE, even when the player's
+            -- current root position is outside Zone13's own bounding box (e.g. Zone14+).
+            local returnGateWaypoint = IsZone13OrHigher(returnPickupZoneName) and GetZone13GatePosition() or nil
             local connection
             connection = game:GetService("RunService").RenderStepped:Connect(function()
                 if PickupGeneration ~= returnToken then
@@ -2916,7 +2921,8 @@ return function(Context)
             return
         end
         local pickupZoneName = GetPickupZoneName(pickup)
-        local pickupGateWaypoint = pickupZoneName == "Zone13" and not IsInsideZone13(moveRoot.Position)
+        LastAnimalPickupZoneName = pickupZoneName
+        local pickupGateWaypoint = IsZone13OrHigher(pickupZoneName) and not IsInsideZone13(moveRoot.Position)
             and GetZone13GatePosition() or nil
         local animalMoveStarted = os.clock()
         local lastAnimalProgressAt = os.clock()
@@ -4068,6 +4074,8 @@ return function(Context)
                     local gem = FindNearestGemDrop(root)
                     if gem then
                         GemDiversionActive = true
+                        -- Invalidate any already-running egg/gate movement task before stopping it.
+                        AutoBreakGeneration += 1
                         -- Stop the full Auto Break movement state while preserving its current egg target.
                         -- Clearing ArrivedAtTarget also prevents the egg HP watchdog from restarting attacks.
                         StopAutoBreak("Auto Break paused; walking to collect gems.", true)
@@ -4348,11 +4356,13 @@ return function(Context)
                     end
 
                     if GemDiversionActive then
-
-
+                        -- A stale RenderStepped callback must not leave its last Move direction active.
+                        humanoid:Move(Vector3.zero, false)
+                        if MovementConnection then
+                            MovementConnection:Disconnect()
+                            MovementConnection = nil
+                        end
                         return
-
-
                     end
 
                     if os.clock() - lastEggScan >= 0.35 then
@@ -4496,9 +4506,13 @@ return function(Context)
                 return
             end
             if GemDiversionActive then
-
+                -- Clear any residual egg movement before yielding control to the gem worker.
+                humanoid:Move(Vector3.zero, false)
+                if MovementConnection then
+                    MovementConnection:Disconnect()
+                    MovementConnection = nil
+                end
                 return
-
             end
             if CurrentTarget ~= target or not IsEggAvailable(target) or not character.Parent
             or humanoid.Health <= 0 then
