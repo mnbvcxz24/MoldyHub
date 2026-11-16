@@ -161,7 +161,7 @@ return function(Context)
             task.spawn(function()
                 while not Runtime.Stopped and ESPEnabled and not ScriptShuttingDown do
                     UpdateEggESP()
-                    task.wait(0.25)
+                    task.wait(1)
                 end
             end)
         else
@@ -418,7 +418,7 @@ return function(Context)
             task.spawn(function()
                 while not Runtime.Stopped and BackpackESPEnabled and not ScriptShuttingDown do
                     pcall(UpdateBackpackESP)
-                    task.wait(0.75)
+                    task.wait(1)
                 end
             end)
         else
@@ -670,7 +670,7 @@ return function(Context)
         task.spawn(function()
             while AnimalESPEnabled and not Runtime.Stopped and not ScriptShuttingDown do
                 pcall(UpdateAnimalESP)
-                task.wait(0.5)
+                task.wait(1)
             end
         end)
     end)
