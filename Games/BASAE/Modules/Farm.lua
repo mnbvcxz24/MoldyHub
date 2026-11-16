@@ -2182,10 +2182,19 @@ return function(Context)
                 end
                 if offset.Magnitude <= 4 then
                     if returnGateWaypoint then
+                        -- CastleGATE is a pass-through waypoint, never a stopping point.
+                        -- Switch to the final destination and keep issuing movement in this
+                        -- same frame so the character runs straight through the gate.
                         returnGateWaypoint = nil
                         lastReturnDistance = math.huge
                         TouchAutomationProgress("RETURNING_FROM_ZONE13:EXITED")
-                        SetTrackerStatus("Exited Zone 13 through CastleGATE; continuing to the normal return destination.")
+                        SetTrackerStatus("Passed CastleGATE; continuing directly to the final return destination.")
+                        local finalOffset = Vector3.new(destination.X, root.Position.Y, destination.Z) - root.Position
+                        if finalOffset.Magnitude > 0.1 then
+                            humanoid:Move(finalOffset.Unit, false)
+                        else
+                            humanoid:Move(Vector3.zero, false)
+                        end
                     else
                     TouchAutomationProgress(useZoneDrop and "RETURNING_TO_ZONE1:ARRIVED" or "RETURNING_TO_BASE:ARRIVED")
                     humanoid:Move(Vector3.zero, false)
