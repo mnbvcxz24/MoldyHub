@@ -602,6 +602,7 @@ return function(Context)
                             line.TextStrokeColor3 = Color3.new(0, 0, 0)
                             line.TextStrokeTransparency = 0.15
                             line.TextWrapped = false
+                            line.RichText = lineName == "Details"
                             line.TextTruncate = Enum.TextTruncate.AtEnd
                             line.TextXAlignment = Enum.TextXAlignment.Center
                             line.TextYAlignment = Enum.TextYAlignment.Center
@@ -614,13 +615,22 @@ return function(Context)
                         AnimalESPObjects[animal] = gui
                     end
                     gui.Adornee = root
-                    local details = {}
                     local cps = AnimalESPGetCPS(animal)
-                    if cps then table.insert(details, "CPS " .. cps) end
                     local kg = AnimalESPGetValue(animal, {"WeightKg", "WeightKG", "weightKg", "weightKG", "Weight", "weight"})
-                    if kg then table.insert(details, "KG " .. kg) end
                     local mutation = AnimalESPGetMutation(animal)
-                    if mutation then table.insert(details, "Mut " .. mutation) end
+                    local function EscapeESPText(value)
+                        return tostring(value):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"):gsub("'", "&apos;")
+                    end
+                    local details = {}
+                    if cps then
+                        table.insert(details, '<font color="#FFD700">CPS ' .. EscapeESPText(cps) .. '</font>')
+                    end
+                    if kg then
+                        table.insert(details, '<font color="#FF8A8A">KG ' .. EscapeESPText(kg) .. '</font>')
+                    end
+                    if mutation then
+                        table.insert(details, EscapeESPText("Mut " .. mutation))
+                    end
                     local rootPart = animal:FindFirstChild("RootPart")
                     local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
                     local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
@@ -632,7 +642,7 @@ return function(Context)
                     local detailsLine = gui:FindFirstChild("Details")
                     local rarityLine = gui:FindFirstChild("Rarity")
                     nameLine.Text = animal.Name
-                    detailsLine.Text = table.concat(details, " • ")
+                    detailsLine.Text = table.concat(details, " <font color="#FFFFFF">•</font> ")
                     rarityLine.Text = rarity or ""
                     rarityLine.Visible = rarity ~= nil and rarity ~= ""
                     local sourceGradient = rarityLabel and rarityLabel:FindFirstChildWhichIsA("UIGradient", true)
