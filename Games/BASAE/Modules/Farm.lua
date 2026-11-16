@@ -4124,8 +4124,8 @@ return function(Context)
                         SetAutoBreakStatus("Collecting gems...")
                         -- Invalidate any already-running egg/gate movement task before stopping it.
                         AutoBreakGeneration += 1
-                        -- Stop the full Auto Break movement state while preserving its current egg target.
-                        -- Clearing ArrivedAtTarget also prevents the egg HP watchdog from restarting attacks.
+                        -- Stop egg movement while preserving both the current target and
+                        -- its arrived/breaking phase so collection can resume in place.
                         StopAutoBreak("Auto Break paused; walking to collect gems.", true, true)
                         pcall(function() humanoid:UnequipTools() end)
                         TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEMS")
