@@ -43,10 +43,11 @@ return function(Context)
     
     local StatusBarCard = CreateCard(Page, "Status Bar", "Show or hide the information bar above the screen.")
     StatusBarCard.Size = UDim2.new(1, 0, 0, 68)
-    local SavedStatusBar = true
+    local SavedStatusBar = false
     if type(SavedConfig.Toggles) == "table" and type(SavedConfig.Toggles.StatusBar_Main) == "boolean" then
         SavedStatusBar = SavedConfig.Toggles.StatusBar_Main
     end
+    if StatusBar then StatusBar.Visible = SavedStatusBar end
     local StatusBarToggle = CreateToggle(StatusBarCard, "", SavedStatusBar, function(enabled)
         if StatusBar then
             StatusBar.Visible = enabled
