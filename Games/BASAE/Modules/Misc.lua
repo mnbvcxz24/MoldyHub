@@ -495,20 +495,12 @@ return function(Context)
         return nil
     end
     local function AnimalESPGetCPS(model)
-        local names = {"CashPerSecond"}
-        for _, node in ipairs(model:GetDescendants()) do
-            if node.Name == "CashPerSecond" then
-                local text = AnimalESPReadText(node)
-                if not text then
-                    for _, child in ipairs(node:GetDescendants()) do
-                        text = AnimalESPReadText(child)
-                        if text then break end
-                    end
-                end
-                if text then return text end
-            end
-        end
-        return nil
+        local rootPart = model:FindFirstChild("RootPart")
+        local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
+        local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+        local cashFolder = overhead and overhead:FindFirstChild("CashPerSecond")
+        local cashLabel = cashFolder and cashFolder:FindFirstChild("CashPerSecond")
+        return AnimalESPReadText(cashLabel), cashLabel
     end
     local function AnimalESPGetMutation(model)
         -- Match Auto Pickup: use the game's visible AnimalOverhead.Mutation label.
@@ -551,7 +543,7 @@ return function(Context)
                         gui.AlwaysOnTop = true
                         gui.LightInfluence = 0
                         gui.MaxDistance = 2500
-                        gui.Size = UDim2.fromOffset(280, 56)
+                        gui.Size = UDim2.fromOffset(280, 70)
                         gui.StudsOffset = Vector3.new(0, 3.6, 0)
                         gui.Parent = AnimalESPFolder
                         local function makeESPLine(lineName, y, height, textSize)
@@ -575,21 +567,19 @@ return function(Context)
                             return line
                         end
                         makeESPLine("Name", 0, 18, 12)
-                        makeESPLine("Details", 18, 17, 10)
-                        makeESPLine("Rarity", 35, 19, 11)
+                        makeESPLine("CPS", 18, 16, 10)
+                        makeESPLine("Details", 34, 17, 10)
+                        makeESPLine("Rarity", 51, 19, 11)
                         AnimalESPObjects[animal] = gui
                     end
                     gui.Adornee = root
-                    local cps = AnimalESPGetCPS(animal)
+                    local cps, cpsSourceLabel = AnimalESPGetCPS(animal)
                     local kg = AnimalESPGetValue(animal, {"WeightKg", "WeightKG", "weightKg", "weightKG", "Weight", "weight"})
                     local mutation = AnimalESPGetMutation(animal)
                     local function EscapeESPText(value)
                         return tostring(value):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"):gsub("'", "&apos;")
                     end
                     local details = {}
-                    if cps then
-                        table.insert(details, '<font color="#FFD700">CPS ' .. EscapeESPText(cps) .. '</font>')
-                    end
                     if kg then
                         table.insert(details, '<font color="#FF8A8A">KG ' .. EscapeESPText(kg) .. '</font>')
                     end
@@ -604,11 +594,29 @@ return function(Context)
                     local rarity = AnimalESPReadText(rarityLabel)
                         or AnimalESPGetValue(animal, {"Rarity"})
                     local nameLine = gui:FindFirstChild("Name")
+                    local cpsLine = gui:FindFirstChild("CPS")
                     local detailsLine = gui:FindFirstChild("Details")
                     local rarityLine = gui:FindFirstChild("Rarity")
                     nameLine.Text = animal.Name
+                    cpsLine.Text = cps and ("CPS " .. cps) or ""
+                    cpsLine.Visible = cps ~= nil and cps ~= ""
                     detailsLine.Text = table.concat(details, ' <font color="#FFFFFF">•</font> ')
                     rarityLine.Text = rarity or ""
+                    local sourceCPSGradient = cpsSourceLabel and cpsSourceLabel:FindFirstChild("UIGradient")
+                    local cpsGradient = cpsLine:FindFirstChildWhichIsA("UIGradient")
+                    if sourceCPSGradient then
+                        if not cpsGradient then
+                            cpsGradient = sourceCPSGradient:Clone()
+                            cpsGradient.Parent = cpsLine
+                        else
+                            cpsGradient.Color = sourceCPSGradient.Color
+                            cpsGradient.Rotation = sourceCPSGradient.Rotation
+                            cpsGradient.Offset = sourceCPSGradient.Offset
+                            cpsGradient.Transparency = sourceCPSGradient.Transparency
+                        end
+                    elseif cpsGradient then
+                        cpsGradient:Destroy()
+                    end
                     rarityLine.Visible = rarity ~= nil and rarity ~= ""
                     local sourceGradient = rarityLabel and rarityLabel:FindFirstChildWhichIsA("UIGradient", true)
                         or (rarityFolder and rarityFolder:FindFirstChildWhichIsA("UIGradient", true))
