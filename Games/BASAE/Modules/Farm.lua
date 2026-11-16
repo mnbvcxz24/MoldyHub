@@ -4302,11 +4302,32 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- Enter Zone 13 through its live gate only when approaching from outside.
+        -- Zone 13 is accessed through the live CastleGATE in Zone 12.
+        -- If Zone13 is among the selected zones, route through that gate before
+        -- travelling to any selected egg, even when the selected egg is elsewhere.
         local movementWaypoints = {}
-        if targetZone and targetZone.Name == "Zone13" and not IsInsideZone13(root.Position) then
+        local zone13Selected = false
+        for _, zoneName in ipairs(selectedZoneNames) do
+            if zoneName == "Zone13" then
+                zone13Selected = true
+                break
+            end
+        end
+        if zone13Selected then
             local gatePosition = GetZone13GatePosition()
-            if gatePosition then table.insert(movementWaypoints, gatePosition) end
+            if gatePosition then
+                local gateOffset = Vector3.new(
+                    gatePosition.X - root.Position.X,
+                    0,
+                    gatePosition.Z - root.Position.Z
+                )
+                if gateOffset.Magnitude > 4 then
+                    table.insert(movementWaypoints, gatePosition)
+                end
+            else
+                SetTrackerStatus("Zone13 is selected, but CastleGATE could not be found at Zone12.CastleMap.Limit.CastleGATE.")
+                AddDebugLog("[Auto Break] Zone13 gate was not found; continuing with direct egg movement.")
+            end
         end
         table.insert(movementWaypoints, target:GetPivot().Position)
         local movementWaypointIndex = 1
