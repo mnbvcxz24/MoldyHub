@@ -1263,37 +1263,37 @@ return function(Context)
         return true
     end
     
-    -- Read metadata from the same Egg/EggInfoUi sources used by EggESP.
-    -- EggESP uses WeightBracket for the displayed category.
-    function GetEggESPValue(object, names)
-        if not object then return nil end
-        local nodes = {object}
-        for _, descendant in ipairs(object:GetDescendants()) do
-            table.insert(nodes, descendant)
-        end
-        for _, name in ipairs(names) do
-            for _, node in ipairs(nodes) do
-                local value = node:GetAttribute(name)
-                if value ~= nil then return tostring(value) end
-                if node.Name == name then
-                    if node:IsA("ValueBase") then return tostring(node.Value) end
-                    if (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) and node.Text ~= "" then
-                        return node.Text
+    -- Read all egg metadata with one descendant snapshot per source object.
+    -- Reusing the snapshot avoids repeatedly traversing the same egg model for
+    -- LuckMulti, WeightKg, and WeightBracket while building the Auto Break list.
+    function GetEggESPMetadata(egg)
+        if not egg then return nil, nil, nil end
+        local eggModel = egg:FindFirstChild("Egg") or egg
+        local info = eggModel:FindFirstChild("EggInfoUi", true)
+
+        local function readValues(object, names)
+            if not object then return nil end
+            local nodes = {object}
+            for _, descendant in ipairs(object:GetDescendants()) do
+                table.insert(nodes, descendant)
+            end
+            for _, name in ipairs(names) do
+                for _, node in ipairs(nodes) do
+                    local value = node:GetAttribute(name)
+                    if value ~= nil then return tostring(value) end
+                    if node.Name == name then
+                        if node:IsA("ValueBase") then return tostring(node.Value) end
+                        if (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) and node.Text ~= "" then
+                            return node.Text
+                        end
                     end
                 end
             end
+            return nil
         end
-        return nil
-    end
-    
-    function GetEggESPMetadata(egg)
-        if not egg then return nil, nil, nil end
-        -- Match GetEggESPInfo: use the direct child named "Egg", otherwise the outer egg.
-        local eggModel = egg:FindFirstChild("Egg") or egg
-        local info = eggModel:FindFirstChild("EggInfoUi", true)
-    
-        local luck = GetEggESPValue(eggModel, {"LuckMulti", "Luck", "LuckMultiplier"})
-            or GetEggESPValue(info, {"LuckMulti", "Luck", "LuckMultiplier"})
+
+        local luck = readValues(eggModel, {"LuckMulti", "Luck", "LuckMultiplier"})
+            or readValues(info, {"LuckMulti", "Luck", "LuckMultiplier"})
         if not luck and info then
             local luckList = info:FindFirstChild("LuckMultiList", true)
             local luckLabel = luckList and luckList:FindFirstChild("LuckMulti", true)
@@ -1301,12 +1301,12 @@ return function(Context)
                 luck = luckLabel.Text
             end
         end
-    
-        local weightKG = GetEggESPValue(eggModel, {"WeightKg"})
-            or GetEggESPValue(info, {"WeightKg"})
-        local category = GetEggESPValue(eggModel, {"WeightBracket"})
-            or GetEggESPValue(info, {"WeightBracket"})
-    
+
+        local weightKG = readValues(eggModel, {"WeightKg"})
+            or readValues(info, {"WeightKg"})
+        local category = readValues(eggModel, {"WeightBracket"})
+            or readValues(info, {"WeightBracket"})
+
         return luck, weightKG, category
     end
     
@@ -1679,13 +1679,52 @@ return function(Context)
     RefreshZoneList()
     RefreshEggList()
     if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
-    TrackPersistentConnection(ZoneBuilds.ChildAdded:Connect(function()
+
+    -- Keep the egg filter list in sync with eggs spawning/despawning inside
+    -- already-loaded zones, rather than waiting for a zone itself to change.
+    local WatchedEggFolders = setmetatable({}, {__mode = "k"})
+    local EggFilterRefreshQueued = false
+    local function QueueEggFilterRefresh()
+        if EggFilterRefreshQueued then return end
+        EggFilterRefreshQueued = true
+        task.defer(function()
+            EggFilterRefreshQueued = false
+            if not ScreenGui.Parent then return end
+            RefreshEggList()
+            if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
+        end)
+    end
+    local function WatchZoneEggFolder(zone)
+        if not zone then return end
+        local function watchFolder(folder)
+            if not folder or folder.Name ~= "Eggs" or WatchedEggFolders[folder] then return end
+            WatchedEggFolders[folder] = true
+            TrackPersistentConnection(folder.ChildAdded:Connect(function()
+                if SelectedZones[zone.Name] then QueueEggFilterRefresh() end
+            end))
+            TrackPersistentConnection(folder.ChildRemoved:Connect(function()
+                if SelectedZones[zone.Name] then QueueEggFilterRefresh() end
+            end))
+            if SelectedZones[zone.Name] then QueueEggFilterRefresh() end
+        end
+
+        watchFolder(zone:FindFirstChild("Eggs"))
+        TrackPersistentConnection(zone.ChildAdded:Connect(function(child)
+            if child.Name == "Eggs" then watchFolder(child) end
+        end))
+    end
+    for _, zone in ipairs(ZoneBuilds:GetChildren()) do
+        WatchZoneEggFolder(zone)
+    end
+    TrackPersistentConnection(ZoneBuilds.ChildAdded:Connect(function(zone)
         RefreshZoneList()
         RefreshEggList()
+        WatchZoneEggFolder(zone)
     end))
     TrackPersistentConnection(ZoneBuilds.ChildRemoved:Connect(function()
         RefreshZoneList()
         RefreshEggList()
+        if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
     end))
     ZoneLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         ZoneList.CanvasSize = UDim2.new(0, 0, 0, ZoneLayout.AbsoluteContentSize.Y + 8)
