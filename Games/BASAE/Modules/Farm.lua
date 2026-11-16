@@ -2602,18 +2602,6 @@ return function(Context)
             RejectPickupAndRestart("Filtered out " .. pickup.Name .. " | zone " .. tostring(pickupZoneName or "unknown") .. " is not selected.")
             return
         end
-        if not AutoPickupEnabled then
-            SetPickupTracking(pickup, "Skipped: Auto Pickup OFF")
-            if CurrentTarget and IsEggConfirmedComplete(CurrentTarget) then CompletedEggs[CurrentTarget] = true end
-            WaitingForPickup = false
-            SetTrackerStatus("New pet detected (Auto Pickup OFF): " .. pickup.Name .. " | checking current egg HP before selecting another.")
-            task.defer(function()
-                if StopAutoBreak then StopAutoBreak("Auto Pickup is OFF; checking current egg HP.", CurrentTarget ~= nil and IsEggAvailable(CurrentTarget)) end
-                task.wait(0.2)
-                if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
-            end)
-            return
-        end
         local forceUnindexedPickup = false
         if UnindexedOnlyEnabled then
             local isUnindexed, indexDisplay = EvaluateUnindexedStatus(pickup)
@@ -3040,7 +3028,9 @@ return function(Context)
             local nearestDistance = math.huge
             local totalStealPrompts = 0
             local enabledStealPrompts = 0
-            for _, candidate in ipairs(workspace:GetDescendants()) do
+            local promptAnchor = workspace:FindFirstChild("PromptAnchor")
+            local promptCandidates = promptAnchor and promptAnchor:GetDescendants() or workspace:GetDescendants()
+            for _, candidate in ipairs(promptCandidates) do
                 if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
                     totalStealPrompts += 1
                     if candidate.Enabled then
@@ -3252,12 +3242,18 @@ return function(Context)
                 return
             end
             local pickupConfirmed = false
+            local carriedAnimalBefore = CarriedAnimalWatch.model
             local activationErrors = {}
             local activationDeadline = os.clock() + 15
             local activationAttempt = 0
             while not pickupConfirmed and os.clock() < activationDeadline do
                 if PickupGeneration ~= pickupToken or not PickupRequested or not AutoPickupEnabled then return end
                 if not pickup.Parent then pickupConfirmed = true; break end
+                if not carriedAnimalBefore and CarriedAnimalWatch.model then
+                    pickupConfirmed = true
+                    SetTrackerStatus("Pickup confirmed by CarriedAnimals state change for " .. pickup.Name .. ".")
+                    break
+                end
                 if not prompt.Parent or not prompt.Enabled then
                     task.wait(0.25)
                 else
@@ -3285,6 +3281,9 @@ return function(Context)
                             task.wait(0.05)
                         end
                         if not pickup.Parent then pickupConfirmed = true
+                        elseif not carriedAnimalBefore and CarriedAnimalWatch.model then
+                            pickupConfirmed = true
+                            SetTrackerStatus("Pickup confirmed by CarriedAnimals state change for " .. pickup.Name .. ".")
                         elseif activationAttempt == 1 or activationAttempt % 3 == 0 then
                             SetTrackerStatus("StealPrompt still unchecked for " .. pickup.Name .. "; retry " .. tostring(activationAttempt) .. ".")
                         end
@@ -4259,8 +4258,17 @@ return function(Context)
                 end)
                 return
             end
-            SetTrackerStatus("No target found. Select a zone and keep at least one egg type enabled.")
+            SetTrackerStatus("No eligible egg found in the selected zones; checking again shortly.")
             TouchAutomationProgress("IDLE")
+            task.delay(2, function()
+                if AutoBreakEnabled and not ScriptShuttingDown and not Runtime.Stopped
+                    and startGeneration == AutoBreakGeneration
+                    and not PickupRequested and not ReturningAfterPickup
+                    and not FlingRecoveryActive and not WaitingForPickup
+                    and not CurrentTarget then
+                    StartAutoBreak(true)
+                end
+            end)
             return
         end
         -- Reserve the selected egg before any character wait. Other start requests
