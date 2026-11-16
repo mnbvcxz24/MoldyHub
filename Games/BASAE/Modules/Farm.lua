@@ -2956,8 +2956,9 @@ return function(Context)
         end
         local pickupZoneName = GetPickupZoneName(pickup)
         LastAnimalPickupZoneName = pickupZoneName
-        local pickupGateWaypoint = IsZone13OrHigher(pickupZoneName) and not IsInsideZone13(moveRoot.Position)
-            and GetZone13GatePosition() or nil
+        -- Always approach the selected animal directly. CastleGATE is only a
+        -- return waypoint after a successful steal from Zone13 or higher.
+        local pickupGateWaypoint = nil
         local animalMoveStarted = os.clock()
         local lastAnimalProgressAt = os.clock()
         local bestAnimalDistance = math.huge
@@ -3016,14 +3017,11 @@ return function(Context)
                 pickupPosition = currentPosition
                 LastAnimalPickupPosition = currentPosition
             end
-            local activePickupTarget = pickupGateWaypoint or pickupPosition
-            local animalOffset = Vector3.new(activePickupTarget.X - moveRoot.Position.X, 0, activePickupTarget.Z - moveRoot.Position.Z)
+            local animalOffset = Vector3.new(
+                pickupPosition.X - moveRoot.Position.X, 0,
+                pickupPosition.Z - moveRoot.Position.Z
+            )
             local animalDistance = animalOffset.Magnitude
-            if animalDistance <= 4 and pickupGateWaypoint then
-                pickupGateWaypoint = nil
-                animalOffset = Vector3.new(pickupPosition.X - moveRoot.Position.X, 0, pickupPosition.Z - moveRoot.Position.Z)
-                animalDistance = animalOffset.Magnitude
-            end
             if animalDistance <= 4 then break end
             local now = os.clock()
             if now - animalMoveStarted >= 25 then
