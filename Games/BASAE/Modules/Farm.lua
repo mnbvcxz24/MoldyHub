@@ -4077,8 +4077,21 @@ return function(Context)
         if not dropsFolder then return nil end
         local now = os.clock()
         local nearestGem, nearestPosition, nearestDistance
-        for _, gem in ipairs(dropsFolder:GetChildren()) do
-            if gem.Name == "Gems" then
+        local function HasModelAncestor(instance)
+            local ancestor = instance.Parent
+            while ancestor and ancestor ~= dropsFolder do
+                if ancestor:IsA("Model") then return true end
+                ancestor = ancestor.Parent
+            end
+            return false
+        end
+
+        -- Gem drops can be nested under folders/models and their names can vary.
+        -- Treat every descendant Model, plus standalone BaseParts, as a candidate.
+        for _, gem in ipairs(dropsFolder:GetDescendants()) do
+            local isCandidate = gem:IsA("Model")
+                or (gem:IsA("BasePart") and not HasModelAncestor(gem))
+            if isCandidate then
                 local retryAt = VisitedGemDrops[gem]
                 if not retryAt or now - retryAt >= GEM_RETRY_DELAY then
                     local position = GetGemDropPosition(gem)
