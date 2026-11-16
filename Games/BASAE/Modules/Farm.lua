@@ -536,10 +536,56 @@ return function(Context)
         AddDebugLog("[Auto Pickup] " .. (enabled and "Lowest placed CPS filter ON." or "Lowest placed CPS filter OFF."))
     end, HighestCashEnabled)
     local UnindexedOnlyEnabled = SavedFarmConfig.UnindexedOnly == true
-    local UnindexedOnlyToggle = CreatePickupCheckbox(AutoPickupCard, "Steal not Index Animals", 231, function(enabled)
+    local UnindexedOnlyToggle, UnindexedOnlyLabel = CreatePickupCheckbox(AutoPickupCard, "Steal not Index Animals", 231, function(enabled)
         UnindexedOnlyEnabled = enabled
         AddDebugLog("[Auto Pickup] " .. (enabled and "Unindexed-only verification ON." or "Unindexed-only verification OFF."))
     end, UnindexedOnlyEnabled)
+    UnindexedOnlyLabel.Size = UDim2.new(1, -78, 0, 22)
+    local UnindexedGuideButton = Create("TextButton", {
+        Name = "UnindexedIndexGuideButton",
+        Parent = AutoPickupCard,
+        Position = UDim2.new(1, -55, 0, 232),
+        Size = UDim2.fromOffset(16, 18),
+        BackgroundColor3 = Theme.SurfaceInput,
+        Text = "?",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        BorderSizePixel = 0,
+        AutoButtonColor = true,
+        ZIndex = 31
+    })
+    AddCorner(UnindexedGuideButton, 5)
+    AddStroke(UnindexedGuideButton, Theme.Border, 1)
+    local UnindexedGuidePopup = Create("Frame", {
+        Name = "UnindexedIndexGuidePopup",
+        Parent = AutoPickupCard,
+        Position = UDim2.fromOffset(11, 253),
+        Size = UDim2.new(1, -22, 0, 54),
+        BackgroundColor3 = Theme.SurfaceInput,
+        BorderSizePixel = 0,
+        Visible = false,
+        ZIndex = 30
+    })
+    AddCorner(UnindexedGuidePopup, 6)
+    AddStroke(UnindexedGuidePopup, Theme.Border, 1)
+    Create("TextLabel", {
+        Parent = UnindexedGuidePopup,
+        Position = UDim2.fromOffset(8, 5),
+        Size = UDim2.new(1, -16, 1, -10),
+        BackgroundTransparency = 1,
+        Text = "To steal animals not in index, click the Index and select Normal, Mutations, or Limited first to assign.",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 31
+    })
+    UnindexedGuideButton.MouseButton1Click:Connect(function()
+        UnindexedGuidePopup.Visible = not UnindexedGuidePopup.Visible
+    end)
     local DropInZone1Enabled = SavedFarmConfig.DropInZone1 == true
     local DropInZone1Toggle = CreatePickupCheckbox(AutoPickupCard, "Drop the animal in Zone 1", 257, function(enabled)
         DropInZone1Enabled = enabled
@@ -2605,20 +2651,6 @@ return function(Context)
         end
         pickup:SetAttribute("MoldyHub_BASAE_CPSCheckedAt", os.time())
     end
-    function GetSelectedMutationIndexName()
-        local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-        local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
-        local frames = mainGui and mainGui:FindFirstChild("Frames")
-        local index = frames and frames:FindFirstChild("Index")
-        local requirementInfo = index and index:FindFirstChild("MutatedIndexRequirementInfo")
-        if not requirementInfo or not (requirementInfo:IsA("TextLabel") or requirementInfo:IsA("TextButton") or requirementInfo:IsA("TextBox")) then
-            return nil
-        end
-        local requirementText = tostring(requirementInfo.Text or "")
-        -- RichText example: Discover <font ...>80%</font> of the Gold index for ...
-        local mutationName = requirementText:match("[Oo]f the%s+([%w%s%-]+)%s+[Ii]ndex")
-        return mutationName and mutationName:match("^%s*(.-)%s*$") or nil
-    end
     function GetIndexNameLabel(animalName)
         local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
         local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
@@ -2643,32 +2675,28 @@ return function(Context)
         return nil
     end
     function EvaluateUnindexedStatus(pickup)
-        local mutationIndexName = GetSelectedMutationIndexName()
-        pickup:SetAttribute("MoldyHub_BASAE_SelectedMutationIndex", mutationIndexName or "Normal")
+        -- The player chooses Normal, Mutations, or Limited in the Index UI.
+        -- Read the currently displayed animal entry directly; never infer the
+        -- selected index from the requirement text.
         local label = GetIndexNameLabel(pickup.Name)
         for attempt = 1, 8 do
             if label and label.Parent then break end
             if not pickup.Parent or not AutoPickupEnabled then
                 return nil, "verification cancelled"
             end
-            local currentMutationIndex = GetSelectedMutationIndexName()
-            if currentMutationIndex ~= mutationIndexName then
-                mutationIndexName = currentMutationIndex
-                pickup:SetAttribute("MoldyHub_BASAE_SelectedMutationIndex", mutationIndexName or "Normal")
-            end
-            SetPickupTracking(pickup, string.format("Waiting for %s Index entry (%d/8)", mutationIndexName or "Normal", attempt))
+            SetPickupTracking(pickup, string.format("Waiting for Index entry (%d/8)", attempt))
             task.wait(0.25)
             label = GetIndexNameLabel(pickup.Name)
         end
         if not label or not label.Parent then
-            return nil, (mutationIndexName and (mutationIndexName .. " mutation Index entry unavailable") or "Index entry unavailable")
+            return nil, "Index entry unavailable"
         end
         local displayName = tostring(label.Text or ""):match("^%s*(.-)%s*$")
         if displayName == "???" then
-            return true, displayName .. " (" .. tostring(mutationIndexName or "Normal") .. " index)"
+            return true, "??? (selected index)"
         end
         if displayName == tostring(pickup.Name) then
-            return false, displayName .. " (" .. tostring(mutationIndexName or "Normal") .. " index)"
+            return false, displayName .. " (selected index)"
         end
         return nil, "Index name mismatch: " .. tostring(displayName)
     end
