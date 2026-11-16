@@ -31,6 +31,7 @@ return function(Context)
     local TitanicPriorityEnabled = false
     local CollectGemsEnabled = type(SavedConfig.Farm) == "table" and SavedConfig.Farm.CollectGems == true
     local AutoBreakStatusLabel
+    local SetAutoBreakStatus
     local VisitedGemDrops = setmetatable({}, {__mode = "k"})
     local AutoBreakControlLayout = {
         ZoneY = 42,
@@ -47,6 +48,7 @@ return function(Context)
     end
     local AutoBreakToggle = CreateToggle(Card1, "", false, function(enabled)
         AutoBreakEnabled = enabled
+        if SetAutoBreakStatus then SetAutoBreakStatus(enabled and "Scanning for egg..." or "Off") end
         AutoBreakGeneration += 1
         if TouchAutomationProgress then
             TouchAutomationProgress(enabled and "AUTO_BREAK_ON" or "AUTO_BREAK_OFF")
@@ -1678,6 +1680,12 @@ return function(Context)
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top
     })
+    SetAutoBreakStatus = function(message)
+        if not AutoBreakStatusLabel or not AutoBreakStatusLabel.Parent then return end
+        local statusText = tostring(message or "Idle")
+        AutoBreakStatusLabel.Text = "Status: " .. statusText
+        AutoBreakStatusLabel.TextColor3 = (statusText == "Off" or statusText == "Idle") and Theme.Gray or Theme.Accent
+    end
     Card1.Size = UDim2.new(0.5, -5, 0, 190)
     AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 340)
     local function UpdateAutoBreakCardHeights()
@@ -1902,13 +1910,15 @@ return function(Context)
     local FlingTargetWeightKg
     local HitEventConnection
     local SetTrackerStatus = function(message)
-        if AutoBreakStatusLabel and AutoBreakStatusLabel.Parent then
-            AutoBreakStatusLabel.Text = "Status: " .. tostring(message or "Idle")
-        end
+        AddDebugLog("[Egg Tracker] " .. tostring(message))
     end
     function SetPickupPhase(phase, message)
         PickupPhase = phase
         TouchAutomationProgress("PICKUP:" .. tostring(phase))
+        if phase == "ANIMAL_APPROACH" or phase == "PROMPT_SEARCH" or phase == "PROMPT_APPROACH" then
+            local animalName = ActivePickup and ActivePickup.Name or tostring(message or "animal")
+            SetAutoBreakStatus("Stealing: " .. animalName)
+        end
         if message then SetTrackerStatus("PICKUP LOCK [" .. phase .. "]: " .. message) end
     end
     StopPickupAutomation = function(reason)
@@ -2082,6 +2092,7 @@ return function(Context)
         ReturningAfterPickup = true
         local returnToken = PickupGeneration
         TouchAutomationProgress("RETURNING_TO_BASE")
+        SetAutoBreakStatus("Returning to base...")
         SetTrackerStatus(reason or "Pickup hold completed. Returning to the pickup point.")
         task.spawn(function()
             local character, humanoid, root = WaitForCharacterAndParts(10, function()
@@ -2095,6 +2106,7 @@ return function(Context)
                 end
                 return
             end
+            SetAutoBreakStatus(useZoneDrop and "Dropping animal in Zone 1..." or "Returning to base...")
             SetTrackerStatus(useZoneDrop and "Moving to Zone 1 to drop the animal." or "Returning to workspace.Build.ZoneHitboxes.SafeZone.")
             local moveStarted = os.clock()
             local lastReturnDistance = math.huge
@@ -2308,6 +2320,7 @@ return function(Context)
             LastEggHPProgressAt = os.clock()
             TouchAutomationProgress()
         end
+        SetAutoBreakStatus("Breaking egg: " .. target.Name)
         SetTrackerStatus("MATCH | target=" .. target:GetFullName()
             .. " | counter=" .. tostring(hitCounter)
             .. " | health=" .. tostring(health))
@@ -2320,6 +2333,7 @@ return function(Context)
             local character = LocalPlayer.Character
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             if humanoid and not PickupRequested and not ReturningAfterPickup then humanoid:Move(Vector3.zero, false) end
+            SetAutoBreakStatus("Egg broken; scanning for next egg...")
             SetTrackerStatus("Egg broken; Auto Break will continue while Auto Pickup monitors AnimalPickups.")
             task.defer(function()
                 task.wait(0.15)
@@ -2885,6 +2899,7 @@ return function(Context)
         PickupPhase = "ANIMAL_APPROACH"
         SetPickupTracking(pickup, "Selected for pickup", cpsText)
         PickupRequested = true
+        SetAutoBreakStatus("Stealing: " .. pickup.Name)
         task.delay(45, function()
             if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested
                 or ReturningAfterPickup or ActivePickup ~= pickup then
@@ -4093,6 +4108,7 @@ return function(Context)
                     local gem = FindNearestGemDrop(root)
                     if gem then
                         GemDiversionActive = true
+                        SetAutoBreakStatus("Collecting gems...")
                         -- Invalidate any already-running egg/gate movement task before stopping it.
                         AutoBreakGeneration += 1
                         -- Stop the full Auto Break movement state while preserving its current egg target.
@@ -4201,6 +4217,7 @@ return function(Context)
         if not AutoBreakEnabled or ScriptShuttingDown then return end
         local startGeneration = AutoBreakGeneration
         TouchAutomationProgress("AUTO_BREAK:SELECTING_TARGET")
+        SetAutoBreakStatus("Scanning for egg...")
         if FlingRecoveryActive then
             SetTrackerStatus("Auto Break paused: fling recovery owns movement until the animal pickup attempt finishes.")
             return
@@ -4214,6 +4231,7 @@ return function(Context)
             return
         end
         if WaitingForPickup then
+            SetAutoBreakStatus("Waiting for animal to spawn...")
             SetTrackerStatus("Auto Break start ignored: broken target is waiting for its AnimalPickups entry.")
             return
         end
@@ -4356,6 +4374,7 @@ return function(Context)
                     return
                 end
 
+                SetAutoBreakStatus("Moving to Zone13 gate...")
                 SetTrackerStatus("No eligible egg found in selected zones; moving to the Zone13 gate to trigger spawning.")
                 AddDebugLog("[Auto Break] No eligible egg found; approaching Zone13 CastleGATE.")
                 local lastEggScan = 0
@@ -4456,6 +4475,7 @@ return function(Context)
                 end)
                 return
             end
+            SetAutoBreakStatus("No eligible egg; checking again...")
             SetTrackerStatus("No eligible egg found in the selected zones; checking again shortly.")
             TouchAutomationProgress("IDLE")
             task.delay(2, function()
@@ -4513,6 +4533,7 @@ return function(Context)
         -- no-target fallback above, where it triggers Zone13+ egg spawning.
         local movementWaypoints = {target:GetPivot().Position}
         local movementWaypointIndex = 1
+        SetAutoBreakStatus("Moving to egg: " .. target.Name)
         SetTrackerStatus("Moving to egg: " .. target:GetFullName())
     
         MovementConnection = RunService.RenderStepped:Connect(function()
@@ -4565,6 +4586,7 @@ return function(Context)
                 LastEggHPTarget = target
                 LastEggHPValue = nil
                 LastEggHPProgressAt = os.clock()
+                SetAutoBreakStatus("Breaking egg: " .. target.Name)
                 SetTrackerStatus("ARRIVED | " .. target:GetFullName()
                     .. " | tracking matching EggHitConfirmed events now.")
                 local hpWatchdogTarget = target
