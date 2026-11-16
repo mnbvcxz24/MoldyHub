@@ -908,6 +908,10 @@ return function(Context)
         end)
         return ok and position or nil
     end
+    local function IsZone13OrHigher(zoneName)
+        local zoneNumber = tonumber(tostring(zoneName):match("^Zone(%d+)$"))
+        return zoneNumber ~= nil and zoneNumber >= 13
+    end
     local function IsInsideZone13(position)
         local zone13 = ZoneBuilds:FindFirstChild("Zone13")
         if not zone13 or not position then return false end
@@ -2602,18 +2606,6 @@ return function(Context)
             RejectPickupAndRestart("Filtered out " .. pickup.Name .. " | zone " .. tostring(pickupZoneName or "unknown") .. " is not selected.")
             return
         end
-        if not AutoPickupEnabled then
-            SetPickupTracking(pickup, "Skipped: Auto Pickup OFF")
-            if CurrentTarget and IsEggConfirmedComplete(CurrentTarget) then CompletedEggs[CurrentTarget] = true end
-            WaitingForPickup = false
-            SetTrackerStatus("New pet detected (Auto Pickup OFF): " .. pickup.Name .. " | checking current egg HP before selecting another.")
-            task.defer(function()
-                if StopAutoBreak then StopAutoBreak("Auto Pickup is OFF; checking current egg HP.", CurrentTarget ~= nil and IsEggAvailable(CurrentTarget)) end
-                task.wait(0.2)
-                if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
-            end)
-            return
-        end
         local forceUnindexedPickup = false
         if UnindexedOnlyEnabled then
             local isUnindexed, indexDisplay = EvaluateUnindexedStatus(pickup)
@@ -3034,13 +3026,16 @@ return function(Context)
             end
             return nil
         end
+        local promptFallbackScanned = false
         repeat
             if PickupGeneration ~= pickupToken then return end
             prompt = nil
             local nearestDistance = math.huge
             local totalStealPrompts = 0
             local enabledStealPrompts = 0
-            for _, candidate in ipairs(workspace:GetDescendants()) do
+            local promptAnchor = workspace:FindFirstChild("PromptAnchor")
+            local promptCandidates = promptAnchor and promptAnchor:GetDescendants() or workspace:GetDescendants()
+            for _, candidate in ipairs(promptCandidates) do
                 if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
                     totalStealPrompts += 1
                     if candidate.Enabled then
@@ -3051,6 +3046,27 @@ return function(Context)
                             if distance < nearestDistance and distance <= promptMatchRadius then
                                 nearestDistance = distance
                                 prompt = candidate
+                            end
+                        end
+                    end
+                end
+            end
+            -- PromptAnchor is the normal fast path. If it misses, do one broad
+            -- fallback scan rather than traversing the entire Workspace every poll.
+            if not prompt and promptAnchor and not promptFallbackScanned then
+                promptFallbackScanned = true
+                for _, candidate in ipairs(workspace:GetDescendants()) do
+                    if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
+                        totalStealPrompts += 1
+                        if candidate.Enabled then
+                            enabledStealPrompts += 1
+                            local candidatePosition = getPromptPosition(candidate)
+                            if candidatePosition then
+                                local distance = (candidatePosition - pickupPosition).Magnitude
+                                if distance < nearestDistance and distance <= promptMatchRadius then
+                                    nearestDistance = distance
+                                    prompt = candidate
+                                end
                             end
                         end
                     end
@@ -3252,12 +3268,18 @@ return function(Context)
                 return
             end
             local pickupConfirmed = false
+            local carriedAnimalBefore = CarriedAnimalWatch.model
             local activationErrors = {}
             local activationDeadline = os.clock() + 15
             local activationAttempt = 0
             while not pickupConfirmed and os.clock() < activationDeadline do
                 if PickupGeneration ~= pickupToken or not PickupRequested or not AutoPickupEnabled then return end
                 if not pickup.Parent then pickupConfirmed = true; break end
+                if not carriedAnimalBefore and CarriedAnimalWatch.model then
+                    pickupConfirmed = true
+                    SetTrackerStatus("Pickup confirmed by CarriedAnimals state change for " .. pickup.Name .. ".")
+                    break
+                end
                 if not prompt.Parent or not prompt.Enabled then
                     task.wait(0.25)
                 else
@@ -3285,6 +3307,9 @@ return function(Context)
                             task.wait(0.05)
                         end
                         if not pickup.Parent then pickupConfirmed = true
+                        elseif not carriedAnimalBefore and CarriedAnimalWatch.model then
+                            pickupConfirmed = true
+                            SetTrackerStatus("Pickup confirmed by CarriedAnimals state change for " .. pickup.Name .. ".")
                         elseif activationAttempt == 1 or activationAttempt % 3 == 0 then
                             SetTrackerStatus("StealPrompt still unchecked for " .. pickup.Name .. "; retry " .. tostring(activationAttempt) .. ".")
                         end
@@ -3948,6 +3973,12 @@ return function(Context)
             SetTrackerStatus(reason)
         end
     end
+    local GemPickupPending = setmetatable({}, {__mode = "k"})
+    local GEM_SEARCH_RADIUS = 30
+    local GEM_PICKUP_DISTANCE = 5
+    local GEM_PICKUP_TIMEOUT = 3
+    local GEM_RETRY_DELAY = 3
+
     local function GetGemDropPosition(gem)
         if not gem or not gem.Parent then return nil end
         if gem:IsA("BasePart") then return gem.Position end
@@ -3963,29 +3994,47 @@ return function(Context)
         local dropsFolder = workspace:FindFirstChild("EggGemDrops")
         if not dropsFolder then return false end
 
+        local now = os.clock()
         local nearestGem, nearestPosition, nearestDistance
         for _, gem in ipairs(dropsFolder:GetChildren()) do
-            if gem.Name == "Gems" and not VisitedGemDrops[gem] then
-                local position = GetGemDropPosition(gem)
-                if position then
-                    local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
-                    local distance = offset.Magnitude
-                    if not nearestDistance or distance < nearestDistance then
-                        nearestGem, nearestPosition, nearestDistance = gem, position, distance
+            if gem.Name == "Gems" then
+                local retryAt = VisitedGemDrops[gem]
+                if not retryAt or now - retryAt >= GEM_RETRY_DELAY then
+                    local position = GetGemDropPosition(gem)
+                    if position then
+                        local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
+                        local distance = offset.Magnitude
+                        if distance <= GEM_SEARCH_RADIUS and (not nearestDistance or distance < nearestDistance) then
+                            nearestGem, nearestPosition, nearestDistance = gem, position, distance
+                        end
                     end
                 end
             end
         end
 
         if not nearestGem then return false end
-        if nearestDistance <= 5 then
-            VisitedGemDrops[nearestGem] = true
+
+        if nearestDistance <= GEM_PICKUP_DISTANCE then
+            local pendingAt = GemPickupPending[nearestGem]
+            if not pendingAt then
+                GemPickupPending[nearestGem] = now
+                pendingAt = now
+            end
             humanoid:Move(Vector3.zero, false)
-            TouchAutomationProgress("AUTO_BREAK:GEM_REACHED")
-            SetTrackerStatus("Reached gem drop; resuming Auto Break.")
+            if now - pendingAt >= GEM_PICKUP_TIMEOUT then
+                -- The drop remained after the pickup window; back off briefly, then retry it.
+                GemPickupPending[nearestGem] = nil
+                VisitedGemDrops[nearestGem] = now
+                SetTrackerStatus("Gem pickup was not confirmed; will retry shortly.")
+                TouchAutomationProgress("AUTO_BREAK:GEM_RETRY")
+                return false
+            end
+            TouchAutomationProgress("AUTO_BREAK:VERIFYING_GEM")
+            SetTrackerStatus("Waiting for gem pickup confirmation.")
             return true
         end
 
+        GemPickupPending[nearestGem] = nil
         local offset = Vector3.new(nearestPosition.X - root.Position.X, 0, nearestPosition.Z - root.Position.Z)
         if offset.Magnitude > 0.05 then
             humanoid:Move(offset.Unit, false)
@@ -4138,14 +4187,14 @@ return function(Context)
             end
         end
         if not target then
-            local zone13Selected = false
+            local zone13OrHigherSelected = false
             for _, zoneName in ipairs(selectedZoneNames) do
-                if zoneName == "Zone13" then
-                    zone13Selected = true
+                if IsZone13OrHigher(zoneName) then
+                    zone13OrHigherSelected = true
                     break
                 end
             end
-            local gatePosition = zone13Selected and GetZone13GatePosition() or nil
+            local gatePosition = zone13OrHigherSelected and GetZone13GatePosition() or nil
             if gatePosition then
                 local character = LocalPlayer.Character
                 local characterDeadline = os.clock() + 10
@@ -4259,8 +4308,17 @@ return function(Context)
                 end)
                 return
             end
-            SetTrackerStatus("No target found. Select a zone and keep at least one egg type enabled.")
+            SetTrackerStatus("No eligible egg found in the selected zones; checking again shortly.")
             TouchAutomationProgress("IDLE")
+            task.delay(2, function()
+                if AutoBreakEnabled and not ScriptShuttingDown and not Runtime.Stopped
+                    and startGeneration == AutoBreakGeneration
+                    and not PickupRequested and not ReturningAfterPickup
+                    and not FlingRecoveryActive and not WaitingForPickup
+                    and not CurrentTarget then
+                    StartAutoBreak(true)
+                end
+            end)
             return
         end
         -- Reserve the selected egg before any character wait. Other start requests
@@ -4302,11 +4360,32 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- Enter Zone 13 through its live gate only when approaching from outside.
+        -- Zone 13 is accessed through the live CastleGATE in Zone 12.
+        -- If any Zone13-or-higher zone is selected, route through that gate before
+        -- travelling to any selected egg, even when the selected egg is elsewhere.
         local movementWaypoints = {}
-        if targetZone and targetZone.Name == "Zone13" and not IsInsideZone13(root.Position) then
+        local zone13OrHigherSelected = false
+        for _, zoneName in ipairs(selectedZoneNames) do
+            if IsZone13OrHigher(zoneName) then
+                zone13OrHigherSelected = true
+                break
+            end
+        end
+        if zone13OrHigherSelected then
             local gatePosition = GetZone13GatePosition()
-            if gatePosition then table.insert(movementWaypoints, gatePosition) end
+            if gatePosition then
+                local gateOffset = Vector3.new(
+                    gatePosition.X - root.Position.X,
+                    0,
+                    gatePosition.Z - root.Position.Z
+                )
+                if gateOffset.Magnitude > 4 then
+                    table.insert(movementWaypoints, gatePosition)
+                end
+            else
+                SetTrackerStatus("Zone13 or a higher zone is selected, but CastleGATE could not be found at Zone12.CastleMap.Limit.CastleGATE.")
+                AddDebugLog("[Auto Break] Zone13 gate was not found; continuing with direct egg movement.")
+            end
         end
         table.insert(movementWaypoints, target:GetPivot().Position)
         local movementWaypointIndex = 1
@@ -4361,13 +4440,8 @@ return function(Context)
                 task.spawn(function()
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                         and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
-                        local gemMovementActive = MoveTowardGemDrop(root, humanoid)
-                        if gemMovementActive then
-                            -- Pause the egg HP watchdog while walking to a gem drop.
-                            hpWatchdogStarted = os.clock()
-                        end
-                        local noDamageFor = gemMovementActive and 0
-                            or (os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt))
+                        -- Do not divert movement while actively attacking an arrived egg.
+                        local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt)
                         if noDamageFor >= 3 then
                             local currentPlayer = LocalPlayer
                             local characterModel = currentPlayer and workspace:FindFirstChild(currentPlayer.Name)
