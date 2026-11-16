@@ -4068,13 +4068,10 @@ return function(Context)
                     local gem = FindNearestGemDrop(root)
                     if gem then
                         GemDiversionActive = true
-                        if MovementConnection then
-                            MovementConnection:Disconnect()
-                            MovementConnection = nil
-                        end
-                        humanoid:Move(Vector3.zero, false)
+                        -- Stop the full Auto Break movement state while preserving its current egg target.
+                        -- Clearing ArrivedAtTarget also prevents the egg HP watchdog from restarting attacks.
+                        StopAutoBreak("Auto Break paused; walking to collect gems.", true)
                         pcall(function() humanoid:UnequipTools() end)
-                        SetTrackerStatus("Auto Break paused; walking to collect gems.")
                         TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEMS")
 
                         local collectedAny = false
@@ -4091,6 +4088,8 @@ return function(Context)
                                 and not PickupRequested and not ReturningAfterPickup do
                                 currentPosition = GetGemDropPosition(gem)
                                 if not currentPosition then break end
+                                -- Keep Auto Break tools unequipped while gem collection owns movement.
+                                pcall(function() humanoid:UnequipTools() end)
                                 local offset = Vector3.new(currentPosition.X - root.Position.X, 0, currentPosition.Z - root.Position.Z)
                                 if offset.Magnitude <= GEM_ARRIVAL_DISTANCE then
                                     humanoid:Move(Vector3.zero, false)
@@ -4113,6 +4112,7 @@ return function(Context)
                                 while gem.Parent and os.clock() < pickupDeadline
                                     and not Runtime.Stopped and AutoBreakEnabled
                                     and not PickupRequested and not ReturningAfterPickup do
+                                    pcall(function() humanoid:UnequipTools() end)
                                     TouchAutomationProgress("AUTO_BREAK:VERIFYING_GEM")
                                     task.wait(0.1)
                                 end
@@ -4156,6 +4156,8 @@ return function(Context)
     local AutoBreakStartBusy = false
     local StartAutoBreakInternal
     StartAutoBreak = function(forceRefresh)
+        -- Ignore queued/deferred restarts while gem collection owns movement.
+        if GemDiversionActive then return end
         if AutoBreakStartBusy then return end
         AutoBreakStartBusy = true
         local ok, err = pcall(function()
@@ -4168,6 +4170,7 @@ return function(Context)
         end
     end
     StartAutoBreakInternal = function(forceRefresh)
+        if GemDiversionActive then return end
         if not AutoBreakEnabled or ScriptShuttingDown then return end
         local startGeneration = AutoBreakGeneration
         TouchAutomationProgress("AUTO_BREAK:SELECTING_TARGET")
@@ -4564,7 +4567,7 @@ return function(Context)
                             end
 
                             if not AutoBreakEnabled or CurrentTarget ~= hpWatchdogTarget
-                                or PickupRequested or ReturningAfterPickup then
+                                or PickupRequested or ReturningAfterPickup or GemDiversionActive then
                                 return
                             end
 
@@ -4598,7 +4601,7 @@ return function(Context)
                             end
 
                             if Runtime.Stopped or not AutoBreakEnabled or CurrentTarget ~= hpWatchdogTarget
-                                or PickupRequested or ReturningAfterPickup then
+                                or PickupRequested or ReturningAfterPickup or GemDiversionActive then
                                 return
                             end
 
@@ -4649,7 +4652,7 @@ return function(Context)
             task.wait(1)
             -- Fling recovery has its own bounded approach timeouts; do not let the generic
             -- 20-second watchdog cancel a valid recovery movement phase.
-            local active = not FlingRecoveryActive and (PickupRequested
+            local active = not FlingRecoveryActive and not GemDiversionActive and (PickupRequested
                 or (not ReturningAfterPickup and AutoBreakEnabled and (CurrentTarget ~= nil or WaitingForPickup or ArrivedAtTarget
                     or AutomationProgressStage:find("^AUTO_BREAK:") ~= nil)))
             if active and not AutomationWatchdogBusy
