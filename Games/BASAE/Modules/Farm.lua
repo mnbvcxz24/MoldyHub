@@ -4018,7 +4018,7 @@ return function(Context)
             SetTrackerStatus(reason)
         end
     end
-    local GEM_SEARCH_RADIUS = 30
+    local GEM_ARRIVAL_DISTANCE = 3.5
     local GEM_PICKUP_TIMEOUT = 3
     local GEM_RETRY_DELAY = 3
     local GemDiversionActive = false
@@ -4035,7 +4035,6 @@ return function(Context)
     local function FindNearestGemDrop(root)
         local dropsFolder = workspace:FindFirstChild("EggGemDrops")
         if not dropsFolder then return nil end
-
         local now = os.clock()
         local nearestGem, nearestPosition, nearestDistance
         for _, gem in ipairs(dropsFolder:GetChildren()) do
@@ -4045,7 +4044,7 @@ return function(Context)
                     local position = GetGemDropPosition(gem)
                     if position then
                         local distance = (position - root.Position).Magnitude
-                        if distance <= GEM_SEARCH_RADIUS and (not nearestDistance or distance < nearestDistance) then
+                        if not nearestDistance or distance < nearestDistance then
                             nearestGem, nearestPosition, nearestDistance = gem, position, distance
                         end
                     end
@@ -4055,8 +4054,8 @@ return function(Context)
         return nearestGem, nearestPosition
     end
 
-    -- Run independently of the egg movement connection so gems are collected
-    -- even while Auto Break is stationary and attacking an egg.
+    -- Pause egg movement/attacking, walk to every available gem, then restart
+    -- Auto Break against its existing target after the gem drops are cleared.
     task.spawn(function()
         while not Runtime.Stopped and not ScriptShuttingDown do
             if CollectGemsEnabled and AutoBreakEnabled
@@ -4066,47 +4065,87 @@ return function(Context)
                 local root = character and character:FindFirstChild("HumanoidRootPart")
                 local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                 if root and humanoid and humanoid.Health > 0 then
-                    local gem, gemPosition = FindNearestGemDrop(root)
-                    if gem and gemPosition then
+                    local gem = FindNearestGemDrop(root)
+                    if gem then
                         GemDiversionActive = true
-                        local returnCFrame = root.CFrame
+                        if MovementConnection then
+                            MovementConnection:Disconnect()
+                            MovementConnection = nil
+                        end
                         humanoid:Move(Vector3.zero, false)
-                        local teleported = pcall(function()
-                            root.CFrame = CFrame.new(gemPosition) * returnCFrame.Rotation
-                        end)
+                        pcall(function() humanoid:UnequipTools() end)
+                        SetTrackerStatus("Auto Break paused; walking to collect gems.")
+                        TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEMS")
 
-                        if teleported then
-                            SetTrackerStatus("Teleported to gem pickup position; waiting for collection.")
-                            TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEM")
-                            local deadline = os.clock() + GEM_PICKUP_TIMEOUT
-                            while gem.Parent and os.clock() < deadline
-                                and not Runtime.Stopped and AutoBreakEnabled
+                        local collectedAny = false
+                        while gem and gem.Parent and not Runtime.Stopped and not ScriptShuttingDown
+                            and AutoBreakEnabled and CollectGemsEnabled
+                            and not PickupRequested and not ReturningAfterPickup do
+                            local currentPosition = GetGemDropPosition(gem)
+                            local distance = currentPosition and (currentPosition - root.Position).Magnitude or math.huge
+                            local approachTimeout = math.clamp(distance / 6 + 8, 10, 60)
+                            local startedAt = os.clock()
+
+                            while gem.Parent and os.clock() - startedAt < approachTimeout
+                                and not Runtime.Stopped and AutoBreakEnabled and CollectGemsEnabled
                                 and not PickupRequested and not ReturningAfterPickup do
-                                TouchAutomationProgress("AUTO_BREAK:VERIFYING_GEM")
-                                task.wait(0.1)
+                                currentPosition = GetGemDropPosition(gem)
+                                if not currentPosition then break end
+                                local offset = Vector3.new(currentPosition.X - root.Position.X, 0, currentPosition.Z - root.Position.Z)
+                                if offset.Magnitude <= GEM_ARRIVAL_DISTANCE then
+                                    humanoid:Move(Vector3.zero, false)
+                                    break
+                                end
+                                humanoid:Move(offset.Unit, false)
+                                TouchAutomationProgress("AUTO_BREAK:WALKING_TO_GEM")
+                                task.wait(0.05)
                             end
 
+                            humanoid:Move(Vector3.zero, false)
+                            currentPosition = GetGemDropPosition(gem)
                             if not gem.Parent then
                                 VisitedGemDrops[gem] = nil
-                                SetTrackerStatus("Gem collected; returning to the current egg route.")
+                                collectedAny = true
+                                SetTrackerStatus("Gem collected; checking for the next gem.")
+                            elseif currentPosition and (currentPosition - root.Position).Magnitude <= GEM_ARRIVAL_DISTANCE + 1 then
+                                SetTrackerStatus("Reached gem; waiting for pickup confirmation.")
+                                local pickupDeadline = os.clock() + GEM_PICKUP_TIMEOUT
+                                while gem.Parent and os.clock() < pickupDeadline
+                                    and not Runtime.Stopped and AutoBreakEnabled
+                                    and not PickupRequested and not ReturningAfterPickup do
+                                    TouchAutomationProgress("AUTO_BREAK:VERIFYING_GEM")
+                                    task.wait(0.1)
+                                end
+                                if not gem.Parent then
+                                    VisitedGemDrops[gem] = nil
+                                    collectedAny = true
+                                    SetTrackerStatus("Gem collected; checking for the next gem.")
+                                else
+                                    VisitedGemDrops[gem] = os.clock()
+                                    SetTrackerStatus("Gem pickup not confirmed; moving on to other gems.")
+                                end
                             else
                                 VisitedGemDrops[gem] = os.clock()
-                                SetTrackerStatus("Gem pickup not confirmed; will retry after a short delay.")
+                                SetTrackerStatus("Gem could not be reached; moving on to other gems.")
                             end
-                        else
-                            VisitedGemDrops[gem] = os.clock()
-                            SetTrackerStatus("Gem teleport failed; will retry shortly.")
+                            gem = FindNearestGemDrop(root)
                         end
 
-                        if root.Parent and character.Parent
-                            and not PickupRequested and not ReturningAfterPickup then
-                            pcall(function()
-                                root.CFrame = returnCFrame
-                                humanoid:Move(Vector3.zero, false)
-                            end)
-                        end
+                        humanoid:Move(Vector3.zero, false)
                         GemDiversionLastEndedAt = os.clock()
                         GemDiversionActive = false
+                        if character.Parent and root.Parent and AutoBreakEnabled
+                            and not PickupRequested and not ReturningAfterPickup and not FlingRecoveryActive then
+                            EquipHotbarOne()
+                            SetTrackerStatus(collectedAny
+                                and "Gem collection pass complete; returning to Auto Break."
+                                or "Gem collection pass ended; resuming Auto Break.")
+                            task.defer(function()
+                                if AutoBreakEnabled and not PickupRequested and not ReturningAfterPickup and not FlingRecoveryActive then
+                                    StartAutoBreak(true)
+                                end
+                            end)
+                        end
                     end
                 end
             end
@@ -4306,8 +4345,11 @@ return function(Context)
                     end
 
                     if GemDiversionActive then
-                        humanoid:Move(Vector3.zero, false)
+
+
                         return
+
+
                     end
 
                     if os.clock() - lastEggScan >= 0.35 then
@@ -4451,8 +4493,9 @@ return function(Context)
                 return
             end
             if GemDiversionActive then
-                humanoid:Move(Vector3.zero, false)
+
                 return
+
             end
             if CurrentTarget ~= target or not IsEggAvailable(target) or not character.Parent
             or humanoid.Health <= 0 then
