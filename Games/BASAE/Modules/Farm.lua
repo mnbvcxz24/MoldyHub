@@ -1887,8 +1887,7 @@ return function(Context)
     end
     function GetAnimalWeightKg(animal)
         if not animal then return nil end
-        local names = {"WeightKg", "WeightKG", "weightKg", "weightKG", "Weight", "weight"}
-        for _, name in ipairs(names) do
+        for _, name in ipairs(WEIGHT_ATTRIBUTE_NAMES) do
             local value = animal:GetAttribute(name)
             if value ~= nil then return tostring(value) end
         end
