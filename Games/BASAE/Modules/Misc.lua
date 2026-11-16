@@ -628,17 +628,20 @@ return function(Context)
                     local rarityLabel = rarityFolder and rarityFolder:FindFirstChild("RarityLabel")
                     local rarity = AnimalESPReadText(rarityLabel)
                         or AnimalESPGetValue(animal, {"Rarity"})
-                    gui.Name.Text = animal.Name
-                    gui.Details.Text = table.concat(details, " • ")
-                    gui.Rarity.Text = rarity or ""
-                    gui.Rarity.Visible = rarity ~= nil and rarity ~= ""
+                    local nameLine = gui:FindFirstChild("Name")
+                    local detailsLine = gui:FindFirstChild("Details")
+                    local rarityLine = gui:FindFirstChild("Rarity")
+                    nameLine.Text = animal.Name
+                    detailsLine.Text = table.concat(details, " • ")
+                    rarityLine.Text = rarity or ""
+                    rarityLine.Visible = rarity ~= nil and rarity ~= ""
                     local sourceGradient = rarityLabel and rarityLabel:FindFirstChildWhichIsA("UIGradient", true)
                         or (rarityFolder and rarityFolder:FindFirstChildWhichIsA("UIGradient", true))
-                    local rarityGradient = gui.Rarity:FindFirstChildWhichIsA("UIGradient")
+                    local rarityGradient = rarityLine:FindFirstChildWhichIsA("UIGradient")
                     if sourceGradient then
                         if not rarityGradient then
                             rarityGradient = sourceGradient:Clone()
-                            rarityGradient.Parent = gui.Rarity
+                            rarityGradient.Parent = rarityLine
                         else
                             rarityGradient.Color = sourceGradient.Color
                             rarityGradient.Rotation = sourceGradient.Rotation
