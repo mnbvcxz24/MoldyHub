@@ -130,12 +130,12 @@ return function(Context)
         return math.max(0.75, size.X * 0.5), math.max(0.75, size.Z * 0.5)
     end
 
-    local function buildEggPositions(hitbox, placed, halfX, halfZ, step)
-        -- Include both edges exactly; the previous incremental loop could leave
-        -- a final strip unchecked whenever the plot width was not divisible by step.
+    local function buildEggPositions(hitbox, placed, step)
+        -- Scan egg center positions all the way to the Hitbox border.
+        -- The egg itself may overhang the plot; only its center must be inside.
         step = step or 2.5
-        local edgeX = math.max(0, hitbox.Size.X * 0.5 - halfX - 0.25)
-        local edgeZ = math.max(0, hitbox.Size.Z * 0.5 - halfZ - 0.25)
+        local edgeX = math.max(0, hitbox.Size.X * 0.5)
+        local edgeZ = math.max(0, hitbox.Size.Z * 0.5)
         local y = hitbox.Position.Y + hitbox.Size.Y * 0.5
         if #placed > 0 then y = placed[1].Position.Y end
 
@@ -342,7 +342,7 @@ return function(Context)
                     local placed = getPlacedEggs(plot)
                     local candidateHalfX, candidateHalfZ = getEggFootprint(egg)
                     local scanStep = scanSteps[scanStepIndex]
-                    local positions = buildEggPositions(hitbox, placed, candidateHalfX, candidateHalfZ, scanStep)
+                    local positions = buildEggPositions(hitbox, placed, scanStep)
                     local position, positionKey = findOpenEggPosition(
                         positions, placed, candidateHalfX, candidateHalfZ, attempted
                     )
