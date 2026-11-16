@@ -551,7 +551,7 @@ return function(Context)
     local MutationRarityList
     local UpdateMutationRarityFilterButtonText
     local MutationRarityFilterButton
-    MutationRarityFilterButton = CreateButton(AutoPickupCard, "Mutation Rarity: All ▼", function()
+    MutationRarityFilterButton = CreateButton(AutoPickupCard, "Animal Rarity: All ▼", function()
         MutationRarityFilterOpen = not MutationRarityFilterOpen
         RarityFilterOpen = false
         ZoneFilterOpen = false
@@ -704,7 +704,7 @@ return function(Context)
             if SelectedMutationRarities[rarityName] then table.insert(selected, rarityName) end
         end
         local summary = #selected > 0 and table.concat(selected, ", ") or "All"
-        MutationRarityFilterButton.Text = "Mutation Rarity: " .. summary .. (MutationRarityFilterOpen and " ▲" or " ▼")
+        MutationRarityFilterButton.Text = "Animal Rarity: " .. summary .. (MutationRarityFilterOpen and " ▲" or " ▼")
         MutationRarityFilterButton.TextSize = 8
     end
     local function RefreshMutationRarityList()
