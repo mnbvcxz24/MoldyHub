@@ -62,20 +62,38 @@ return function(Context)
     local function GetEggESPInfo(egg)
         local eggModel = egg:FindFirstChild("Egg") or egg
         local info = eggModel:FindFirstChild("EggInfoUi", true)
-        local luck = GetESPValue(eggModel, {"LuckMulti", "Luck", "LuckMultiplier"})
-            or GetESPValue(info, {"LuckMulti", "Luck", "LuckMultiplier"})
+        local nodes, seen = {}, {}
+        local function collect(root)
+            if not root then return end
+            if not seen[root] then seen[root] = true; table.insert(nodes, root) end
+            for _, node in ipairs(root:GetDescendants()) do
+                if not seen[node] then seen[node] = true; table.insert(nodes, node) end
+            end
+        end
+        collect(eggModel)
+        collect(info)
+        local function findValue(names)
+            for _, wanted in ipairs(names) do
+                for _, node in ipairs(nodes) do
+                    local value = node:GetAttribute(wanted)
+                    if value ~= nil then return tostring(value) end
+                    if node.Name == wanted then
+                        if node:IsA("ValueBase") then return tostring(node.Value) end
+                        if (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) and node.Text ~= "" then
+                            return node.Text
+                        end
+                    end
+                end
+            end
+            return nil
+        end
+        local luck = findValue({"LuckMulti", "Luck", "LuckMultiplier"})
         if not luck and info then
             local luckList = info:FindFirstChild("LuckMultiList", true)
             local luckLabel = luckList and luckList:FindFirstChild("LuckMulti", true)
-            if luckLabel and (luckLabel:IsA("TextLabel") or luckLabel:IsA("TextButton")) then
-                luck = luckLabel.Text
-            end
+            if luckLabel and (luckLabel:IsA("TextLabel") or luckLabel:IsA("TextButton")) then luck = luckLabel.Text end
         end
-        local weightKG = GetESPValue(eggModel, {"WeightKg"})
-            or GetESPValue(info, {"WeightKg"})
-        local category = GetESPValue(eggModel, {"WeightBracket"})
-            or GetESPValue(info, {"WeightBracket"})
-        return luck or "?", weightKG or "?", category or "?"
+        return luck or "?", findValue({"WeightKg"}) or "?", findValue({"WeightBracket"}) or "?"
     end
     local function UpdateEggESP()
         local build = workspace:FindFirstChild("Build")
@@ -143,7 +161,7 @@ return function(Context)
             task.spawn(function()
                 while not Runtime.Stopped and ESPEnabled and not ScriptShuttingDown do
                     UpdateEggESP()
-                    task.wait(0.75)
+                    task.wait(0.25)
                 end
             end)
         else
@@ -568,22 +586,31 @@ return function(Context)
                         gui.AlwaysOnTop = true
                         gui.LightInfluence = 0
                         gui.MaxDistance = 2500
-                        gui.Size = UDim2.fromOffset(260, 42)
-                        gui.StudsOffset = Vector3.new(0, 3.4, 0)
+                        gui.Size = UDim2.fromOffset(280, 56)
+                        gui.StudsOffset = Vector3.new(0, 3.6, 0)
                         gui.Parent = AnimalESPFolder
-                        local label = Instance.new("TextLabel")
-                        label.Name = "Info"
-                        label.BackgroundTransparency = 1
-                        label.Size = UDim2.fromScale(1, 1)
-                        label.Font = Enum.Font.GothamSemibold
-                        label.TextSize = 11
-                        label.TextColor3 = Theme.Text
-                        label.TextStrokeColor3 = Color3.new(0, 0, 0)
-                        label.TextStrokeTransparency = 0.25
-                        label.TextWrapped = true
-                        label.TextXAlignment = Enum.TextXAlignment.Center
-                        label.TextYAlignment = Enum.TextYAlignment.Center
-                        label.Parent = gui
+                        local function makeESPLine(lineName, y, height, textSize)
+                            local line = Instance.new("TextLabel")
+                            line.Name = lineName
+                            line.BackgroundTransparency = 1
+                            line.BorderSizePixel = 0
+                            line.Position = UDim2.fromOffset(0, y)
+                            line.Size = UDim2.new(1, 0, 0, height)
+                            line.Font = Enum.Font.GothamBold
+                            line.TextSize = textSize
+                            line.TextColor3 = Theme.Text
+                            line.TextStrokeColor3 = Color3.new(0, 0, 0)
+                            line.TextStrokeTransparency = 0.15
+                            line.TextWrapped = false
+                            line.TextTruncate = Enum.TextTruncate.AtEnd
+                            line.TextXAlignment = Enum.TextXAlignment.Center
+                            line.TextYAlignment = Enum.TextYAlignment.Center
+                            line.Parent = gui
+                            return line
+                        end
+                        makeESPLine("Name", 0, 18, 12)
+                        makeESPLine("Details", 18, 17, 10)
+                        makeESPLine("Rarity", 35, 19, 11)
                         AnimalESPObjects[animal] = gui
                     end
                     gui.Adornee = root
@@ -601,8 +628,26 @@ return function(Context)
                     local rarityLabel = rarityFolder and rarityFolder:FindFirstChild("RarityLabel")
                     local rarity = AnimalESPReadText(rarityLabel)
                         or AnimalESPGetValue(animal, {"Rarity"})
-                    if rarity then table.insert(details, rarity) end
-                    gui.Info.Text = animal.Name .. (#details > 0 and "\n" .. table.concat(details, " • ") or "")
+                    gui.Name.Text = animal.Name
+                    gui.Details.Text = table.concat(details, " • ")
+                    gui.Rarity.Text = rarity or ""
+                    gui.Rarity.Visible = rarity ~= nil and rarity ~= ""
+                    local sourceGradient = rarityLabel and rarityLabel:FindFirstChildWhichIsA("UIGradient", true)
+                        or (rarityFolder and rarityFolder:FindFirstChildWhichIsA("UIGradient", true))
+                    local rarityGradient = gui.Rarity:FindFirstChildWhichIsA("UIGradient")
+                    if sourceGradient then
+                        if not rarityGradient then
+                            rarityGradient = sourceGradient:Clone()
+                            rarityGradient.Parent = gui.Rarity
+                        else
+                            rarityGradient.Color = sourceGradient.Color
+                            rarityGradient.Rotation = sourceGradient.Rotation
+                            rarityGradient.Offset = sourceGradient.Offset
+                            rarityGradient.Transparency = sourceGradient.Transparency
+                        end
+                    elseif rarityGradient then
+                        rarityGradient:Destroy()
+                    end
                 end
             end
         end
