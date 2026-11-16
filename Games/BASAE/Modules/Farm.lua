@@ -3973,6 +3973,12 @@ return function(Context)
             SetTrackerStatus(reason)
         end
     end
+    local GemPickupPending = setmetatable({}, {__mode = "k"})
+    local GEM_SEARCH_RADIUS = 30
+    local GEM_PICKUP_DISTANCE = 5
+    local GEM_PICKUP_TIMEOUT = 3
+    local GEM_RETRY_DELAY = 3
+
     local function GetGemDropPosition(gem)
         if not gem or not gem.Parent then return nil end
         if gem:IsA("BasePart") then return gem.Position end
@@ -3988,29 +3994,47 @@ return function(Context)
         local dropsFolder = workspace:FindFirstChild("EggGemDrops")
         if not dropsFolder then return false end
 
+        local now = os.clock()
         local nearestGem, nearestPosition, nearestDistance
         for _, gem in ipairs(dropsFolder:GetChildren()) do
-            if gem.Name == "Gems" and not VisitedGemDrops[gem] then
-                local position = GetGemDropPosition(gem)
-                if position then
-                    local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
-                    local distance = offset.Magnitude
-                    if not nearestDistance or distance < nearestDistance then
-                        nearestGem, nearestPosition, nearestDistance = gem, position, distance
+            if gem.Name == "Gems" then
+                local retryAt = VisitedGemDrops[gem]
+                if not retryAt or now - retryAt >= GEM_RETRY_DELAY then
+                    local position = GetGemDropPosition(gem)
+                    if position then
+                        local offset = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
+                        local distance = offset.Magnitude
+                        if distance <= GEM_SEARCH_RADIUS and (not nearestDistance or distance < nearestDistance) then
+                            nearestGem, nearestPosition, nearestDistance = gem, position, distance
+                        end
                     end
                 end
             end
         end
 
         if not nearestGem then return false end
-        if nearestDistance <= 5 then
-            VisitedGemDrops[nearestGem] = true
+
+        if nearestDistance <= GEM_PICKUP_DISTANCE then
+            local pendingAt = GemPickupPending[nearestGem]
+            if not pendingAt then
+                GemPickupPending[nearestGem] = now
+                pendingAt = now
+            end
             humanoid:Move(Vector3.zero, false)
-            TouchAutomationProgress("AUTO_BREAK:GEM_REACHED")
-            SetTrackerStatus("Reached gem drop; resuming Auto Break.")
+            if now - pendingAt >= GEM_PICKUP_TIMEOUT then
+                -- The drop remained after the pickup window; back off briefly, then retry it.
+                GemPickupPending[nearestGem] = nil
+                VisitedGemDrops[nearestGem] = now
+                SetTrackerStatus("Gem pickup was not confirmed; will retry shortly.")
+                TouchAutomationProgress("AUTO_BREAK:GEM_RETRY")
+                return false
+            end
+            TouchAutomationProgress("AUTO_BREAK:VERIFYING_GEM")
+            SetTrackerStatus("Waiting for gem pickup confirmation.")
             return true
         end
 
+        GemPickupPending[nearestGem] = nil
         local offset = Vector3.new(nearestPosition.X - root.Position.X, 0, nearestPosition.Z - root.Position.Z)
         if offset.Magnitude > 0.05 then
             humanoid:Move(offset.Unit, false)
@@ -4416,13 +4440,8 @@ return function(Context)
                 task.spawn(function()
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                         and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
-                        local gemMovementActive = MoveTowardGemDrop(root, humanoid)
-                        if gemMovementActive then
-                            -- Pause the egg HP watchdog while walking to a gem drop.
-                            hpWatchdogStarted = os.clock()
-                        end
-                        local noDamageFor = gemMovementActive and 0
-                            or (os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt))
+                        -- Do not divert movement while actively attacking an arrived egg.
+                        local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt)
                         if noDamageFor >= 3 then
                             local currentPlayer = LocalPlayer
                             local characterModel = currentPlayer and workspace:FindFirstChild(currentPlayer.Name)
