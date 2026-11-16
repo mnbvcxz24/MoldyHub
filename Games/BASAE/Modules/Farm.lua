@@ -1271,12 +1271,18 @@ return function(Context)
         local eggModel = egg:FindFirstChild("Egg") or egg
         local info = eggModel:FindFirstChild("EggInfoUi", true)
 
-        local function readValues(object, names)
+        local function buildNodes(object)
             if not object then return nil end
             local nodes = {object}
             for _, descendant in ipairs(object:GetDescendants()) do
                 table.insert(nodes, descendant)
             end
+            return nodes
+        end
+        local eggNodes = buildNodes(eggModel)
+        local infoNodes = info and buildNodes(info) or nil
+        local function readValues(nodes, names)
+            if not nodes then return nil end
             for _, name in ipairs(names) do
                 for _, node in ipairs(nodes) do
                     local value = node:GetAttribute(name)
@@ -1292,8 +1298,8 @@ return function(Context)
             return nil
         end
 
-        local luck = readValues(eggModel, {"LuckMulti", "Luck", "LuckMultiplier"})
-            or readValues(info, {"LuckMulti", "Luck", "LuckMultiplier"})
+        local luck = readValues(eggNodes, {"LuckMulti", "Luck", "LuckMultiplier"})
+            or readValues(infoNodes, {"LuckMulti", "Luck", "LuckMultiplier"})
         if not luck and info then
             local luckList = info:FindFirstChild("LuckMultiList", true)
             local luckLabel = luckList and luckList:FindFirstChild("LuckMulti", true)
@@ -1302,10 +1308,10 @@ return function(Context)
             end
         end
 
-        local weightKG = readValues(eggModel, {"WeightKg"})
-            or readValues(info, {"WeightKg"})
-        local category = readValues(eggModel, {"WeightBracket"})
-            or readValues(info, {"WeightBracket"})
+        local weightKG = readValues(eggNodes, {"WeightKg"})
+            or readValues(infoNodes, {"WeightKg"})
+        local category = readValues(eggNodes, {"WeightBracket"})
+            or readValues(infoNodes, {"WeightBracket"})
 
         return luck, weightKG, category
     end
