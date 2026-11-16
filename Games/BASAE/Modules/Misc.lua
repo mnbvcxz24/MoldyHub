@@ -511,54 +511,19 @@ return function(Context)
         return nil
     end
     local function AnimalESPGetMutation(model)
-        local values, seen = {}, {}
-        local function add(value)
-            if value == nil then return end
-            local valueText = tostring(value):match("^%s*(.-)%s*$")
-            if valueText == "" or valueText:lower() == "false"
-                or valueText:lower() == "none" or valueText:lower() == "nil" then return end
-            if not seen[valueText:lower()] then
-                seen[valueText:lower()] = true
-                table.insert(values, valueText)
-            end
+        -- Match Auto Pickup: use the game's visible AnimalOverhead.Mutation label.
+        local rootPart = model:FindFirstChild("RootPart")
+        local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
+        local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+        local mutationLabel = overhead and overhead:FindFirstChild("Mutation")
+        if not mutationLabel or not mutationLabel:IsA("GuiObject") or not mutationLabel.Visible then
+            return nil
         end
-        add(model:GetAttribute("Variant"))
-        for _, node in ipairs(model:GetDescendants()) do
-            add(node:GetAttribute("Variant"))
-            if node.Name == "AuraMutations" then
-                if node:IsA("ValueBase") then
-                    if node:IsA("BoolValue") then
-                        if node.Value then add(node.Name) end
-                    else
-                        add(node.Value)
-                    end
-                else
-                    for attributeName, attributeValue in pairs(node:GetAttributes()) do
-                        if type(attributeValue) == "boolean" then
-                            if attributeValue then add(attributeName) end
-                        else
-                            add(attributeValue)
-                        end
-                    end
-                    for _, mutation in ipairs(node:GetDescendants()) do
-                        if mutation:IsA("BoolValue") then
-                            if mutation.Value then add(mutation.Name) end
-                        else
-                            add(AnimalESPReadText(mutation))
-                            for attributeName, attributeValue in pairs(mutation:GetAttributes()) do
-                                if type(attributeValue) == "boolean" then
-                                    if attributeValue then add(attributeName) end
-                                else
-                                    add(attributeValue)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
+        if mutationLabel:IsA("TextLabel") or mutationLabel:IsA("TextButton") or mutationLabel:IsA("TextBox") then
+            local mutationName = tostring(mutationLabel.Text or ""):match("^%s*(.-)%s*$")
+            if mutationName ~= "" then return mutationName end
         end
-        table.sort(values)
-        return #values > 0 and table.concat(values, ", ") or nil
+        return "Mutated"
     end
     local function ClearAnimalESP(model)
         local gui = AnimalESPObjects[model]
