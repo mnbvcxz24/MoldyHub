@@ -4063,6 +4063,7 @@ return function(Context)
     local GEM_RETRY_DELAY = 3
     local GemDiversionActive = false
     local GemDiversionLastEndedAt = 0
+    local GemMovementSequence = 0
 
     local function GetGemDropPosition(gem)
         if not gem or not gem.Parent then return nil end
@@ -4138,25 +4139,58 @@ return function(Context)
                             local distance = currentPosition and (currentPosition - root.Position).Magnitude or math.huge
                             local approachTimeout = math.clamp(distance / 6 + 8, 10, 60)
                             local startedAt = os.clock()
+                            local lastProgressAt = 0
+                            GemMovementSequence += 1
+                            local gemMoveBindName = "MoldyHub_BASAE_Gem_" .. tostring(GemMovementSequence)
+
+                            -- Drive movement from RenderStep, matching the working Auto Pickup
+                            -- movement owner. A task-loop Humanoid:Move() can be overwritten by
+                            -- other per-frame movement callbacks before the character moves.
+                            SetAutoBreakStatus("Moving to gem: " .. gem.Name)
+                            RunService:BindToRenderStep(gemMoveBindName, Enum.RenderPriority.Character.Value + 2, function()
+                                if not GemDiversionActive or not gem.Parent or not root.Parent
+                                    or LocalPlayer.Character ~= character or humanoid.Health <= 0
+                                    or PickupRequested or ReturningAfterPickup then
+                                    return
+                                end
+                                local livePosition = GetGemDropPosition(gem)
+                                if not livePosition then
+                                    humanoid:Move(Vector3.zero, false)
+                                    return
+                                end
+                                local direction = Vector3.new(
+                                    livePosition.X - root.Position.X, 0,
+                                    livePosition.Z - root.Position.Z
+                                )
+                                if direction.Magnitude <= GEM_ARRIVAL_DISTANCE then
+                                    humanoid:Move(Vector3.zero, false)
+                                else
+                                    humanoid:Move(direction.Unit, false)
+                                end
+                            end)
 
                             while gem.Parent and os.clock() - startedAt < approachTimeout
                                 and not Runtime.Stopped and AutoBreakEnabled and CollectGemsEnabled
-                                and not PickupRequested and not ReturningAfterPickup do
+                                and not PickupRequested and not ReturningAfterPickup
+                                and LocalPlayer.Character == character and humanoid.Health > 0 do
                                 currentPosition = GetGemDropPosition(gem)
                                 if not currentPosition then break end
-                                -- Keep Auto Break tools unequipped while gem collection owns movement.
                                 pcall(function() humanoid:UnequipTools() end)
                                 local offset = Vector3.new(currentPosition.X - root.Position.X, 0, currentPosition.Z - root.Position.Z)
-                                if offset.Magnitude <= GEM_ARRIVAL_DISTANCE then
-                                    humanoid:Move(Vector3.zero, false)
-                                    break
+                                local remainingDistance = offset.Magnitude
+                                if remainingDistance <= GEM_ARRIVAL_DISTANCE then break end
+                                if os.clock() - lastProgressAt >= 1 then
+                                    lastProgressAt = os.clock()
+                                    SetAutoBreakStatus(string.format("Moving to gem: %s (%.0f studs)", gem.Name, remainingDistance))
+                                    TouchAutomationProgress("AUTO_BREAK:WALKING_TO_GEM")
                                 end
-                                humanoid:Move(offset.Unit, false)
-                                TouchAutomationProgress("AUTO_BREAK:WALKING_TO_GEM")
                                 task.wait(0.05)
                             end
 
-                            humanoid:Move(Vector3.zero, false)
+                            pcall(function() RunService:UnbindFromRenderStep(gemMoveBindName) end)
+                            if not PickupRequested and not ReturningAfterPickup then
+                                humanoid:Move(Vector3.zero, false)
+                            end
                             currentPosition = GetGemDropPosition(gem)
                             if not gem.Parent then
                                 VisitedGemDrops[gem] = nil
