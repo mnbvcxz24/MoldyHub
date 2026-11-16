@@ -1663,7 +1663,7 @@ return function(Context)
         table.clear(VisitedGemDrops)
         AddDebugLog("[Auto Break] Gem collection " .. (enabled and "ON" or "OFF"))
     end, SavedFarmConfig.CollectGems == true)
-    local AutoBreakStatusLabel = Create("TextLabel", {
+    AutoBreakStatusLabel = Create("TextLabel", {
         Name = "AutoBreakStatus",
         Parent = Card1,
         Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, 210),
@@ -1900,6 +1900,7 @@ return function(Context)
     local FlingTargetAnimalName
     local FlingTargetWeightKg
     local HitEventConnection
+    local AutoBreakStatusLabel
     local SetTrackerStatus = function(message)
         if AutoBreakStatusLabel and AutoBreakStatusLabel.Parent then
             AutoBreakStatusLabel.Text = "Status: " .. tostring(message or "Idle")
