@@ -19,7 +19,7 @@ return function(Context)
     local StartAutoBreak
     local StopAutoBreak
     local StopPickupAutomation
-    local CompletedEggs = {}
+    local CompletedEggs = setmetatable({}, {__mode = "k"})
     local LastEggHPValue = nil
     local LastEggHPTarget = nil
     
@@ -638,9 +638,9 @@ return function(Context)
         PaddingLeft = UDim.new(0, 5),
         PaddingRight = UDim.new(0, 5)
     })
-    RarityLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    TrackPersistentConnection(RarityLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         RarityList.CanvasSize = UDim2.new(0, 0, 0, RarityLayout.AbsoluteContentSize.Y + 10)
-    end)
+    end))
     function RefreshRarityList()
         for _, item in ipairs(RarityList:GetChildren()) do
             if item:IsA("TextButton") then item:Destroy() end
@@ -696,11 +696,11 @@ return function(Context)
         Parent = MutationRarityList, PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5),
         PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)
     })
-    MutationRarityLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    TrackPersistentConnection(MutationRarityLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         MutationRarityList.CanvasSize = UDim2.new(
             0, 0, 0, MutationRarityLayout.AbsoluteContentSize.Y + 10
         )
-    end)
+    end))
     UpdateMutationRarityFilterButtonText = function()
         local selected = {}
         for _, rarityName in ipairs(GetRarityOptions()) do
@@ -1755,12 +1755,12 @@ return function(Context)
         RefreshEggList()
         if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
     end))
-    ZoneLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    TrackPersistentConnection(ZoneLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         ZoneList.CanvasSize = UDim2.new(0, 0, 0, ZoneLayout.AbsoluteContentSize.Y + 8)
-    end)
-    EggLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    end))
+    TrackPersistentConnection(EggLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         EggFilterList.CanvasSize = UDim2.new(0, 0, 0, EggLayout.AbsoluteContentSize.Y + 8)
-    end)
+    end))
     CurrentTarget = nil
     ArrivedAtTarget = false
     WaitingForPickup = false
@@ -1834,6 +1834,7 @@ return function(Context)
         if scale then return number * scale end
         return nil
     end
+    local WEIGHT_ATTRIBUTE_NAMES = {"WeightKg", "WeightKG", "weightKg", "weightKG", "Weight", "weight"}
     function GetPickupWeightKg(pickup)
         if not pickup then return nil end
         local animalPickups = workspace:FindFirstChild("AnimalPickups")
@@ -1844,8 +1845,7 @@ return function(Context)
         if not animal or not animalPickups or animal.Parent ~= animalPickups then
             animal = pickup
         end
-        local names = {"WeightKg", "WeightKG", "weightKg", "weightKG", "Weight", "weight"}
-        for _, name in ipairs(names) do
+        for _, name in ipairs(WEIGHT_ATTRIBUTE_NAMES) do
             local weight = ParseWeightKg(animal:GetAttribute(name))
             if weight then return weight end
         end
@@ -4047,8 +4047,8 @@ return function(Context)
         if humanoid and not PickupRequested and not ReturningAfterPickup then
             humanoid:Move(Vector3.zero, false)
         end
-        ArrivedAtTarget = false
         if not preserveTargetState then
+            ArrivedAtTarget = false
             WaitingForPickup = false
             CurrentTarget = nil
         end
@@ -4288,7 +4288,12 @@ return function(Context)
         elseif lockedTarget and not IsEggAvailable(lockedTarget) then
             lockedTarget = nil
         end
-        if lockedTarget and not forceRefresh and (MovementConnection ~= nil or ArrivedAtTarget) then
+        -- Once the character has arrived, a forced refresh must not send it
+        -- back toward the same egg. Recovery should resume attacking in place.
+        if lockedTarget and ArrivedAtTarget then
+            return
+        end
+        if lockedTarget and not forceRefresh and MovementConnection ~= nil then
             return
         end
         StopAutoBreak(nil, lockedTarget ~= nil)
@@ -4576,8 +4581,6 @@ return function(Context)
         -- An eligible egg has already been selected, so use the original
         -- direct-to-egg movement. CastleGATE routing belongs only to the
         -- no-target fallback above, where it triggers Zone13+ egg spawning.
-        local movementWaypoints = {target:GetPivot().Position}
-        local movementWaypointIndex = 1
         SetAutoBreakStatus("Moving to egg: " .. target.Name)
         SetTrackerStatus("Moving to egg: " .. target:GetFullName())
     
@@ -4709,14 +4712,11 @@ return function(Context)
                                 SetTrackerStatus("AutoSwing recovery verified: egg HP damage detected; continuing Auto Break.")
                                 hpWatchdogStarted = os.clock()
                             else
-                                SetTrackerStatus("AutoSwing recovery failed: no egg HP damage after 3 seconds; restarting Auto Break.")
-                                ArrivedAtTarget = false
-                                if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
-                                if AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
-                                    and not PickupRequested and not ReturningAfterPickup and not WaitingForPickup then
-                                    StartAutoBreak(true)
-                                end
-                                return
+                                -- Missing hit confirmation is not proof that movement failed.
+                                -- Stay at the egg and retry the attack watchdog instead of
+                                -- restarting target movement and walking into the egg again.
+                                SetTrackerStatus("AutoSwing recovery did not confirm HP damage; holding position and retrying attack.")
+                                hpWatchdogStarted = os.clock()
                             end
                         end
                         task.wait(0.25)
@@ -4725,23 +4725,12 @@ return function(Context)
                 return
             end
     
-            local waypoint = movementWaypoints[movementWaypointIndex]
-            if not waypoint then
+            -- Follow the egg's live pivot directly; no stale one-point waypoint
+            -- table is needed for this straight-line approach.
+            if targetOffset.Magnitude > 0.05 then
                 humanoid:Move(targetOffset.Unit, false)
-                return
-            end
-            local waypointOffset = Vector3.new(
-                waypoint.X - root.Position.X,
-                0,
-                waypoint.Z - root.Position.Z
-            )
-            if waypointOffset.Magnitude <= 4 then
-                movementWaypointIndex += 1
-                if movementWaypointIndex > #movementWaypoints then
-                    humanoid:Move(Vector3.zero, false)
-                end
-            elseif waypointOffset.Magnitude > 0.05 then
-                humanoid:Move(waypointOffset.Unit, false)
+            else
+                humanoid:Move(Vector3.zero, false)
             end
         end)
     end
