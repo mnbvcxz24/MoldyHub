@@ -30,6 +30,7 @@ return function(Context)
     local UpdateAutoBreakFilterButtonTexts
     local TitanicPriorityEnabled = false
     local CollectGemsEnabled = type(SavedConfig.Farm) == "table" and SavedConfig.Farm.CollectGems == true
+    local AutoBreakStatusLabel
     local VisitedGemDrops = setmetatable({}, {__mode = "k"})
     local AutoBreakControlLayout = {
         ZoneY = 42,
@@ -1900,7 +1901,6 @@ return function(Context)
     local FlingTargetAnimalName
     local FlingTargetWeightKg
     local HitEventConnection
-    local AutoBreakStatusLabel
     local SetTrackerStatus = function(message)
         if AutoBreakStatusLabel and AutoBreakStatusLabel.Parent then
             AutoBreakStatusLabel.Text = "Status: " .. tostring(message or "Idle")
