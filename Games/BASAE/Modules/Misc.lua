@@ -642,7 +642,7 @@ return function(Context)
                     local detailsLine = gui:FindFirstChild("Details")
                     local rarityLine = gui:FindFirstChild("Rarity")
                     nameLine.Text = animal.Name
-                    detailsLine.Text = table.concat(details, " <font color="#FFFFFF">•</font> ")
+                    detailsLine.Text = table.concat(details, ' <font color="#FFFFFF">•</font> ')
                     rarityLine.Text = rarity or ""
                     rarityLine.Visible = rarity ~= nil and rarity ~= ""
                     local sourceGradient = rarityLabel and rarityLabel:FindFirstChildWhichIsA("UIGradient", true)
