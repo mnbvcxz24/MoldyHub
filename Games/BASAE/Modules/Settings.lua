@@ -82,31 +82,87 @@ return function(Context)
         AntiAFKStatus.Text = "Status: " .. tostring(message)
         AntiAFKStatus.TextColor3 = active and Theme.Accent or Theme.Gray
     end
-    local AntiAFKToggle = CreateToggle(AntiAFKCard, "", SavedAntiAFK, function(enabled)
+
+    -- Infinite Yield-style idle connection handling, but reversible: preserve
+    -- existing connections and re-enable them when the Anti-AFK toggle is off.
+    local DisabledIdleConnections = {}
+    local function SetIdleConnectionsSuppressed(suppress)
+        if type(getconnections) ~= "function" then
+            return false, "getconnections unavailable"
+        end
+
+        if suppress then
+            local ok, connections = pcall(getconnections, LocalPlayer.Idled)
+            if not ok or type(connections) ~= "table" then
+                return false, "could not inspect idle connections"
+            end
+
+            for _, connection in ipairs(connections) do
+                if connection and type(connection.Disable) == "function" then
+                    local disabled = pcall(function()
+                        connection:Disable()
+                    end)
+                    if disabled then
+                        table.insert(DisabledIdleConnections, connection)
+                    end
+                end
+            end
+            return true
+        end
+
+        for _, connection in ipairs(DisabledIdleConnections) do
+            if connection and type(connection.Enable) == "function" then
+                pcall(function()
+                    connection:Enable()
+                end)
+            end
+        end
+        table.clear(DisabledIdleConnections)
+        return true
+    end
+
+    local AntiAFKConnection
+    local function SetAntiAFKEnabled(enabled)
         AntiAFKEnabled = enabled
-        SetAntiAFKStatus(enabled and "Enabled - waiting for idle" or "Disabled", enabled)
-    end)
+        if enabled then
+            local inspected, inspectError = SetIdleConnectionsSuppressed(true)
+            if inspected then
+                SetAntiAFKStatus("Enabled - idle handlers suppressed", true)
+            else
+                SetAntiAFKStatus("Enabled - " .. tostring(inspectError), false)
+            end
+        else
+            SetIdleConnectionsSuppressed(false)
+            SetAntiAFKStatus("Disabled", false)
+        end
+    end
+
+    local AntiAFKToggle = CreateToggle(AntiAFKCard, "", SavedAntiAFK, SetAntiAFKEnabled)
     AntiAFKToggle.Position = UDim2.new(1, -58, 0, 7)
     AntiAFKToggle.Size = UDim2.fromOffset(48, 24)
     local AntiAFKTitle = AntiAFKCard:FindFirstChildWhichIsA("TextLabel")
     if AntiAFKTitle then AntiAFKTitle.Size = UDim2.new(1, -78, 0, 22) end
 
-    local AntiAFKConnection = LocalPlayer.Idled:Connect(function()
+    AntiAFKConnection = LocalPlayer.Idled:Connect(function()
         if not AntiAFKEnabled or Runtime.Stopped then return end
 
         local ok, err = pcall(function()
             VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new(0, 0))
+            VirtualUser:ClickButton2(Vector2.zero)
         end)
 
         if ok then
-            SetAntiAFKStatus("Active - idle input sent", true)
+            SetAntiAFKStatus("Active - idle input attempted", true)
         else
-            SetAntiAFKStatus("Error - " .. tostring(err), false)
+            SetAntiAFKStatus("Input error - " .. tostring(err), false)
         end
     end)
     Runtime.PersistentConnections = Runtime.PersistentConnections or {}
     table.insert(Runtime.PersistentConnections, AntiAFKConnection)
+
+    if AntiAFKEnabled then
+        SetAntiAFKEnabled(true)
+    end
     
     local ConfigSaveCard = CreateCard(Page, "Config Save", "Save named configs, load one on rerun, or restore defaults.")
     ConfigSaveCard.Size = UDim2.new(1, 0, 0, 190)
