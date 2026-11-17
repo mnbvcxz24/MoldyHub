@@ -71,6 +71,7 @@ return function(Context)
     AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 340)
     local AutoPickupEnabled = false
     local AnimalPickups
+    local RescanAnimalPickups
     local CurrentTarget, ArrivedAtTarget, WaitingForPickup
     local PickupRequested, ReturningAfterPickup, FlingRecoveryActive, ScriptShuttingDown
     local PickupMonitorSeen = setmetatable({}, {__mode = "k"})
@@ -78,6 +79,14 @@ return function(Context)
         AutoPickupEnabled = enabled
         table.clear(PickupMonitorSeen)
         AddDebugLog("[Auto Pickup] " .. (enabled and "Monitoring ON." or "Monitoring OFF."))
+        if enabled then
+            task.defer(function()
+                task.wait()
+                if AutoPickupEnabled and not ScriptShuttingDown and RescanAnimalPickups then
+                    RescanAnimalPickups("Auto Steal enabled")
+                end
+            end)
+        end
         if not enabled then
             if StopPickupAutomation then StopPickupAutomation("Auto Pickup disabled") end
             if CurrentTarget and IsEggConfirmedComplete(CurrentTarget) then
@@ -2713,6 +2722,9 @@ return function(Context)
         pickup:SetAttribute("MoldyHub_BASAE_DetectedCPS", nil)
         pickup:SetAttribute("MoldyHub_BASAE_CPSMinimum", CPSFilter.amount > 0 and (CPSFilter.amount * (({K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15})[CPSFilter.unit] or 1)) or 0)
         pickup:SetAttribute("MoldyHub_BASAE_CPSPassed", false)
+        pickup:SetAttribute("MoldyHub_BASAE_DetectedKG", nil)
+        pickup:SetAttribute("MoldyHub_BASAE_KGMinimum", KGThresholdAmount > 0 and (KGThresholdAmount * (({K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15})[KGThresholdUnit] or 1)) or 0)
+        pickup:SetAttribute("MoldyHub_BASAE_KGPassed", KGThresholdAmount <= 0)
         SetPickupTracking(pickup, "Checking")
         if evaluationCancelled() then
             SetPickupTracking(pickup, "Cancelled: automation toggled")
@@ -2798,6 +2810,15 @@ return function(Context)
                 aboveLowestPriorityPickup = lowestPlaced >= 0 and cps > lowestPlaced
             end
         end
+        local kgMinimum = KGThresholdAmount > 0
+            and (KGThresholdAmount * (({K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15})[KGThresholdUnit] or 1)) or 0
+        if forceUnindexedPickup then
+            pickupWeightKg = GetPickupWeightKg(pickup)
+        end
+        pickup:SetAttribute("MoldyHub_BASAE_DetectedKG", pickupWeightKg)
+        pickup:SetAttribute("MoldyHub_BASAE_KGMinimum", kgMinimum)
+        pickup:SetAttribute("MoldyHub_BASAE_KGPassed",
+            KGThresholdAmount <= 0 or (pickupWeightKg ~= nil and pickupWeightKg >= kgMinimum))
         if evaluationCancelled() or not pickup.Parent then
             SetPickupTracking(pickup, "Cancelled: automation toggled")
             return
@@ -3546,6 +3567,27 @@ return function(Context)
             PendingAnimalPickupSet[pickup] = nil
         end))
         SetTrackerStatus("AnimalPickups folder detected; continuous monitoring is ready.")
+    end
+    RescanAnimalPickups = function(reason)
+        local folder = AnimalPickups
+        if not folder or not folder.Parent then
+            folder = workspace:FindFirstChild("AnimalPickups")
+            if folder then BindAnimalPickups(folder) end
+        end
+        if not folder or not folder.Parent then
+            SetTrackerStatus("Auto Steal rescan skipped: workspace.AnimalPickups is not available yet.")
+            return
+        end
+        local queued = 0
+        for _, pickup in ipairs(folder:GetChildren()) do
+            if pickup:IsA("Model") and pickup.Parent == folder then
+                PickupMonitorSeen[pickup] = true
+                QueuePendingAnimalPickup(pickup)
+                queued += 1
+            end
+        end
+        SetTrackerStatus(tostring(reason or "Auto Steal") .. " rescan complete; queued "
+            .. tostring(queued) .. " existing AnimalPickups for evaluation.")
     end
     if AnimalPickups then BindAnimalPickups(AnimalPickups) end
     task.spawn(function()
