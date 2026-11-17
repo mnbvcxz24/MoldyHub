@@ -4712,26 +4712,65 @@ return function(Context)
                                 return
                             end
 
+                            -- Check the game's AutoSwing gradient after Pickaxe equip.
+                            -- Green gradient means Auto Swing is already enabled; only click when disabled.
+                            task.wait(0.15)
                             local playerGui = currentPlayer and currentPlayer:FindFirstChildOfClass("PlayerGui")
                             local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
                             local autoSwingButton = mainGui and mainGui:FindFirstChild("AutoSwing")
+                            local outer = autoSwingButton and autoSwingButton:FindFirstChild("Outer")
+                            local uiGradient = outer and outer:FindFirstChild("UiGradient")
                             local activated = false
-                            if autoSwingButton and autoSwingButton:IsA("GuiButton") then
+                            local alreadyActive = false
+                            local function IsExpectedGreen(color, expected)
+                                return math.abs(color.R - expected[1]) <= 0.035
+                                    and math.abs(color.G - expected[2]) <= 0.035
+                                    and math.abs(color.B - expected[3]) <= 0.035
+                            end
+                            if uiGradient and uiGradient:IsA("UIGradient") then
+                                local keypoints = uiGradient.Color.Keypoints
+                                alreadyActive = #keypoints >= 2
+                                    and IsExpectedGreen(keypoints[1].Value, {0.101961, 1, 0})
+                                    and IsExpectedGreen(keypoints[#keypoints].Value, {0.831373, 1, 0})
+                            end
+
+                            if alreadyActive then
+                                activated = true
+                                SetTrackerStatus("AutoSwing already active (green gradient); no click needed.")
+                            elseif autoSwingButton and autoSwingButton:IsA("GuiObject")
+                                and autoSwingButton.Visible and autoSwingButton.AbsoluteSize.X > 0
+                                and autoSwingButton.AbsoluteSize.Y > 0 then
+                                local position = autoSwingButton.AbsolutePosition
+                                local size = autoSwingButton.AbsoluteSize
+                                local x = position.X + size.X / 2
+                                local y = position.Y + size.Y / 2
                                 local ok, err = pcall(function()
-                                    autoSwingButton:Activate()
+                                    local virtualInput = game:GetService("VirtualInputManager")
+                                    local inputService = game:GetService("UserInputService")
+                                    if inputService.TouchEnabled then
+                                        virtualInput:SendTouchEvent(0, Enum.UserInputState.Begin, Vector2.new(x, y))
+                                        task.wait(0.05)
+                                        virtualInput:SendTouchEvent(0, Enum.UserInputState.End, Vector2.new(x, y))
+                                    else
+                                        virtualInput:SendMouseButtonEvent(x, y, 0, true, game, 0)
+                                        task.wait(0.05)
+                                        virtualInput:SendMouseButtonEvent(x, y, 0, false, game, 0)
+                                    end
                                 end)
                                 activated = ok
                                 if not ok then
-                                    SetTrackerStatus("AutoSwing activation failed: " .. tostring(err))
+                                    SetTrackerStatus("AutoSwing click failed: " .. tostring(err))
+                                else
+                                    SetTrackerStatus("AutoSwing was not green; clicked its screen position.")
                                 end
                             else
-                                SetTrackerStatus("AutoSwing button not found at PlayerGui.MainGUI.AutoSwing.")
+                                SetTrackerStatus("AutoSwing UI or Outer.UiGradient not found; could not verify or click.")
                             end
 
                             local progressAtActivation = LastEggHPProgressAt
                             SetTrackerStatus(activated
-                                and "AutoSwing activated; checking for egg HP damage for 3 seconds."
-                                or "AutoSwing could not be activated; checking for egg HP damage for 3 seconds.")
+                                and "AutoSwing active; checking for egg HP damage for 3 seconds."
+                                or "AutoSwing activation unavailable; checking for egg HP damage for 3 seconds.")
                             local verifyDeadline = os.clock() + 3
                             while os.clock() < verifyDeadline
                                 and not Runtime.Stopped and AutoBreakEnabled
