@@ -4742,11 +4742,13 @@ return function(Context)
                             if alreadyActive then
                                 activated = true
                                 SetTrackerStatus("AutoSwing already active (green gradient); no click needed.")
-                            elseif autoSwingButton and autoSwingButton:IsA("GuiObject")
-                                and autoSwingButton.Visible and autoSwingButton.AbsoluteSize.X > 0
-                                and autoSwingButton.AbsoluteSize.Y > 0 then
-                                local position = autoSwingButton.AbsolutePosition
-                                local size = autoSwingButton.AbsoluteSize
+                            elseif outer and outer:IsA("GuiObject")
+                                and outer.Visible and outer.AbsoluteSize.X > 0
+                                and outer.AbsoluteSize.Y > 0 then
+                                -- Click the exact Outer control that contains UiGradient,
+                                -- not the AutoSwing parent container.
+                                local position = outer.AbsolutePosition
+                                local size = outer.AbsoluteSize
                                 local x = position.X + size.X / 2
                                 local y = position.Y + size.Y / 2
                                 local virtualInput = game:GetService("VirtualInputManager")
