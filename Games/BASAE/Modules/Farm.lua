@@ -4751,16 +4751,9 @@ return function(Context)
                                 local y = position.Y + size.Y / 2
                                 local ok, err = pcall(function()
                                     local virtualInput = game:GetService("VirtualInputManager")
-                                    local inputService = game:GetService("UserInputService")
-                                    if inputService.TouchEnabled then
-                                        virtualInput:SendTouchEvent(0, Enum.UserInputState.Begin, Vector2.new(x, y))
-                                        task.wait(0.05)
-                                        virtualInput:SendTouchEvent(0, Enum.UserInputState.End, Vector2.new(x, y))
-                                    else
-                                        virtualInput:SendMouseButtonEvent(x, y, 0, true, game, 0)
-                                        task.wait(0.05)
-                                        virtualInput:SendMouseButtonEvent(x, y, 0, false, game, 0)
-                                    end
+                                    virtualInput:SendMouseButtonEvent(x, y, 0, true, game, 0)
+                                    task.wait(0.05)
+                                    virtualInput:SendMouseButtonEvent(x, y, 0, false, game, 0)
                                 end)
                                 activated = ok
                                 if not ok then
