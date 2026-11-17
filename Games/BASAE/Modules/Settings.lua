@@ -60,37 +60,50 @@ return function(Context)
 
     local AntiAFKCard = CreateCard(Page, "️  Anti AFK", "")
     AntiAFKCard.Size = UDim2.new(1, 0, 0, 72)
-    local AntiAFKEnabled = true
+    local SavedAntiAFK = true
+    if type(SavedConfig.Toggles) == "table" and type(SavedConfig.Toggles.AntiAFK_Main) == "boolean" then
+        SavedAntiAFK = SavedConfig.Toggles.AntiAFK_Main
+    end
+    -- Keep the runtime state in sync with the saved toggle before connecting Idled.
+    local AntiAFKEnabled = SavedAntiAFK
     local AntiAFKStatus = Create("TextLabel", {
         Parent = AntiAFKCard,
         Position = UDim2.fromOffset(11, 47),
         Size = UDim2.new(1, -82, 0, 14),
         BackgroundTransparency = 1,
-        Text = "Status: Enabled",
-        TextColor3 = Theme.Accent,
+        Text = "Status: " .. (AntiAFKEnabled and "Enabled - waiting for idle" or "Disabled"),
+        TextColor3 = AntiAFKEnabled and Theme.Accent or Theme.Gray,
         Font = Enum.Font.Gotham,
         TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Left
     })
-    local SavedAntiAFK = true
-    if type(SavedConfig.Toggles) == "table" and type(SavedConfig.Toggles.AntiAFK_Main) == "boolean" then
-        SavedAntiAFK = SavedConfig.Toggles.AntiAFK_Main
+    local function SetAntiAFKStatus(message, active)
+        if not AntiAFKStatus or not AntiAFKStatus.Parent then return end
+        AntiAFKStatus.Text = "Status: " .. tostring(message)
+        AntiAFKStatus.TextColor3 = active and Theme.Accent or Theme.Gray
     end
     local AntiAFKToggle = CreateToggle(AntiAFKCard, "", SavedAntiAFK, function(enabled)
         AntiAFKEnabled = enabled
-        AntiAFKStatus.Text = "Status: " .. (enabled and "Enabled" or "Disabled")
-        AntiAFKStatus.TextColor3 = enabled and Theme.Accent or Theme.Gray
+        SetAntiAFKStatus(enabled and "Enabled - waiting for idle" or "Disabled", enabled)
     end)
     AntiAFKToggle.Position = UDim2.new(1, -58, 0, 7)
     AntiAFKToggle.Size = UDim2.fromOffset(48, 24)
     local AntiAFKTitle = AntiAFKCard:FindFirstChildWhichIsA("TextLabel")
     if AntiAFKTitle then AntiAFKTitle.Size = UDim2.new(1, -78, 0, 22) end
+
     local AntiAFKConnection = LocalPlayer.Idled:Connect(function()
         if not AntiAFKEnabled or Runtime.Stopped then return end
-        pcall(function()
+
+        local ok, err = pcall(function()
             VirtualUser:CaptureController()
             VirtualUser:ClickButton2(Vector2.new(0, 0))
         end)
+
+        if ok then
+            SetAntiAFKStatus("Active - idle input sent", true)
+        else
+            SetAntiAFKStatus("Error - " .. tostring(err), false)
+        end
     end)
     Runtime.PersistentConnections = Runtime.PersistentConnections or {}
     table.insert(Runtime.PersistentConnections, AntiAFKConnection)
