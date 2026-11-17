@@ -4727,11 +4727,16 @@ return function(Context)
                                     and math.abs(color.G - expected[2]) <= 0.035
                                     and math.abs(color.B - expected[3]) <= 0.035
                             end
+                            -- Treat any unreadable/missing gradient as NOT active.
+                            -- Only a confirmed match for both expected green endpoints skips the click.
                             if uiGradient and uiGradient:IsA("UIGradient") then
-                                local keypoints = uiGradient.Color.Keypoints
-                                alreadyActive = #keypoints >= 2
-                                    and IsExpectedGreen(keypoints[1].Value, {0.101961, 1, 0})
-                                    and IsExpectedGreen(keypoints[#keypoints].Value, {0.831373, 1, 0})
+                                local readOk, matchesGreen = pcall(function()
+                                    local keypoints = uiGradient.Color.Keypoints
+                                    return #keypoints >= 2
+                                        and IsExpectedGreen(keypoints[1].Value, {0.101961, 1, 0})
+                                        and IsExpectedGreen(keypoints[#keypoints].Value, {0.831373, 1, 0})
+                                end)
+                                alreadyActive = readOk and matchesGreen == true
                             end
 
                             if alreadyActive then
