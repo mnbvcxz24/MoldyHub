@@ -4763,7 +4763,7 @@ return function(Context)
                                 else
                                     activated = false
                                 end
-                                if not ok then
+                                if not activated then
                                     SetTrackerStatus("AutoSwing click failed: " .. tostring(err))
                                 else
                                     SetTrackerStatus("AutoSwing was not green; clicked its screen position.")
