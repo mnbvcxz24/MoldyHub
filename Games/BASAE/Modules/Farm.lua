@@ -4740,9 +4740,32 @@ return function(Context)
                     .. " | tracking matching EggHitConfirmed events now.")
                 local hpWatchdogTarget = target
                 local hpWatchdogStarted = os.clock()
+                local lastWatchdogCenterClickAt = 0
                 task.spawn(function()
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                         and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
+                        -- While the HP watchdog owns the arrived egg, send a center-screen
+                        -- mouse click once per second to keep the attack input active.
+                        if os.clock() - lastWatchdogCenterClickAt >= 1 then
+                            local camera = workspace.CurrentCamera
+                            if camera then
+                                local viewport = camera.ViewportSize
+                                if viewport.X > 0 and viewport.Y > 0 then
+                                    local centerX, centerY = viewport.X / 2, viewport.Y / 2
+                                    local virtualInput = game:GetService("VirtualInputManager")
+                                    local clicked, clickErr = pcall(function()
+                                        virtualInput:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                                        task.wait(0.03)
+                                        virtualInput:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                                    end)
+                                    if not clicked then
+                                        SetTrackerStatus("HP watchdog center click failed: " .. tostring(clickErr))
+                                    end
+                                end
+                            end
+                            lastWatchdogCenterClickAt = os.clock()
+                        end
+
                         -- Do not divert movement while actively attacking an arrived egg.
                         local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt, GemDiversionLastEndedAt)
                         if noDamageFor >= 3 then
@@ -4805,13 +4828,12 @@ return function(Context)
                             if alreadyActive then
                                 activated = true
                                 SetTrackerStatus("AutoSwing already active (green gradient); no click needed.")
-                            elseif outer and outer:IsA("GuiObject")
-                                and outer.Visible and outer.AbsoluteSize.X > 0
-                                and outer.AbsoluteSize.Y > 0 then
-                                -- Click the exact Outer control that contains UiGradient,
-                                -- not the AutoSwing parent container.
-                                local position = outer.AbsolutePosition
-                                local size = outer.AbsoluteSize
+                            elseif autoSwingButton and autoSwingButton:IsA("TextButton")
+                                and autoSwingButton.Visible and autoSwingButton.AbsoluteSize.X > 0
+                                and autoSwingButton.AbsoluteSize.Y > 0 then
+                                -- Click the AutoSwing TextButton itself, not Outer/Inner.
+                                local position = autoSwingButton.AbsolutePosition
+                                local size = autoSwingButton.AbsoluteSize
                                 local x = position.X + size.X / 2
                                 local y = position.Y + size.Y / 2
                                 local virtualInput = game:GetService("VirtualInputManager")
@@ -4834,7 +4856,7 @@ return function(Context)
                                     SetTrackerStatus("AutoSwing was not green; clicked its screen position.")
                                 end
                             else
-                                SetTrackerStatus("AutoSwing UI or Outer.UiGradient not found; could not verify or click.")
+                                SetTrackerStatus("AutoSwing TextButton not found or unavailable; could not click.")
                             end
 
                             local progressAtActivation = LastEggHPProgressAt
