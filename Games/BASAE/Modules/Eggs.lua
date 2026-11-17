@@ -155,10 +155,19 @@ return function(Context)
         local positions = {}
         local xValues = buildAxis(edgeX)
         local zValues = buildAxis(edgeZ)
-        for _, x in ipairs(xValues) do
-            for _, z in ipairs(zValues) do
-                local worldPosition = hitbox.CFrame:PointToWorldSpace(Vector3.new(x, 0, z))
-                table.insert(positions, Vector3.new(worldPosition.X, y, worldPosition.Z))
+        -- Sweep edge-to-edge along X, step one row along Z, then reverse
+        -- direction. This creates a continuous zigzag (Z-pattern) scan.
+        for zIndex, z in ipairs(zValues) do
+            if zIndex % 2 == 1 then
+                for _, x in ipairs(xValues) do
+                    local worldPosition = hitbox.CFrame:PointToWorldSpace(Vector3.new(x, 0, z))
+                    table.insert(positions, Vector3.new(worldPosition.X, y, worldPosition.Z))
+                end
+            else
+                for xIndex = #xValues, 1, -1 do
+                    local worldPosition = hitbox.CFrame:PointToWorldSpace(Vector3.new(xValues[xIndex], 0, z))
+                    table.insert(positions, Vector3.new(worldPosition.X, y, worldPosition.Z))
+                end
             end
         end
         return positions, step
