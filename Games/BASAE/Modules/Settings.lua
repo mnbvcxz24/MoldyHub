@@ -83,31 +83,39 @@ return function(Context)
         AntiAFKStatus.TextColor3 = active and Theme.Accent or Theme.Gray
     end
 
-    -- Infinite Yield-style idle connection handling, but reversible: preserve
-    -- existing connections and re-enable them when the Anti-AFK toggle is off.
+    -- Suppress game idle handlers without ever disabling BASAE's own fallback.
+    -- Keep handles so the original handlers can be restored when Anti-AFK is off.
     local DisabledIdleConnections = {}
-    local function SetIdleConnectionsSuppressed(suppress)
-        if type(getconnections) ~= "function" then
-            return false, "getconnections unavailable"
-        end
+    local DisabledIdleConnectionSet = {}
+    local AntiAFKConnection
 
+    local function SetIdleConnectionsSuppressed(suppress)
         if suppress then
+            if type(getconnections) ~= "function" then
+                return false, "getconnections unavailable"
+            end
+
             local ok, connections = pcall(getconnections, LocalPlayer.Idled)
             if not ok or type(connections) ~= "table" then
                 return false, "could not inspect idle connections"
             end
 
+            local newlySuppressed = 0
             for _, connection in ipairs(connections) do
-                if connection and type(connection.Disable) == "function" then
+                if connection and connection ~= AntiAFKConnection
+                    and not DisabledIdleConnectionSet[connection]
+                    and type(connection.Disable) == "function" then
                     local disabled = pcall(function()
                         connection:Disable()
                     end)
                     if disabled then
+                        DisabledIdleConnectionSet[connection] = true
                         table.insert(DisabledIdleConnections, connection)
+                        newlySuppressed += 1
                     end
                 end
             end
-            return true
+            return true, newlySuppressed
         end
 
         for _, connection in ipairs(DisabledIdleConnections) do
@@ -118,18 +126,18 @@ return function(Context)
             end
         end
         table.clear(DisabledIdleConnections)
-        return true
+        table.clear(DisabledIdleConnectionSet)
+        return true, 0
     end
 
-    local AntiAFKConnection
     local function SetAntiAFKEnabled(enabled)
         AntiAFKEnabled = enabled
         if enabled then
-            local inspected, inspectError = SetIdleConnectionsSuppressed(true)
+            local inspected, detail = SetIdleConnectionsSuppressed(true)
             if inspected then
-                SetAntiAFKStatus("Enabled - idle handlers suppressed", true)
+                SetAntiAFKStatus("Enabled - monitoring idle handlers", true)
             else
-                SetAntiAFKStatus("Enabled - " .. tostring(inspectError), false)
+                SetAntiAFKStatus("Enabled - input fallback only (" .. tostring(detail) .. ")", false)
             end
         else
             SetIdleConnectionsSuppressed(false)
@@ -164,6 +172,21 @@ return function(Context)
     end)
     Runtime.PersistentConnections = Runtime.PersistentConnections or {}
     table.insert(Runtime.PersistentConnections, AntiAFKConnection)
+
+    -- Game scripts may attach new Idled handlers after startup. Re-scan at a
+    -- low frequency while enabled, and restore anything we suppressed on shutdown.
+    task.spawn(function()
+        while not Runtime.Stopped do
+            if AntiAFKEnabled then
+                local inspected, inspectError = SetIdleConnectionsSuppressed(true)
+                if not inspected then
+                    SetAntiAFKStatus("Enabled - input fallback only (" .. tostring(inspectError) .. ")", false)
+                end
+            end
+            task.wait(15)
+        end
+        SetIdleConnectionsSuppressed(false)
+    end)
     
     local ConfigSaveCard = CreateCard(Page, "Config Save", "Save named configs, load one on rerun, or restore defaults.")
     ConfigSaveCard.Size = UDim2.new(1, 0, 0, 190)
