@@ -185,5 +185,7 @@ return function(Context)
         end
     end))
     
+    -- Start minimized: keep the floating BASAE toggle visible so the window can be reopened.
+    Main.Visible = false
     ScreenGui.Enabled = true
 end
