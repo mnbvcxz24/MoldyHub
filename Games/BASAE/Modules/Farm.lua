@@ -4749,13 +4749,20 @@ return function(Context)
                                 local size = autoSwingButton.AbsoluteSize
                                 local x = position.X + size.X / 2
                                 local y = position.Y + size.Y / 2
-                                local ok, err = pcall(function()
-                                    local virtualInput = game:GetService("VirtualInputManager")
+                                local virtualInput = game:GetService("VirtualInputManager")
+                                local mouseDown, err = pcall(function()
                                     virtualInput:SendMouseButtonEvent(x, y, 0, true, game, 0)
-                                    task.wait(0.05)
-                                    virtualInput:SendMouseButtonEvent(x, y, 0, false, game, 0)
                                 end)
-                                activated = ok
+                                if mouseDown then
+                                    task.wait(0.03)
+                                    local mouseUp, releaseErr = pcall(function()
+                                        virtualInput:SendMouseButtonEvent(x, y, 0, false, game, 0)
+                                    end)
+                                    activated = mouseUp
+                                    if not mouseUp then err = releaseErr end
+                                else
+                                    activated = false
+                                end
                                 if not ok then
                                     SetTrackerStatus("AutoSwing click failed: " .. tostring(err))
                                 else
