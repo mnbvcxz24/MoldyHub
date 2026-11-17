@@ -311,6 +311,7 @@ return function(Context)
             end
 
             local placedCount = 0
+            local skippedEggs = {}
             local function cleanupNotify()
                 if notifyConnection then notifyConnection:Disconnect(); notifyConnection = nil end
             end
@@ -325,7 +326,22 @@ return function(Context)
                 eggs = sortBackpackEggs(getBackpackEggs())
                 if #eggs == 0 then break end
 
-                local egg = eggs[1]
+                local egg
+                for _, candidate in ipairs(eggs) do
+                    if not skippedEggs[candidate] then
+                        egg = candidate
+                        break
+                    end
+                end
+                if not egg then
+                    AutoPlaceEggsStatus.Text = string.format(
+                        "Plot scan complete — no remaining egg fits. %d egg(s) placed; %d remain.",
+                        placedCount,
+                        #eggs
+                    )
+                    break
+                end
+
                 local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
                 if not egg or not backpack or not egg:IsDescendantOf(backpack) then
                     task.wait(0.1)
@@ -339,6 +355,7 @@ return function(Context)
                 end
 
                 local eggPlaced = false
+                local scanExhausted = false
                 -- Each egg gets a fresh scan because its footprint may differ.
                 -- Failed positions remain excluded while the grid gets progressively finer.
                 local attempted = {}
@@ -366,10 +383,11 @@ return function(Context)
                             continue
                         end
 
+                        scanExhausted = true
                         AutoPlaceEggsStatus.Text = string.format(
-                            "Plot scan complete — no more valid spaces found. %d egg(s) placed; %d remain.",
-                            placedCount,
-                            #getBackpackEggs()
+                            "No space for %s — skipping to the next egg. %d egg(s) placed.",
+                            egg.Name,
+                            placedCount
                         )
                         break
                     end
@@ -432,7 +450,11 @@ return function(Context)
                 end
 
                 if not eggPlaced then
-                    -- No candidate positions remain, or the feature was disabled.
+                    if scanExhausted and AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration then
+                        skippedEggs[egg] = true
+                        continue
+                    end
+                    -- Stop if disabled or the scan was interrupted for another reason.
                     break
                 end
             end
