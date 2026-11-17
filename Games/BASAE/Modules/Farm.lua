@@ -3159,6 +3159,9 @@ return function(Context)
             local enabledStealPrompts = 0
             local promptAnchor = workspace:FindFirstChild("PromptAnchor")
             local promptCandidates = promptAnchor and promptAnchor:GetDescendants() or workspace:GetDescendants()
+            local directPrompt
+            local directDistance = math.huge
+            local nearestPrompt
             for _, candidate in ipairs(promptCandidates) do
                 if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
                     totalStealPrompts += 1
@@ -3167,17 +3170,26 @@ return function(Context)
                         local candidatePosition = getPromptPosition(candidate)
                         if candidatePosition then
                             local distance = (candidatePosition - pickupPosition).Magnitude
-                            if distance < nearestDistance and distance <= promptMatchRadius then
-                                nearestDistance = distance
-                                prompt = candidate
+                            if distance <= promptMatchRadius then
+                                if candidate:IsDescendantOf(pickup) then
+                                    if distance < directDistance then
+                                        directDistance = distance
+                                        directPrompt = candidate
+                                    end
+                                elseif distance < nearestDistance then
+                                    nearestDistance = distance
+                                    nearestPrompt = candidate
+                                end
                             end
                         end
                     end
                 end
             end
-            -- PromptAnchor is the normal fast path. If it misses, do one broad
-            -- fallback scan rather than traversing the entire Workspace every poll.
-            if not prompt and promptAnchor and not promptFallbackScanned then
+            prompt = directPrompt or nearestPrompt
+            if directPrompt then nearestDistance = directDistance end
+            -- PromptAnchor is the normal fast path. If it misses the target's
+            -- own prompt, do one broad fallback scan rather than scanning every poll.
+            if not directPrompt and promptAnchor and not promptFallbackScanned then
                 promptFallbackScanned = true
                 for _, candidate in ipairs(workspace:GetDescendants()) do
                     if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
@@ -3187,14 +3199,23 @@ return function(Context)
                             local candidatePosition = getPromptPosition(candidate)
                             if candidatePosition then
                                 local distance = (candidatePosition - pickupPosition).Magnitude
-                                if distance < nearestDistance and distance <= promptMatchRadius then
-                                    nearestDistance = distance
-                                    prompt = candidate
+                                if distance <= promptMatchRadius then
+                                    if candidate:IsDescendantOf(pickup) then
+                                        if distance < directDistance then
+                                            directDistance = distance
+                                            directPrompt = candidate
+                                        end
+                                    elseif distance < nearestDistance then
+                                        nearestDistance = distance
+                                        nearestPrompt = candidate
+                                    end
                                 end
                             end
                         end
                     end
                 end
+                prompt = directPrompt or nearestPrompt
+                if directPrompt then nearestDistance = directDistance end
             end
             if prompt then
                 promptState = string.format("nearest enabled StealPrompt: %s (%.2f studs from animal; found %d total/%d enabled)", prompt:GetFullName(), nearestDistance, totalStealPrompts, enabledStealPrompts)
@@ -3399,9 +3420,9 @@ return function(Context)
             while not pickupConfirmed and os.clock() < activationDeadline do
                 if PickupGeneration ~= pickupToken or not PickupRequested or not AutoPickupEnabled then return end
                 if not pickup.Parent then pickupConfirmed = true; break end
-                if not carriedAnimalBefore and CarriedAnimalWatch.model then
+                if CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
                     pickupConfirmed = true
-                    SetTrackerStatus("Pickup confirmed by CarriedAnimals state change for " .. pickup.Name .. ".")
+                    SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
                     break
                 end
                 if not prompt.Parent or not prompt.Enabled then
@@ -3431,9 +3452,9 @@ return function(Context)
                             task.wait(0.05)
                         end
                         if not pickup.Parent then pickupConfirmed = true
-                        elseif not carriedAnimalBefore and CarriedAnimalWatch.model then
+                        elseif CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
                             pickupConfirmed = true
-                            SetTrackerStatus("Pickup confirmed by CarriedAnimals state change for " .. pickup.Name .. ".")
+                            SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
                         elseif activationAttempt == 1 or activationAttempt % 3 == 0 then
                             SetTrackerStatus("StealPrompt still unchecked for " .. pickup.Name .. "; retry " .. tostring(activationAttempt) .. ".")
                         end
