@@ -143,6 +143,11 @@ return function(Context)
     local AntiAFKTitle = AntiAFKCard:FindFirstChildWhichIsA("TextLabel")
     if AntiAFKTitle then AntiAFKTitle.Size = UDim2.new(1, -78, 0, 22) end
 
+    -- Suppress existing idle handlers before adding our own listener.
+    if AntiAFKEnabled then
+        SetAntiAFKEnabled(true)
+    end
+
     AntiAFKConnection = LocalPlayer.Idled:Connect(function()
         if not AntiAFKEnabled or Runtime.Stopped then return end
 
@@ -159,10 +164,6 @@ return function(Context)
     end)
     Runtime.PersistentConnections = Runtime.PersistentConnections or {}
     table.insert(Runtime.PersistentConnections, AntiAFKConnection)
-
-    if AntiAFKEnabled then
-        SetAntiAFKEnabled(true)
-    end
     
     local ConfigSaveCard = CreateCard(Page, "Config Save", "Save named configs, load one on rerun, or restore defaults.")
     ConfigSaveCard.Size = UDim2.new(1, 0, 0, 190)
