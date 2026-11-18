@@ -1972,7 +1972,8 @@ return function(Context)
         TouchAutomationProgress("PICKUP:" .. tostring(phase))
         if phase == "ANIMAL_APPROACH" or phase == "PROMPT_SEARCH" or phase == "PROMPT_APPROACH" then
             local animalName = ActivePickup and ActivePickup.Name or tostring(message or "animal")
-            SetAutoBreakStatus("Stealing: " .. animalName)
+            local pickupReason = ActivePickup and ActivePickup:GetAttribute("MoldyHub_BASAE_PickupReason") or "Reason unavailable"
+            SetAutoBreakStatus("Stealing: " .. animalName .. " | Reason: " .. tostring(pickupReason))
         end
         if message then SetTrackerStatus("PICKUP LOCK [" .. phase .. "]: " .. message) end
     end
@@ -2141,13 +2142,16 @@ return function(Context)
         end
         if ReturningAfterPickup then return end
         local useZoneDrop = DropInZone1Enabled == true
-        -- Preserve the source zone before ClearPickupLock releases ActivePickup.
+        -- Preserve pickup identity, qualification reason, and source zone before ClearPickupLock releases ActivePickup.
+        local carryingAnimalName = ActivePickup and ActivePickup.Name or FlingTargetAnimalName or "animal"
+        local carryingPickupReason = ActivePickup and ActivePickup:GetAttribute("MoldyHub_BASAE_PickupReason") or "Reason unavailable"
         local returnPickupZoneName = LastAnimalPickupZoneName or GetPickupZoneName(ActivePickup)
         ClearPickupLock()
         ReturningAfterPickup = true
         local returnToken = PickupGeneration
         TouchAutomationProgress("RETURNING_TO_BASE")
-        SetAutoBreakStatus("Returning to base...")
+        local carryingStatus = "Carrying: " .. tostring(carryingAnimalName) .. " | Reason: " .. tostring(carryingPickupReason)
+        SetAutoBreakStatus(carryingStatus)
         SetTrackerStatus(reason or "Pickup hold completed. Returning to the pickup point.")
         task.spawn(function()
             local character, humanoid, root = WaitForCharacterAndParts(10, function()
@@ -2161,7 +2165,8 @@ return function(Context)
                 end
                 return
             end
-            SetAutoBreakStatus(useZoneDrop and "Dropping animal in Zone 1..." or "Returning to base...")
+            SetAutoBreakStatus((useZoneDrop and "Dropping animal in Zone 1..." or "Returning to base...")
+                .. " | Carrying: " .. tostring(carryingAnimalName) .. " | Reason: " .. tostring(carryingPickupReason))
             SetTrackerStatus(useZoneDrop and "Moving to Zone 1 to drop the animal." or "Returning to workspace.Build.ZoneHitboxes.SafeZone.")
             local moveStarted = os.clock()
             local lastReturnDistance = math.huge
@@ -2961,7 +2966,8 @@ return function(Context)
         PickupPhase = "ANIMAL_APPROACH"
         SetPickupTracking(pickup, "Selected for pickup", cpsText)
         PickupRequested = true
-        SetAutoBreakStatus("Stealing: " .. pickup.Name)
+        SetAutoBreakStatus("Stealing: " .. pickup.Name .. " | Reason: "
+            .. tostring(pickup:GetAttribute("MoldyHub_BASAE_PickupReason") or "Reason unavailable"))
         task.delay(45, function()
             if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested
                 or ReturningAfterPickup or ActivePickup ~= pickup then
@@ -4230,7 +4236,6 @@ return function(Context)
                         -- Stop the full Auto Break movement state while preserving its current egg target.
                         -- Clearing ArrivedAtTarget also prevents the egg HP watchdog from restarting attacks.
                         StopAutoBreak("Auto Break paused; walking to collect gems.", true)
-                        pcall(function() humanoid:UnequipTools() end)
                         TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEMS")
 
                         local collectedAny = false
@@ -4277,7 +4282,6 @@ return function(Context)
                                 and LocalPlayer.Character == character and humanoid.Health > 0 do
                                 currentPosition = GetGemDropPosition(gem)
                                 if not currentPosition then break end
-                                pcall(function() humanoid:UnequipTools() end)
                                 local offset = Vector3.new(currentPosition.X - root.Position.X, 0, currentPosition.Z - root.Position.Z)
                                 local remainingDistance = offset.Magnitude
                                 if remainingDistance <= GEM_ARRIVAL_DISTANCE then break end
@@ -4304,7 +4308,6 @@ return function(Context)
                                 while gem.Parent and os.clock() < pickupDeadline
                                     and not Runtime.Stopped and AutoBreakEnabled
                                     and not PickupRequested and not ReturningAfterPickup do
-                                    pcall(function() humanoid:UnequipTools() end)
                                     TouchAutomationProgress("AUTO_BREAK:VERIFYING_GEM")
                                     task.wait(0.1)
                                 end
