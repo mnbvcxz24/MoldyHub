@@ -3157,11 +3157,37 @@ return function(Context)
             if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
             return
         end
-        SetPickupPhase("PROMPT_SEARCH", string.format("%s | animal reached (%.1f studs); finding its nearest matching StealPrompt.", pickup.Name, verifiedAnimalDistance))
+        SetPickupPhase("PROMPT_SEARCH", string.format("%s | animal reached (%.1f studs); matching StealPrompt.ObjectText.", pickup.Name, verifiedAnimalDistance))
         local prompt
-        local promptState = "StealPrompt not found"
+        local promptState = "No matching StealPrompt.ObjectText found"
         local promptDeadline = os.clock() + 5
         local promptMatchRadius = 18
+        local targetWeightKg = GetPickupWeightKg(pickup)
+        local function normalizePromptIdentity(value)
+            return tostring(value or ""):lower():gsub("[%s%p_]+", "")
+        end
+        local normalizedTargetName = normalizePromptIdentity(pickup.Name)
+        local function promptMatchesPickup(candidate)
+            if not candidate or not candidate:IsA("ProximityPrompt") then return false, "invalid prompt" end
+            local objectText = tostring(candidate.ObjectText or "")
+            local normalizedObjectText = normalizePromptIdentity(objectText)
+            if normalizedTargetName == "" or normalizedObjectText == "" then
+                return false, "ObjectText is empty"
+            end
+            if not normalizedObjectText:find(normalizedTargetName, 1, true) then
+                return false, "ObjectText name mismatch: " .. objectText
+            end
+            -- If ObjectText includes a KG value, use it to distinguish same-name animals.
+            local displayedWeightText = objectText:match("([%d%.]+)%s*[kK][gG]")
+            local displayedWeightKg = displayedWeightText and tonumber(displayedWeightText) or nil
+            if targetWeightKg and displayedWeightKg then
+                local tolerance = math.max(0.05, math.abs(targetWeightKg) * 0.001)
+                if math.abs(targetWeightKg - displayedWeightKg) > tolerance then
+                    return false, string.format("KG mismatch (target %.3f, prompt %.3f)", targetWeightKg, displayedWeightKg)
+                end
+            end
+            return true
+        end
         local function getPromptPosition(candidate)
             local parent = candidate and candidate.Parent
             while parent and parent ~= workspace do
@@ -3181,73 +3207,51 @@ return function(Context)
         repeat
             if PickupGeneration ~= pickupToken then return end
             prompt = nil
-            local nearestDistance = math.huge
+            local matchedDistance = math.huge
             local totalStealPrompts = 0
             local enabledStealPrompts = 0
+            local matchedStealPrompts = 0
             local promptAnchor = workspace:FindFirstChild("PromptAnchor")
             local promptCandidates = promptAnchor and promptAnchor:GetDescendants() or workspace:GetDescendants()
-            local directPrompt
-            local directDistance = math.huge
-            local nearestPrompt
-            for _, candidate in ipairs(promptCandidates) do
-                if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
-                    totalStealPrompts += 1
-                    if candidate.Enabled then
-                        enabledStealPrompts += 1
-                        local candidatePosition = getPromptPosition(candidate)
-                        if candidatePosition then
-                            local distance = (candidatePosition - pickupPosition).Magnitude
-                            if distance <= promptMatchRadius then
-                                if candidate:IsDescendantOf(pickup) then
-                                    if distance < directDistance then
-                                        directDistance = distance
-                                        directPrompt = candidate
-                                    end
-                                elseif distance < nearestDistance then
-                                    nearestDistance = distance
-                                    nearestPrompt = candidate
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            prompt = directPrompt or nearestPrompt
-            if directPrompt then nearestDistance = directDistance end
-            -- PromptAnchor is the normal fast path. If it misses the target's
-            -- own prompt, do one broad fallback scan rather than scanning every poll.
-            if not directPrompt and promptAnchor and not promptFallbackScanned then
-                promptFallbackScanned = true
-                for _, candidate in ipairs(workspace:GetDescendants()) do
+            local function scanPromptCandidates(candidates)
+                for _, candidate in ipairs(candidates) do
                     if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
                         totalStealPrompts += 1
                         if candidate.Enabled then
                             enabledStealPrompts += 1
-                            local candidatePosition = getPromptPosition(candidate)
-                            if candidatePosition then
-                                local distance = (candidatePosition - pickupPosition).Magnitude
-                                if distance <= promptMatchRadius then
-                                    if candidate:IsDescendantOf(pickup) then
-                                        if distance < directDistance then
-                                            directDistance = distance
-                                            directPrompt = candidate
+                            local matches, mismatchReason = promptMatchesPickup(candidate)
+                            if matches then
+                                local candidatePosition = getPromptPosition(candidate)
+                                if candidatePosition then
+                                    local distance = (candidatePosition - pickupPosition).Magnitude
+                                    if distance <= promptMatchRadius then
+                                        matchedStealPrompts += 1
+                                        if distance < matchedDistance then
+                                            matchedDistance = distance
+                                            prompt = candidate
                                         end
-                                    elseif distance < nearestDistance then
-                                        nearestDistance = distance
-                                        nearestPrompt = candidate
                                     end
                                 end
+                            elseif mismatchReason and mismatchReason ~= "ObjectText is empty" then
+                                promptState = mismatchReason
                             end
                         end
                     end
                 end
-                prompt = directPrompt or nearestPrompt
-                if directPrompt then nearestDistance = directDistance end
+            end
+            scanPromptCandidates(promptCandidates)
+            -- PromptAnchor is the fast path. If no identity-matched prompt is found,
+            -- do one broad fallback scan, still requiring ObjectText to match.
+            if not prompt and promptAnchor and not promptFallbackScanned then
+                promptFallbackScanned = true
+                scanPromptCandidates(workspace:GetDescendants())
             end
             if prompt then
-                promptState = string.format("nearest enabled StealPrompt: %s (%.2f studs from animal; found %d total/%d enabled)", prompt:GetFullName(), nearestDistance, totalStealPrompts, enabledStealPrompts)
-            else
-                promptState = string.format("No enabled StealPrompt within %.0f studs of animal (found %d total/%d enabled)", promptMatchRadius, totalStealPrompts, enabledStealPrompts)
+                promptState = string.format("ObjectText matched %q (%d matching prompt(s), nearest %.2f studs; found %d total/%d enabled)",
+                    tostring(prompt.ObjectText), matchedStealPrompts, matchedDistance, totalStealPrompts, enabledStealPrompts)
+            elseif promptState == "No matching StealPrompt.ObjectText found" or promptState == "ObjectText is empty" then
+                promptState = string.format("No enabled StealPrompt with matching ObjectText within %.0f studs (found %d total/%d enabled)",
+                    promptMatchRadius, totalStealPrompts, enabledStealPrompts)
             end
             if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled then
                 break
@@ -3260,7 +3264,7 @@ return function(Context)
             ActivePickup = nil
             ActivePickupCPS = -1
             SetTrackerStatus("Eligible pet " .. pickup.Name
-                .. " but pickup prompt unavailable after 5s: " .. promptState .. ".")
+                .. " but no identity-matched pickup prompt was available after 5s: " .. promptState .. ".")
             task.delay(2, function()
                 if pickup.Parent and AutoPickupEnabled then PickupMonitorSeen[pickup] = nil end
             end)
