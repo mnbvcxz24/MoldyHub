@@ -2736,33 +2736,42 @@ return function(Context)
             return
         end
         if ReturningAfterPickup then
+            pickup:SetAttribute("MoldyHub_BASAE_PickupReason", "Skipped: returning to base")
             SetPickupTracking(pickup, "Skipped: returning to base")
             SetTrackerStatus("Eligible pet " .. pickup.Name .. " ignored: already returning to base.")
             return
         end
-        if IsRecentlyDroppedAnimal(pickup) then return end
+        if IsRecentlyDroppedAnimal(pickup) then
+            pickup:SetAttribute("MoldyHub_BASAE_PickupReason", "Skipped: recently dropped")
+            SetPickupTracking(pickup, "Skipped: recently dropped")
+            return
+        end
         local zoneAllowed, pickupZoneName = IsPickupAllowedByZone(pickup)
         if not zoneAllowed then
             SetPickupTracking(pickup, "Rejected: outside selected pickup zones", tostring(pickupZoneName or "unknown zone"))
             RejectPickupAndRestart("Filtered out " .. pickup.Name .. " | zone " .. tostring(pickupZoneName or "unknown") .. " is not selected.")
             return
         end
-        local forceUnindexedPickup = false
+        -- Index is one independent OR pickup rule, never a gate for the other filters.
+        local unindexedIndexMatch = false
+        local indexStatus = nil
         if UnindexedOnlyEnabled then
             local isUnindexed, indexDisplay = EvaluateUnindexedStatus(pickup)
             if evaluationCancelled() then
+                pickup:SetAttribute("MoldyHub_BASAE_PickupReason", "Cancelled: automation toggled")
                 SetPickupTracking(pickup, "Cancelled: automation toggled")
                 return
             end
-            if isUnindexed == nil then
-                SetPickupTracking(pickup, "Rejected: Index verification unavailable", tostring(indexDisplay))
-                RejectPickupAndRestart("Filtered out " .. pickup.Name .. " | Index verification failed: " .. tostring(indexDisplay))
-                return
-            elseif isUnindexed then
-                forceUnindexedPickup = true
-                SetPickupTracking(pickup, "Unindexed (???); bypassing filters", "???")
+            indexStatus = tostring(indexDisplay or "Index status unavailable")
+            if isUnindexed == true then
+                unindexedIndexMatch = true
+                SetPickupTracking(pickup, "Index filter matched: unindexed animal", indexStatus)
+            elseif isUnindexed == false then
+                SetPickupTracking(pickup, "Index filter did not match: already indexed", indexStatus)
             else
-                SetPickupTracking(pickup, "Already indexed; applying normal filters", tostring(indexDisplay))
+                -- Missing or mismatched Index UI data must not reject the animal;
+                -- the remaining enabled pickup filters still get evaluated.
+                SetPickupTracking(pickup, "Index unavailable; checking other filters", indexStatus)
             end
         end
         local kgPriorityPickup, pickupWeightKg = false, nil
@@ -2771,12 +2780,8 @@ return function(Context)
         local rarityPriorityPickup = false
         local cps, cpsText = -1, "CPS scan pending"
         local pickupPriority = 5
-        if forceUnindexedPickup then
-            -- Keep the unindexed override behavior, but still record the animal's real CPS for diagnostics.
-            cps, cpsText = GetPetCPS(pickup)
-            SetPickupTracking(pickup, cps >= 0 and "CPS checked (unindexed override)" or "CPS read failed (unindexed override)", cpsText)
-        else
-            kgPriorityPickup, pickupWeightKg = IsKGFilterMatch(pickup)
+        -- Evaluate every normal filter even when the Index filter matches.
+        kgPriorityPickup, pickupWeightKg = IsKGFilterMatch(pickup)
             if kgPriorityPickup then
                 SetPickupTracking(pickup, "KG threshold matched", tostring(pickupWeightKg) .. " KG")
             end
@@ -2810,16 +2815,12 @@ return function(Context)
                 local minimumCPS = CPSFilter.amount * (scales[CPSFilter.unit] or 1)
                 cpsPriorityPickup = cps >= minimumCPS
             end
-            if HighestCashEnabled and cps >= 0 then
-                local lowestPlaced = GetLowestPlacedCPS()
-                aboveLowestPriorityPickup = lowestPlaced >= 0 and cps > lowestPlaced
-            end
+        if HighestCashEnabled and cps >= 0 then
+            local lowestPlaced = GetLowestPlacedCPS()
+            aboveLowestPriorityPickup = lowestPlaced >= 0 and cps > lowestPlaced
         end
         local kgMinimum = KGThresholdAmount > 0
             and (KGThresholdAmount * (({K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15})[KGThresholdUnit] or 1)) or 0
-        if forceUnindexedPickup then
-            pickupWeightKg = GetPickupWeightKg(pickup)
-        end
         pickup:SetAttribute("MoldyHub_BASAE_DetectedKG", pickupWeightKg)
         pickup:SetAttribute("MoldyHub_BASAE_KGMinimum", kgMinimum)
         pickup:SetAttribute("MoldyHub_BASAE_KGPassed",
@@ -2838,7 +2839,7 @@ return function(Context)
         local mutationPickupMatch = PickUpWithMutationEnabled
             and GetPickupMutation(pickup) ~= "No Mutation"
             and IsMutationRarityAllowed(pickup)
-        local qualified = not anyPickupFilterEnabled or forceUnindexedPickup
+        local qualified = not anyPickupFilterEnabled or unindexedIndexMatch
             or aboveLowestPriorityPickup or kgPriorityPickup or cpsPriorityPickup or rarityPriorityPickup
             or mutationPickupMatch
         local cpsScales = {K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15}
@@ -2847,8 +2848,8 @@ return function(Context)
         pickup:SetAttribute("MoldyHub_BASAE_CPSMinimum", minimumCPS)
         pickup:SetAttribute("MoldyHub_BASAE_CPSPassed", CPSFilter.amount <= 0 or (cps >= 0 and cps >= minimumCPS))
         local pickupReason = "No pickup rule matched"
-        if forceUnindexedPickup then
-            pickupReason = "Unindexed override (bypassed normal filters)"
+        if unindexedIndexMatch then
+            pickupReason = "Unindexed index match"
         elseif aboveLowestPriorityPickup then
             pickupReason = "Above lowest placed CPS"
         elseif kgPriorityPickup then
@@ -2861,6 +2862,8 @@ return function(Context)
             pickupReason = "Selected mutation matched"
         elseif not anyPickupFilterEnabled then
             pickupReason = "No filters enabled (default pickup)"
+        elseif UnindexedOnlyEnabled and indexStatus then
+            pickupReason = "No pickup rule matched (Index: " .. indexStatus .. ")"
         end
         pickup:SetAttribute("MoldyHub_BASAE_PickupReason", qualified and pickupReason or ("Rejected: " .. pickupReason))
         if not qualified then
@@ -2876,7 +2879,7 @@ return function(Context)
             RejectPickupAndRestart("Filtered out " .. pickup.Name .. " | " .. reason .. ".")
             return
         end
-        if forceUnindexedPickup then
+        if unindexedIndexMatch then
             pickupPriority = 1
         elseif aboveLowestPriorityPickup then
             pickupPriority = 2
