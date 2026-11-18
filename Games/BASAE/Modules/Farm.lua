@@ -4740,32 +4740,9 @@ return function(Context)
                     .. " | tracking matching EggHitConfirmed events now.")
                 local hpWatchdogTarget = target
                 local hpWatchdogStarted = os.clock()
-                local lastWatchdogCenterClickAt = 0
                 task.spawn(function()
                     while not Runtime.Stopped and AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
                         and ArrivedAtTarget and not PickupRequested and not ReturningAfterPickup do
-                        -- While the HP watchdog owns the arrived egg, send a center-screen
-                        -- mouse click once per second to keep the attack input active.
-                        if os.clock() - lastWatchdogCenterClickAt >= 1 then
-                            local camera = workspace.CurrentCamera
-                            if camera then
-                                local viewport = camera.ViewportSize
-                                if viewport.X > 0 and viewport.Y > 0 then
-                                    local centerX, centerY = viewport.X / 2, viewport.Y / 2
-                                    local virtualInput = game:GetService("VirtualInputManager")
-                                    local clicked, clickErr = pcall(function()
-                                        virtualInput:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-                                        task.wait(0.03)
-                                        virtualInput:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
-                                    end)
-                                    if not clicked then
-                                        SetTrackerStatus("HP watchdog center click failed: " .. tostring(clickErr))
-                                    end
-                                end
-                            end
-                            lastWatchdogCenterClickAt = os.clock()
-                        end
-
                         -- Do not divert movement while actively attacking an arrived egg.
                         local noDamageFor = os.clock() - math.max(hpWatchdogStarted, LastEggHPProgressAt, GemDiversionLastEndedAt)
                         if noDamageFor >= 3 then
