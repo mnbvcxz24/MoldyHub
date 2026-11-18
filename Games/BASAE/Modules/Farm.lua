@@ -3443,6 +3443,15 @@ return function(Context)
                 if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
                 return
             end
+            local identityStillMatches, identityFailure = promptMatchesPickup(prompt)
+            if not identityStillMatches then
+                PickupRequested = false
+                ActivePickup = nil
+                ActivePickupCPS = -1
+                SetTrackerStatus("Pickup cancelled: StealPrompt identity changed before activation (" .. tostring(identityFailure) .. ").")
+                if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
+                return
+            end
             local pickupConfirmed = false
             local carriedAnimalBefore = CarriedAnimalWatch.model
             local activationErrors = {}
