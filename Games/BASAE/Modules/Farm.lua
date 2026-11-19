@@ -3475,31 +3475,74 @@ return function(Context)
                     local currentPromptPosition = getPromptPosition(prompt)
                     local currentPromptDistance = currentPromptPosition and (currentPromptPosition - root.Position).Magnitude or math.huge
                     if currentPromptDistance <= prompt.MaxActivationDistance then
-                        local holdOk, holdErr = pcall(function()
-                            if typeof(fireproximityprompt) == "function" then
+                        local function checkPickupConfirmation(timeout)
+                            local deadline = os.clock() + timeout
+                            repeat
+                                if not pickup.Parent then return true end
+                                if CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
+                                    SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
+                                    return true
+                                end
+                                if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested then
+                                    return false
+                                end
+                                task.wait(0.05)
+                            until os.clock() >= deadline
+                            return false
+                        end
+                        -- Some executors expose fireproximityprompt but the call can silently
+                        -- fail to produce the game's input event. Verify after each method and
+                        -- fall back to the prompt's native hold input before retrying.
+                        if typeof(fireproximityprompt) == "function" then
+                            local fireOk, fireErr = pcall(function()
                                 fireproximityprompt(prompt)
-                                if prompt.HoldDuration > 0 then task.wait(prompt.HoldDuration + 0.15) end
-                            else
-                                prompt:InputHoldBegin()
-                                task.wait(prompt.HoldDuration + 0.1)
-                                prompt:InputHoldEnd()
+                            end)
+                            if not fireOk then
+                                table.insert(activationErrors, "fireproximityprompt: " .. tostring(fireErr))
+                            elseif checkPickupConfirmation(0.35) then
+                                pickupConfirmed = true
                             end
-                        end)
-                        if not holdOk then
-                            table.insert(activationErrors, tostring(holdErr))
-                            pcall(function() prompt:InputHoldEnd() end)
                         end
-                        local confirmDeadline = os.clock() + 0.75
-                        while not Runtime.Stopped and os.clock() < confirmDeadline
-                            and PickupGeneration == pickupToken and PickupRequested and pickup.Parent do
-                            task.wait(0.05)
+                        if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
+                            and pickup.Parent and prompt.Parent and prompt.Enabled then
+                            local holdOk, holdErr = pcall(function()
+                                prompt:InputHoldBegin()
+                                task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
+                                prompt:InputHoldEnd()
+                            end)
+                            if not holdOk then
+                                table.insert(activationErrors, "InputHold: " .. tostring(holdErr))
+                                pcall(function() prompt:InputHoldEnd() end)
+                            elseif checkPickupConfirmation(0.4) then
+                                pickupConfirmed = true
+                            end
                         end
-                        if not pickup.Parent then pickupConfirmed = true
-                        elseif CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
-                            pickupConfirmed = true
-                            SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
-                        elseif activationAttempt == 1 or activationAttempt % 3 == 0 then
-                            SetTrackerStatus("StealPrompt still unchecked for " .. pickup.Name .. "; retry " .. tostring(activationAttempt) .. ".")
+                        -- Last resort: send the configured keyboard key as a real press/release.
+                        -- This covers games that only listen to ProximityPromptService input.
+                        if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
+                            and pickup.Parent and prompt.Parent and prompt.Enabled then
+                            local keyOk, keyErr = pcall(function()
+                                local virtualInput = game:GetService("VirtualInputManager")
+                                local keyCode = prompt.KeyboardKeyCode
+                                if not keyCode or keyCode == Enum.KeyCode.Unknown then
+                                    keyCode = Enum.KeyCode.E
+                                end
+                                virtualInput:SendKeyEvent(true, keyCode, false, game)
+                                task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
+                                virtualInput:SendKeyEvent(false, keyCode, false, game)
+                            end)
+                            if not keyOk then
+                                table.insert(activationErrors, "Keyboard prompt input: " .. tostring(keyErr))
+                                pcall(function()
+                                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                                end)
+                            elseif checkPickupConfirmation(0.5) then
+                                pickupConfirmed = true
+                            end
+                        end
+                        if not pickupConfirmed and (activationAttempt == 1 or activationAttempt % 3 == 0) then
+                            SetTrackerStatus("StealPrompt received activation attempts but game has not confirmed " .. pickup.Name
+                                .. "; retry " .. tostring(activationAttempt) .. ".")
                         end
                     else
                         SetTrackerStatus(string.format("Waiting for StealPrompt range for %s (%.1f/%.1f studs).",
