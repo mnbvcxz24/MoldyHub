@@ -3183,15 +3183,6 @@ return function(Context)
             if not normalizedObjectText:find(normalizedTargetName, 1, true) then
                 return false, "ObjectText name mismatch: " .. visibleObjectText
             end
-            -- If ObjectText includes a KG value, use it to distinguish same-name animals.
-            local displayedWeightText = objectText:match("([%d%.]+)%s*[kK][gG]")
-            local displayedWeightKg = displayedWeightText and tonumber(displayedWeightText) or nil
-            if targetWeightKg and displayedWeightKg then
-                local tolerance = math.max(0.05, math.abs(targetWeightKg) * 0.001)
-                if math.abs(targetWeightKg - displayedWeightKg) > tolerance then
-                    return false, string.format("KG mismatch (target %.3f, prompt %.3f)", targetWeightKg, displayedWeightKg)
-                end
-            end
             return true
         end
         local function getPromptPosition(candidate)
