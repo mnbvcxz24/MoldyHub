@@ -3172,13 +3172,16 @@ return function(Context)
         local normalizedTargetName = normalizePromptIdentity(pickup.Name)
         local function promptMatchesPickup(candidate)
             if not candidate or not candidate:IsA("ProximityPrompt") then return false, "invalid prompt" end
+            -- ObjectText may contain rich text (for example a colored KG value)
+            -- before the animal name. Strip tags and compare only the visible text.
             local objectText = tostring(candidate.ObjectText or "")
-            local normalizedObjectText = normalizePromptIdentity(objectText)
+            local visibleObjectText = objectText:gsub("<[^>]->", "")
+            local normalizedObjectText = normalizePromptIdentity(visibleObjectText)
             if normalizedTargetName == "" or normalizedObjectText == "" then
                 return false, "ObjectText is empty"
             end
             if not normalizedObjectText:find(normalizedTargetName, 1, true) then
-                return false, "ObjectText name mismatch: " .. objectText
+                return false, "ObjectText name mismatch: " .. visibleObjectText
             end
             -- If ObjectText includes a KG value, use it to distinguish same-name animals.
             local displayedWeightText = objectText:match("([%d%.]+)%s*[kK][gG]")
