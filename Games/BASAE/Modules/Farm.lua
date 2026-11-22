@@ -3033,6 +3033,16 @@ return function(Context)
         local animalMoveStarted = os.clock()
         local lastAnimalProgressAt = os.clock()
         local bestAnimalDistance = math.huge
+        -- Stop outside the animal's collision footprint; its pivot/center may be
+        -- inside the body, which the character cannot physically reach.
+        local animalApproachRadius = 5
+        pcall(function()
+            local animalSize = pickup:IsA("Model") and pickup:GetExtentsSize()
+                or (pickup:IsA("BasePart") and pickup.Size)
+            if animalSize then
+                animalApproachRadius = math.max(animalApproachRadius, math.max(animalSize.X, animalSize.Z) * 0.5 + 2)
+            end
+        end)
         TouchAutomationProgress("PICKUP:ANIMAL_APPROACH")
         if PickupMovementConnection then
             PickupMovementConnection:Disconnect()
@@ -3057,7 +3067,7 @@ return function(Context)
                     pickupGateWaypoint = nil
                     direction = Vector3.new(currentPosition.X - moveRoot.Position.X, 0, currentPosition.Z - moveRoot.Position.Z)
                 end
-                if direction.Magnitude > 4 then
+                if direction.Magnitude > animalApproachRadius then
                     moveHumanoid:Move(direction.Unit, false)
                 else
                     moveHumanoid:Move(Vector3.zero, false)
@@ -3093,7 +3103,12 @@ return function(Context)
                 pickupPosition.Z - moveRoot.Position.Z
             )
             local animalDistance = animalOffset.Magnitude
-            if animalDistance <= 4 then break end
+            if animalDistance <= animalApproachRadius then
+                moveHumanoid:Move(Vector3.zero, false)
+                local velocity = moveRoot.AssemblyLinearVelocity
+                moveRoot.AssemblyLinearVelocity = Vector3.new(0, velocity.Y, 0)
+                break
+            end
             local now = os.clock()
             if now - animalMoveStarted >= 25 then
                 moveHumanoid:Move(Vector3.zero, false)
@@ -3127,7 +3142,7 @@ return function(Context)
                             refreshedPosition.X - moveRoot.Position.X, 0,
                             refreshedPosition.Z - moveRoot.Position.Z
                         )
-                        if refreshedDirection.Magnitude > 4 then
+                        if refreshedDirection.Magnitude > animalApproachRadius then
                             moveHumanoid:Move(refreshedDirection.Unit, false)
                         end
                     end
@@ -3152,7 +3167,7 @@ return function(Context)
             return
         end
         local verifiedAnimalDistance = (Vector3.new(pickupPosition.X, moveRoot.Position.Y, pickupPosition.Z) - moveRoot.Position).Magnitude
-        if verifiedAnimalDistance > 5 then
+        if verifiedAnimalDistance > animalApproachRadius + 1 then
             PickupRequested = false
             ActivePickup = nil
             ActivePickupCPS = -1
@@ -4738,6 +4753,16 @@ return function(Context)
         -- no-target fallback above, where it triggers Zone13+ egg spawning.
         local movementWaypoints = {target:GetPivot().Position}
         local movementWaypointIndex = 1
+        -- Approach the egg's outer footprint, not its pivot. The pivot can be
+        -- buried inside a large egg, causing repeated forward/backward corrections.
+        local eggApproachRadius = 4
+        pcall(function()
+            local eggSize = target:IsA("Model") and target:GetExtentsSize()
+                or (target:IsA("BasePart") and target.Size)
+            if eggSize then
+                eggApproachRadius = math.max(eggApproachRadius, math.max(eggSize.X, eggSize.Z) * 0.5 + 2)
+            end
+        end)
         SetAutoBreakStatus("Moving to egg: " .. target.Name)
         SetTrackerStatus("Moving to egg: " .. target:GetFullName())
     
@@ -4783,8 +4808,10 @@ return function(Context)
                 0,
                 targetPosition.Z - root.Position.Z
             )
-            if targetOffset.Magnitude <= 4 then
+            if targetOffset.Magnitude <= eggApproachRadius then
                 humanoid:Move(Vector3.zero, false)
+                local velocity = root.AssemblyLinearVelocity
+                root.AssemblyLinearVelocity = Vector3.new(0, velocity.Y, 0)
                 MovementConnection:Disconnect()
                 MovementConnection = nil
                 ArrivedAtTarget = true
