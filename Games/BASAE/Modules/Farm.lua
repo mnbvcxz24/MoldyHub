@@ -4914,14 +4914,10 @@ return function(Context)
                                 SetTrackerStatus("AutoSwing recovery verified: egg HP damage detected; continuing Auto Break.")
                                 hpWatchdogStarted = os.clock()
                             else
-                                SetTrackerStatus("AutoSwing recovery failed: no egg HP damage after 3 seconds; restarting Auto Break.")
-                                ArrivedAtTarget = false
-                                if MovementConnection then MovementConnection:Disconnect(); MovementConnection = nil end
-                                if AutoBreakEnabled and CurrentTarget == hpWatchdogTarget
-                                    and not PickupRequested and not ReturningAfterPickup and not WaitingForPickup then
-                                    StartAutoBreak(true)
-                                end
-                                return
+                                -- Keep the character at the egg. Missing HP events should trigger
+                                -- another tool/AutoSwing check, not a fresh approach movement loop.
+                                SetTrackerStatus("AutoSwing recovery found no HP damage after 3 seconds; staying at the egg and retrying recovery.")
+                                hpWatchdogStarted = os.clock()
                             end
                         end
                         task.wait(0.25)
@@ -4960,7 +4956,12 @@ return function(Context)
             local active = not FlingRecoveryActive and not GemDiversionActive and (PickupRequested
                 or (not ReturningAfterPickup and AutoBreakEnabled and (CurrentTarget ~= nil or WaitingForPickup or ArrivedAtTarget
                     or AutomationProgressStage:find("^AUTO_BREAK:") ~= nil)))
-            if active and not AutomationWatchdogBusy
+            -- The egg HP watchdog owns recovery while the character is stationary at
+            -- an arrived egg. Do not let the generic watchdog clear ArrivedAtTarget
+            -- and restart the approach just because egg damage events are delayed.
+            local stationaryAtEgg = AutoBreakEnabled and ArrivedAtTarget and CurrentTarget ~= nil
+                and not PickupRequested and not ReturningAfterPickup
+            if active and not stationaryAtEgg and not AutomationWatchdogBusy
                 and os.clock() - LastAutomationProgressAt >= 20 then
                 AutomationWatchdogBusy = true
                 AutoBreakGeneration += 1
