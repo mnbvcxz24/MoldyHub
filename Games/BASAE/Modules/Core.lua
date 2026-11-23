@@ -130,6 +130,7 @@ return function(Context)
             "Main",
             "Farm",
             "Eggs",
+            "Enchant",
             "Misc. feature",
             "Theme",
             "Settings"

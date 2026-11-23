@@ -1,6 +1,6 @@
 -- ORIGINAL BASAE SETTINGS PAGE
 return function(Context)
-    local index = 6
+    local index = 7
     local name = "Settings"
     local Page = CreatePage(index, name)
     local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")

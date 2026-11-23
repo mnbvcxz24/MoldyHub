@@ -1,6 +1,6 @@
 -- ORIGINAL BASAE MISC PAGE
 return function(Context)
-    local index = 4
+    local index = 5
     local name = "Misc. feature"
     local Page = CreatePage(index, name)
     local ESPCardsRow = Create("Frame", {

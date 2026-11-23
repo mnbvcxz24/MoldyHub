@@ -1,6 +1,6 @@
 -- ORIGINAL BASAE THEME PAGE
 return function(Context)
-    local index = 5
+    local index = 6
     local name = "Theme"
     local Page = CreatePage(index, name)
     local ThemeCard = CreateCard(Page, "Theme Settings", "Choose a color palette for the interface.")
