@@ -5,10 +5,6 @@ return function(Context)
     local name = "Enchant"
     local Page = CreatePage(index, name)
     local EnchantCard = CreateCard(Page, "Placed Animal Enchants", "Shows the Enchant attribute for every animal placed on your plot.")
-    -- This is the only full-width card on the Enchant page.
-    EnchantCard.Parent = Page
-    EnchantCard.Position = UDim2.fromOffset(10, 10)
-    EnchantCard.Size = UDim2.new(1, -20, 0, EnchantCard.Size.Y.Offset)
 
     local Status = Create("TextLabel", {
         Name = "EnchantStatus",
@@ -102,7 +98,7 @@ return function(Context)
             local entry = Create("Frame", {
                 Name = "AnimalEnchantEntry",
                 Parent = parent,
-                Size = UDim2.new(1, 0, 0, 28),
+                Size = UDim2.new(0.5, -3, 0, 28),
                 BackgroundColor3 = Theme.SurfaceInput,
                 BorderSizePixel = 0,
                 LayoutOrder = order
@@ -161,9 +157,15 @@ return function(Context)
             return
         end
 
-        for index, animal in ipairs(animals) do
-            local row = CreateEntryRow(index)
-            CreateEntry(row, animal.Name, animal.Enchant == nil and "None" or tostring(animal.Enchant), 1)
+        for index = 1, #animals, 2 do
+            local row = CreateEntryRow(math.ceil(index / 2))
+            local first = animals[index]
+            CreateEntry(row, first.Name, first.Enchant == nil and "None" or tostring(first.Enchant), 1)
+
+            local second = animals[index + 1]
+            if second then
+                CreateEntry(row, second.Name, second.Enchant == nil and "None" or tostring(second.Enchant), 2)
+            end
         end
     end
 
