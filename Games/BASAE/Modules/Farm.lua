@@ -4304,6 +4304,17 @@ return function(Context)
                         -- Stop the full Auto Break movement state while preserving its current egg target.
                         -- Clearing ArrivedAtTarget also prevents the egg HP watchdog from restarting attacks.
                         StopAutoBreak("Auto Break paused; walking to collect gems.", true)
+                        -- Match Auto Pickup's hard stop: disconnect any remaining egg movement
+                        -- and explicitly clear the Humanoid movement input before gem movement starts.
+                        if MovementConnection then
+                            MovementConnection:Disconnect()
+                            MovementConnection = nil
+                        end
+                        local activeCharacter = LocalPlayer.Character
+                        local activeHumanoid = activeCharacter and activeCharacter:FindFirstChildOfClass("Humanoid")
+                        if activeHumanoid then
+                            activeHumanoid:Move(Vector3.zero, false)
+                        end
                         TouchAutomationProgress("AUTO_BREAK:COLLECTING_GEMS")
 
                         local collectedAny = false
