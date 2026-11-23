@@ -312,7 +312,15 @@ return function(Context)
             error("Executor makefolder API unavailable and config folder does not exist")
         end
 
-        -- An already-existing root folder must not prevent child creation.
+        -- Without isfolder, attempt both creations independently. Existing
+        -- folders may make makefolder throw, but the subsequent write verifies
+        -- whether the path is actually usable.
+        if type(isfolder) ~= "function" then
+            pcall(makefolder, ConfigRootPath)
+            pcall(makefolder, ConfigFolderPath)
+            return
+        end
+
         if not FolderExists(ConfigRootPath) then
             pcall(makefolder, ConfigRootPath)
         end
