@@ -12,9 +12,20 @@ return function(Context)
         if not Main or not Main.Parent or not UIScale then return end
 
         scale = math.clamp(scale, 0.5, 2)
+        InterfaceScale = scale
+
+        -- Scale the actual outer window and every descendant together.
         Main.AnchorPoint = Vector2.new(0.5, 0.5)
         Main.Position = UDim2.fromScale(0.5, 0.5)
         UIScale.Scale = scale
+
+        -- These UI trees live outside Main, so update them explicitly.
+        if FloatingToggleUIScale then
+            FloatingToggleUIScale.Scale = scale
+        end
+        if type(UpdateStatusBarScale) == "function" then
+            UpdateStatusBarScale()
+        end
     end
 
     if type(SavedConfig.Theme) == "string" and ThemePresets[SavedConfig.Theme] then
