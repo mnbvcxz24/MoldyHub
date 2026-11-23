@@ -3211,7 +3211,6 @@ return function(Context)
         local normalizedTargetName = normalizePromptIdentity(pickup.Name)
         local function promptMatchesPickup(candidate)
             if not candidate or not candidate:IsA("ProximityPrompt") then return false, "invalid prompt" end
-            if not candidate.Enabled then return false, "prompt disabled" end
 
             -- ObjectText can contain rich text, e.g. [2,431Kg] Shipwreck Croc.
             -- Strip tags, then require BOTH the target animal name and its KG value.
@@ -3235,27 +3234,22 @@ return function(Context)
         end
         local function findMatchingPickupPrompt()
             local totalStealPrompts = 0
-            local enabledStealPrompts = 0
-            -- Search all Workspace descendants because StealPrompt may be nested at different depths.
-            -- Match only by target animal name + KG; never use prompt distance.
+            -- Search all Workspace descendants and match only by animal name + KG.
+            -- Enabled state and prompt distance are deliberately not used for lookup.
             for _, candidate in ipairs(workspace:GetDescendants()) do
                 if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
                     totalStealPrompts += 1
-                    if candidate.Enabled then
-                        enabledStealPrompts += 1
-                        local matches, mismatchReason = promptMatchesPickup(candidate)
-                        if matches then
-                            promptState = string.format("Workspace StealPrompt matched target %q and %.6g KG (found %d total/%d enabled)",
-                                tostring(pickup.Name), targetWeightKg, totalStealPrompts, enabledStealPrompts)
-                            return candidate
-                        elseif mismatchReason and mismatchReason ~= "prompt disabled" then
-                            promptState = mismatchReason
-                        end
+                    local matches, mismatchReason = promptMatchesPickup(candidate)
+                    if matches then
+                        promptState = string.format("Workspace StealPrompt matched target %q and %.6g KG",
+                            tostring(pickup.Name), targetWeightKg)
+                        return candidate
+                    elseif mismatchReason then
+                        promptState = mismatchReason
                     end
                 end
             end
-            promptState = string.format("No enabled Workspace StealPrompt with matching name + KG (found %d total/%d enabled)",
-                totalStealPrompts, enabledStealPrompts)
+            promptState = string.format("No Workspace StealPrompt with matching name + KG (found %d total)", totalStealPrompts)
             return nil
         end
         repeat
@@ -3265,7 +3259,7 @@ return function(Context)
             task.wait(0.25)
         until os.clock() >= promptDeadline
         if PickupGeneration ~= pickupToken then return end
-        if not prompt or not prompt:IsA("ProximityPrompt") or not prompt.Enabled then
+        if not prompt or not prompt:IsA("ProximityPrompt") then
             PickupRequested = false
             ActivePickup = nil
             ActivePickupCPS = -1
@@ -3312,7 +3306,7 @@ return function(Context)
                 return
             end
             if PickupGeneration ~= pickupToken then return end
-            if not prompt or not prompt.Parent or not prompt.Enabled then
+            if not prompt or not prompt.Parent then
                 prompt = findMatchingPickupPrompt()
                 if not prompt then
                     PickupRequested = false
@@ -3323,7 +3317,7 @@ return function(Context)
                     return
                 end
             end
-            if not prompt.Parent or not prompt.Enabled then
+            if not prompt.Parent then
                 PickupRequested = false
                 ActivePickup = nil
                 ActivePickupCPS = -1
@@ -3353,7 +3347,7 @@ return function(Context)
                     SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
                     break
                 end
-                if not prompt.Parent or not prompt.Enabled then
+                if not prompt.Parent then
                     task.wait(0.25)
                 else
                     activationAttempt += 1
@@ -3380,7 +3374,7 @@ return function(Context)
                         end
                     end
                     if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
-                        and pickup.Parent and prompt.Parent and prompt.Enabled then
+                        and pickup.Parent and prompt.Parent then
                         local holdOk, holdErr = pcall(function()
                             prompt:InputHoldBegin()
                             task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
@@ -3394,7 +3388,7 @@ return function(Context)
                         end
                     end
                     if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
-                        and pickup.Parent and prompt.Parent and prompt.Enabled then
+                        and pickup.Parent and prompt.Parent then
                         local keyOk, keyErr = pcall(function()
                             local virtualInput = game:GetService("VirtualInputManager")
                             local keyCode = prompt.KeyboardKeyCode
