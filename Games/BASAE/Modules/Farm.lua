@@ -3200,9 +3200,9 @@ return function(Context)
             if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
             return
         end
-        SetPickupPhase("PROMPT_SEARCH", string.format("%s | animal reached (%.1f studs); matching StealPrompt.ObjectText.", pickup.Name, verifiedAnimalDistance))
+        SetPickupPhase("PROMPT_SEARCH", string.format("%s | animal reached (%.1f studs); matching the direct-child StealPrompt.ObjectText.", pickup.Name, verifiedAnimalDistance))
         local prompt
-        local promptState = "No name-and-KG matching StealPrompt.ObjectText found"
+        local promptState = "No direct-child name-and-KG matching StealPrompt.ObjectText found"
         local promptDeadline = os.clock() + 5
         local targetWeightKg = GetPickupWeightKg(pickup)
         local function normalizePromptIdentity(value)
@@ -3237,17 +3237,19 @@ return function(Context)
             local totalStealPrompts = 0
             local enabledStealPrompts = 0
             local matchingStealPrompts = 0
-            -- Search every live StealPrompt. Selection is based only on ObjectText
-            -- name + KG identity; prompt distance is deliberately not considered.
-            for _, candidate in ipairs(workspace:GetDescendants()) do
-                if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
+            -- Each animal is a direct Workspace child with its StealPrompt directly inside it:
+            -- workspace:GetChildren()[n].StealPrompt. Do not hardcode the child index;
+            -- it changes as animals spawn/despawn. Match the prompt by name + KG.
+            for _, animalObject in ipairs(workspace:GetChildren()) do
+                local candidate = animalObject:FindFirstChild("StealPrompt")
+                if candidate and candidate:IsA("ProximityPrompt") then
                     totalStealPrompts += 1
                     if candidate.Enabled then
                         enabledStealPrompts += 1
                         local matches, mismatchReason = promptMatchesPickup(candidate)
                         if matches then
                             matchingStealPrompts += 1
-                            promptState = string.format("ObjectText matched target %q and %.6g KG (%d matching prompt(s); found %d total/%d enabled)",
+                            promptState = string.format("Direct-child StealPrompt matched target %q and %.6g KG (%d matching prompt(s); found %d total/%d enabled)",
                                 tostring(pickup.Name), targetWeightKg, matchingStealPrompts, totalStealPrompts, enabledStealPrompts)
                             return candidate
                         elseif mismatchReason and mismatchReason ~= "prompt disabled" then
