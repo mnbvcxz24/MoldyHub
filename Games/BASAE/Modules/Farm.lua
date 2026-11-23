@@ -3215,59 +3215,51 @@ return function(Context)
             end
             return nil
         end
-        local promptFallbackScanned = false
-        repeat
-            if PickupGeneration ~= pickupToken then return end
-            prompt = nil
-            local matchedDistance = math.huge
+        local function findMatchingPickupPrompt()
+            local bestPrompt
+            local bestDistance = math.huge
             local totalStealPrompts = 0
             local enabledStealPrompts = 0
             local matchedStealPrompts = 0
-            local promptAnchor = workspace:FindFirstChild("PromptAnchor")
-            local promptCandidates = promptAnchor and promptAnchor:GetDescendants() or workspace:GetDescendants()
-            local function scanPromptCandidates(candidates)
-                for _, candidate in ipairs(candidates) do
-                    if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
-                        totalStealPrompts += 1
-                        if candidate.Enabled then
-                            enabledStealPrompts += 1
-                            local matches, mismatchReason = promptMatchesPickup(candidate)
-                            if matches then
-                                local candidatePosition = getPromptPosition(candidate)
-                                if candidatePosition then
-                                    local distance = (candidatePosition - pickupPosition).Magnitude
-                                    if distance <= promptMatchRadius then
-                                        matchedStealPrompts += 1
-                                        if distance < matchedDistance then
-                                            matchedDistance = distance
-                                            prompt = candidate
-                                        end
+            -- Always scan the live workspace tree. PromptAnchor can contain many
+            -- anchors and can also be rebuilt while animals are spawning.
+            for _, candidate in ipairs(workspace:GetDescendants()) do
+                if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
+                    totalStealPrompts += 1
+                    if candidate.Enabled then
+                        enabledStealPrompts += 1
+                        local matches, mismatchReason = promptMatchesPickup(candidate)
+                        if matches then
+                            local candidatePosition = getPromptPosition(candidate)
+                            if candidatePosition then
+                                local distance = (candidatePosition - pickupPosition).Magnitude
+                                if distance <= promptMatchRadius then
+                                    matchedStealPrompts += 1
+                                    if distance < bestDistance then
+                                        bestDistance = distance
+                                        bestPrompt = candidate
                                     end
                                 end
-                            elseif mismatchReason and mismatchReason ~= "ObjectText is empty" then
-                                promptState = mismatchReason
                             end
+                        elseif mismatchReason and mismatchReason ~= "ObjectText is empty" then
+                            promptState = mismatchReason
                         end
                     end
                 end
             end
-            scanPromptCandidates(promptCandidates)
-            -- PromptAnchor is the fast path. If no identity-matched prompt is found,
-            -- do one broad fallback scan, still requiring ObjectText to match.
-            if not prompt and promptAnchor and not promptFallbackScanned then
-                promptFallbackScanned = true
-                scanPromptCandidates(workspace:GetDescendants())
-            end
-            if prompt then
+            if bestPrompt then
                 promptState = string.format("ObjectText matched %q (%d matching prompt(s), nearest %.2f studs; found %d total/%d enabled)",
-                    tostring(prompt.ObjectText), matchedStealPrompts, matchedDistance, totalStealPrompts, enabledStealPrompts)
-            elseif promptState == "No matching StealPrompt.ObjectText found" or promptState == "ObjectText is empty" then
-                promptState = string.format("No enabled StealPrompt with matching ObjectText within %.0f studs (found %d total/%d enabled)",
+                    tostring(bestPrompt.ObjectText), matchedStealPrompts, bestDistance, totalStealPrompts, enabledStealPrompts)
+            else
+                promptState = string.format("No enabled matching StealPrompt within %.0f studs (found %d total/%d enabled)",
                     promptMatchRadius, totalStealPrompts, enabledStealPrompts)
             end
-            if prompt and prompt:IsA("ProximityPrompt") and prompt.Enabled then
-                break
-            end
+            return bestPrompt
+        end
+        repeat
+            if PickupGeneration ~= pickupToken then return end
+            prompt = findMatchingPickupPrompt()
+            if prompt then break end
             task.wait(0.25)
         until os.clock() >= promptDeadline
         if PickupGeneration ~= pickupToken then return end
@@ -3342,7 +3334,8 @@ return function(Context)
                 end
             }
             PickupMovementConnection = promptMoveConnection
-            while not Runtime.Stopped and PickupRequested and PickupGeneration == pickupToken and pickup.Parent and prompt.Parent and humanoid.Health > 0 do
+            local nextPromptRescanAt = os.clock() + 0.35
+            while not Runtime.Stopped and PickupRequested and PickupGeneration == pickupToken and pickup.Parent and humanoid.Health > 0 do
                 if LocalPlayer.Character ~= character or not character.Parent or not root.Parent then
                     if PickupGeneration ~= pickupToken then return end
                     PickupRequested = false
@@ -3351,6 +3344,22 @@ return function(Context)
                     SetTrackerStatus("Pickup cancelled: character changed while moving to animal prompt.")
                     if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
                     return
+                end
+                if os.clock() >= nextPromptRescanAt then
+                    nextPromptRescanAt = os.clock() + 0.35
+                    if not prompt or not prompt.Parent or not prompt.Enabled then
+                        local replacementPrompt = findMatchingPickupPrompt()
+                        if replacementPrompt then
+                            prompt = replacementPrompt
+                            promptPosition = getPromptPosition(prompt) or promptPosition
+                            SetTrackerStatus("Pickup prompt refreshed for " .. pickup.Name .. "; continuing toward the live matching anchor.")
+                        end
+                    end
+                end
+                if not prompt or not prompt.Parent or not prompt.Enabled then
+                    humanoid:Move(Vector3.zero, false)
+                    task.wait(0.05)
+                    continue
                 end
                 promptPosition = getPromptPosition(prompt) or promptPosition
                 local offset = Vector3.new(promptPosition.X - root.Position.X, 0, promptPosition.Z - root.Position.Z)
@@ -3437,13 +3446,16 @@ return function(Context)
                 return
             end
             if PickupGeneration ~= pickupToken then return end
-            if not prompt.Parent or not prompt.Enabled then
-                PickupRequested = false
-                ActivePickup = nil
-                ActivePickupCPS = -1
-                SetTrackerStatus("Pickup cancelled: StealPrompt became unavailable before activation.")
-                if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
-                return
+            if not prompt or not prompt.Parent or not prompt.Enabled then
+                prompt = findMatchingPickupPrompt()
+                if not prompt then
+                    PickupRequested = false
+                    ActivePickup = nil
+                    ActivePickupCPS = -1
+                    SetTrackerStatus("Pickup cancelled: no replacement matching StealPrompt was available before activation.")
+                    if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
+                    return
+                end
             end
             local latestPromptPosition = getPromptPosition(prompt)
             local latestPromptDistance = latestPromptPosition and (latestPromptPosition - root.Position).Magnitude or math.huge
