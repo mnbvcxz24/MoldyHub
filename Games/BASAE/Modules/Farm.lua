@@ -3360,7 +3360,33 @@ return function(Context)
                     break
                 end
                 if not prompt.Parent then
-                    task.wait(0.25)
+                    activationAttempt += 1
+                    local fallbackKeyDown = false
+                    local keyOk, keyErr = pcall(function()
+                        local virtualInput = game:GetService("VirtualInputManager")
+                        virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                        fallbackKeyDown = true
+                        task.wait(0.5)
+                        virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                        fallbackKeyDown = false
+                    end)
+                    if fallbackKeyDown then
+                        pcall(function()
+                            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                        end)
+                    end
+                    if not keyOk then
+                        table.insert(activationErrors, "E-key fallback without prompt: " .. tostring(keyErr))
+                    end
+                    local fallbackDeadline = os.clock() + 0.5
+                    repeat
+                        if not pickup.Parent or (CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore) then
+                            pickupConfirmed = true
+                            break
+                        end
+                        if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested then break end
+                        task.wait(0.05)
+                    until os.clock() >= fallbackDeadline
                 else
                     activationAttempt += 1
                     local function checkPickupConfirmation(timeout)
