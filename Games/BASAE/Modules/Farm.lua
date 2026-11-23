@@ -3235,26 +3235,25 @@ return function(Context)
         local function findMatchingPickupPrompt()
             local totalPromptAnchors = 0
             local totalStealPromptContainers = 0
-            -- Find each PromptAnchor, then its StealPrompt container, then the
-            -- ProximityPrompt to fire. No prompt-distance or Enabled filtering.
+            -- StealPrompt itself is the ProximityPrompt under PromptAnchor.
+            -- No extra child lookup, prompt-distance check, or Enabled filtering.
             for _, anchor in ipairs(workspace:GetDescendants()) do
                 if anchor.Name == "PromptAnchor" then
                     totalPromptAnchors += 1
-                    local stealPromptContainer = anchor:FindFirstChild("StealPrompt")
-                    if stealPromptContainer then
+                    local candidate = anchor:FindFirstChild("StealPrompt")
+                    if candidate then
                         totalStealPromptContainers += 1
-                        local candidate = stealPromptContainer:FindFirstChildWhichIsA("ProximityPrompt", true)
-                        if candidate then
+                        if candidate:IsA("ProximityPrompt") then
                             local matches, mismatchReason = promptMatchesPickup(candidate)
                             if matches then
-                                promptState = string.format("Matched %s.StealPrompt.ProximityPrompt for %q and %.6g KG",
+                                promptState = string.format("Matched %s.StealPrompt for %q and %.6g KG",
                                     anchor:GetFullName(), tostring(pickup.Name), targetWeightKg)
                                 return candidate
                             elseif mismatchReason then
                                 promptState = mismatchReason .. " | " .. anchor:GetFullName()
                             end
                         else
-                            promptState = "StealPrompt container has no ProximityPrompt: " .. stealPromptContainer:GetFullName()
+                            promptState = "StealPrompt is not a ProximityPrompt: " .. candidate:GetFullName()
                         end
                     end
                 end
