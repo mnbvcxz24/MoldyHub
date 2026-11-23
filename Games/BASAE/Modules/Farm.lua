@@ -3272,12 +3272,51 @@ return function(Context)
         until os.clock() >= promptDeadline
         if PickupGeneration ~= pickupToken then return end
         if not prompt or not prompt:IsA("ProximityPrompt") then
+            SetPickupPhase("ACTIVATING", pickup.Name .. " | no matching prompt; trying the 0.5s E-key fallback.")
+            SetTrackerStatus("No matching StealPrompt for " .. pickup.Name .. "; trying E for 0.5 seconds.")
+            local carriedAnimalBeforeFallback = CarriedAnimalWatch.model
+            local fallbackKeyDown = false
+            local fallbackOk, fallbackErr = pcall(function()
+                local virtualInput = game:GetService("VirtualInputManager")
+                virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                fallbackKeyDown = true
+                task.wait(0.5)
+                virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                fallbackKeyDown = false
+            end)
+            if fallbackKeyDown then
+                pcall(function()
+                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                end)
+            end
+            if not fallbackOk then
+                warn("[BASAE AutoPickup] E-key fallback failed for " .. tostring(pickup.Name) .. ": " .. tostring(fallbackErr))
+            end
+            local fallbackConfirmDeadline = os.clock() + 1
+            local fallbackConfirmed = false
+            repeat
+                if not pickup.Parent or (CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBeforeFallback) then
+                    fallbackConfirmed = true
+                    break
+                end
+                if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested or not AutoPickupEnabled then break end
+                task.wait(0.05)
+            until os.clock() >= fallbackConfirmDeadline
+            if fallbackConfirmed then
+                SetPickupTracking(pickup, "Collected", cpsText)
+                SetPickupPhase("CONFIRMED", "Collected " .. pickup.Name .. " using the 0.5s E-key fallback; returning to base.")
+                ActivePickup = nil
+                ActivePickupCPS = -1
+                ReturnToPickup("Pickup confirmed by the E-key fallback. Returning straight to base.")
+                return
+            end
+            if PickupGeneration ~= pickupToken then return end
             PickupRequested = false
             ActivePickup = nil
             ActivePickupCPS = -1
-            SetTrackerStatus("Eligible pet " .. pickup.Name
-                .. " but no identity-matched ProximityPrompt was available after 5s: " .. promptState .. ".")
-            warn("[BASAE AutoPickup] Prompt lookup failed for " .. tostring(pickup.Name) .. ": " .. tostring(promptState))
+            SetTrackerStatus("E-key fallback did not confirm pickup for " .. pickup.Name .. ": " .. promptState
+                .. (fallbackOk and "" or (" | " .. tostring(fallbackErr))))
+            warn("[BASAE AutoPickup] Prompt lookup and E-key fallback failed for " .. tostring(pickup.Name) .. ".")
             task.delay(2, function()
                 if pickup.Parent and AutoPickupEnabled then PickupMonitorSeen[pickup] = nil end
             end)
@@ -3429,11 +3468,9 @@ return function(Context)
                         and pickup.Parent and prompt.Parent then
                         local keyOk, keyErr = pcall(function()
                             local virtualInput = game:GetService("VirtualInputManager")
-                            local keyCode = prompt.KeyboardKeyCode
-                            if not keyCode or keyCode == Enum.KeyCode.Unknown then keyCode = Enum.KeyCode.E end
-                            virtualInput:SendKeyEvent(true, keyCode, false, game)
-                            task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
-                            virtualInput:SendKeyEvent(false, keyCode, false, game)
+                            virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                            task.wait(0.5)
+                            virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
                         end)
                         if not keyOk then
                             table.insert(activationErrors, "Keyboard prompt input: " .. tostring(keyErr))
