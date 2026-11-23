@@ -3177,9 +3177,8 @@ return function(Context)
         end
         SetPickupPhase("PROMPT_SEARCH", string.format("%s | animal reached (%.1f studs); matching StealPrompt.ObjectText.", pickup.Name, verifiedAnimalDistance))
         local prompt
-        local promptState = "No matching StealPrompt.ObjectText found"
+        local promptState = "No name-and-KG matching StealPrompt.ObjectText found"
         local promptDeadline = os.clock() + 5
-        local promptMatchRadius = 18
         local targetWeightKg = GetPickupWeightKg(pickup)
         local function normalizePromptIdentity(value)
             return tostring(value or ""):lower():gsub("[%s%p_]+", "")
@@ -3187,16 +3186,25 @@ return function(Context)
         local normalizedTargetName = normalizePromptIdentity(pickup.Name)
         local function promptMatchesPickup(candidate)
             if not candidate or not candidate:IsA("ProximityPrompt") then return false, "invalid prompt" end
-            -- ObjectText may contain rich text (for example a colored KG value)
-            -- before the animal name. Strip tags and compare only the visible text.
+            if not candidate.Enabled then return false, "prompt disabled" end
+
+            -- ObjectText can contain rich text, e.g. [2,431Kg] Shipwreck Croc.
+            -- Strip tags, then require BOTH the target animal name and its KG value.
             local objectText = tostring(candidate.ObjectText or "")
             local visibleObjectText = objectText:gsub("<[^>]->", "")
             local normalizedObjectText = normalizePromptIdentity(visibleObjectText)
-            if normalizedTargetName == "" or normalizedObjectText == "" then
-                return false, "ObjectText is empty"
-            end
-            if not normalizedObjectText:find(normalizedTargetName, 1, true) then
+            if normalizedTargetName == "" or not normalizedObjectText:find(normalizedTargetName, 1, true) then
                 return false, "ObjectText name mismatch: " .. visibleObjectText
+            end
+
+            local weightText = visibleObjectText:match("([%d,%.]+)%s*[Kk][Gg]")
+            local promptWeightKg = weightText and ParseWeightKg(weightText .. "Kg") or nil
+            if not targetWeightKg or not promptWeightKg then
+                return false, "KG value missing from target or ObjectText"
+            end
+            local tolerance = math.max(0.01, math.abs(targetWeightKg) * 0.000001)
+            if math.abs(promptWeightKg - targetWeightKg) > tolerance then
+                return false, string.format("KG mismatch: prompt %.6g vs target %.6g", promptWeightKg, targetWeightKg)
             end
             return true
         end
@@ -3216,13 +3224,11 @@ return function(Context)
             return nil
         end
         local function findMatchingPickupPrompt()
-            local bestPrompt
-            local bestDistance = math.huge
             local totalStealPrompts = 0
             local enabledStealPrompts = 0
-            local matchedStealPrompts = 0
-            -- Always scan the live workspace tree. PromptAnchor can contain many
-            -- anchors and can also be rebuilt while animals are spawning.
+            local matchingStealPrompts = 0
+            -- Search every live StealPrompt. Selection is based only on ObjectText
+            -- name + KG identity; prompt distance is deliberately not considered.
             for _, candidate in ipairs(workspace:GetDescendants()) do
                 if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
                     totalStealPrompts += 1
@@ -3230,31 +3236,19 @@ return function(Context)
                         enabledStealPrompts += 1
                         local matches, mismatchReason = promptMatchesPickup(candidate)
                         if matches then
-                            local candidatePosition = getPromptPosition(candidate)
-                            if candidatePosition then
-                                local distance = (candidatePosition - pickupPosition).Magnitude
-                                if distance <= promptMatchRadius then
-                                    matchedStealPrompts += 1
-                                    if distance < bestDistance then
-                                        bestDistance = distance
-                                        bestPrompt = candidate
-                                    end
-                                end
-                            end
-                        elseif mismatchReason and mismatchReason ~= "ObjectText is empty" then
+                            matchingStealPrompts += 1
+                            promptState = string.format("ObjectText matched target %q and %.6g KG (%d matching prompt(s); found %d total/%d enabled)",
+                                tostring(pickup.Name), targetWeightKg, matchingStealPrompts, totalStealPrompts, enabledStealPrompts)
+                            return candidate
+                        elseif mismatchReason and mismatchReason ~= "prompt disabled" then
                             promptState = mismatchReason
                         end
                     end
                 end
             end
-            if bestPrompt then
-                promptState = string.format("ObjectText matched %q (%d matching prompt(s), nearest %.2f studs; found %d total/%d enabled)",
-                    tostring(bestPrompt.ObjectText), matchedStealPrompts, bestDistance, totalStealPrompts, enabledStealPrompts)
-            else
-                promptState = string.format("No enabled matching StealPrompt within %.0f studs (found %d total/%d enabled)",
-                    promptMatchRadius, totalStealPrompts, enabledStealPrompts)
-            end
-            return bestPrompt
+            promptState = string.format("No enabled StealPrompt with matching name + KG (found %d total/%d enabled)",
+                totalStealPrompts, enabledStealPrompts)
+            return nil
         end
         repeat
             if PickupGeneration ~= pickupToken then return end
