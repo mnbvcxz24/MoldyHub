@@ -41,9 +41,17 @@ return function(Context)
         if not ok or type(config) ~= "table" then return definitions end
 
         local function ReadGroup(group)
-            if type(group) ~= "table" or type(group.Enchants) ~= "table" then return end
-            for _, enchant in pairs(group.Enchants) do
-                if type(enchant) == "table" and enchant.Id ~= nil and type(enchant.Tiers) == "table" then
+            if type(group) ~= "table" then return end
+
+            -- Only use the populated Enchants table; nil or empty entries are ignored.
+            local enchantList = group.Enchants
+            if type(enchantList) ~= "table" or next(enchantList) == nil then return end
+
+            for _, enchant in pairs(enchantList) do
+                if type(enchant) == "table"
+                    and enchant.Id ~= nil
+                    and type(enchant.Tiers) == "table"
+                    and next(enchant.Tiers) ~= nil then
                     definitions[tostring(enchant.Id)] = enchant
                 end
             end
