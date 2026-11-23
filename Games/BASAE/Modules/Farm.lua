@@ -3236,21 +3236,17 @@ return function(Context)
         local function findMatchingPickupPrompt()
             local totalStealPrompts = 0
             local enabledStealPrompts = 0
-            local matchingStealPrompts = 0
-            -- Each animal is a direct Workspace child with its StealPrompt directly inside it:
-            -- workspace:GetChildren()[n].StealPrompt. Do not hardcode the child index;
-            -- it changes as animals spawn/despawn. Match the prompt by name + KG.
-            for _, animalObject in ipairs(workspace:GetChildren()) do
-                local candidate = animalObject:FindFirstChild("StealPrompt")
-                if candidate and candidate:IsA("ProximityPrompt") then
+            -- Search all Workspace descendants because StealPrompt may be nested at different depths.
+            -- Match only by target animal name + KG; never use prompt distance.
+            for _, candidate in ipairs(workspace:GetDescendants()) do
+                if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
                     totalStealPrompts += 1
                     if candidate.Enabled then
                         enabledStealPrompts += 1
                         local matches, mismatchReason = promptMatchesPickup(candidate)
                         if matches then
-                            matchingStealPrompts += 1
-                            promptState = string.format("Direct-child StealPrompt matched target %q and %.6g KG (%d matching prompt(s); found %d total/%d enabled)",
-                                tostring(pickup.Name), targetWeightKg, matchingStealPrompts, totalStealPrompts, enabledStealPrompts)
+                            promptState = string.format("Workspace StealPrompt matched target %q and %.6g KG (found %d total/%d enabled)",
+                                tostring(pickup.Name), targetWeightKg, totalStealPrompts, enabledStealPrompts)
                             return candidate
                         elseif mismatchReason and mismatchReason ~= "prompt disabled" then
                             promptState = mismatchReason
@@ -3258,7 +3254,7 @@ return function(Context)
                     end
                 end
             end
-            promptState = string.format("No enabled StealPrompt with matching name + KG (found %d total/%d enabled)",
+            promptState = string.format("No enabled Workspace StealPrompt with matching name + KG (found %d total/%d enabled)",
                 totalStealPrompts, enabledStealPrompts)
             return nil
         end
@@ -3275,6 +3271,7 @@ return function(Context)
             ActivePickupCPS = -1
             SetTrackerStatus("Eligible pet " .. pickup.Name
                 .. " but no identity-matched pickup prompt was available after 5s: " .. promptState .. ".")
+            warn("[BASAE AutoPickup] Prompt lookup failed for " .. tostring(pickup.Name) .. ": " .. tostring(promptState))
             task.delay(2, function()
                 if pickup.Parent and AutoPickupEnabled then PickupMonitorSeen[pickup] = nil end
             end)
@@ -3432,6 +3429,7 @@ return function(Context)
                 local detail = #activationErrors > 0 and (" Activation error: " .. table.concat(activationErrors, " | ")) or ""
                 SetPickupTracking(pickup, "Retry timeout: steal not confirmed", detail)
                 SetTrackerStatus("StealPrompt retry window expired for " .. pickup.Name .. "; released pickup lock." .. detail)
+                warn("[BASAE AutoPickup] Prompt activation failed for " .. tostring(pickup.Name) .. "." .. detail)
                 PickupMonitorSeen[pickup] = nil
                 if AutoBreakEnabled and StartAutoBreak then StartAutoBreak(true) end
                 return
