@@ -173,7 +173,7 @@ return function(Context)
         Status.Position = UDim2.fromOffset(11, statusY)
         local listY = statusY + 21
         List.Position = UDim2.fromOffset(11, listY)
-        EnchantCard.Size = UDim2.new(1, 0, 0, listY + List.Size.Y.Offset + 10)
+        EnchantCard.Size = UDim2.new(1, -20, 0, listY + List.Size.Y.Offset + 10)
     end
     SummaryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateEnchantLayout)
 
