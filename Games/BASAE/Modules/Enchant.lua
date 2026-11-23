@@ -175,7 +175,11 @@ return function(Context)
         end
     end
 
+    local Status, List
+
     local function UpdateEnchantLayout()
+        if not Status or not List or not Status.Parent or not List.Parent then return end
+
         local summaryHeight = math.max(20, SummaryLayout.AbsoluteContentSize.Y)
         local statusY = 62 + summaryHeight + 5
         Status.Position = UDim2.fromOffset(11, statusY)
@@ -185,7 +189,7 @@ return function(Context)
     end
     SummaryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateEnchantLayout)
 
-    local Status = Create("TextLabel", {
+    Status = Create("TextLabel", {
         Name = "EnchantStatus",
         Parent = EnchantCard,
         Position = UDim2.fromOffset(11, 86),
@@ -198,7 +202,7 @@ return function(Context)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    local List = Create("Frame", {
+    List = Create("Frame", {
         Name = "EnchantAnimalList",
         Parent = EnchantCard,
         Position = UDim2.fromOffset(11, 107),
