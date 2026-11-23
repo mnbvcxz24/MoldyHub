@@ -21,46 +21,82 @@ return function(Context)
     LegacyActiveConfigPath = LegacyConfigFolderPath .. "/ActiveBASAEConfig.txt"
     SavedConfig = {}
     ActiveConfigName = nil
-    ConfigStorageAvailable = type(readfile) == "function" and type(writefile) == "function"
-    if ConfigStorageAvailable then
-        pcall(function()
-            local activeName
-            if type(isfile) == "function" and isfile(ActiveConfigPath) then
-                activeName = tostring(readfile(ActiveConfigPath) or "")
-            elseif type(isfile) == "function" and isfile(LegacyActiveConfigPath) then
-                activeName = tostring(readfile(LegacyActiveConfigPath) or "")
-            end
-            if activeName == "DEFAULT" then
-                ActiveConfigName = nil
-            else
-                local configReadPath
-                if type(activeName) == "string" and activeName:match("^[%w_%-]+$") then
-                    ActiveConfigName = activeName
-                    configReadPath = ConfigFolderPath .. "/" .. activeName .. ".json"
-                    if type(isfile) == "function" and not isfile(configReadPath) then
-                        local legacyNamedPath = LegacyNamedConfigPath .. "/" .. activeName .. ".json"
-                        if isfile(legacyNamedPath) then configReadPath = legacyNamedPath end
-                    end
-                else
-                    configReadPath = ConfigFilePath
-                    if type(isfile) == "function" and not isfile(configReadPath) then
-                        if isfile(LegacyNamedConfigPath .. "/MoldyHub_BASAE_Config.json") then
-                            configReadPath = LegacyNamedConfigPath .. "/MoldyHub_BASAE_Config.json"
-                        elseif isfile(LegacyConfigFilePath) then
-                            configReadPath = LegacyConfigFilePath
-                        end
-                    end
-                end
-                if configReadPath and type(isfile) == "function" and isfile(configReadPath) then
-                    local decoded = game:GetService("HttpService"):JSONDecode(readfile(configReadPath))
-                    if type(decoded) == "table" and decoded.Version == 1 then
-                        SavedConfig = decoded
-                    end
-                end
-            end
-        end)
+    ConfigStorageAvailable = type(readfile) == "function"
+        and type(writefile) == "function"
+        and (type(makefolder) == "function" or type(isfolder) == "function")
+    ConfigLoadError = nil
+
+    -- Use protected read attempts instead of requiring isfile(), which is
+    -- missing in some executors even when readfile/writefile are supported.
+    local function TryReadConfigFile(path)
+        if type(readfile) ~= "function" then return nil end
+        local ok, contents = pcall(readfile, path)
+        if ok and type(contents) == "string" and contents ~= "" then
+            return contents
+        end
+        return nil
     end
-    testver = "Deploy ver: 2.28"
+
+    local function TryDecodeConfigFile(path)
+        local contents = TryReadConfigFile(path)
+        if not contents then return nil end
+        local ok, decoded = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(contents)
+        end)
+        if ok and type(decoded) == "table" and decoded.Version == 1 then
+            return decoded
+        end
+        return nil
+    end
+
+    if type(readfile) == "function" then
+        local activeName = TryReadConfigFile(ActiveConfigPath)
+            or TryReadConfigFile(LegacyActiveConfigPath)
+        activeName = activeName and tostring(activeName):gsub("^%s+", ""):gsub("%s+$", "") or nil
+
+        if activeName == "DEFAULT" then
+            ActiveConfigName = nil
+        else
+            local candidates = {}
+            if activeName and activeName:match("^[%w_%-]+$") then
+                ActiveConfigName = activeName
+                table.insert(candidates, ConfigFolderPath .. "/" .. activeName .. ".json")
+                table.insert(candidates, LegacyNamedConfigPath .. "/" .. activeName .. ".json")
+            else
+                table.insert(candidates, ConfigFilePath)
+                table.insert(candidates, LegacyNamedConfigPath .. "/MoldyHub_BASAE_Config.json")
+                table.insert(candidates, LegacyConfigFilePath)
+            end
+
+            for _, configPath in ipairs(candidates) do
+                local decoded = TryDecodeConfigFile(configPath)
+                if decoded then
+                    SavedConfig = decoded
+                    break
+                end
+            end
+
+            if next(SavedConfig) == nil and activeName and activeName:match("^[%w_%-]+$") then
+                ActiveConfigName = nil
+                for _, configPath in ipairs({
+                    ConfigFilePath,
+                    LegacyNamedConfigPath .. "/MoldyHub_BASAE_Config.json",
+                    LegacyConfigFilePath
+                }) do
+                    local decoded = TryDecodeConfigFile(configPath)
+                    if decoded then
+                        SavedConfig = decoded
+                        break
+                    end
+                end
+            end
+
+            if next(SavedConfig) == nil and activeName and activeName ~= "" then
+                ConfigLoadError = "Active config could not be read: " .. activeName
+            end
+        end
+    end
+    testver = "Deploy ver: 2.29"
     ScriptStartedAt = os.clock()
     PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
     if type(PreviousRuntimeCleanup) == "function" then
