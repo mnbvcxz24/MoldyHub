@@ -4,33 +4,40 @@ return function(Context)
     local name = "Settings"
     local Page = CreatePage(index, name)
     local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
-    local ScaleOptions = {"50%", "75%", "100%"}
-    if type(SavedConfig.UIScale) == "number" then
-        UIScale.Scale = math.clamp(SavedConfig.UIScale, 0.5, 1)
-    end
-    if type(SavedConfig.Theme) == "string" and ThemePresets[SavedConfig.Theme] then
-        ApplyTheme(SavedConfig.Theme)
-    end
-    local ScaleDropdown = CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
-        local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
-        if not scalePercent then return end
+    local ScaleOptions = {"50%", "75%", "100%", "150%", "200%"}
 
-        -- Preserve the window's current center while changing its UIScale.
+    -- UIScale scales the window's children, not the Main frame itself.
+    -- Resize Main by the same factor so the complete interface scales together.
+    local function ApplyInterfaceScale(scale)
+        if not Main or not Main.Parent or not UIScale then return end
+
+        scale = math.clamp(scale, 0.5, 2)
         local oldPosition = Main.AbsolutePosition
         local oldSize = Main.AbsoluteSize
         local centerX = oldPosition.X + oldSize.X / 2
         local centerY = oldPosition.Y + oldSize.Y / 2
-        UIScale.Scale = math.clamp(scalePercent / 100, 0.5, 1)
 
-        task.defer(function()
-            if not Main or not Main.Parent then return end
-            local newSize = Main.AbsoluteSize
-            local parentSize = Main.Parent.AbsoluteSize
-            Main.Position = UDim2.fromOffset(
-                centerX - newSize.X / 2,
-                centerY - newSize.Y / 2
-            )
-        end)
+        UIScale.Scale = scale
+        Main.Size = UDim2.fromOffset(UIConfig.Width * scale, UIConfig.Height * scale)
+
+        local newSize = Main.AbsoluteSize
+        Main.Position = UDim2.fromOffset(
+            centerX - newSize.X / 2,
+            centerY - newSize.Y / 2
+        )
+    end
+
+    if type(SavedConfig.Theme) == "string" and ThemePresets[SavedConfig.Theme] then
+        ApplyTheme(SavedConfig.Theme)
+    end
+
+    local initialScale = type(SavedConfig.UIScale) == "number" and SavedConfig.UIScale or 1
+    ApplyInterfaceScale(initialScale)
+
+    local ScaleDropdown = CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
+        local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
+        if not scalePercent then return end
+        ApplyInterfaceScale(scalePercent / 100)
     end)
     if ScaleDropdown then
         for _, child in ipairs(ScaleDropdown:GetChildren()) do
