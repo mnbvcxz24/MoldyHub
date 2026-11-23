@@ -30,23 +30,6 @@ return function(Context)
         Wraps = true
     })
 
-    -- Temporary on-card diagnostics to inspect the actual Enchant attribute format.
-    local DebugLabel = Create("TextLabel", {
-        Name = "EnchantDebugOutput",
-        Parent = EnchantCard,
-        Position = UDim2.fromOffset(11, 87),
-        Size = UDim2.new(1, -22, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        Text = "Enchant debug: waiting for placed animals...",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.Code,
-        TextSize = 8,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Top,
-        TextWrapped = true
-    })
-
     local function GetEnchantDefinitions()
         local definitions = {}
         local replicatedStorage = game:GetService("ReplicatedStorage")
@@ -151,22 +134,13 @@ return function(Context)
         end
 
         local totals = {}
-        local debugLines = {"Enchant attribute diagnostics:"}
         for _, animal in ipairs(animals) do
-            CollectAnimalEnchantEffects(animal.Enchant, totals)
-            local rawValue = animal.Enchant
-            local rawText = rawValue == nil and "<nil>" or tostring(rawValue)
-            debugLines[#debugLines + 1] = string.format(
-                "%s | %s | %s",
-                animal.Name,
-                typeof(rawValue),
-                rawText
-            )
+            -- Animals without enchant data do not contribute to the effect totals.
+            local enchantValue = animal.Enchant
+            if enchantValue ~= nil and enchantValue ~= "" then
+                CollectAnimalEnchantEffects(enchantValue, totals)
+            end
         end
-        if #animals == 0 then
-            debugLines[#debugLines + 1] = "No placed animals found to inspect."
-        end
-        DebugLabel.Text = table.concat(debugLines, "\n")
 
         local effectNames = {}
         for effectName in pairs(totals) do
@@ -211,10 +185,7 @@ return function(Context)
         if not Status or not List or not Status.Parent or not List.Parent then return end
 
         local summaryHeight = math.max(20, SummaryLayout.AbsoluteContentSize.Y)
-        local debugY = 62 + summaryHeight + 5
-        DebugLabel.Position = UDim2.fromOffset(11, debugY)
-        local debugHeight = DebugLabel.AbsoluteSize.Y
-        local statusY = debugY + debugHeight + 5
+        local statusY = 62 + summaryHeight + 5
         Status.Position = UDim2.fromOffset(11, statusY)
         local listY = statusY + 21
         List.Position = UDim2.fromOffset(11, listY)
