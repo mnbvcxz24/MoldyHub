@@ -35,52 +35,8 @@ return function(Context)
     local RowHeight = 28
     local RowGap = 4
     local ColumnGap = 8
-    local Header = Create("Frame", {
-        Name = "EnchantHeader",
-        Parent = EnchantCard,
-        Position = UDim2.fromOffset(11, 80),
-        Size = UDim2.new(1, -22, 0, 22),
-        BackgroundColor3 = Theme.LightGray,
-        BorderSizePixel = 0
-    })
-    AddCorner(Header, 5)
-    Create("TextLabel", {
-        Parent = Header,
-        Position = UDim2.fromOffset(8, 0),
-        Size = UDim2.new(0.42, -8, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "ANIMAL",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.GothamSemibold,
-        TextSize = 8,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd
-    })
-    Create("TextLabel", {
-        Parent = Header,
-        Position = UDim2.new(0.42, 0, 0, 0),
-        Size = UDim2.new(0.32, -4, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "ENCHANT",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.GothamSemibold,
-        TextSize = 8,
-        TextXAlignment = Enum.TextXAlignment.Right,
-        TextTruncate = Enum.TextTruncate.AtEnd
-    })
-    Create("TextLabel", {
-        Parent = Header,
-        Position = UDim2.new(0.74, 0, 0, 0),
-        Size = UDim2.new(0.26, -8, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "CASH / S",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.GothamSemibold,
-        TextSize = 8,
-        TextXAlignment = Enum.TextXAlignment.Right,
-        TextTruncate = Enum.TextTruncate.AtEnd
-    })
-    List.Position = UDim2.fromOffset(11, 106)
+    -- Start the animal entries directly beneath the status line.
+    List.Position = UDim2.fromOffset(11, 80)
 
     local function FindOwnedPlot()
         local plots = workspace:FindFirstChild("Plots")
