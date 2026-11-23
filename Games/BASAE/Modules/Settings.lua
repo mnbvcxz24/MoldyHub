@@ -36,7 +36,8 @@ return function(Context)
     ApplyInterfaceScale(initialScale)
 
     local ScaleDropdown = CreateDropdown(ScaleCard, "UI Scale", ScaleOptions, function(scaleOption)
-        local scalePercent = tonumber(string.gsub(scaleOption, "%%", ""))
+        local scaleText = string.gsub(tostring(scaleOption or ""), "%%", "")
+        local scalePercent = tonumber(scaleText)
         if not scalePercent then return end
         ApplyInterfaceScale(scalePercent / 100)
     end)
