@@ -6,25 +6,17 @@ return function(Context)
     local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
     local ScaleOptions = {"50%", "75%", "100%", "150%", "200%"}
 
-    -- UIScale scales the window's children, not the Main frame itself.
-    -- Resize Main by the same factor so the complete interface scales together.
+    -- Keep the window anchored to the screen center. UIScale then scales
+    -- the complete window around that center without relying on stale
+    -- AbsoluteSize values immediately after changing the scale.
     local function ApplyInterfaceScale(scale)
         if not Main or not Main.Parent or not UIScale then return end
 
         scale = math.clamp(scale, 0.5, 2)
-        local oldPosition = Main.AbsolutePosition
-        local oldSize = Main.AbsoluteSize
-        local centerX = oldPosition.X + oldSize.X / 2
-        local centerY = oldPosition.Y + oldSize.Y / 2
-
+        Main.AnchorPoint = Vector2.new(0.5, 0.5)
+        Main.Position = UDim2.fromScale(0.5, 0.5)
+        Main.Size = UDim2.fromOffset(UIConfig.Width, UIConfig.Height)
         UIScale.Scale = scale
-        Main.Size = UDim2.fromOffset(UIConfig.Width * scale, UIConfig.Height * scale)
-
-        local newSize = Main.AbsoluteSize
-        Main.Position = UDim2.fromOffset(
-            centerX - newSize.X / 2,
-            centerY - newSize.Y / 2
-        )
     end
 
     if type(SavedConfig.Theme) == "string" and ThemePresets[SavedConfig.Theme] then
