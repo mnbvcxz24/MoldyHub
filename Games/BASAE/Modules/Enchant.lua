@@ -32,14 +32,43 @@ return function(Context)
         BackgroundTransparency = 1,
         BorderSizePixel = 0
     })
-    Create("UIGridLayout", {
-        Parent = List,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        FillDirection = Enum.FillDirection.Vertical,
-        FillDirectionMaxCells = 9,
-        CellSize = UDim2.new(0.5, -4, 0, 28),
-        CellPadding = UDim2.fromOffset(8, 4)
+    local RowHeight = 28
+    local RowGap = 4
+    local ColumnGap = 8
+    local Header = Create("Frame", {
+        Name = "EnchantHeader",
+        Parent = EnchantCard,
+        Position = UDim2.fromOffset(11, 80),
+        Size = UDim2.new(1, -22, 0, 22),
+        BackgroundColor3 = Theme.LightGray,
+        BorderSizePixel = 0
     })
+    AddCorner(Header, 5)
+    Create("TextLabel", {
+        Parent = Header,
+        Position = UDim2.fromOffset(8, 0),
+        Size = UDim2.new(0.58, -8, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "ANIMAL",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    })
+    Create("TextLabel", {
+        Parent = Header,
+        Position = UDim2.new(0.58, 0, 0, 0),
+        Size = UDim2.new(0.42, -8, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "ENCHANT",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    })
+    List.Position = UDim2.fromOffset(11, 106)
 
     local function FindOwnedPlot()
         local plots = workspace:FindFirstChild("Plots")
@@ -101,17 +130,20 @@ return function(Context)
 
         Status.Text = tostring(#animals) .. " placed animal" .. (#animals == 1 and "" or "s")
 
-        local function CreateRow(animalName, enchantValue, order, isHeader)
+        local function CreateRow(animalName, enchantValue, order)
+            local column = order <= 8 and 0 or 1
+            local rowIndex = order <= 8 and (order - 1) or (order - 9)
             local row = Create("Frame", {
-                Name = isHeader and "EnchantHeader" or "AnimalEnchantRow",
+                Name = "AnimalEnchantRow",
                 Parent = List,
-                Size = UDim2.new(1, 0, 0, isHeader and 22 or 28),
-                BackgroundColor3 = isHeader and Theme.LightGray or Theme.SurfaceInput,
+                Position = UDim2.new(column * 0.5, column == 1 and (ColumnGap / 2) or 0, 0, rowIndex * (RowHeight + RowGap)),
+                Size = UDim2.new(0.5, -(ColumnGap / 2), 0, RowHeight),
+                BackgroundColor3 = Theme.SurfaceInput,
                 BorderSizePixel = 0,
                 LayoutOrder = order
             })
             AddCorner(row, 5)
-            if not isHeader then AddStroke(row, Theme.Border, 1) end
+            AddStroke(row, Theme.Border, 1)
 
             Create("TextLabel", {
                 Parent = row,
@@ -119,8 +151,8 @@ return function(Context)
                 Size = UDim2.new(0.58, -8, 1, 0),
                 BackgroundTransparency = 1,
                 Text = animalName,
-                TextColor3 = isHeader and Theme.Gray or Theme.Text,
-                Font = isHeader and Enum.Font.GothamSemibold or Enum.Font.Gotham,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.Gotham,
                 TextSize = 8,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextTruncate = Enum.TextTruncate.AtEnd
@@ -131,7 +163,7 @@ return function(Context)
                 Size = UDim2.new(0.42, -8, 1, 0),
                 BackgroundTransparency = 1,
                 Text = enchantValue,
-                TextColor3 = isHeader and Theme.Gray or Theme.Accent,
+                TextColor3 = Theme.Accent,
                 Font = Enum.Font.GothamSemibold,
                 TextSize = 8,
                 TextXAlignment = Enum.TextXAlignment.Right,
@@ -139,14 +171,16 @@ return function(Context)
             })
         end
 
-        CreateRow("ANIMAL", "ENCHANT", 1, true)
         if #animals == 0 then
-            CreateRow(hasPlacedFolder and "No placed animals found" or "Your plot was not found", "—", 2, false)
+            CreateRow(hasPlacedFolder and "No placed animals found" or "Your plot was not found", "—", 1)
         else
             for index, animal in ipairs(animals) do
-                CreateRow(animal.Name, animal.Enchant == nil and "None" or tostring(animal.Enchant), index + 1, false)
+                CreateRow(animal.Name, animal.Enchant == nil and "None" or tostring(animal.Enchant), index)
             end
         end
+
+        local visibleRows = math.max(8, #animals > 8 and (#animals - 8) or 0, #animals == 0 and 1 or 0)
+        List.Size = UDim2.new(1, -22, 0, visibleRows * RowHeight + math.max(0, visibleRows - 1) * RowGap)
     end
 
     task.spawn(function()
