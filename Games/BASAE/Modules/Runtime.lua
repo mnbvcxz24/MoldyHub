@@ -19,6 +19,11 @@ return function(Context)
         Active = true,
         ZIndex = 100
     })
+    -- The floating toggle is outside Main, so give it the same interface scale.
+    FloatingToggleUIScale = Create("UIScale", {
+        Parent = FloatingToggle,
+        Scale = InterfaceScale or 1
+    })
     AddCorner(FloatingToggle, 18)
     AddStroke(FloatingToggle, Theme.Border, 1)
     
