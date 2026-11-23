@@ -3233,21 +3233,6 @@ return function(Context)
             end
             return true
         end
-        local function getPromptPosition(candidate)
-            local parent = candidate and candidate.Parent
-            while parent and parent ~= workspace do
-                if parent:IsA("Attachment") then
-                    return parent.WorldPosition
-                elseif parent:IsA("BasePart") then
-                    return parent.Position
-                elseif parent:IsA("Model") then
-                    local ok, pivot = pcall(function() return parent:GetPivot() end)
-                    if ok and pivot then return pivot.Position end
-                end
-                parent = parent.Parent
-            end
-            return nil
-        end
         local function findMatchingPickupPrompt()
             local totalStealPrompts = 0
             local enabledStealPrompts = 0
@@ -3294,9 +3279,9 @@ return function(Context)
             if AutoBreakEnabled and StartAutoBreak then StartAutoBreak(true) end
             return
         end
-        SetPickupPhase("PROMPT_APPROACH", pickup.Name .. " | moving to matching StealPrompt; target and movement remain locked.")
+        SetPickupPhase("ACTIVATING", pickup.Name .. " | identity matched; firing StealPrompt without a second movement phase.")
         task.spawn(function()
-            SetPickupPhase("PROMPT_APPROACH", "Lock held by " .. pickup.Name .. "; moving to its matching prompt.")
+            SetPickupPhase("ACTIVATING", "Lock held by " .. pickup.Name .. "; firing the name + KG matched prompt.")
             local character, humanoid, root = WaitForCharacterAndParts(10, function()
                 return PickupRequested and PickupGeneration == pickupToken and AutoPickupEnabled
             end)
@@ -3305,148 +3290,11 @@ return function(Context)
                     PickupRequested = false
                     ActivePickup = nil
                     ActivePickupCPS = -1
-                    SetTrackerStatus("Pickup cancelled: character parts unavailable while approaching prompt.")
+                    SetTrackerStatus("Pickup cancelled: character parts unavailable before prompt activation.")
                     if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
                 end
                 return
             end
-            local promptPosition = getPromptPosition(prompt)
-            if not promptPosition then
-                PickupRequested = false
-                SetTrackerStatus("Pickup cancelled: could not read matched prompt position.")
-                if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
-                return
-            end
-            local moveStarted = os.clock()
-            local lastPromptProgressAt = os.clock()
-            local bestPromptDistance = math.huge
-            TouchAutomationProgress("PICKUP:PROMPT_APPROACH")
-            if PickupMovementConnection then
-                PickupMovementConnection:Disconnect()
-                PickupMovementConnection = nil
-            end
-            local promptMoveBindName = "MoldyHub_BASAE_PickupPrompt_" .. tostring(pickupToken)
-            RunService:BindToRenderStep(promptMoveBindName, Enum.RenderPriority.Character.Value + 1, function()
-                if not PickupRequested or PickupGeneration ~= pickupToken or not pickup.Parent or not prompt.Parent
-                    or LocalPlayer.Character ~= character or not root.Parent or humanoid.Health <= 0 then
-                    humanoid:Move(Vector3.zero, false)
-                    return
-                end
-                local livePosition = getPromptPosition(prompt)
-                if livePosition then promptPosition = livePosition end
-                local direction = Vector3.new(promptPosition.X - (getPickupMovementPosition(character, root) or root.Position).X, 0, promptPosition.Z - (getPickupMovementPosition(character, root) or root.Position).Z)
-                local verticalOffset = math.abs(promptPosition.Y - (getPickupMovementPosition(character, root) or root.Position).Y)
-                local activationRange = math.max(0, prompt.MaxActivationDistance)
-                local horizontalReach = verticalOffset < activationRange
-                    and math.sqrt(math.max(0, activationRange * activationRange - verticalOffset * verticalOffset)) - 0.5
-                    or 0
-                local stopDistance = math.max(1, horizontalReach)
-                if direction.Magnitude > stopDistance then
-                    humanoid:Move(direction.Unit, false)
-                else
-                    humanoid:Move(Vector3.zero, false)
-                end
-            end)
-            local promptMoveConnection = {
-                Disconnect = function()
-                    pcall(function() RunService:UnbindFromRenderStep(promptMoveBindName) end)
-                end
-            }
-            PickupMovementConnection = promptMoveConnection
-            local nextPromptRescanAt = os.clock() + 0.35
-            while not Runtime.Stopped and PickupRequested and PickupGeneration == pickupToken and pickup.Parent and humanoid.Health > 0 do
-                if LocalPlayer.Character ~= character or not character.Parent or not root.Parent then
-                    if PickupGeneration ~= pickupToken then return end
-                    PickupRequested = false
-                    ActivePickup = nil
-                    ActivePickupCPS = -1
-                    SetTrackerStatus("Pickup cancelled: character changed while moving to animal prompt.")
-                    if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
-                    return
-                end
-                if os.clock() >= nextPromptRescanAt then
-                    nextPromptRescanAt = os.clock() + 0.35
-                    if not prompt or not prompt.Parent or not prompt.Enabled then
-                        local replacementPrompt = findMatchingPickupPrompt()
-                        if replacementPrompt then
-                            prompt = replacementPrompt
-                            promptPosition = getPromptPosition(prompt) or promptPosition
-                            SetTrackerStatus("Pickup prompt refreshed for " .. pickup.Name .. "; continuing toward the live matching anchor.")
-                        end
-                    end
-                end
-                if not prompt or not prompt.Parent or not prompt.Enabled then
-                    humanoid:Move(Vector3.zero, false)
-                    task.wait(0.05)
-                    continue
-                end
-                promptPosition = getPromptPosition(prompt) or promptPosition
-                local offset = Vector3.new(promptPosition.X - (getPickupMovementPosition(character, root) or root.Position).X, 0, promptPosition.Z - (getPickupMovementPosition(character, root) or root.Position).Z)
-                local promptDistance = offset.Magnitude
-                local verticalOffset = math.abs(promptPosition.Y - (getPickupMovementPosition(character, root) or root.Position).Y)
-                local activationRange = math.max(0, prompt.MaxActivationDistance)
-                local horizontalReach = verticalOffset < activationRange
-                    and math.sqrt(math.max(0, activationRange * activationRange - verticalOffset * verticalOffset)) - 0.5
-                    or 0
-                local stopDistance = math.max(1, horizontalReach)
-                if promptDistance <= stopDistance then break end
-                local now = os.clock()
-                if now - moveStarted >= 25 then
-                    humanoid:Move(Vector3.zero, false)
-                    if PickupGeneration ~= pickupToken then return end
-                    PickupRequested = false
-                    ActivePickup = nil
-                    ActivePickupCPS = -1
-                    SetTrackerStatus(string.format("Pickup cancelled: timed out reaching animal prompt (%.1f studs away).", promptDistance))
-                    if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
-                    return
-                end
-                if promptDistance < bestPromptDistance - 0.75 then
-                    bestPromptDistance = promptDistance
-                    lastPromptProgressAt = now
-                    TouchAutomationProgress()
-                elseif now - lastPromptProgressAt >= 2.5 then
-                    lastPromptProgressAt = now
-                    bestPromptDistance = promptDistance
-                    humanoid:Move(Vector3.zero, false)
-                    task.wait(0.05)
-                    if PickupRequested and PickupGeneration == pickupToken and pickup.Parent and prompt.Parent
-                        and LocalPlayer.Character == character and root.Parent and humanoid.Health > 0 then
-                        local refreshedPromptPosition = getPromptPosition(prompt)
-                        if refreshedPromptPosition then promptPosition = refreshedPromptPosition end
-                        local refreshedOffset = Vector3.new(
-                            promptPosition.X - (getPickupMovementPosition(character, root) or root.Position).X, 0,
-                            promptPosition.Z - (getPickupMovementPosition(character, root) or root.Position).Z
-                        )
-                        local refreshedVerticalOffset = math.abs(promptPosition.Y - (getPickupMovementPosition(character, root) or root.Position).Y)
-                        local refreshedRange = math.max(0, prompt.MaxActivationDistance)
-                        local refreshedReach = refreshedVerticalOffset < refreshedRange
-                            and math.sqrt(math.max(0, refreshedRange * refreshedRange - refreshedVerticalOffset * refreshedVerticalOffset)) - 0.5
-                            or 0
-                        if refreshedOffset.Magnitude > math.max(1, refreshedReach) then
-                            humanoid:Move(refreshedOffset.Unit, false)
-                        end
-                    end
-                    SetTrackerStatus(string.format("PICKUP MOVEMENT: reset and reinitialized movement toward StealPrompt (%.1f studs).", promptDistance))
-                end
-                task.wait(0.05)
-            end
-            if PickupMovementConnection == promptMoveConnection then
-                PickupMovementConnection:Disconnect()
-                PickupMovementConnection = nil
-            end
-            if promptMoveConnection then promptMoveConnection:Disconnect(); promptMoveConnection = nil end
-            humanoid:Move(Vector3.zero, false)
-            if PickupGeneration ~= pickupToken then return end
-            if not PickupRequested or not pickup.Parent then
-                PickupRequested = false
-                ActivePickup = nil
-                ActivePickupCPS = -1
-                SetTrackerStatus("Pickup cancelled: animal disappeared before reaching its prompt.")
-                if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
-                return
-            end
-            SetPickupPhase("ACTIVATING", "Reached " .. pickup.Name .. "'s matching StealPrompt; activating immediately when the prompt is ready.")
             if PickupGeneration ~= pickupToken then return end
             if LocalPlayer.Character ~= character or not character.Parent or humanoid.Health <= 0 or not root.Parent then
                 PickupRequested = false
@@ -3476,13 +3324,11 @@ return function(Context)
                     return
                 end
             end
-            local latestPromptPosition = getPromptPosition(prompt)
-            local latestPromptDistance = latestPromptPosition and (latestPromptPosition - (getPickupMovementPosition(character, root) or root.Position)).Magnitude or math.huge
-            if not prompt.Parent or not prompt.Enabled or latestPromptDistance > math.max(4, prompt.MaxActivationDistance) then
+            if not prompt.Parent or not prompt.Enabled then
                 PickupRequested = false
                 ActivePickup = nil
                 ActivePickupCPS = -1
-                SetTrackerStatus(string.format("Pickup cancelled: prompt range changed before activation (%.1f studs).", latestPromptDistance))
+                SetTrackerStatus("Pickup cancelled: matched StealPrompt became unavailable before activation.")
                 if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
                 return
             end
@@ -3512,85 +3358,68 @@ return function(Context)
                     task.wait(0.25)
                 else
                     activationAttempt += 1
-                    local currentPromptPosition = getPromptPosition(prompt)
-                    local currentPromptDistance = currentPromptPosition and (currentPromptPosition - root.Position).Magnitude or math.huge
-                    if currentPromptDistance <= prompt.MaxActivationDistance then
-                        local function checkPickupConfirmation(timeout)
-                            local deadline = os.clock() + timeout
-                            repeat
-                                if not pickup.Parent then return true end
-                                if CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
-                                    SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
-                                    return true
-                                end
-                                if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested then
-                                    return false
-                                end
-                                task.wait(0.05)
-                            until os.clock() >= deadline
-                            return false
-                        end
-                        -- Some executors expose fireproximityprompt but the call can silently
-                        -- fail to produce the game's input event. Verify after each method and
-                        -- fall back to the prompt's native hold input before retrying.
-                        if typeof(fireproximityprompt) == "function" then
-                            local fireOk, fireErr = pcall(function()
-                                fireproximityprompt(prompt)
-                            end)
-                            if not fireOk then
-                                table.insert(activationErrors, "fireproximityprompt: " .. tostring(fireErr))
-                            elseif checkPickupConfirmation(0.35) then
-                                pickupConfirmed = true
+                    local function checkPickupConfirmation(timeout)
+                        local deadline = os.clock() + timeout
+                        repeat
+                            if not pickup.Parent then return true end
+                            if CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
+                                SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
+                                return true
                             end
+                            if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested then return false end
+                            task.wait(0.05)
+                        until os.clock() >= deadline
+                        return false
+                    end
+                    -- Activate the prompt found by animal name + KG only.
+                    if typeof(fireproximityprompt) == "function" then
+                        local fireOk, fireErr = pcall(function() fireproximityprompt(prompt) end)
+                        if not fireOk then
+                            table.insert(activationErrors, "fireproximityprompt: " .. tostring(fireErr))
+                        elseif checkPickupConfirmation(0.35) then
+                            pickupConfirmed = true
                         end
-                        if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
-                            and pickup.Parent and prompt.Parent and prompt.Enabled then
-                            local holdOk, holdErr = pcall(function()
-                                prompt:InputHoldBegin()
-                                task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
-                                prompt:InputHoldEnd()
+                    end
+                    if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
+                        and pickup.Parent and prompt.Parent and prompt.Enabled then
+                        local holdOk, holdErr = pcall(function()
+                            prompt:InputHoldBegin()
+                            task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
+                            prompt:InputHoldEnd()
+                        end)
+                        if not holdOk then
+                            table.insert(activationErrors, "InputHold: " .. tostring(holdErr))
+                            pcall(function() prompt:InputHoldEnd() end)
+                        elseif checkPickupConfirmation(0.4) then
+                            pickupConfirmed = true
+                        end
+                    end
+                    if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
+                        and pickup.Parent and prompt.Parent and prompt.Enabled then
+                        local keyOk, keyErr = pcall(function()
+                            local virtualInput = game:GetService("VirtualInputManager")
+                            local keyCode = prompt.KeyboardKeyCode
+                            if not keyCode or keyCode == Enum.KeyCode.Unknown then keyCode = Enum.KeyCode.E end
+                            virtualInput:SendKeyEvent(true, keyCode, false, game)
+                            task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
+                            virtualInput:SendKeyEvent(false, keyCode, false, game)
+                        end)
+                        if not keyOk then
+                            table.insert(activationErrors, "Keyboard prompt input: " .. tostring(keyErr))
+                            pcall(function()
+                                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
                             end)
-                            if not holdOk then
-                                table.insert(activationErrors, "InputHold: " .. tostring(holdErr))
-                                pcall(function() prompt:InputHoldEnd() end)
-                            elseif checkPickupConfirmation(0.4) then
-                                pickupConfirmed = true
-                            end
+                        elseif checkPickupConfirmation(0.5) then
+                            pickupConfirmed = true
                         end
-                        -- Last resort: send the configured keyboard key as a real press/release.
-                        -- This covers games that only listen to ProximityPromptService input.
-                        if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
-                            and pickup.Parent and prompt.Parent and prompt.Enabled then
-                            local keyOk, keyErr = pcall(function()
-                                local virtualInput = game:GetService("VirtualInputManager")
-                                local keyCode = prompt.KeyboardKeyCode
-                                if not keyCode or keyCode == Enum.KeyCode.Unknown then
-                                    keyCode = Enum.KeyCode.E
-                                end
-                                virtualInput:SendKeyEvent(true, keyCode, false, game)
-                                task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
-                                virtualInput:SendKeyEvent(false, keyCode, false, game)
-                            end)
-                            if not keyOk then
-                                table.insert(activationErrors, "Keyboard prompt input: " .. tostring(keyErr))
-                                pcall(function()
-                                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                                end)
-                            elseif checkPickupConfirmation(0.5) then
-                                pickupConfirmed = true
-                            end
-                        end
-                        if not pickupConfirmed and (activationAttempt == 1 or activationAttempt % 3 == 0) then
-                            SetTrackerStatus("StealPrompt received activation attempts but game has not confirmed " .. pickup.Name
-                                .. "; retry " .. tostring(activationAttempt) .. ".")
-                        end
-                    else
-                        SetTrackerStatus(string.format("Waiting for StealPrompt range for %s (%.1f/%.1f studs).",
-                            pickup.Name, currentPromptDistance, prompt.MaxActivationDistance))
-                        task.wait(0.25)
+                    end
+                    if not pickupConfirmed and (activationAttempt == 1 or activationAttempt % 3 == 0) then
+                        SetTrackerStatus("StealPrompt received activation attempts but game has not confirmed " .. pickup.Name
+                            .. "; retry " .. tostring(activationAttempt) .. ".")
                     end
                 end
                 if not pickupConfirmed then task.wait(0.2) end
+
             end
             if PickupGeneration ~= pickupToken then return end
             if not pickupConfirmed then
