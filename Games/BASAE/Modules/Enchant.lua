@@ -5,6 +5,10 @@ return function(Context)
     local name = "Enchant"
     local Page = CreatePage(index, name)
     local EnchantCard = CreateCard(Page, "Placed Animal Enchants", "Shows the Enchant attribute for every animal placed on your plot.")
+    -- This is the only card on the Enchant page, so span the full page width.
+    EnchantCard.Parent = Page
+    EnchantCard.Position = UDim2.fromOffset(10, 10)
+    EnchantCard.Size = UDim2.new(1, -20, 0, EnchantCard.Size.Y.Offset)
 
     local Status = Create("TextLabel", {
         Name = "EnchantStatus",
