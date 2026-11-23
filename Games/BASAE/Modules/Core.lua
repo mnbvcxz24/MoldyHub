@@ -60,7 +60,7 @@ return function(Context)
             end
         end)
     end
-    testver = "Deploy ver: 2.26"
+    testver = "Deploy ver: 2.27"
     ScriptStartedAt = os.clock()
     PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
     if type(PreviousRuntimeCleanup) == "function" then
@@ -481,8 +481,10 @@ return function(Context)
         local camera = workspace.CurrentCamera
         if not camera then return end
         local viewportWidth = camera.ViewportSize.X
-        -- Keep a little breathing room from both screen edges.
-        StatusBarUIScale.Scale = math.clamp(math.min(0.60, (viewportWidth * 0.84) / 500), 0.35, 0.60)
+        -- Follow the selected interface scale while still fitting the viewport.
+        local requestedScale = 0.60 * (InterfaceScale or 1)
+        local viewportLimit = (viewportWidth * 0.84) / 500
+        StatusBarUIScale.Scale = math.max(0.1, math.min(requestedScale, viewportLimit))
     end
     UpdateStatusBarScale()
     do
