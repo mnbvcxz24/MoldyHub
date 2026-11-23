@@ -966,6 +966,31 @@ return function(Context)
         end)
         return ok and position or nil
     end
+    -- Use the visible ride mount as the Auto Pickup movement origin while riding.
+    -- Fall back to the character root whenever no visible mount model is present.
+    local function getPickupMovementPosition(character, root)
+        local rideMounts = workspace:FindFirstChild("RideMounts")
+        if rideMounts then
+            for _, mount in ipairs(rideMounts:GetChildren()) do
+                if mount:IsA("Model") and mount.Parent then
+                    local visible = false
+                    for _, part in ipairs(mount:GetDescendants()) do
+                        if part:IsA("BasePart") and part.Transparency < 1
+                            and part.LocalTransparencyModifier < 1 then
+                            visible = true
+                            break
+                        end
+                    end
+                    if visible then
+                        local ok, pivot = pcall(function() return mount:GetPivot() end)
+                        if ok and pivot then return pivot.Position end
+                    end
+                end
+            end
+        end
+        if root and root.Parent then return root.Position end
+        return nil
+    end
     local function IsZone13OrHigher(zoneName)
         local zoneNumber = tonumber(tostring(zoneName):match("^Zone(%d+)$"))
         return zoneNumber ~= nil and zoneNumber >= 13
@@ -2240,7 +2265,7 @@ return function(Context)
                     lastReturnDistance = offset.Magnitude
                     TouchAutomationProgress()
                 end
-                if offset.Magnitude <= 4 then
+                if offset.Magnitude <= 20 then
                     if returnGateWaypoint then
                         -- CastleGATE is a pass-through waypoint, never a stopping point.
                         -- Switch to the final destination and keep issuing movement in this
@@ -3062,10 +3087,10 @@ return function(Context)
             end)
             if ok and currentPosition then
                 local moveTarget = pickupGateWaypoint or currentPosition
-                local direction = Vector3.new(moveTarget.X - moveRoot.Position.X, 0, moveTarget.Z - moveRoot.Position.Z)
+                local direction = Vector3.new(moveTarget.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0, moveTarget.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z)
                 if direction.Magnitude <= 4 and pickupGateWaypoint then
                     pickupGateWaypoint = nil
-                    direction = Vector3.new(currentPosition.X - moveRoot.Position.X, 0, currentPosition.Z - moveRoot.Position.Z)
+                    direction = Vector3.new(currentPosition.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0, currentPosition.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z)
                 end
                 if direction.Magnitude > animalApproachRadius then
                     moveHumanoid:Move(direction.Unit, false)
@@ -3099,8 +3124,8 @@ return function(Context)
                 LastAnimalPickupPosition = currentPosition
             end
             local animalOffset = Vector3.new(
-                pickupPosition.X - moveRoot.Position.X, 0,
-                pickupPosition.Z - moveRoot.Position.Z
+                pickupPosition.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0,
+                pickupPosition.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z
             )
             local animalDistance = animalOffset.Magnitude
             if animalDistance <= animalApproachRadius then
@@ -3139,8 +3164,8 @@ return function(Context)
                     if refreshedOk then refreshedPosition = refreshed end
                     if refreshedPosition then
                         local refreshedDirection = Vector3.new(
-                            refreshedPosition.X - moveRoot.Position.X, 0,
-                            refreshedPosition.Z - moveRoot.Position.Z
+                            refreshedPosition.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0,
+                            refreshedPosition.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z
                         )
                         if refreshedDirection.Magnitude > animalApproachRadius then
                             moveHumanoid:Move(refreshedDirection.Unit, false)
@@ -3166,7 +3191,7 @@ return function(Context)
             if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
             return
         end
-        local verifiedAnimalDistance = (Vector3.new(pickupPosition.X, moveRoot.Position.Y, pickupPosition.Z) - moveRoot.Position).Magnitude
+        local verifiedAnimalDistance = (Vector3.new(pickupPosition.X, (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Y, pickupPosition.Z) - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position)).Magnitude
         if verifiedAnimalDistance > animalApproachRadius + 1 then
             PickupRequested = false
             ActivePickup = nil
@@ -3309,8 +3334,8 @@ return function(Context)
                 end
                 local livePosition = getPromptPosition(prompt)
                 if livePosition then promptPosition = livePosition end
-                local direction = Vector3.new(promptPosition.X - root.Position.X, 0, promptPosition.Z - root.Position.Z)
-                local verticalOffset = math.abs(promptPosition.Y - root.Position.Y)
+                local direction = Vector3.new(promptPosition.X - (getPickupMovementPosition(character, root) or root.Position).X, 0, promptPosition.Z - (getPickupMovementPosition(character, root) or root.Position).Z)
+                local verticalOffset = math.abs(promptPosition.Y - (getPickupMovementPosition(character, root) or root.Position).Y)
                 local activationRange = math.max(0, prompt.MaxActivationDistance)
                 local horizontalReach = verticalOffset < activationRange
                     and math.sqrt(math.max(0, activationRange * activationRange - verticalOffset * verticalOffset)) - 0.5
@@ -3356,9 +3381,9 @@ return function(Context)
                     continue
                 end
                 promptPosition = getPromptPosition(prompt) or promptPosition
-                local offset = Vector3.new(promptPosition.X - root.Position.X, 0, promptPosition.Z - root.Position.Z)
+                local offset = Vector3.new(promptPosition.X - (getPickupMovementPosition(character, root) or root.Position).X, 0, promptPosition.Z - (getPickupMovementPosition(character, root) or root.Position).Z)
                 local promptDistance = offset.Magnitude
-                local verticalOffset = math.abs(promptPosition.Y - root.Position.Y)
+                local verticalOffset = math.abs(promptPosition.Y - (getPickupMovementPosition(character, root) or root.Position).Y)
                 local activationRange = math.max(0, prompt.MaxActivationDistance)
                 local horizontalReach = verticalOffset < activationRange
                     and math.sqrt(math.max(0, activationRange * activationRange - verticalOffset * verticalOffset)) - 0.5
@@ -3390,10 +3415,10 @@ return function(Context)
                         local refreshedPromptPosition = getPromptPosition(prompt)
                         if refreshedPromptPosition then promptPosition = refreshedPromptPosition end
                         local refreshedOffset = Vector3.new(
-                            promptPosition.X - root.Position.X, 0,
-                            promptPosition.Z - root.Position.Z
+                            promptPosition.X - (getPickupMovementPosition(character, root) or root.Position).X, 0,
+                            promptPosition.Z - (getPickupMovementPosition(character, root) or root.Position).Z
                         )
-                        local refreshedVerticalOffset = math.abs(promptPosition.Y - root.Position.Y)
+                        local refreshedVerticalOffset = math.abs(promptPosition.Y - (getPickupMovementPosition(character, root) or root.Position).Y)
                         local refreshedRange = math.max(0, prompt.MaxActivationDistance)
                         local refreshedReach = refreshedVerticalOffset < refreshedRange
                             and math.sqrt(math.max(0, refreshedRange * refreshedRange - refreshedVerticalOffset * refreshedVerticalOffset)) - 0.5
@@ -3452,7 +3477,7 @@ return function(Context)
                 end
             end
             local latestPromptPosition = getPromptPosition(prompt)
-            local latestPromptDistance = latestPromptPosition and (latestPromptPosition - root.Position).Magnitude or math.huge
+            local latestPromptDistance = latestPromptPosition and (latestPromptPosition - (getPickupMovementPosition(character, root) or root.Position)).Magnitude or math.huge
             if not prompt.Parent or not prompt.Enabled or latestPromptDistance > math.max(4, prompt.MaxActivationDistance) then
                 PickupRequested = false
                 ActivePickup = nil
