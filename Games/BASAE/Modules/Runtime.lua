@@ -136,11 +136,14 @@ return function(Context)
         if input.UserInputType == Enum.UserInputType.MouseMovement
         or (CircleDragInput and input == CircleDragInput) then
             if CircleDragging then
-                local delta = input.Position - CircleDragStart
-                if delta.Magnitude > CircleDragThreshold then
+                local screenDelta = input.Position - CircleDragStart
+                if screenDelta.Magnitude > CircleDragThreshold then
                     CircleMoved = true
                 end
                 if CircleMoved then
+                    -- Convert screen movement into the floating toggle's unscaled UI space.
+                    local dragScale = math.max(FloatingToggleUIScale and FloatingToggleUIScale.Scale or 1, 0.01)
+                    local delta = screenDelta / dragScale
                     local targetX = CircleStartAbsolutePosition.X + delta.X
                     local targetY = CircleStartAbsolutePosition.Y + delta.Y
                     local clampedX, clampedY = ClampFloatingTogglePosition(targetX, targetY)
@@ -155,9 +158,10 @@ return function(Context)
                 -- Apply only this movement step. At a screen edge the window stops,
                 -- and the drag origin follows the pointer so reversing direction
                 -- moves the window immediately without snapping or bouncing.
-                local delta = input.Position - WindowDragStart
-                local targetX = WindowStartAbsolutePosition.X + delta.X
-                local targetY = WindowStartAbsolutePosition.Y + delta.Y
+                -- Convert screen movement into the main window's unscaled UI space.
+                local screenDelta = input.Position - WindowDragStart
+                local dragScale = math.max(UIScale and UIScale.Scale or 1, 0.01)
+                local delta = screenDelta / dragScale
                 -- No edge clamp: let the window travel freely over all Roblox UI.
                 -- Preserve the original scale components to avoid a first-drag jump.
                 Main.Position = UDim2.new(
