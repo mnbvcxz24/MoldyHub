@@ -47,7 +47,7 @@ return function(Context)
     Create("TextLabel", {
         Parent = Header,
         Position = UDim2.fromOffset(8, 0),
-        Size = UDim2.new(0.58, -8, 1, 0),
+        Size = UDim2.new(0.42, -8, 1, 0),
         BackgroundTransparency = 1,
         Text = "ANIMAL",
         TextColor3 = Theme.Gray,
@@ -58,10 +58,22 @@ return function(Context)
     })
     Create("TextLabel", {
         Parent = Header,
-        Position = UDim2.new(0.58, 0, 0, 0),
-        Size = UDim2.new(0.42, -8, 1, 0),
+        Position = UDim2.new(0.42, 0, 0, 0),
+        Size = UDim2.new(0.32, -4, 1, 0),
         BackgroundTransparency = 1,
         Text = "ENCHANT",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    })
+    Create("TextLabel", {
+        Parent = Header,
+        Position = UDim2.new(0.74, 0, 0, 0),
+        Size = UDim2.new(0.26, -8, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "CASH / S",
         TextColor3 = Theme.Gray,
         Font = Enum.Font.GothamSemibold,
         TextSize = 8,
@@ -90,6 +102,19 @@ return function(Context)
         return nil
     end
 
+    local function ReadAnimalCPS(animal)
+        local rootPart = animal and animal:FindFirstChild("RootPart")
+        local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
+        local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+        local cpsContainer = overhead and overhead:FindFirstChild("CashPerSecond")
+        local cpsLabel = cpsContainer and cpsContainer:FindFirstChild("CashPerSecond")
+
+        if cpsLabel and (cpsLabel:IsA("TextLabel") or cpsLabel:IsA("TextButton") or cpsLabel:IsA("TextBox")) then
+            return cpsLabel.Text
+        end
+        return "—"
+    end
+
     local function ReadPlacedAnimals()
         local plot = FindOwnedPlot()
         local placedAnimals = plot and plot:FindFirstChild("PlacedAnimals")
@@ -99,7 +124,8 @@ return function(Context)
             for _, animal in ipairs(placedAnimals:GetChildren()) do
                 table.insert(animals, {
                     Name = animal.Name,
-                    Enchant = animal:GetAttribute("Enchant")
+                    Enchant = animal:GetAttribute("Enchant"),
+                    CashPerSecond = ReadAnimalCPS(animal)
                 })
             end
         end
@@ -118,7 +144,7 @@ return function(Context)
         local animals, hasPlacedFolder = ReadPlacedAnimals()
         local signatureParts = {hasPlacedFolder and "folder" or "no-folder"}
         for _, animal in ipairs(animals) do
-            table.insert(signatureParts, animal.Name .. "\31" .. tostring(animal.Enchant))
+            table.insert(signatureParts, animal.Name .. "\31" .. tostring(animal.Enchant) .. "\31" .. tostring(animal.CashPerSecond))
         end
         local signature = table.concat(signatureParts, "\30")
         if signature == List:GetAttribute("DataSignature") then return end
@@ -130,7 +156,7 @@ return function(Context)
 
         Status.Text = tostring(#animals) .. " placed animal" .. (#animals == 1 and "" or "s")
 
-        local function CreateRow(animalName, enchantValue, order)
+        local function CreateRow(animalName, enchantValue, cashPerSecond, order)
             local column = order <= 8 and 0 or 1
             local rowIndex = order <= 8 and (order - 1) or (order - 9)
             local row = Create("Frame", {
@@ -148,7 +174,7 @@ return function(Context)
             Create("TextLabel", {
                 Parent = row,
                 Position = UDim2.fromOffset(8, 0),
-                Size = UDim2.new(0.58, -8, 1, 0),
+                Size = UDim2.new(0.42, -8, 1, 0),
                 BackgroundTransparency = 1,
                 Text = animalName,
                 TextColor3 = Theme.Text,
@@ -159,8 +185,8 @@ return function(Context)
             })
             Create("TextLabel", {
                 Parent = row,
-                Position = UDim2.new(0.58, 0, 0, 0),
-                Size = UDim2.new(0.42, -8, 1, 0),
+                Position = UDim2.new(0.42, 0, 0, 0),
+                Size = UDim2.new(0.32, -4, 1, 0),
                 BackgroundTransparency = 1,
                 Text = enchantValue,
                 TextColor3 = Theme.Accent,
@@ -169,13 +195,25 @@ return function(Context)
                 TextXAlignment = Enum.TextXAlignment.Right,
                 TextTruncate = Enum.TextTruncate.AtEnd
             })
+            Create("TextLabel", {
+                Parent = row,
+                Position = UDim2.new(0.74, 0, 0, 0),
+                Size = UDim2.new(0.26, -8, 1, 0),
+                BackgroundTransparency = 1,
+                Text = cashPerSecond,
+                TextColor3 = Theme.Text,
+                Font = Enum.Font.GothamSemibold,
+                TextSize = 8,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                TextTruncate = Enum.TextTruncate.AtEnd
+            })
         end
 
         if #animals == 0 then
-            CreateRow(hasPlacedFolder and "No placed animals found" or "Your plot was not found", "—", 1)
+            CreateRow(hasPlacedFolder and "No placed animals found" or "Your plot was not found", "—", "—", 1)
         else
             for index, animal in ipairs(animals) do
-                CreateRow(animal.Name, animal.Enchant == nil and "None" or tostring(animal.Enchant), index)
+                CreateRow(animal.Name, animal.Enchant == nil and "None" or tostring(animal.Enchant), animal.CashPerSecond or "—", index)
             end
         end
 
