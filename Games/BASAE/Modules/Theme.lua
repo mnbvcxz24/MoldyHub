@@ -4,6 +4,10 @@ return function(Context)
     local name = "Theme"
     local Page = CreatePage(index, name)
     local ThemeCard = CreateCard(Page, "Theme Settings", "Choose a color palette for the interface.")
+    -- The Theme page has one card, so let it use the full page width.
+    ThemeCard.Parent = Page
+    ThemeCard.Position = UDim2.fromOffset(10, 10)
+    ThemeCard.Size = UDim2.new(1, -20, 0, ThemeCard.Size.Y.Offset)
     local ThemeOptions = {
         "Midnight Blue + Cyan",
         "Black + Purple",
