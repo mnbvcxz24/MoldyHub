@@ -10,10 +10,177 @@ return function(Context)
     EnchantCard.Position = UDim2.fromOffset(10, 10)
     EnchantCard.Size = UDim2.new(1, -20, 0, EnchantCard.Size.Y.Offset)
 
+    -- Aggregate enchant effects from every placed animal and show them below the card description.
+    local Summary = Create("Frame", {
+        Name = "EnchantEffectSummary",
+        Parent = EnchantCard,
+        Position = UDim2.fromOffset(11, 62),
+        Size = UDim2.new(1, -22, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0
+    })
+    local SummaryLayout = Create("UIListLayout", {
+        Parent = Summary,
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 6),
+        Wraps = true
+    })
+
+    local function GetEnchantDefinitions()
+        local definitions = {}
+        local replicatedStorage = game:GetService("ReplicatedStorage")
+        local shared = replicatedStorage:FindFirstChild("Shared")
+        local configModule = shared and shared:FindFirstChild("EnchantConfig")
+        if not configModule then return definitions end
+
+        local ok, config = pcall(require, configModule)
+        if not ok or type(config) ~= "table" then return definitions end
+
+        local function ReadGroup(group)
+            if type(group) ~= "table" or type(group.Enchants) ~= "table" then return end
+            for _, enchant in pairs(group.Enchants) do
+                if type(enchant) == "table" and enchant.Id ~= nil and type(enchant.Tiers) == "table" then
+                    definitions[tostring(enchant.Id)] = enchant
+                end
+            end
+        end
+
+        ReadGroup(config)
+        for _, group in pairs(config) do
+            ReadGroup(group)
+        end
+        return definitions
+    end
+
+    local EnchantDefinitions = GetEnchantDefinitions()
+
+    local function CollectAnimalEnchantEffects(enchantValue, totals)
+        if type(enchantValue) ~= "string" or enchantValue == "" then return end
+
+        local entries = {}
+        local decoded
+        if enchantValue:sub(1, 1) == "{" or enchantValue:sub(1, 1) == "[" then
+            local ok, result = pcall(function()
+                return game:GetService("HttpService"):JSONDecode(enchantValue)
+            end)
+            if ok then decoded = result end
+        end
+
+        local function AddEntry(id, tier)
+            local numericTier = tonumber(tier)
+            if id == nil or not numericTier then return end
+            entries[#entries + 1] = {Id = tostring(id), Tier = math.floor(numericTier)}
+        end
+
+        local function ReadDecoded(value)
+            if type(value) ~= "table" then return end
+            if value.Id ~= nil and (value.Tier ~= nil or value.Level ~= nil) then
+                AddEntry(value.Id, value.Tier or value.Level)
+                return
+            end
+            for key, item in pairs(value) do
+                if type(item) == "table" then
+                    ReadDecoded(item)
+                elseif type(item) == "number" or type(item) == "string" then
+                    AddEntry(key, item)
+                end
+            end
+        end
+
+        if decoded then
+            ReadDecoded(decoded)
+        else
+            for id, tier in enchantValue:gmatch("([%w_%-]+)%s*:%s*(%d+)") do
+                AddEntry(id, tier)
+            end
+        end
+
+        for _, entry in ipairs(entries) do
+            local definition = EnchantDefinitions[entry.Id]
+            local tierData = definition and definition.Tiers and definition.Tiers[entry.Tier]
+            if type(tierData) == "table" then
+                for effectName, effectValue in pairs(tierData) do
+                    if effectName ~= "Chance" and type(effectValue) == "number" then
+                        totals[tostring(effectName)] = (totals[tostring(effectName)] or 0) + effectValue
+                    end
+                end
+            end
+        end
+    end
+
+    local function FormatPercent(value)
+        local percent = value * 100
+        if math.abs(percent - math.floor(percent + 0.5)) < 0.0001 then
+            return tostring(math.floor(percent + 0.5)) .. "%"
+        end
+        return string.format("%.1f%%", percent)
+    end
+
+    local function UpdateSummary(animals)
+        for _, child in ipairs(Summary:GetChildren()) do
+            if child:IsA("GuiObject") then child:Destroy() end
+        end
+
+        local totals = {}
+        for _, animal in ipairs(animals) do
+            CollectAnimalEnchantEffects(animal.Enchant, totals)
+        end
+
+        local effectNames = {}
+        for effectName in pairs(totals) do
+            effectNames[#effectNames + 1] = effectName
+        end
+        table.sort(effectNames, function(a, b) return a:lower() < b:lower() end)
+
+        for index, effectName in ipairs(effectNames) do
+            local hash = 0
+            for charIndex = 1, #effectName do
+                hash = (hash * 31 + string.byte(effectName, charIndex)) % 360
+            end
+            local hue = hash / 360
+            local chip = Create("Frame", {
+                Name = "EnchantEffect_" .. effectName,
+                Parent = Summary,
+                Size = UDim2.fromOffset(112, 20),
+                BackgroundColor3 = Color3.fromHSV(hue, 0.58, 0.28),
+                BorderSizePixel = 0,
+                LayoutOrder = index
+            })
+            AddCorner(chip, 5)
+            AddStroke(chip, Color3.fromHSV(hue, 0.65, 0.62), 1)
+            Create("TextLabel", {
+                Parent = chip,
+                Position = UDim2.fromOffset(6, 0),
+                Size = UDim2.new(1, -12, 1, 0),
+                BackgroundTransparency = 1,
+                Text = effectName .. " - " .. FormatPercent(totals[effectName]),
+                TextColor3 = Color3.fromHSV(hue, 0.35, 1),
+                Font = Enum.Font.GothamSemibold,
+                TextSize = 8,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                TextTruncate = Enum.TextTruncate.AtEnd
+            })
+        end
+    end
+
+    local function UpdateEnchantLayout()
+        local summaryHeight = math.max(20, SummaryLayout.AbsoluteContentSize.Y)
+        local statusY = 62 + summaryHeight + 5
+        Status.Position = UDim2.fromOffset(11, statusY)
+        local listY = statusY + 21
+        List.Position = UDim2.fromOffset(11, listY)
+        EnchantCard.Size = UDim2.new(1, 0, 0, listY + List.Size.Y.Offset + 10)
+    end
+    SummaryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateEnchantLayout)
+
     local Status = Create("TextLabel", {
         Name = "EnchantStatus",
         Parent = EnchantCard,
-        Position = UDim2.fromOffset(11, 59),
+        Position = UDim2.fromOffset(11, 86),
         Size = UDim2.new(1, -22, 0, 16),
         BackgroundTransparency = 1,
         Text = "Scanning placed animals...",
@@ -26,7 +193,7 @@ return function(Context)
     local List = Create("Frame", {
         Name = "EnchantAnimalList",
         Parent = EnchantCard,
-        Position = UDim2.fromOffset(11, 80),
+        Position = UDim2.fromOffset(11, 107),
         Size = UDim2.new(1, -22, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
@@ -111,6 +278,7 @@ return function(Context)
         end
 
         Status.Text = tostring(#animals) .. " placed animal" .. (#animals == 1 and "" or "s")
+        UpdateSummary(animals)
 
         local function CreateRow(animalName, enchantValue, cashPerSecond, order)
             local column = order <= 8 and 0 or 1
@@ -175,6 +343,7 @@ return function(Context)
 
         local visibleRows = math.max(8, #animals > 8 and (#animals - 8) or 0, #animals == 0 and 1 or 0)
         List.Size = UDim2.new(1, -22, 0, visibleRows * RowHeight + math.max(0, visibleRows - 1) * RowGap)
+        task.defer(UpdateEnchantLayout)
     end
 
     task.spawn(function()
