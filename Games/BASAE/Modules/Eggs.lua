@@ -194,68 +194,6 @@ return function(Context)
         return nil
     end
 
-    local function walkToPlotCenter(plot, hitbox, generation)
-        local character = LocalPlayer.Character
-        if not character then return false, "Character unavailable." end
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        local root = character:FindFirstChild("HumanoidRootPart")
-        if not humanoid or not root or humanoid.Health <= 0 then
-            return false, "Character parts unavailable."
-        end
-
-        local center = hitbox.Position
-        local startedAt = os.clock()
-        local lastProgressAt = startedAt
-        local bestDistance = math.huge
-        local arrived = false
-        local connection
-
-        -- Match Farm.lua: drive Humanoid:Move from RenderStepped in world space.
-        connection = RunService.RenderStepped:Connect(function()
-            if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration
-                or LocalPlayer.Character ~= character or not character.Parent
-                or not root.Parent or humanoid.Health <= 0 then
-                humanoid:Move(Vector3.zero, false)
-                if connection then connection:Disconnect(); connection = nil end
-                return
-            end
-
-            local offset = Vector3.new(center.X - root.Position.X, 0, center.Z - root.Position.Z)
-            local distance = offset.Magnitude
-            if distance <= 4 then
-                arrived = true
-                humanoid:Move(Vector3.zero, false)
-                if connection then connection:Disconnect(); connection = nil end
-                return
-            end
-
-            if distance < bestDistance - 0.5 then
-                bestDistance = distance
-                lastProgressAt = os.clock()
-            end
-            humanoid:Move(offset.Unit, false)
-        end)
-
-        while AutoPlaceEggsEnabled and generation == AutoPlaceEggsGeneration
-            and LocalPlayer.Character == character and character.Parent
-            and root.Parent and humanoid.Health > 0 do
-            if arrived then break end
-            if os.clock() - startedAt >= 60 then break end
-            if os.clock() - lastProgressAt >= 8 then break end
-            task.wait(0.05)
-        end
-
-        if connection then connection:Disconnect(); connection = nil end
-        if humanoid.Parent then humanoid:Move(Vector3.zero, false) end
-        if not AutoPlaceEggsEnabled or generation ~= AutoPlaceEggsGeneration then
-            return false, "Stopped."
-        end
-        if not arrived then
-            return false, string.format("Could not reach plot center (%.1f studs away).", (Vector3.new(center.X - root.Position.X, 0, center.Z - root.Position.Z)).Magnitude)
-        end
-        return true
-    end
-
     local AutoPlaceEggsToggle = CreateToggle(AutoPlaceEggsCard, "", false, function(enabled)
         AutoPlaceEggsEnabled = enabled
         AutoPlaceEggsGeneration += 1
@@ -292,12 +230,7 @@ return function(Context)
                 return
             end
 
-            AutoPlaceEggsStatus.Text = "Walking to the center of your plot before placing eggs..."
-            local reached, movementError = walkToPlotCenter(plot, hitbox, generation)
-            if not reached then
-                finish("Stopped — " .. tostring(movementError))
-                return
-            end
+            AutoPlaceEggsStatus.Text = "Scanning your plot and placing eggs from your current position..."
 
             local rejectedPosition = nil
             local notifyConnection
