@@ -3200,9 +3200,9 @@ return function(Context)
             if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
             return
         end
-        SetPickupPhase("PROMPT_SEARCH", string.format("%s | animal reached (%.1f studs); matching the direct-child StealPrompt.ObjectText.", pickup.Name, verifiedAnimalDistance))
+        SetPickupPhase("PROMPT_SEARCH", string.format("%s | animal reached (%.1f studs); matching PromptAnchor > StealPrompt > ProximityPrompt.ObjectText.", pickup.Name, verifiedAnimalDistance))
         local prompt
-        local promptState = "No direct-child name-and-KG matching StealPrompt.ObjectText found"
+        local promptState = "No PromptAnchor/StealPrompt/ProximityPrompt matched the target name + KG"
         local promptDeadline = os.clock() + 5
         local targetWeightKg = GetPickupWeightKg(pickup)
         local function normalizePromptIdentity(value)
@@ -3210,10 +3210,10 @@ return function(Context)
         end
         local normalizedTargetName = normalizePromptIdentity(pickup.Name)
         local function promptMatchesPickup(candidate)
-            if not candidate or not candidate:IsA("ProximityPrompt") then return false, "invalid prompt" end
+            if not candidate or not candidate:IsA("ProximityPrompt") then return false, "invalid ProximityPrompt" end
 
-            -- ObjectText can contain rich text, e.g. [2,431Kg] Shipwreck Croc.
-            -- Strip tags, then require BOTH the target animal name and its KG value.
+            -- The actual hierarchy is Workspace > PromptAnchor > StealPrompt > ProximityPrompt.
+            -- Match the innermost ProximityPrompt's ObjectText by animal name + KG.
             local objectText = tostring(candidate.ObjectText or "")
             local visibleObjectText = objectText:gsub("<[^>]->", "")
             local normalizedObjectText = normalizePromptIdentity(visibleObjectText)
@@ -3233,23 +3233,36 @@ return function(Context)
             return true
         end
         local function findMatchingPickupPrompt()
-            local totalStealPrompts = 0
-            -- Search all Workspace descendants and match only by animal name + KG.
-            -- Enabled state and prompt distance are deliberately not used for lookup.
-            for _, candidate in ipairs(workspace:GetDescendants()) do
-                if candidate:IsA("ProximityPrompt") and candidate.Name == "StealPrompt" then
-                    totalStealPrompts += 1
-                    local matches, mismatchReason = promptMatchesPickup(candidate)
-                    if matches then
-                        promptState = string.format("Workspace StealPrompt matched target %q and %.6g KG",
-                            tostring(pickup.Name), targetWeightKg)
-                        return candidate
-                    elseif mismatchReason then
-                        promptState = mismatchReason
+            local totalPromptAnchors = 0
+            local totalStealPromptContainers = 0
+            -- Find each PromptAnchor, then its StealPrompt container, then the
+            -- ProximityPrompt to fire. No prompt-distance or Enabled filtering.
+            for _, anchor in ipairs(workspace:GetDescendants()) do
+                if anchor.Name == "PromptAnchor" then
+                    totalPromptAnchors += 1
+                    local stealPromptContainer = anchor:FindFirstChild("StealPrompt")
+                    if stealPromptContainer then
+                        totalStealPromptContainers += 1
+                        local candidate = stealPromptContainer:FindFirstChildWhichIsA("ProximityPrompt", true)
+                        if candidate then
+                            local matches, mismatchReason = promptMatchesPickup(candidate)
+                            if matches then
+                                promptState = string.format("Matched %s.StealPrompt.ProximityPrompt for %q and %.6g KG",
+                                    anchor:GetFullName(), tostring(pickup.Name), targetWeightKg)
+                                return candidate
+                            elseif mismatchReason then
+                                promptState = mismatchReason .. " | " .. anchor:GetFullName()
+                            end
+                        else
+                            promptState = "StealPrompt container has no ProximityPrompt: " .. stealPromptContainer:GetFullName()
+                        end
                     end
                 end
             end
-            promptState = string.format("No Workspace StealPrompt with matching name + KG (found %d total)", totalStealPrompts)
+            promptState = string.format(
+                "No matching ProximityPrompt (PromptAnchors=%d, StealPrompt containers=%d): %s",
+                totalPromptAnchors, totalStealPromptContainers, promptState
+            )
             return nil
         end
         repeat
@@ -3264,7 +3277,7 @@ return function(Context)
             ActivePickup = nil
             ActivePickupCPS = -1
             SetTrackerStatus("Eligible pet " .. pickup.Name
-                .. " but no identity-matched pickup prompt was available after 5s: " .. promptState .. ".")
+                .. " but no identity-matched ProximityPrompt was available after 5s: " .. promptState .. ".")
             warn("[BASAE AutoPickup] Prompt lookup failed for " .. tostring(pickup.Name) .. ": " .. tostring(promptState))
             task.delay(2, function()
                 if pickup.Parent and AutoPickupEnabled then PickupMonitorSeen[pickup] = nil end
@@ -3272,9 +3285,9 @@ return function(Context)
             if AutoBreakEnabled and StartAutoBreak then StartAutoBreak(true) end
             return
         end
-        SetPickupPhase("ACTIVATING", pickup.Name .. " | identity matched; firing StealPrompt without a second movement phase.")
+        SetPickupPhase("ACTIVATING", pickup.Name .. " | identity matched; firing the nested ProximityPrompt without a second movement phase.")
         task.spawn(function()
-            SetPickupPhase("ACTIVATING", "Lock held by " .. pickup.Name .. "; firing the name + KG matched prompt.")
+            SetPickupPhase("ACTIVATING", "Lock held by " .. pickup.Name .. "; firing the name + KG matched ProximityPrompt.")
             local character, humanoid, root = WaitForCharacterAndParts(10, function()
                 return PickupRequested and PickupGeneration == pickupToken and AutoPickupEnabled
             end)
