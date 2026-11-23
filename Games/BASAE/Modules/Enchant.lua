@@ -94,77 +94,50 @@ return function(Context)
 
         Status.Text = tostring(#animals) .. " placed animal" .. (#animals == 1 and "" or "s")
 
-        local function CreateEntry(parent, animalName, enchantValue, order)
-            local entry = Create("Frame", {
-                Name = "AnimalEnchantEntry",
-                Parent = parent,
-                Size = UDim2.new(0.5, -3, 0, 28),
-                BackgroundColor3 = Theme.SurfaceInput,
+        local function CreateRow(animalName, enchantValue, order, isHeader)
+            local row = Create("Frame", {
+                Name = isHeader and "EnchantHeader" or "AnimalEnchantRow",
+                Parent = List,
+                Size = UDim2.new(1, 0, 0, isHeader and 22 or 28),
+                BackgroundColor3 = isHeader and Theme.LightGray or Theme.SurfaceInput,
                 BorderSizePixel = 0,
                 LayoutOrder = order
             })
-            AddCorner(entry, 5)
-            AddStroke(entry, Theme.Border, 1)
+            AddCorner(row, 5)
+            if not isHeader then AddStroke(row, Theme.Border, 1) end
 
             Create("TextLabel", {
-                Parent = entry,
-                Position = UDim2.fromOffset(7, 0),
-                Size = UDim2.new(1, -14, 1, 0),
+                Parent = row,
+                Position = UDim2.fromOffset(8, 0),
+                Size = UDim2.new(0.58, -8, 1, 0),
                 BackgroundTransparency = 1,
-                Text = animalName .. " - " .. enchantValue,
-                TextColor3 = Theme.Text,
-                Font = Enum.Font.Gotham,
+                Text = animalName,
+                TextColor3 = isHeader and Theme.Gray or Theme.Text,
+                Font = isHeader and Enum.Font.GothamSemibold or Enum.Font.Gotham,
                 TextSize = 8,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextTruncate = Enum.TextTruncate.AtEnd
             })
-        end
-
-        local function CreateEntryRow(order)
-            local row = Create("Frame", {
-                Name = "EnchantEntryRow",
-                Parent = List,
-                Size = UDim2.new(1, 0, 0, 28),
+            Create("TextLabel", {
+                Parent = row,
+                Position = UDim2.new(0.58, 0, 0, 0),
+                Size = UDim2.new(0.42, -8, 1, 0),
                 BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                LayoutOrder = order
-            })
-            local layout = Create("UIListLayout", {
-                Parent = row,
-                FillDirection = Enum.FillDirection.Horizontal,
-                SortOrder = Enum.SortOrder.LayoutOrder,
-                Padding = UDim.new(0, 6)
-            })
-            layout.VerticalAlignment = Enum.VerticalAlignment.Center
-            return row
-        end
-
-        if #animals == 0 then
-            local row = CreateEntryRow(1)
-            local empty = Create("TextLabel", {
-                Name = "EnchantEmptyState",
-                Parent = row,
-                Size = UDim2.new(1, 0, 1, 0),
-                BackgroundColor3 = Theme.SurfaceInput,
-                Text = hasPlacedFolder and "No placed animals found" or "Your plot was not found",
-                TextColor3 = Theme.Gray,
-                Font = Enum.Font.Gotham,
+                Text = enchantValue,
+                TextColor3 = isHeader and Theme.Gray or Theme.Accent,
+                Font = Enum.Font.GothamSemibold,
                 TextSize = 8,
-                TextXAlignment = Enum.TextXAlignment.Center,
-                BorderSizePixel = 0
+                TextXAlignment = Enum.TextXAlignment.Right,
+                TextTruncate = Enum.TextTruncate.AtEnd
             })
-            AddCorner(empty, 5)
-            return
         end
 
-        for index = 1, #animals, 2 do
-            local row = CreateEntryRow(math.ceil(index / 2))
-            local first = animals[index]
-            CreateEntry(row, first.Name, first.Enchant == nil and "None" or tostring(first.Enchant), 1)
-
-            local second = animals[index + 1]
-            if second then
-                CreateEntry(row, second.Name, second.Enchant == nil and "None" or tostring(second.Enchant), 2)
+        CreateRow("ANIMAL", "ENCHANT", 1, true)
+        if #animals == 0 then
+            CreateRow(hasPlacedFolder and "No placed animals found" or "Your plot was not found", "—", 2, false)
+        else
+            for index, animal in ipairs(animals) do
+                CreateRow(animal.Name, animal.Enchant == nil and "None" or tostring(animal.Enchant), index + 1, false)
             end
         end
     end
