@@ -6,16 +6,14 @@ return function(Context)
     local ScaleCard = CreateCard(Page, "Interface Scale", "Adjust the size of the entire interface.")
     local ScaleOptions = {"50%", "75%", "100%", "150%", "200%"}
 
-    -- UIScale scales the interface contents, while Main.Size controls the
-    -- outer window dimensions. Apply both so the window and its contents
-    -- change together, keeping the window centered.
+    -- UIScale is parented directly to Main, so it scales the entire
+    -- window and every UI element inside it together.
     local function ApplyInterfaceScale(scale)
         if not Main or not Main.Parent or not UIScale then return end
 
         scale = math.clamp(scale, 0.5, 2)
         Main.AnchorPoint = Vector2.new(0.5, 0.5)
         Main.Position = UDim2.fromScale(0.5, 0.5)
-        Main.Size = UDim2.fromOffset(UIConfig.Width * scale, UIConfig.Height * scale)
         UIScale.Scale = scale
     end
 
