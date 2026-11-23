@@ -32,10 +32,13 @@ return function(Context)
         BackgroundTransparency = 1,
         BorderSizePixel = 0
     })
-    Create("UIListLayout", {
+    Create("UIGridLayout", {
         Parent = List,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 4)
+        FillDirection = Enum.FillDirection.Vertical,
+        FillDirectionMaxCells = 9,
+        CellSize = UDim2.new(0.5, -4, 0, 28),
+        CellPadding = UDim2.fromOffset(8, 4)
     })
 
     local function FindOwnedPlot()
