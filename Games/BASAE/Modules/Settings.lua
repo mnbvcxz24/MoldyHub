@@ -301,16 +301,26 @@ return function(Context)
         return safeName
     end
     local function EnsureConfigFolder()
-        if type(isfolder) == "function" and isfolder(ConfigFolderPath) then return end
-        if type(makefolder) == "function" then
-            if type(isfolder) ~= "function" or not isfolder(ConfigRootPath) then
-                makefolder(ConfigRootPath)
+        local function FolderExists(path)
+            if type(isfolder) ~= "function" then return false end
+            local ok, exists = pcall(isfolder, path)
+            return ok and exists == true
+        end
+
+        if FolderExists(ConfigFolderPath) then return end
+        if type(makefolder) ~= "function" then
+            error("Executor makefolder API unavailable and config folder does not exist")
+        end
+
+        -- An already-existing root folder must not prevent child creation.
+        if not FolderExists(ConfigRootPath) then
+            pcall(makefolder, ConfigRootPath)
+        end
+        if not FolderExists(ConfigFolderPath) then
+            local ok, err = pcall(makefolder, ConfigFolderPath)
+            if not ok and not FolderExists(ConfigFolderPath) then
+                error("Could not create config folder: " .. tostring(err))
             end
-            if type(isfolder) ~= "function" or not isfolder(ConfigFolderPath) then
-                makefolder(ConfigFolderPath)
-            end
-        else
-            error("Delta folder API unavailable")
         end
     end
     local function CreateConfigActionButton(label, xScale, xOffset, color, hoverColor, callback)
@@ -359,27 +369,33 @@ return function(Context)
         local replacingExistingConfig = false
         local ok, err = pcall(function()
             EnsureConfigFolder()
-            replacingExistingConfig = type(isfile) == "function" and isfile(configPath) or false
+            if type(readfile) == "function" then
+                local previousPayloadOk = pcall(readfile, configPath)
+                replacingExistingConfig = previousPayloadOk
+            end
 
-            -- Build a fresh JSON document and write the complete payload to the
-            -- selected path. Do not read/merge the previous config into this one.
+            -- Write the full config and verify it before selecting it as active.
             local jsonPayload = game:GetService("HttpService"):JSONEncode(config)
             writefile(configPath, jsonPayload)
 
-            -- Verify that the file now contains exactly the new document before
-            -- marking it as the active config.
             local savedPayload = readfile(configPath)
             if savedPayload ~= jsonPayload then
-                error("Config overwrite verification failed")
+                error("Config file could not be verified after writing")
             end
-            local verifiedConfig = game:GetService("HttpService"):JSONDecode(savedPayload)
-            if type(verifiedConfig) ~= "table"
+            local decodeOk, verifiedConfig = pcall(function()
+                return game:GetService("HttpService"):JSONDecode(savedPayload)
+            end)
+            if not decodeOk or type(verifiedConfig) ~= "table"
                 or verifiedConfig.Version ~= config.Version
                 or verifiedConfig.SavedAt ~= config.SavedAt then
                 error("Saved config verification failed")
             end
 
             writefile(ActiveConfigPath, configName)
+            local activePayload = readfile(ActiveConfigPath)
+            if tostring(activePayload or ""):gsub("^%s+", ""):gsub("%s+$", "") ~= configName then
+                error("Active config pointer could not be verified")
+            end
         end)
         if ok then
             SavedConfig = config
@@ -399,10 +415,15 @@ return function(Context)
         end
         local configPath = ConfigFolderPath .. "/" .. SelectedConfigName .. ".json"
         local ok, result = pcall(function()
-            if type(isfile) == "function" and not isfile(configPath) then error("Config file not found") end
-            local decoded = game:GetService("HttpService"):JSONDecode(readfile(configPath))
+            local payload = readfile(configPath)
+            if type(payload) ~= "string" or payload == "" then error("Config file not found or empty") end
+            local decoded = game:GetService("HttpService"):JSONDecode(payload)
             if type(decoded) ~= "table" or decoded.Version ~= 1 then error("Invalid config file") end
             writefile(ActiveConfigPath, SelectedConfigName)
+            local activePayload = readfile(ActiveConfigPath)
+            if tostring(activePayload or ""):gsub("^%s+", ""):gsub("%s+$", "") ~= SelectedConfigName then
+                error("Active config pointer could not be verified")
+            end
             return decoded
         end)
         if ok then
@@ -421,6 +442,10 @@ return function(Context)
         local ok, err = pcall(function()
             EnsureConfigFolder()
             writefile(ActiveConfigPath, "DEFAULT")
+            local activePayload = readfile(ActiveConfigPath)
+            if tostring(activePayload or ""):gsub("^%s+", ""):gsub("%s+$", "") ~= "DEFAULT" then
+                error("Default config pointer could not be verified")
+            end
         end)
         if ok then
             ActiveConfigName = nil
