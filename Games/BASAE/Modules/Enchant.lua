@@ -220,7 +220,7 @@ return function(Context)
                     Position = UDim2.fromOffset(8, 0),
                     Size = UDim2.new(0.27, -16, 1, 0),
                     BackgroundTransparency = 1,
-                    Text = tostring(definition.Name or enchantId),
+                    Text = enchantId,
                     TextColor3 = Theme.Text,
                     Font = Enum.Font.GothamSemibold,
                     TextSize = 8,
