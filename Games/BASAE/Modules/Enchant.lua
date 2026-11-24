@@ -92,6 +92,7 @@ return function(Context)
 
     -- UI-only Auto Enchant planner. It stores the requested tier and count per enchant;
     -- no enchant remote or automation is triggered by these controls.
+    local AutoEnchantCard
     AutoEnchantCard = CreateCard(Page, "Auto Enchant", "Choose the tier and how many placed animals should receive each enchant.")
     AutoEnchantCard.Parent = Page
     AutoEnchantCard.Position = UDim2.fromOffset(10, EnchantCard.Position.Y.Offset + EnchantCard.Size.Y.Offset + 10)
@@ -288,7 +289,7 @@ return function(Context)
         PlannerRowsFrame.Size = UDim2.new(1, 0, 0, #PlannerRowsFrame:GetChildren() * PlannerRowHeight)
         AutoEnchantCard.Size = UDim2.new(1, -20, 0, 94 + PlannerRowsFrame.Size.Y.Offset)
         RefreshPlannerSummary()
-        UpdateEnchantLayout()
+        -- Layout is refreshed after UpdateEnchantLayout is declared and the animal list exists.
     end
 
     PlannerLimitLabel = Create("TextLabel", {
@@ -470,7 +471,6 @@ return function(Context)
     end
 
     local Status, List
-    local AutoEnchantCard
 
     local function UpdateEnchantLayout()
         if not Status or not List or not Status.Parent or not List.Parent then return end
