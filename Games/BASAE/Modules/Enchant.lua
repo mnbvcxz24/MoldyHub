@@ -10,11 +10,26 @@ return function(Context)
     EnchantCard.Position = UDim2.fromOffset(10, 10)
     EnchantCard.Size = UDim2.new(1, -20, 0, EnchantCard.Size.Y.Offset)
 
-    -- Aggregate enchant effects from every placed animal and show them below the card description.
+    -- Find the card description so the summary can sit just beneath its rendered text.
+    local DescriptionLabel
+    for _, child in ipairs(EnchantCard:GetChildren()) do
+        if child:IsA("TextLabel") and child.Text == "Shows the Enchant attribute for every animal placed on your plot." then
+            DescriptionLabel = child
+            break
+        end
+    end
+
+    local function GetSummaryTop()
+        if not DescriptionLabel then return 62 end
+        local renderedHeight = math.min(DescriptionLabel.Size.Y.Offset, DescriptionLabel.TextBounds.Y)
+        return DescriptionLabel.Position.Y.Offset + renderedHeight + 5
+    end
+
+    -- Aggregate enchant effects from every placed animal and show them directly below the description.
     local Summary = Create("Frame", {
         Name = "EnchantEffectSummary",
         Parent = EnchantCard,
-        Position = UDim2.fromOffset(11, 62),
+        Position = UDim2.fromOffset(11, GetSummaryTop()),
         Size = UDim2.new(1, -22, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
@@ -224,14 +239,20 @@ return function(Context)
     local function UpdateEnchantLayout()
         if not Status or not List or not Status.Parent or not List.Parent then return end
 
+        local summaryTop = GetSummaryTop()
+        Summary.Position = UDim2.fromOffset(11, summaryTop)
         local summaryHeight = math.max(20, SummaryLayout.AbsoluteContentSize.Y)
-        local statusY = 62 + summaryHeight + 5
+        local statusY = summaryTop + summaryHeight + 5
         Status.Position = UDim2.fromOffset(11, statusY)
         local listY = statusY + 21
         List.Position = UDim2.fromOffset(11, listY)
         EnchantCard.Size = UDim2.new(1, -20, 0, listY + List.Size.Y.Offset + 10)
     end
     SummaryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateEnchantLayout)
+    if DescriptionLabel then
+        DescriptionLabel:GetPropertyChangedSignal("TextBounds"):Connect(UpdateEnchantLayout)
+        DescriptionLabel:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateEnchantLayout)
+    end
 
     Status = Create("TextLabel", {
         Name = "EnchantStatus",
