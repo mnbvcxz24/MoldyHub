@@ -22,7 +22,7 @@ return function(Context)
     local function GetSummaryTop()
         if not DescriptionLabel then return 62 end
         local renderedHeight = math.min(DescriptionLabel.Size.Y.Offset, DescriptionLabel.TextBounds.Y)
-        return DescriptionLabel.Position.Y.Offset + renderedHeight + 5
+        return DescriptionLabel.Position.Y.Offset + renderedHeight
     end
 
     -- Aggregate enchant effects from every placed animal and show them directly below the description.
@@ -486,7 +486,7 @@ return function(Context)
         Summary.Position = UDim2.fromOffset(11, summaryTop)
         local summaryHeight = SummaryLayout.AbsoluteContentSize.Y
         Summary.Size = UDim2.new(1, -22, 0, summaryHeight)
-        local statusY = summaryTop + summaryHeight + (summaryHeight > 0 and 4 or 0)
+        local statusY = summaryTop + summaryHeight
         Status.Position = UDim2.fromOffset(11, statusY)
         local listY = statusY + 21
         List.Position = UDim2.fromOffset(11, listY)
