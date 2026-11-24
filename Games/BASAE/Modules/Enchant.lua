@@ -67,7 +67,8 @@ return function(Context)
             if type(value) ~= "table" or visited[value] then return end
             visited[value] = true
 
-            if value.Id ~= nil and type(value.Tiers) == "table" then
+            -- Only include animal enchants in the Auto Enchant planner and effect lookup.
+            if value.Kind == "Animals" and value.Id ~= nil and type(value.Tiers) == "table" then
                 definitions[tostring(value.Id)] = value
             end
 
@@ -183,6 +184,7 @@ return function(Context)
                     Size = UDim2.new(1, 0, 0, PlannerRowHeight - 3),
                     BackgroundColor3 = Theme.SurfaceInput,
                     BorderSizePixel = 0,
+                    ClipsDescendants = true,
                     LayoutOrder = order
                 })
                 AddCorner(row, 5)
@@ -191,7 +193,7 @@ return function(Context)
                 Create("TextLabel", {
                     Parent = row,
                     Position = UDim2.fromOffset(8, 0),
-                    Size = UDim2.new(0.29, -8, 1, 0),
+                    Size = UDim2.new(0.27, -16, 1, 0),
                     BackgroundTransparency = 1,
                     Text = enchantId,
                     TextColor3 = Theme.Text,
@@ -204,7 +206,7 @@ return function(Context)
                 local tierGroup = Create("Frame", {
                     Parent = row,
                     Position = UDim2.new(0.30, 0, 0, 0),
-                    Size = UDim2.new(0.32, 0, 1, 0),
+                    Size = UDim2.new(0.32, -4, 1, 0),
                     BackgroundTransparency = 1
                 })
                 Create("TextLabel", {
