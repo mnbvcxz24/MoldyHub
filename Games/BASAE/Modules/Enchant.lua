@@ -708,8 +708,25 @@ return function(Context)
     end
 
     local EnchantRunActive = false
+    local EnchantStopRequested = false
+
+    local function IsBusyEnchantResult(result)
+        if result == "Busy" then return true end
+        if type(result) ~= "table" then return false end
+        if result.Busy == true then return true end
+
+        local message = tostring(result.Error or result.Message or result.Reason or ""):lower()
+        return message:find("busy", 1, true) ~= nil
+    end
+
     local function RunAutoEnchant()
-        if EnchantRunActive then return end
+        if EnchantRunActive then
+            EnchantStopRequested = true
+            EnchantButton.Text = "Stopping..."
+            PlannerStatusLabel.Text = "Stopping after the current roll..."
+            return
+        end
+
         local targets = GetActivePlannerSelections()
         if #targets == 0 then
             PlannerStatusLabel.Text = "Select at least one enchant target"
@@ -730,23 +747,24 @@ return function(Context)
         end
 
         EnchantRunActive = true
-        EnchantButton.Text = "Enchanting..."
-        EnchantButton.AutoButtonColor = false
-        EnchantButton.Active = false
+        EnchantStopRequested = false
+        EnchantButton.Text = "Stop"
+        EnchantButton.AutoButtonColor = true
+        EnchantButton.Active = true
 
         local assignedAnimals = {}
         local stopped = false
         local totalCompleted = 0
         local totalRequested = GetPlannerTotal()
 
-        for _, target in ipairs(targets) do
-            if stopped then break end
+        for priority, target in ipairs(targets) do
+            if stopped or EnchantStopRequested then break end
             local enchantId = target.Id
             local selection = target.Selection
             local completed = 0
 
             for animalIndex, animalData in ipairs(animals) do
-                if stopped or completed >= selection.Count then break end
+                if stopped or EnchantStopRequested or completed >= selection.Count then break end
                 local animal = animalData.Instance
                 if animal and animal.Parent and not assignedAnimals[animal] then
                     local existingTier = GetAnimalEnchantTier(animal, enchantId)
@@ -757,16 +775,11 @@ return function(Context)
                     else
                         local matched = false
                         local attempts = 0
-                        while not matched and attempts < 100 and animal.Parent do
+                        while not matched and attempts < 100 and animal.Parent and not stopped and not EnchantStopRequested do
                             attempts = attempts + 1
                             PlannerStatusLabel.Text = string.format(
                                 "Priority %d: %s — animal %d/%d, roll %d",
-                                (function()
-                                    for priority, entry in ipairs(targets) do
-                                        if entry.Id == enchantId then return priority end
-                                    end
-                                    return 0
-                                end)(),
+                                priority,
                                 enchantId,
                                 animalIndex,
                                 #animals,
@@ -776,29 +789,38 @@ return function(Context)
                             local invokeOk, result = pcall(function()
                                 return enchantRemote:InvokeServer("Roll", "Animals", animal)
                             end)
+
+                            if EnchantStopRequested then
+                                break
+                            end
+
                             if not invokeOk then
                                 PlannerStatusLabel.Text = "Roll failed: " .. tostring(result)
                                 stopped = true
                                 break
                             end
-                            if type(result) ~= "table" or result.Ok ~= true then
+
+                            if IsBusyEnchantResult(result) then
+                                PlannerStatusLabel.Text = "Server busy — retrying in 1 second..."
+                                task.wait(1)
+                            elseif type(result) ~= "table" or result.Ok ~= true then
                                 PlannerStatusLabel.Text = "Server rejected roll for " .. animal.Name
                                 stopped = true
                                 break
-                            end
-
-                            local resultId, resultTier = ParseEnchantKey(result.Key)
-                            if resultId == enchantId and resultTier and resultTier >= selection.Tier then
-                                matched = true
-                                assignedAnimals[animal] = true
-                                completed = completed + 1
-                                totalCompleted = totalCompleted + 1
                             else
-                                task.wait(0.2)
+                                local resultId, resultTier = ParseEnchantKey(result.Key)
+                                if resultId == enchantId and resultTier and resultTier >= selection.Tier then
+                                    matched = true
+                                    assignedAnimals[animal] = true
+                                    completed = completed + 1
+                                    totalCompleted = totalCompleted + 1
+                                else
+                                    task.wait(1)
+                                end
                             end
                         end
 
-                        if not matched and not stopped then
+                        if not matched and not stopped and not EnchantStopRequested then
                             PlannerStatusLabel.Text = "Stopped: 100 rolls without target on " .. animal.Name
                             stopped = true
                         end
@@ -806,7 +828,7 @@ return function(Context)
                 end
             end
 
-            if completed < selection.Count and not stopped then
+            if completed < selection.Count and not stopped and not EnchantStopRequested then
                 PlannerStatusLabel.Text = string.format(
                     "%s: completed %d/%d targets",
                     enchantId,
@@ -816,12 +838,16 @@ return function(Context)
             end
         end
 
-        if stopped then
+        if EnchantStopRequested then
+            PlannerStatusLabel.Text = string.format("Stopped by user — completed %d / %d targets", totalCompleted, totalRequested)
+        elseif stopped then
             -- Keep the detailed failure/limit message shown above.
         else
             PlannerStatusLabel.Text = string.format("Completed %d / %d enchant targets", totalCompleted, totalRequested)
         end
+
         EnchantRunActive = false
+        EnchantStopRequested = false
         EnchantButton.Text = "Enchant"
         EnchantButton.Active = true
         EnchantButton.AutoButtonColor = true
