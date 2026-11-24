@@ -96,7 +96,7 @@ return function(Context)
             end
         end
     end
-    testver = "Deploy ver: 2.29"
+    testver = "Deploy ver: 2.30"
     ScriptStartedAt = os.clock()
     PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
     if type(PreviousRuntimeCleanup) == "function" then
