@@ -1305,20 +1305,27 @@ return function(Context)
     AnimalAutomationRow:Destroy()
 
     local function FitMiscCardText(card, cardWidth)
+        card.ClipsDescendants = true
         for _, child in ipairs(card:GetChildren()) do
             if child:IsA("TextLabel") then
-                if child.Position.Y.Offset == 8 then
-                    -- Reserve room for the toggle while keeping long titles clipped
-                    -- inside the card instead of drawing beneath the control.
+                local y = child.Position.Y.Offset
+                if y == 8 then
+                    -- Keep the title clear of the fixed-width toggle.
                     child.Size = UDim2.new(1, -78, 0, 22)
                     child.TextWrapped = false
                     child.TextTruncate = Enum.TextTruncate.AtEnd
-                elseif child.Position.Y.Offset == 29 then
+                elseif y == 29 then
+                    -- Keep the compact 18px description used by the original cards.
+                    -- A 30px description overlaps the status label at y=49.
                     child.Position = UDim2.fromOffset(11, 29)
-                    child.Size = UDim2.new(1, -22, 0, 30)
+                    child.Size = UDim2.new(1, -22, 0, 18)
                     child.TextWrapped = true
                     child.TextTruncate = Enum.TextTruncate.AtEnd
                     child.TextYAlignment = Enum.TextYAlignment.Top
+                elseif y == 49 then
+                    child.Size = UDim2.new(1, -22, 0, 18)
+                    child.TextWrapped = false
+                    child.TextTruncate = Enum.TextTruncate.AtEnd
                 end
             end
         end
@@ -1328,18 +1335,19 @@ return function(Context)
         local availableWidth = MiscCardsLayout.AbsoluteSize.X
         if availableWidth <= 0 then return end
 
-        -- Switch to fewer columns as the scaled page gets narrower. This keeps
-        -- each card wide enough for its title, toggle, and wrapped description.
-        local columns = availableWidth >= 660 and 3 or (availableWidth >= 360 and 2 or 1)
         local horizontalGap = 10
         local verticalGap = 10
+        -- Each card has a 48px toggle and fixed inner padding. Keep cards at
+        -- least 180px wide, then reduce the number of columns as the page scales down.
+        local columns = math.clamp(math.floor((availableWidth + horizontalGap) / (180 + horizontalGap)), 1, 3)
         local cardWidth = math.floor((availableWidth - horizontalGap * (columns - 1)) / columns)
 
         for _, card in ipairs(miscCards) do
-            card.Size = UDim2.fromOffset(cardWidth, 76)
             FitMiscCardText(card, cardWidth)
+            card.Size = UDim2.fromOffset(cardWidth, 76)
         end
-        local cardHeight = 42
+
+        local cardHeight = 76
         for _, card in ipairs(miscCards) do
             cardHeight = math.max(cardHeight, MeasureCardContentHeight(card, 9))
         end
