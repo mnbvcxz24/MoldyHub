@@ -35,39 +35,50 @@ return function(Context)
         local replicatedStorage = game:GetService("ReplicatedStorage")
         local shared = replicatedStorage:FindFirstChild("Shared")
         local configModule = shared and shared:FindFirstChild("EnchantConfig")
-        if not configModule then return definitions end
+        if not configModule then
+            warn("[BASAE Enchant] EnchantConfig module not found")
+            return definitions
+        end
 
         local ok, config = pcall(require, configModule)
-        if not ok or type(config) ~= "table" then return definitions end
+        if not ok or type(config) ~= "table" then
+            warn("[BASAE Enchant] Failed to require EnchantConfig:", config)
+            return definitions
+        end
 
-        local function ReadGroup(group)
-            if type(group) ~= "table" then return end
+        -- Walk the whole config instead of assuming a fixed group nesting.
+        local visited = {}
+        local function Scan(value)
+            if type(value) ~= "table" or visited[value] then return end
+            visited[value] = true
 
-            -- Only use the populated Enchants table; nil or empty entries are ignored.
-            local enchantList = group.Enchants
-            if type(enchantList) ~= "table" or next(enchantList) == nil then return end
+            if value.Id ~= nil and type(value.Tiers) == "table" then
+                definitions[tostring(value.Id)] = value
+            end
 
-            for _, enchant in pairs(enchantList) do
-                if type(enchant) == "table"
-                    and enchant.Id ~= nil
-                    and type(enchant.Tiers) == "table"
-                    and next(enchant.Tiers) ~= nil then
-                    definitions[tostring(enchant.Id)] = enchant
+            for _, child in pairs(value) do
+                if type(child) == "table" then
+                    Scan(child)
                 end
             end
         end
 
-        ReadGroup(config)
-        for _, group in pairs(config) do
-            ReadGroup(group)
+        Scan(config)
+        local ids = {}
+        for id in pairs(definitions) do
+            ids[#ids + 1] = id
         end
+        table.sort(ids)
+        print("[BASAE Enchant] Loaded", #ids, "enchant definitions:", table.concat(ids, ", "))
         return definitions
     end
 
     local EnchantDefinitions = GetEnchantDefinitions()
 
-    local function CollectAnimalEnchantEffects(enchantValue, totals)
-        if type(enchantValue) ~= "string" or enchantValue == "" then return end
+    local function CollectAnimalEnchantEffects(enchantValue, totals, animalName)
+        if type(enchantValue) ~= "string" or enchantValue == "" then
+            return
+        end
 
         local entries = {}
         local decoded
@@ -75,13 +86,20 @@ return function(Context)
             local ok, result = pcall(function()
                 return game:GetService("HttpService"):JSONDecode(enchantValue)
             end)
-            if ok then decoded = result end
+            if ok then
+                decoded = result
+            else
+                warn("[BASAE Enchant] JSON decode failed for", animalName, enchantValue, result)
+            end
         end
 
         local function AddEntry(id, tier)
             local numericTier = tonumber(tier)
             if id == nil or not numericTier then return end
-            entries[#entries + 1] = {Id = tostring(id), Tier = math.floor(numericTier)}
+            entries[#entries + 1] = {
+                Id = tostring(id),
+                Tier = math.floor(numericTier)
+            }
         end
 
         local function ReadDecoded(value)
@@ -107,15 +125,36 @@ return function(Context)
             end
         end
 
+        if #entries == 0 then
+            warn("[BASAE Enchant] No enchant entries parsed for", animalName, "raw:", enchantValue)
+            return
+        end
+
         for _, entry in ipairs(entries) do
             local definition = EnchantDefinitions[entry.Id]
             local tierData = definition and definition.Tiers and definition.Tiers[entry.Tier]
+
+            -- Tier tables may use numeric or string keys depending on the config.
+            if not tierData and definition and type(definition.Tiers) == "table" then
+                for tierKey, candidate in pairs(definition.Tiers) do
+                    if tonumber(tierKey) == entry.Tier then
+                        tierData = candidate
+                        break
+                    end
+                end
+            end
+
             if type(tierData) == "table" then
+                print("[BASAE Enchant] Matched", animalName, entry.Id .. ":" .. entry.Tier)
                 for effectName, effectValue in pairs(tierData) do
                     if effectName ~= "Chance" and type(effectValue) == "number" then
                         totals[tostring(effectName)] = (totals[tostring(effectName)] or 0) + effectValue
+                        print("[BASAE Enchant] Added effect:", effectName, effectValue, "from", animalName)
                     end
                 end
+            else
+                warn("[BASAE Enchant] No config match for", animalName, entry.Id .. ":" .. entry.Tier,
+                    "definition found:", definition ~= nil)
             end
         end
     end
@@ -134,11 +173,12 @@ return function(Context)
         end
 
         local totals = {}
+        print("[BASAE Enchant] Recalculating totals for", #animals, "placed animals")
         for _, animal in ipairs(animals) do
             -- Animals without enchant data do not contribute to the effect totals.
             local enchantValue = animal.Enchant
             if enchantValue ~= nil and enchantValue ~= "" then
-                CollectAnimalEnchantEffects(enchantValue, totals)
+                CollectAnimalEnchantEffects(enchantValue, totals, animal.Name)
             end
         end
 
