@@ -995,17 +995,26 @@ return function(Context)
         local zoneNumber = tonumber(tostring(zoneName):match("^Zone(%d+)$"))
         return zoneNumber ~= nil and zoneNumber >= 13
     end
-    local function IsInsideZone13(position)
-        local zone13 = ZoneBuilds:FindFirstChild("Zone13")
-        if not zone13 or not position then return false end
-        local ok, cf, size = pcall(function()
-            local boxCFrame, boxSize = zone13:GetBoundingBox()
-            return boxCFrame, boxSize
-        end)
-        if not ok or not cf or not size then return false end
-        local localPosition = cf:PointToObjectSpace(position)
-        return math.abs(localPosition.X) <= size.X * 0.5 + 6
-            and math.abs(localPosition.Z) <= size.Z * 0.5 + 6
+    local function IsInsideZone13OrHigher(position)
+        if not position then return false end
+        for _, zone in ipairs(ZoneBuilds:GetChildren()) do
+            if IsZone13OrHigher(zone.Name) then
+                local ok, cf, size = pcall(function()
+                    if zone:IsA("BasePart") then
+                        return zone.CFrame, zone.Size
+                    end
+                    return zone:GetBoundingBox()
+                end)
+                if ok and cf and size then
+                    local localPosition = cf:PointToObjectSpace(position)
+                    if math.abs(localPosition.X) <= size.X * 0.5 + 6
+                        and math.abs(localPosition.Z) <= size.Z * 0.5 + 6 then
+                        return true
+                    end
+                end
+            end
+        end
+        return false
     end
     function GetPickupZoneName(pickup)
         if not pickup or not pickup.Parent then return nil end
@@ -4688,10 +4697,23 @@ return function(Context)
             SetTrackerStatus("AnimalPickups folder not created yet; waiting for it to appear.")
         end
         SetTrackerStatus("Moving to target: " .. target:GetFullName())
-        -- An eligible egg has already been selected, so use the original
-        -- direct-to-egg movement. CastleGATE routing belongs only to the
-        -- no-target fallback above, where it triggers Zone13+ egg spawning.
-        local movementWaypoints = {target:GetPivot().Position}
+        -- Zone13+ eggs must be approached through CastleGATE when the
+        -- character is still outside all Zone13+ areas. This prevents a
+        -- direct path from SafeZone from cutting through the gate structure.
+        local movementWaypoints = {}
+        if IsZone13OrHigher(targetZone and targetZone.Name)
+            and not IsInsideZone13OrHigher(root.Position) then
+            local gatePosition = GetZone13GatePosition()
+            if gatePosition then
+                table.insert(movementWaypoints, gatePosition)
+                SetTrackerStatus("Zone13+ target detected; routing through CastleGATE before approaching the egg.")
+            else
+                SetTrackerStatus("Zone13+ target detected, but CastleGATE could not be found; cannot safely route to the egg.")
+                TouchAutomationProgress("IDLE")
+                return
+            end
+        end
+        table.insert(movementWaypoints, target:GetPivot().Position)
         local movementWaypointIndex = 1
         -- Approach the egg's outer footprint, not its pivot. The pivot can be
         -- buried inside a large egg, causing repeated forward/backward corrections.
