@@ -142,10 +142,10 @@ return function(Context)
         end
     end
 
-    local function MakeAdjustButton(parent, text, position, callback)
+    local function MakeAdjustButton(parent, text, x, callback)
         local button = Create("TextButton", {
             Parent = parent,
-            Position = position,
+            Position = UDim2.fromOffset(x, 0),
             Size = UDim2.fromOffset(20, 20),
             BackgroundColor3 = Theme.Selected,
             Text = text,
@@ -160,6 +160,41 @@ return function(Context)
         return button
     end
 
+    -- Both controls share identical centered spacing and alignment.
+    local function MakePlannerControlGroup(parent, labelText, valueText, onDecrease, onIncrease)
+        local controls = Create("Frame", {
+            Parent = parent,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(116, 20),
+            BackgroundTransparency = 1
+        })
+        Create("TextLabel", {
+            Parent = controls,
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.fromOffset(40, 20),
+            BackgroundTransparency = 1,
+            Text = labelText,
+            TextColor3 = Theme.Gray,
+            Font = Enum.Font.Gotham,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+        MakeAdjustButton(controls, "-", 44, onDecrease)
+        local valueLabel = Create("TextLabel", {
+            Parent = controls,
+            Position = UDim2.fromOffset(68, 0),
+            Size = UDim2.fromOffset(22, 20),
+            BackgroundTransparency = 1,
+            Text = valueText,
+            TextColor3 = Theme.Text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Center
+        })
+        MakeAdjustButton(controls, "+", 94, onIncrease)
+        return valueLabel
+    end
     local function BuildPlannerRows()
         for _, child in ipairs(PlannerRowsFrame:GetChildren()) do
             if child:IsA("GuiObject") then child:Destroy() end
@@ -197,7 +232,7 @@ return function(Context)
                 Create("TextLabel", {
                     Parent = row,
                     Position = UDim2.fromOffset(8, 0),
-                    Size = UDim2.new(0.27, -16, 1, 0),
+                    Size = UDim2.new(0.40, -16, 1, 0),
                     BackgroundTransparency = 1,
                     Text = tostring(definition.Name or enchantId),
                     TextColor3 = Theme.Text,
@@ -209,38 +244,15 @@ return function(Context)
 
                 local tierGroup = Create("Frame", {
                     Parent = row,
-                    Position = UDim2.new(0.30, 0, 0, 0),
-                    Size = UDim2.new(0.32, -4, 1, 0),
+                    Position = UDim2.new(0.40, 0, 0, 0),
+                    Size = UDim2.new(0.30, 0, 1, 0),
                     BackgroundTransparency = 1
                 })
-                Create("TextLabel", {
-                    Parent = tierGroup,
-                    Position = UDim2.fromOffset(0, 0),
-                    Size = UDim2.fromOffset(30, 20),
-                    BackgroundTransparency = 1,
-                    Text = "Tier",
-                    TextColor3 = Theme.Gray,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 8,
-                    TextXAlignment = Enum.TextXAlignment.Right
-                })
-                local tierValue = Create("TextLabel", {
-                    Parent = tierGroup,
-                    Position = UDim2.fromOffset(57, 0),
-                    Size = UDim2.fromOffset(20, 20),
-                    BackgroundTransparency = 1,
-                    Text = tostring(selection.Tier),
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.GothamBold,
-                    TextSize = 9,
-                    TextXAlignment = Enum.TextXAlignment.Center
-                })
-                MakeAdjustButton(tierGroup, "-", UDim2.fromOffset(35, 0), function()
+                local tierValue = MakePlannerControlGroup(tierGroup, "Tier", tostring(selection.Tier), function()
                     local currentIndex = table.find(tiers, selection.Tier) or 1
                     selection.Tier = tiers[math.max(1, currentIndex - 1)]
                     tierValue.Text = tostring(selection.Tier)
-                end)
-                MakeAdjustButton(tierGroup, "+", UDim2.fromOffset(80, 0), function()
+                end, function()
                     local currentIndex = table.find(tiers, selection.Tier) or 1
                     selection.Tier = tiers[math.min(#tiers, currentIndex + 1)]
                     tierValue.Text = tostring(selection.Tier)
@@ -248,31 +260,9 @@ return function(Context)
 
                 local countGroup = Create("Frame", {
                     Parent = row,
-                    Position = UDim2.new(0.64, 0, 0, 0),
-                    Size = UDim2.new(0.36, 0, 1, 0),
+                    Position = UDim2.new(0.70, 0, 0, 0),
+                    Size = UDim2.new(0.30, 0, 1, 0),
                     BackgroundTransparency = 1
-                })
-                Create("TextLabel", {
-                    Parent = countGroup,
-                    Position = UDim2.fromOffset(0, 0),
-                    Size = UDim2.fromOffset(48, 20),
-                    BackgroundTransparency = 1,
-                    Text = "Enchant",
-                    TextColor3 = Theme.Gray,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 8,
-                    TextXAlignment = Enum.TextXAlignment.Right
-                })
-                local countValue = Create("TextLabel", {
-                    Parent = countGroup,
-                    Position = UDim2.fromOffset(70, 0),
-                    Size = UDim2.fromOffset(20, 20),
-                    BackgroundTransparency = 1,
-                    Text = tostring(selection.Count),
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.GothamBold,
-                    TextSize = 9,
-                    TextXAlignment = Enum.TextXAlignment.Center
                 })
                 local function SetCount(nextCount)
                     local otherTotal = GetPlannerTotal() - selection.Count
@@ -281,10 +271,9 @@ return function(Context)
                     countValue.Text = tostring(selection.Count)
                     RefreshPlannerSummary()
                 end
-                MakeAdjustButton(countGroup, "-", UDim2.fromOffset(52, 0), function()
+                local countValue = MakePlannerControlGroup(countGroup, "Enchant", tostring(selection.Count), function()
                     SetCount(selection.Count - 1)
-                end)
-                MakeAdjustButton(countGroup, "+", UDim2.fromOffset(93, 0), function()
+                end, function()
                     SetCount(selection.Count + 1)
                 end)
 
