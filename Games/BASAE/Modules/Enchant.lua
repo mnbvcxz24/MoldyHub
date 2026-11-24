@@ -759,8 +759,11 @@ return function(Context)
             local selection = target.Selection
             local completed = 0
 
-            for animalIndex, animalData in ipairs(animals) do
-                if stopped or EnchantStopRequested or completed >= selection.Count then break end
+            -- First scan every animal for an existing enchant at the requested
+            -- tier or higher. Do this before rolling anything, so reruns skip
+            -- targets that are already satisfied elsewhere in the animal list.
+            for _, animalData in ipairs(animals) do
+                if completed >= selection.Count then break end
                 local animal = animalData.Instance
                 if animal and animal.Parent and not assignedAnimals[animal] then
                     local existingTier = GetAnimalEnchantTier(animal, enchantId)
@@ -768,7 +771,17 @@ return function(Context)
                         assignedAnimals[animal] = true
                         completed = completed + 1
                         totalCompleted = totalCompleted + 1
-                    else
+                    end
+                end
+            end
+
+            -- Only roll on additional, unassigned animals if the pre-scan
+            -- found fewer matches than the requested count.
+            if completed < selection.Count then
+                for animalIndex, animalData in ipairs(animals) do
+                    if stopped or EnchantStopRequested or completed >= selection.Count then break end
+                    local animal = animalData.Instance
+                    if animal and animal.Parent and not assignedAnimals[animal] then
                         local matched = false
                         local attempts = 0
                         while not matched and attempts < 100 and animal.Parent and not stopped and not EnchantStopRequested do
