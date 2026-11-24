@@ -61,25 +61,22 @@ return function(Context)
             return definitions
         end
 
-        -- Walk the whole config instead of assuming a fixed group nesting.
-        local visited = {}
-        local function Scan(value)
-            if type(value) ~= "table" or visited[value] then return end
-            visited[value] = true
-
-            -- Animal enchant definitions use Enchants for their tier data.
-            if value.Kind == "Animals" and value.Id ~= nil and type(value.Enchants) == "table" then
-                definitions[tostring(value.Id)] = value
-            end
-
-            for _, child in pairs(value) do
-                if type(child) == "table" then
-                    Scan(child)
+        -- Each section (AnimalCash, AnimalLuck, etc.) contains the actual
+        -- enchant entries in its Enchants array. Index those individual entries,
+        -- not the section itself, and include only sections for Animals.
+        for _, section in pairs(config.Sections or {}) do
+            if type(section) == "table"
+                and section.Kind == "Animals"
+                and type(section.Enchants) == "table" then
+                for _, enchant in ipairs(section.Enchants) do
+                    if type(enchant) == "table"
+                        and enchant.Id ~= nil
+                        and type(enchant.Tiers) == "table" then
+                        definitions[tostring(enchant.Id)] = enchant
+                    end
                 end
             end
         end
-
-        Scan(config)
         local ids = {}
         for id in pairs(definitions) do
             ids[#ids + 1] = id
@@ -108,39 +105,21 @@ return function(Context)
     local PlannerRowHeight = 38
 
     local function GetTierData(definition, requestedTier)
-        local enchants = definition and definition.Enchants
-        if type(enchants) ~= "table" then return nil end
-
-        for tierKey, tierValue in pairs(enchants) do
-            local tierNumber = tonumber(tierKey)
-            if type(tierValue) == "table" then
-                tierNumber = tonumber(tierValue.Tier or tierValue.Level) or tierNumber
-            end
-            if tierNumber and math.floor(tierNumber) == requestedTier then
-                return tierValue
-            end
-        end
-        return nil
+        local tiers = definition and definition.Tiers
+        if type(tiers) ~= "table" then return nil end
+        return tiers[requestedTier]
     end
 
     local function GetTierNumbers(definition)
         local tiers = {}
-        local seen = {}
-        local enchants = definition and definition.Enchants
-        for tierKey, tierValue in pairs(type(enchants) == "table" and enchants or {}) do
-            local tierNumber = tonumber(tierKey)
-            if type(tierValue) == "table" then
-                tierNumber = tonumber(tierValue.Tier or tierValue.Level) or tierNumber
-            end
-            if tierNumber then
-                tierNumber = math.floor(tierNumber)
-                if not seen[tierNumber] then
-                    seen[tierNumber] = true
+        local tierData = definition and definition.Tiers
+        if type(tierData) == "table" then
+            for tierNumber, value in ipairs(tierData) do
+                if type(value) == "table" then
                     tiers[#tiers + 1] = tierNumber
                 end
             end
         end
-        table.sort(tiers)
         return tiers
     end
 
@@ -220,7 +199,7 @@ return function(Context)
                     Position = UDim2.fromOffset(8, 0),
                     Size = UDim2.new(0.27, -16, 1, 0),
                     BackgroundTransparency = 1,
-                    Text = enchantId,
+                    Text = tostring(definition.Name or enchantId),
                     TextColor3 = Theme.Text,
                     Font = Enum.Font.GothamSemibold,
                     TextSize = 8,
