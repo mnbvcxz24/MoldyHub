@@ -111,6 +111,8 @@ return function(Context)
     local PlannerLimitLabel
     local PlannerRowsFrame
     local EnchantButton
+    local PlannerStatusLabel
+    local PlannerPrioritySequence = 0
     local PlannerRowHeight = 38
 
     local function GetTierData(definition, requestedTier)
@@ -138,6 +140,38 @@ return function(Context)
             total = total + (selection.Count or 0)
         end
         return total
+    end
+
+    local function GetActivePlannerSelections()
+        local active = {}
+        for enchantId, selection in pairs(PlannerSelections) do
+            if (selection.Count or 0) > 0 and selection.PriorityOrder then
+                active[#active + 1] = {
+                    Id = enchantId,
+                    Selection = selection
+                }
+            end
+        end
+        table.sort(active, function(a, b)
+            return a.Selection.PriorityOrder < b.Selection.PriorityOrder
+        end)
+        return active
+    end
+
+    local function RefreshPlannerPriorities()
+        local active = GetActivePlannerSelections()
+        for priority, entry in ipairs(active) do
+            local rowRefs = PlannerRows[entry.Id]
+            if rowRefs and rowRefs.Priority then
+                rowRefs.Priority.Text = tostring(priority)
+            end
+        end
+        for enchantId, rowRefs in pairs(PlannerRows) do
+            local selection = PlannerSelections[enchantId]
+            if rowRefs.Priority and (not selection or (selection.Count or 0) <= 0) then
+                rowRefs.Priority.Text = ""
+            end
+        end
     end
 
     local function RefreshPlannerSummary()
@@ -238,10 +272,21 @@ return function(Context)
                 AddCorner(row, 5)
                 AddStroke(row, Theme.Border, 1)
 
-                Create("TextLabel", {
+                local priorityLabel = Create("TextLabel", {
                     Parent = row,
                     Position = UDim2.fromOffset(8, 0),
-                    Size = UDim2.new(0.40, -16, 1, 0),
+                    Size = UDim2.fromOffset(16, 1),
+                    BackgroundTransparency = 1,
+                    Text = selection.Count > 0 and "" or "",
+                    TextColor3 = Theme.Accent,
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Center
+                })
+                Create("TextLabel", {
+                    Parent = row,
+                    Position = UDim2.fromOffset(27, 0),
+                    Size = UDim2.new(0.40, -35, 1, 0),
                     BackgroundTransparency = 1,
                     Text = tostring(definition.Name or enchantId),
                     TextColor3 = Theme.Text,
@@ -278,8 +323,16 @@ return function(Context)
                 local function SetCount(nextCount)
                     local otherTotal = GetPlannerTotal() - selection.Count
                     local maximum = math.max(0, PlannerLimit - otherTotal)
+                    local previousCount = selection.Count or 0
                     selection.Count = math.clamp(nextCount, 0, maximum)
+                    if previousCount <= 0 and selection.Count > 0 then
+                        PlannerPrioritySequence = PlannerPrioritySequence + 1
+                        selection.PriorityOrder = PlannerPrioritySequence
+                    elseif selection.Count <= 0 then
+                        selection.PriorityOrder = nil
+                    end
                     countValue.Text = tostring(selection.Count)
+                    RefreshPlannerPriorities()
                     RefreshPlannerSummary()
                 end
                 countValue = MakePlannerControlGroup(countGroup, "Enchant", tostring(selection.Count), function()
@@ -288,7 +341,7 @@ return function(Context)
                     SetCount(selection.Count + 1)
                 end)
 
-                PlannerRows[enchantId] = {Tier = tierValue, Count = countValue}
+                PlannerRows[enchantId] = {Tier = tierValue, Count = countValue, Priority = priorityLabel}
             end
         end
 
@@ -296,7 +349,11 @@ return function(Context)
         -- Do not reset its width to 100%, or it will extend past the card.
         PlannerRowsFrame.Size = UDim2.new(1, -22, 0, #PlannerRowsFrame:GetChildren() * PlannerRowHeight)
         EnchantButton.Position = UDim2.fromOffset(11, 92 + PlannerRowsFrame.Size.Y.Offset)
-        AutoEnchantCard.Size = UDim2.new(1, -20, 0, 130 + PlannerRowsFrame.Size.Y.Offset)
+        if PlannerStatusLabel then
+            PlannerStatusLabel.Position = UDim2.fromOffset(11, 124 + PlannerRowsFrame.Size.Y.Offset)
+        end
+        AutoEnchantCard.Size = UDim2.new(1, -20, 0, 148 + PlannerRowsFrame.Size.Y.Offset)
+        RefreshPlannerPriorities()
         RefreshPlannerSummary()
         -- Layout is refreshed after UpdateEnchantLayout is declared and the animal list exists.
     end
@@ -348,6 +405,19 @@ return function(Context)
         Active = false
     })
     AddCorner(EnchantButton, 5)
+    PlannerStatusLabel = Create("TextLabel", {
+        Name = "AutoEnchantStatus",
+        Parent = AutoEnchantCard,
+        Position = UDim2.fromOffset(11, 124),
+        Size = UDim2.new(1, -22, 0, 14),
+        BackgroundTransparency = 1,
+        Text = "Ready",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    })
     BuildPlannerRows()
 
     local function CollectAnimalEnchantEffects(enchantValue, totals, animalName)
@@ -596,6 +666,7 @@ return function(Context)
         if placedAnimals then
             for _, animal in ipairs(placedAnimals:GetChildren()) do
                 table.insert(animals, {
+                    Instance = animal,
                     Name = animal.Name,
                     Enchant = animal:GetAttribute("Enchant"),
                     CashPerSecond = ReadAnimalCPS(animal),
@@ -618,6 +689,146 @@ return function(Context)
 
         return animals, placedAnimals ~= nil
     end
+
+    local function ParseEnchantKey(key)
+        if type(key) ~= "string" then return nil, nil end
+        local enchantId, tier = key:match("^([%w_%-]+)%s*:%s*(%d+)$")
+        return enchantId, tonumber(tier)
+    end
+
+    local function GetAnimalEnchantTier(animal, enchantId)
+        local value = animal and animal:GetAttribute("Enchant")
+        if type(value) ~= "string" then return nil end
+        for id, tier in value:gmatch("([%w_%-]+)%s*:%s*(%d+)") do
+            if id == enchantId then
+                return tonumber(tier)
+            end
+        end
+        return nil
+    end
+
+    local EnchantRunActive = false
+    local function RunAutoEnchant()
+        if EnchantRunActive then return end
+        local targets = GetActivePlannerSelections()
+        if #targets == 0 then
+            PlannerStatusLabel.Text = "Select at least one enchant target"
+            return
+        end
+
+        local animals = ReadPlacedAnimals()
+        if #animals == 0 then
+            PlannerStatusLabel.Text = "No placed animals found"
+            return
+        end
+
+        local replicatedStorage = game:GetService("ReplicatedStorage")
+        local enchantRemote = replicatedStorage:FindFirstChild("EnchantRequest")
+        if not enchantRemote or not enchantRemote:IsA("RemoteFunction") then
+            PlannerStatusLabel.Text = "EnchantRequest remote unavailable"
+            return
+        end
+
+        EnchantRunActive = true
+        EnchantButton.Text = "Enchanting..."
+        EnchantButton.AutoButtonColor = false
+        EnchantButton.Active = false
+
+        local assignedAnimals = {}
+        local stopped = false
+        local totalCompleted = 0
+        local totalRequested = GetPlannerTotal()
+
+        for _, target in ipairs(targets) do
+            if stopped then break end
+            local enchantId = target.Id
+            local selection = target.Selection
+            local completed = 0
+
+            for animalIndex, animalData in ipairs(animals) do
+                if stopped or completed >= selection.Count then break end
+                local animal = animalData.Instance
+                if animal and animal.Parent and not assignedAnimals[animal] then
+                    local existingTier = GetAnimalEnchantTier(animal, enchantId)
+                    if existingTier and existingTier >= selection.Tier then
+                        assignedAnimals[animal] = true
+                        completed = completed + 1
+                        totalCompleted = totalCompleted + 1
+                    else
+                        local matched = false
+                        local attempts = 0
+                        while not matched and attempts < 100 and animal.Parent do
+                            attempts = attempts + 1
+                            PlannerStatusLabel.Text = string.format(
+                                "Priority %d: %s — animal %d/%d, roll %d",
+                                (function()
+                                    for priority, entry in ipairs(targets) do
+                                        if entry.Id == enchantId then return priority end
+                                    end
+                                    return 0
+                                end)(),
+                                enchantId,
+                                animalIndex,
+                                #animals,
+                                attempts
+                            )
+
+                            local invokeOk, result = pcall(function()
+                                return enchantRemote:InvokeServer("Roll", "Animals", animal)
+                            end)
+                            if not invokeOk then
+                                PlannerStatusLabel.Text = "Roll failed: " .. tostring(result)
+                                stopped = true
+                                break
+                            end
+                            if type(result) ~= "table" or result.Ok ~= true then
+                                PlannerStatusLabel.Text = "Server rejected roll for " .. animal.Name
+                                stopped = true
+                                break
+                            end
+
+                            local resultId, resultTier = ParseEnchantKey(result.Key)
+                            if resultId == enchantId and resultTier and resultTier >= selection.Tier then
+                                matched = true
+                                assignedAnimals[animal] = true
+                                completed = completed + 1
+                                totalCompleted = totalCompleted + 1
+                            else
+                                task.wait(0.2)
+                            end
+                        end
+
+                        if not matched and not stopped then
+                            PlannerStatusLabel.Text = "Stopped: 100 rolls without target on " .. animal.Name
+                            stopped = true
+                        end
+                    end
+                end
+            end
+
+            if completed < selection.Count and not stopped then
+                PlannerStatusLabel.Text = string.format(
+                    "%s: completed %d/%d targets",
+                    enchantId,
+                    completed,
+                    selection.Count
+                )
+            end
+        end
+
+        if stopped then
+            -- Keep the detailed failure/limit message shown above.
+        else
+            PlannerStatusLabel.Text = string.format("Completed %d / %d enchant targets", totalCompleted, totalRequested)
+        end
+        EnchantRunActive = false
+        EnchantButton.Text = "Enchant"
+        EnchantButton.Active = true
+        EnchantButton.AutoButtonColor = true
+        task.defer(RefreshList)
+    end
+
+    EnchantButton.MouseButton1Click:Connect(RunAutoEnchant)
 
     local function RefreshList()
         local animals, hasPlacedFolder = ReadPlacedAnimals()
@@ -643,11 +854,19 @@ return function(Context)
             return keys
         end)()) do
             local selection = PlannerSelections[id]
-            selection.Count = math.min(selection.Count or 0, remaining)
+            local previousCount = selection.Count or 0
+            selection.Count = math.min(previousCount, remaining)
+            if selection.Count <= 0 then
+                selection.PriorityOrder = nil
+            elseif previousCount <= 0 and not selection.PriorityOrder then
+                PlannerPrioritySequence = PlannerPrioritySequence + 1
+                selection.PriorityOrder = PlannerPrioritySequence
+            end
             remaining = math.max(0, remaining - selection.Count)
             local rowRefs = PlannerRows[id]
             if rowRefs and rowRefs.Count then rowRefs.Count.Text = tostring(selection.Count) end
         end
+        RefreshPlannerPriorities()
         RefreshPlannerSummary()
         UpdateSummary(animals)
 
