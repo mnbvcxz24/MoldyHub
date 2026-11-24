@@ -23,8 +23,11 @@ return function(Context)
     end
 
     local function GetSummaryTop()
-        if not DescriptionLabel then return 46 end
-        return DescriptionLabel.Position.Y.Offset + DescriptionLabel.Size.Y.Offset + 5
+        if not DescriptionLabel then return 44 end
+        -- Position from the rendered text height, not the label's old 30px
+        -- reserved box, so the chips sit close beneath the description.
+        local textHeight = math.max(9, DescriptionLabel.TextBounds.Y)
+        return DescriptionLabel.Position.Y.Offset + textHeight + 3
     end
 
     -- Aggregate enchant effects from every placed animal and show them directly below the description.
@@ -37,14 +40,16 @@ return function(Context)
         BackgroundTransparency = 1,
         BorderSizePixel = 0
     })
-    local SummaryLayout = Create("UIListLayout", {
+    local SummaryLayout = Create("UIGridLayout", {
         Parent = Summary,
+        CellSize = UDim2.fromOffset(112, 20),
+        CellPadding = UDim2.fromOffset(6, 4),
         FillDirection = Enum.FillDirection.Horizontal,
+        FillDirectionMaxCells = 0,
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Top,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 6),
-        Wraps = true
+        StartCorner = Enum.StartCorner.TopLeft
     })
 
     local function GetEnchantDefinitions()
@@ -486,9 +491,9 @@ return function(Context)
 
         local summaryTop = GetSummaryTop()
         Summary.Position = UDim2.fromOffset(11, summaryTop)
-        local summaryHeight = SummaryLayout.AbsoluteContentSize.Y
+        local summaryHeight = math.max(20, SummaryLayout.AbsoluteContentSize.Y)
         Summary.Size = UDim2.new(1, -22, 0, summaryHeight)
-        local statusY = summaryTop + summaryHeight
+        local statusY = summaryTop + summaryHeight + 3
         Status.Position = UDim2.fromOffset(11, statusY)
         local listY = statusY + 21
         List.Position = UDim2.fromOffset(11, listY)
