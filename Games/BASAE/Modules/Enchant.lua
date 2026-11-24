@@ -248,7 +248,8 @@ return function(Context)
                     Size = UDim2.new(0.30, 0, 1, 0),
                     BackgroundTransparency = 1
                 })
-                local tierValue = MakePlannerControlGroup(tierGroup, "Tier", tostring(selection.Tier), function()
+                local tierValue
+                tierValue = MakePlannerControlGroup(tierGroup, "Tier", tostring(selection.Tier), function()
                     local currentIndex = table.find(tiers, selection.Tier) or 1
                     selection.Tier = tiers[math.max(1, currentIndex - 1)]
                     tierValue.Text = tostring(selection.Tier)
@@ -264,6 +265,7 @@ return function(Context)
                     Size = UDim2.new(0.30, 0, 1, 0),
                     BackgroundTransparency = 1
                 })
+                local countValue
                 local function SetCount(nextCount)
                     local otherTotal = GetPlannerTotal() - selection.Count
                     local maximum = math.max(0, PlannerLimit - otherTotal)
@@ -271,7 +273,7 @@ return function(Context)
                     countValue.Text = tostring(selection.Count)
                     RefreshPlannerSummary()
                 end
-                local countValue = MakePlannerControlGroup(countGroup, "Enchant", tostring(selection.Count), function()
+                countValue = MakePlannerControlGroup(countGroup, "Enchant", tostring(selection.Count), function()
                     SetCount(selection.Count - 1)
                 end, function()
                     SetCount(selection.Count + 1)
