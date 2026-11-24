@@ -802,7 +802,6 @@ return function(Context)
             -- tier or higher. Do this before rolling anything, so reruns skip
             -- targets that are already satisfied elsewhere in the animal list.
             for _, animalData in ipairs(animals) do
-                if completed >= selection.Count then break end
                 local animal = animalData.Instance
                 if animal and animal.Parent and not assignedAnimals[animal] then
                     local existingTier = GetAnimalEnchantTier(animal, enchantId)
@@ -814,36 +813,30 @@ return function(Context)
                 end
             end
 
-            -- Only roll on additional, unassigned animals if the pre-scan
-            -- found fewer matches than the requested count. Prefer animals
-            -- with no enchant first, so later enchant targets avoid replacing
-            -- enchants that were already applied to other animals.
-            if completed < selection.Count then
-                local rollCandidates = {}
-                for animalIndex, animalData in ipairs(animals) do
-                    local animal = animalData.Instance
-                    if animal and animal.Parent and not assignedAnimals[animal] then
-                        local currentEnchant = animal:GetAttribute("Enchant")
-                        local hasEnchant = false
-                        if type(currentEnchant) == "string" and currentEnchant ~= "" then
-                            hasEnchant = currentEnchant:match("[%w_%-]+%s*:%s*%d+") ~= nil
-                        end
+            -- The selected count is a minimum target, not a cap. After
+            -- counting existing matches, keep filling every remaining empty
+            -- enchant slot. Animals are already sorted by highest CPS first.
+            -- Never reroll an animal that already has a different enchant.
+            local rollCandidates = {}
+            for animalIndex, animalData in ipairs(animals) do
+                local animal = animalData.Instance
+                if animal and animal.Parent and not assignedAnimals[animal] then
+                    local currentEnchant = animal:GetAttribute("Enchant")
+                    local hasEnchant = false
+                    if type(currentEnchant) == "string" and currentEnchant ~= "" then
+                        hasEnchant = currentEnchant:match("[%w_%-]+%s*:%s*%d+") ~= nil
+                    end
+                    if not hasEnchant then
                         rollCandidates[#rollCandidates + 1] = {
                             Data = animalData,
-                            Index = animalIndex,
-                            HasEnchant = hasEnchant
+                            Index = animalIndex
                         }
                     end
                 end
-                table.sort(rollCandidates, function(a, b)
-                    if a.HasEnchant ~= b.HasEnchant then
-                        return not a.HasEnchant
-                    end
-                    return a.Index < b.Index
-                end)
+            end
 
-                for candidateIndex, candidate in ipairs(rollCandidates) do
-                    if stopped or EnchantStopRequested or completed >= selection.Count then break end
+            for candidateIndex, candidate in ipairs(rollCandidates) do
+                if stopped or EnchantStopRequested then break end
                     local animalData = candidate.Data
                     local animalIndex = candidate.Index
                     local animal = animalData.Instance
@@ -900,7 +893,6 @@ return function(Context)
                             stopped = true
                         end
                     end
-                end
             end
 
             if completed < selection.Count and not stopped and not EnchantStopRequested then
