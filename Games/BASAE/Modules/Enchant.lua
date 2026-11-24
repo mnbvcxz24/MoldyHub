@@ -776,10 +776,37 @@ return function(Context)
             end
 
             -- Only roll on additional, unassigned animals if the pre-scan
-            -- found fewer matches than the requested count.
+            -- found fewer matches than the requested count. Prefer animals
+            -- with no enchant first, so later enchant targets avoid replacing
+            -- enchants that were already applied to other animals.
             if completed < selection.Count then
+                local rollCandidates = {}
                 for animalIndex, animalData in ipairs(animals) do
+                    local animal = animalData.Instance
+                    if animal and animal.Parent and not assignedAnimals[animal] then
+                        local currentEnchant = animal:GetAttribute("Enchant")
+                        local hasEnchant = false
+                        if type(currentEnchant) == "string" and currentEnchant ~= "" then
+                            hasEnchant = currentEnchant:match("[%w_%-]+%s*:%s*%d+") ~= nil
+                        end
+                        rollCandidates[#rollCandidates + 1] = {
+                            Data = animalData,
+                            Index = animalIndex,
+                            HasEnchant = hasEnchant
+                        }
+                    end
+                end
+                table.sort(rollCandidates, function(a, b)
+                    if a.HasEnchant ~= b.HasEnchant then
+                        return not a.HasEnchant
+                    end
+                    return a.Index < b.Index
+                end)
+
+                for candidateIndex, candidate in ipairs(rollCandidates) do
                     if stopped or EnchantStopRequested or completed >= selection.Count then break end
+                    local animalData = candidate.Data
+                    local animalIndex = candidate.Index
                     local animal = animalData.Instance
                     if animal and animal.Parent and not assignedAnimals[animal] then
                         local matched = false
