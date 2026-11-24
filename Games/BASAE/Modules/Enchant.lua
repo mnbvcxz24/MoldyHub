@@ -112,7 +112,7 @@ return function(Context)
     local EnchantButton
     local PlannerStatusLabel
     local PlannerPrioritySequence = 0
-    local PlannerRowHeight = 38
+    local PlannerRowHeight = 52
 
     local function GetTierData(definition, requestedTier)
         local tiers = definition and definition.Tiers
@@ -313,15 +313,17 @@ return function(Context)
                 })
                 local descriptionLabel = Create("TextLabel", {
                     Parent = row,
-                    Position = UDim2.fromOffset(27, 17),
-                    Size = UDim2.new(0.40, -35, 0, 14),
+                    Position = UDim2.fromOffset(27, 16),
+                    Size = UDim2.new(0.40, -35, 0, 32),
                     BackgroundTransparency = 1,
                     Text = "",
                     TextColor3 = Theme.Text,
                     Font = Enum.Font.GothamMedium,
                     TextSize = 8,
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    TextTruncate = Enum.TextTruncate.AtEnd
+                    TextYAlignment = Enum.TextYAlignment.Top,
+                    TextWrapped = true,
+                    TextTruncate = Enum.TextTruncate.None
                 })
                 local function RefreshEnchantName()
                     local description = GetEnchantDescription(definition, selection.Tier)
