@@ -90,6 +90,241 @@ return function(Context)
 
     local EnchantDefinitions = GetEnchantDefinitions()
 
+    -- UI-only Auto Enchant planner. It stores the requested tier and count per enchant;
+    -- no enchant remote or automation is triggered by these controls.
+    AutoEnchantCard = CreateCard(Page, "Auto Enchant", "Choose the tier and how many placed animals should receive each enchant.")
+    AutoEnchantCard.Parent = Page
+    AutoEnchantCard.Position = UDim2.fromOffset(10, EnchantCard.Position.Y.Offset + EnchantCard.Size.Y.Offset + 10)
+    AutoEnchantCard.Size = UDim2.new(1, -20, 0, 100)
+
+    local PlannerLimit = 0
+    local PlannerSelections = {}
+    local PlannerRows = {}
+    local PlannerTotalLabel
+    local PlannerLimitLabel
+    local PlannerRowsFrame
+    local PlannerRowHeight = 38
+
+    local function GetTierNumbers(definition)
+        local tiers = {}
+        for tierKey in pairs(type(definition.Tiers) == "table" and definition.Tiers or {}) do
+            local tierNumber = tonumber(tierKey)
+            if tierNumber then
+                tiers[#tiers + 1] = math.floor(tierNumber)
+            end
+        end
+        table.sort(tiers)
+        return tiers
+    end
+
+    local function GetPlannerTotal()
+        local total = 0
+        for _, selection in pairs(PlannerSelections) do
+            total = total + (selection.Count or 0)
+        end
+        return total
+    end
+
+    local function RefreshPlannerSummary()
+        local total = GetPlannerTotal()
+        if PlannerLimitLabel then
+            PlannerLimitLabel.Text = "Placed Animals: " .. tostring(PlannerLimit)
+        end
+        if PlannerTotalLabel then
+            PlannerTotalLabel.Text = "Total Enchants: " .. tostring(total) .. " / " .. tostring(PlannerLimit)
+            PlannerTotalLabel.TextColor3 = total > PlannerLimit and Color3.fromRGB(255, 105, 105) or Theme.Accent
+        end
+    end
+
+    local function MakeAdjustButton(parent, text, position, callback)
+        local button = Create("TextButton", {
+            Parent = parent,
+            Position = position,
+            Size = UDim2.fromOffset(20, 20),
+            BackgroundColor3 = Theme.Selected,
+            Text = text,
+            TextColor3 = Theme.SelectedText,
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            BorderSizePixel = 0,
+            AutoButtonColor = true
+        })
+        AddCorner(button, 4)
+        button.MouseButton1Click:Connect(callback)
+        return button
+    end
+
+    local function BuildPlannerRows()
+        for _, child in ipairs(PlannerRowsFrame:GetChildren()) do
+            if child:IsA("GuiObject") then child:Destroy() end
+        end
+        table.clear(PlannerRows)
+
+        local ids = {}
+        for id in pairs(EnchantDefinitions) do ids[#ids + 1] = id end
+        table.sort(ids, function(a, b) return a:lower() < b:lower() end)
+
+        for order, enchantId in ipairs(ids) do
+            local definition = EnchantDefinitions[enchantId]
+            local tiers = GetTierNumbers(definition)
+            if #tiers > 0 then
+                local selection = PlannerSelections[enchantId]
+                if not selection then
+                    selection = {Tier = tiers[1], Count = 0}
+                    PlannerSelections[enchantId] = selection
+                end
+                if not table.find(tiers, selection.Tier) then selection.Tier = tiers[1] end
+
+                local row = Create("Frame", {
+                    Name = "AutoEnchant_" .. enchantId,
+                    Parent = PlannerRowsFrame,
+                    Position = UDim2.fromOffset(0, (order - 1) * PlannerRowHeight),
+                    Size = UDim2.new(1, 0, 0, PlannerRowHeight - 3),
+                    BackgroundColor3 = Theme.SurfaceInput,
+                    BorderSizePixel = 0,
+                    LayoutOrder = order
+                })
+                AddCorner(row, 5)
+                AddStroke(row, Theme.Border, 1)
+
+                Create("TextLabel", {
+                    Parent = row,
+                    Position = UDim2.fromOffset(8, 0),
+                    Size = UDim2.new(0.29, -8, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = enchantId,
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.GothamSemibold,
+                    TextSize = 8,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd
+                })
+
+                local tierGroup = Create("Frame", {
+                    Parent = row,
+                    Position = UDim2.new(0.30, 0, 0, 0),
+                    Size = UDim2.new(0.32, 0, 1, 0),
+                    BackgroundTransparency = 1
+                })
+                Create("TextLabel", {
+                    Parent = tierGroup,
+                    Position = UDim2.fromOffset(0, 0),
+                    Size = UDim2.fromOffset(30, 20),
+                    BackgroundTransparency = 1,
+                    Text = "Tier",
+                    TextColor3 = Theme.Gray,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 8,
+                    TextXAlignment = Enum.TextXAlignment.Right
+                })
+                local tierValue = Create("TextLabel", {
+                    Parent = tierGroup,
+                    Position = UDim2.fromOffset(57, 0),
+                    Size = UDim2.fromOffset(20, 20),
+                    BackgroundTransparency = 1,
+                    Text = tostring(selection.Tier),
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Center
+                })
+                MakeAdjustButton(tierGroup, "-", UDim2.fromOffset(35, 0), function()
+                    local currentIndex = table.find(tiers, selection.Tier) or 1
+                    selection.Tier = tiers[math.max(1, currentIndex - 1)]
+                    tierValue.Text = tostring(selection.Tier)
+                end)
+                MakeAdjustButton(tierGroup, "+", UDim2.fromOffset(80, 0), function()
+                    local currentIndex = table.find(tiers, selection.Tier) or 1
+                    selection.Tier = tiers[math.min(#tiers, currentIndex + 1)]
+                    tierValue.Text = tostring(selection.Tier)
+                end)
+
+                local countGroup = Create("Frame", {
+                    Parent = row,
+                    Position = UDim2.new(0.64, 0, 0, 0),
+                    Size = UDim2.new(0.36, 0, 1, 0),
+                    BackgroundTransparency = 1
+                })
+                Create("TextLabel", {
+                    Parent = countGroup,
+                    Position = UDim2.fromOffset(0, 0),
+                    Size = UDim2.fromOffset(48, 20),
+                    BackgroundTransparency = 1,
+                    Text = "Enchant",
+                    TextColor3 = Theme.Gray,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 8,
+                    TextXAlignment = Enum.TextXAlignment.Right
+                })
+                local countValue = Create("TextLabel", {
+                    Parent = countGroup,
+                    Position = UDim2.fromOffset(70, 0),
+                    Size = UDim2.fromOffset(20, 20),
+                    BackgroundTransparency = 1,
+                    Text = tostring(selection.Count),
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Center
+                })
+                local function SetCount(nextCount)
+                    local otherTotal = GetPlannerTotal() - selection.Count
+                    local maximum = math.max(0, PlannerLimit - otherTotal)
+                    selection.Count = math.clamp(nextCount, 0, maximum)
+                    countValue.Text = tostring(selection.Count)
+                    RefreshPlannerSummary()
+                end
+                MakeAdjustButton(countGroup, "-", UDim2.fromOffset(52, 0), function()
+                    SetCount(selection.Count - 1)
+                end)
+                MakeAdjustButton(countGroup, "+", UDim2.fromOffset(93, 0), function()
+                    SetCount(selection.Count + 1)
+                end)
+
+                PlannerRows[enchantId] = {Tier = tierValue, Count = countValue}
+            end
+        end
+
+        PlannerRowsFrame.Size = UDim2.new(1, 0, 0, #PlannerRowsFrame:GetChildren() * PlannerRowHeight)
+        AutoEnchantCard.Size = UDim2.new(1, -20, 0, 82 + PlannerRowsFrame.Size.Y.Offset)
+        RefreshPlannerSummary()
+        UpdateEnchantLayout()
+    end
+
+    PlannerLimitLabel = Create("TextLabel", {
+        Name = "PlacedAnimalLimit",
+        Parent = AutoEnchantCard,
+        Position = UDim2.fromOffset(11, 58),
+        Size = UDim2.new(0.5, -11, 0, 16),
+        BackgroundTransparency = 1,
+        Text = "Placed Animals: 0",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    PlannerTotalLabel = Create("TextLabel", {
+        Name = "AutoEnchantTotal",
+        Parent = AutoEnchantCard,
+        Position = UDim2.new(0.5, 0, 0, 58),
+        Size = UDim2.new(0.5, -11, 0, 16),
+        BackgroundTransparency = 1,
+        Text = "Total Enchants: 0 / 0",
+        TextColor3 = Theme.Accent,
+        Font = Enum.Font.GothamBold,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Right
+    })
+    PlannerRowsFrame = Create("Frame", {
+        Name = "AutoEnchantRows",
+        Parent = AutoEnchantCard,
+        Position = UDim2.fromOffset(11, 80),
+        Size = UDim2.new(1, -22, 0, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0
+    })
+    BuildPlannerRows()
+
     local function CollectAnimalEnchantEffects(enchantValue, totals, animalName)
         if type(enchantValue) ~= "string" or enchantValue == "" then
             return
@@ -235,6 +470,7 @@ return function(Context)
     end
 
     local Status, List
+    local AutoEnchantCard
 
     local function UpdateEnchantLayout()
         if not Status or not List or not Status.Parent or not List.Parent then return end
@@ -247,6 +483,10 @@ return function(Context)
         local listY = statusY + 21
         List.Position = UDim2.fromOffset(11, listY)
         EnchantCard.Size = UDim2.new(1, -20, 0, listY + List.Size.Y.Offset + 10)
+
+        if AutoEnchantCard and AutoEnchantCard.Parent then
+            AutoEnchantCard.Position = UDim2.fromOffset(10, EnchantCard.Position.Y.Offset + EnchantCard.Size.Y.Offset + 10)
+        end
     end
     SummaryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateEnchantLayout)
     if DescriptionLabel then
@@ -355,6 +595,21 @@ return function(Context)
         end
 
         Status.Text = tostring(#animals) .. " placed animal" .. (#animals == 1 and "" or "s")
+        PlannerLimit = #animals
+        local remaining = PlannerLimit
+        for _, id in ipairs((function()
+            local keys = {}
+            for key in pairs(PlannerSelections) do keys[#keys + 1] = key end
+            table.sort(keys)
+            return keys
+        end)()) do
+            local selection = PlannerSelections[id]
+            selection.Count = math.min(selection.Count or 0, remaining)
+            remaining = math.max(0, remaining - selection.Count)
+            local rowRefs = PlannerRows[id]
+            if rowRefs and rowRefs.Count then rowRefs.Count.Text = tostring(selection.Count) end
+        end
+        RefreshPlannerSummary()
         UpdateSummary(animals)
 
         local function CreateRow(animalName, enchantValue, cashPerSecond, order)
