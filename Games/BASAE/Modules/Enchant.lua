@@ -495,7 +495,9 @@ return function(Context)
         Summary.Size = UDim2.new(1, -22, 0, summaryHeight)
         local statusY = summaryTop + summaryHeight + 3
         Status.Position = UDim2.fromOffset(11, statusY)
-        local listY = statusY + 21
+        -- The status label is 16px tall; place the animal rows immediately
+        -- beneath it with only a 1px visual separation.
+        local listY = statusY + Status.Size.Y.Offset + 1
         List.Position = UDim2.fromOffset(11, listY)
         EnchantCard.Size = UDim2.new(1, -20, 0, listY + List.Size.Y.Offset + 10)
 
