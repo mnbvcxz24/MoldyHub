@@ -10,7 +10,9 @@ return function(Context)
     EnchantCard.Position = UDim2.fromOffset(10, 10)
     EnchantCard.Size = UDim2.new(1, -20, 0, EnchantCard.Size.Y.Offset)
 
-    -- Find the card description so the summary can sit just beneath its rendered text.
+    -- CreateCard gives the description a 30px-high label, but the text itself
+    -- is a single 9px line. Position the chips just below the rendered line,
+    -- rather than using the full label/TextBounds height (which leaves a large gap).
     local DescriptionLabel
     for _, child in ipairs(EnchantCard:GetChildren()) do
         if child:IsA("TextLabel") and child.Text == "Shows the Enchant attribute for every animal placed on your plot." then
@@ -20,9 +22,8 @@ return function(Context)
     end
 
     local function GetSummaryTop()
-        if not DescriptionLabel then return 62 end
-        local renderedHeight = math.min(DescriptionLabel.Size.Y.Offset, DescriptionLabel.TextBounds.Y)
-        return DescriptionLabel.Position.Y.Offset + renderedHeight
+        if not DescriptionLabel then return 47 end
+        return DescriptionLabel.Position.Y.Offset + 18
     end
 
     -- Aggregate enchant effects from every placed animal and show them directly below the description.
