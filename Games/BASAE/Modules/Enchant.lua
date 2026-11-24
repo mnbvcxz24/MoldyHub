@@ -286,8 +286,9 @@ return function(Context)
 
         -- Keep the rows frame inset from the card's right edge when updating its height.
         -- Do not reset its width to 100%, or it will extend past the card.
-        PlannerRowsFrame.Size = UDim2.new(1, -34, 0, #PlannerRowsFrame:GetChildren() * PlannerRowHeight)
-        AutoEnchantCard.Size = UDim2.new(1, -20, 0, 94 + PlannerRowsFrame.Size.Y.Offset)
+        PlannerRowsFrame.Size = UDim2.new(1, -22, 0, #PlannerRowsFrame:GetChildren() * PlannerRowHeight)
+        EnchantButton.Position = UDim2.fromOffset(11, 92 + PlannerRowsFrame.Size.Y.Offset)
+        AutoEnchantCard.Size = UDim2.new(1, -20, 0, 130 + PlannerRowsFrame.Size.Y.Offset)
         RefreshPlannerSummary()
         -- Layout is refreshed after UpdateEnchantLayout is declared and the animal list exists.
     end
@@ -320,10 +321,25 @@ return function(Context)
         Name = "AutoEnchantRows",
         Parent = AutoEnchantCard,
         Position = UDim2.fromOffset(11, 84),
-        Size = UDim2.new(1, -34, 0, 0),
+        Size = UDim2.new(1, -22, 0, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0
     })
+    EnchantButton = Create("TextButton", {
+        Name = "EnchantButton",
+        Parent = AutoEnchantCard,
+        Position = UDim2.fromOffset(11, 92),
+        Size = UDim2.new(1, -22, 0, 28),
+        BackgroundColor3 = Theme.Accent,
+        Text = "Enchant",
+        TextColor3 = Theme.SelectedText,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Active = false
+    })
+    AddCorner(EnchantButton, 5)
     BuildPlannerRows()
 
     local function CollectAnimalEnchantEffects(enchantValue, totals, animalName)
