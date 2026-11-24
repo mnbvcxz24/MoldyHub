@@ -221,7 +221,7 @@ return function(Context)
                     Name = "AutoEnchant_" .. enchantId,
                     Parent = PlannerRowsFrame,
                     Position = UDim2.fromOffset(0, (order - 1) * PlannerRowHeight),
-                    Size = UDim2.new(1, -12, 0, PlannerRowHeight - 3),
+                    Size = UDim2.new(1, 0, 0, PlannerRowHeight - 3),
                     BackgroundColor3 = Theme.SurfaceInput,
                     BorderSizePixel = 0,
                     ClipsDescendants = true,
@@ -284,7 +284,9 @@ return function(Context)
             end
         end
 
-        PlannerRowsFrame.Size = UDim2.new(1, 0, 0, #PlannerRowsFrame:GetChildren() * PlannerRowHeight)
+        -- Keep the rows frame inset from the card's right edge when updating its height.
+        -- Do not reset its width to 100%, or it will extend past the card.
+        PlannerRowsFrame.Size = UDim2.new(1, -34, 0, #PlannerRowsFrame:GetChildren() * PlannerRowHeight)
         AutoEnchantCard.Size = UDim2.new(1, -20, 0, 94 + PlannerRowsFrame.Size.Y.Offset)
         RefreshPlannerSummary()
         -- Layout is refreshed after UpdateEnchantLayout is declared and the animal list exists.
