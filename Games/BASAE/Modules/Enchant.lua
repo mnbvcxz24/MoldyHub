@@ -317,9 +317,9 @@ return function(Context)
                     Size = UDim2.new(0.40, -35, 0, 14),
                     BackgroundTransparency = 1,
                     Text = "",
-                    TextColor3 = Theme.SubText,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 7,
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.GothamMedium,
+                    TextSize = 8,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     TextTruncate = Enum.TextTruncate.AtEnd
                 })
