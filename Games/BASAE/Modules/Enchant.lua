@@ -286,7 +286,7 @@ return function(Context)
         end
 
         PlannerRowsFrame.Size = UDim2.new(1, 0, 0, #PlannerRowsFrame:GetChildren() * PlannerRowHeight)
-        AutoEnchantCard.Size = UDim2.new(1, -20, 0, 82 + PlannerRowsFrame.Size.Y.Offset)
+        AutoEnchantCard.Size = UDim2.new(1, -20, 0, 94 + PlannerRowsFrame.Size.Y.Offset)
         RefreshPlannerSummary()
         UpdateEnchantLayout()
     end
@@ -294,7 +294,7 @@ return function(Context)
     PlannerLimitLabel = Create("TextLabel", {
         Name = "PlacedAnimalLimit",
         Parent = AutoEnchantCard,
-        Position = UDim2.fromOffset(11, 58),
+        Position = UDim2.fromOffset(11, 62),
         Size = UDim2.new(0.5, -11, 0, 16),
         BackgroundTransparency = 1,
         Text = "Placed Animals: 0",
@@ -306,7 +306,7 @@ return function(Context)
     PlannerTotalLabel = Create("TextLabel", {
         Name = "AutoEnchantTotal",
         Parent = AutoEnchantCard,
-        Position = UDim2.new(0.5, 0, 0, 58),
+        Position = UDim2.new(0.5, 0, 0, 62),
         Size = UDim2.new(0.5, -11, 0, 16),
         BackgroundTransparency = 1,
         Text = "Total Enchants: 0 / 0",
@@ -318,7 +318,7 @@ return function(Context)
     PlannerRowsFrame = Create("Frame", {
         Name = "AutoEnchantRows",
         Parent = AutoEnchantCard,
-        Position = UDim2.fromOffset(11, 80),
+        Position = UDim2.fromOffset(11, 84),
         Size = UDim2.new(1, -22, 0, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0
