@@ -31,7 +31,7 @@ return function(Context)
         Parent = EnchantCard,
         Position = UDim2.fromOffset(11, GetSummaryTop()),
         Size = UDim2.new(1, -22, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
+        AutomaticSize = Enum.AutomaticSize.None,
         BackgroundTransparency = 1,
         BorderSizePixel = 0
     })
@@ -484,8 +484,9 @@ return function(Context)
 
         local summaryTop = GetSummaryTop()
         Summary.Position = UDim2.fromOffset(11, summaryTop)
-        local summaryHeight = math.max(20, SummaryLayout.AbsoluteContentSize.Y)
-        local statusY = summaryTop + summaryHeight + 5
+        local summaryHeight = SummaryLayout.AbsoluteContentSize.Y
+        Summary.Size = UDim2.new(1, -22, 0, summaryHeight)
+        local statusY = summaryTop + summaryHeight + (summaryHeight > 0 and 4 or 0)
         Status.Position = UDim2.fromOffset(11, statusY)
         local listY = statusY + 21
         List.Position = UDim2.fromOffset(11, listY)
@@ -549,6 +550,22 @@ return function(Context)
         return nil
     end
 
+    local function ParseCashPerSecond(value)
+        local cleaned = tostring(value or ""):upper():gsub(",", ""):gsub("%$", ""):gsub("/S", "")
+        local amount, suffix = cleaned:match("([%d%.]+)%s*([A-Z]+)")
+        if not amount then
+            amount = cleaned:match("([%d%.]+)")
+        end
+        local numeric = tonumber(amount)
+        if not numeric then return -1 end
+
+        local multipliers = {
+            K = 1e3, M = 1e6, B = 1e9, T = 1e12,
+            QA = 1e15, QD = 1e18
+        }
+        return numeric * (multipliers[suffix or ""] or 1)
+    end
+
     local function ReadAnimalCPS(animal)
         local rootPart = animal and animal:FindFirstChild("RootPart")
         local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
@@ -572,12 +589,18 @@ return function(Context)
                 table.insert(animals, {
                     Name = animal.Name,
                     Enchant = animal:GetAttribute("Enchant"),
-                    CashPerSecond = ReadAnimalCPS(animal)
+                    CashPerSecond = ReadAnimalCPS(animal),
+                    CashPerSecondValue = ParseCashPerSecond(ReadAnimalCPS(animal))
                 })
             end
         end
 
         table.sort(animals, function(a, b)
+            local aCps = a.CashPerSecondValue or -1
+            local bCps = b.CashPerSecondValue or -1
+            if aCps ~= bCps then
+                return aCps > bCps
+            end
             if a.Name == b.Name then
                 return tostring(a.Enchant or "") < tostring(b.Enchant or "")
             end
