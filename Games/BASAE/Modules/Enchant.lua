@@ -133,6 +133,23 @@ return function(Context)
         return tiers
     end
 
+    local function GetEnchantDescription(definition, tierNumber)
+        if type(definition) ~= "table" then return "" end
+
+        local tierData = GetTierData(definition, tierNumber)
+        local candidates = {
+            tierData and (tierData.Description or tierData.Desc or tierData.Effect or tierData.Info),
+            definition.Description or definition.Desc or definition.Effect or definition.Info
+        }
+
+        for _, value in ipairs(candidates) do
+            if type(value) == "string" and value ~= "" then
+                return value
+            end
+        end
+        return ""
+    end
+
     local function GetPlannerTotal()
         local total = 0
         for _, selection in pairs(PlannerSelections) do
@@ -282,7 +299,7 @@ return function(Context)
                     TextSize = 9,
                     TextXAlignment = Enum.TextXAlignment.Center
                 })
-                Create("TextLabel", {
+                local nameLabel = Create("TextLabel", {
                     Parent = row,
                     Position = UDim2.fromOffset(27, 0),
                     Size = UDim2.new(0.40, -35, 1, 0),
@@ -294,6 +311,14 @@ return function(Context)
                     TextXAlignment = Enum.TextXAlignment.Left,
                     TextTruncate = Enum.TextTruncate.AtEnd
                 })
+                local function RefreshEnchantName()
+                    local description = GetEnchantDescription(definition, selection.Tier)
+                    local enchantName = tostring(definition.Name or enchantId)
+                    nameLabel.Text = description ~= ""
+                        and (enchantName .. " (" .. description .. ")")
+                        or enchantName
+                end
+                RefreshEnchantName()
 
                 local tierGroup = Create("Frame", {
                     Parent = row,
@@ -306,10 +331,12 @@ return function(Context)
                     local currentIndex = table.find(tiers, selection.Tier) or 1
                     selection.Tier = tiers[math.max(1, currentIndex - 1)]
                     tierValue.Text = tostring(selection.Tier)
+                    RefreshEnchantName()
                 end, function()
                     local currentIndex = table.find(tiers, selection.Tier) or 1
                     selection.Tier = tiers[math.min(#tiers, currentIndex + 1)]
                     tierValue.Text = tostring(selection.Tier)
+                    RefreshEnchantName()
                 end)
 
                 local countGroup = Create("Frame", {
