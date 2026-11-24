@@ -1364,7 +1364,7 @@ return function(Context)
         end
 
         local rows = math.ceil(#miscCards / columns)
-        MiscCardsLayout.Size = UDim2.new(1, 0, 0, rows * cardHeight + (rows - 1) * verticalGap)
+        MiscCardsLayout.Size = UDim2.new(1, -20, 0, rows * cardHeight + (rows - 1) * verticalGap)
     end
 
     MiscCardsLayout:GetPropertyChangedSignal("AbsoluteSize"):Connect(RefreshMiscCardLayout)
