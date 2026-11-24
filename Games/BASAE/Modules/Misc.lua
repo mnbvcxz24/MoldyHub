@@ -1332,7 +1332,11 @@ return function(Context)
     end
 
     local function RefreshMiscCardLayout()
-        local availableWidth = MiscCardsLayout.AbsoluteSize.X
+        -- AbsoluteSize includes the parent UIScale, while card offsets and
+        -- widths are expressed in the unscaled local coordinate space.
+        -- Convert back before calculating columns to prevent overflow at 150%/200%.
+        local interfaceScale = math.max(UIScale and UIScale.Scale or 1, 0.01)
+        local availableWidth = MiscCardsLayout.AbsoluteSize.X / interfaceScale
         if availableWidth <= 0 then return end
 
         local horizontalGap = 10
