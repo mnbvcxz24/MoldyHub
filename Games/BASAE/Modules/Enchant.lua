@@ -89,7 +89,6 @@ return function(Context)
             ids[#ids + 1] = id
         end
         table.sort(ids)
-        print("[BASAE Enchant] Loaded", #ids, "enchant definitions:", table.concat(ids, ", "))
         return definitions
     end
 
@@ -480,11 +479,9 @@ return function(Context)
             local tierData = GetTierData(definition, entry.Tier)
 
             if type(tierData) == "table" then
-                print("[BASAE Enchant] Matched", animalName, entry.Id .. ":" .. entry.Tier)
                 for effectName, effectValue in pairs(tierData) do
                     if effectName ~= "Chance" and type(effectValue) == "number" then
                         totals[tostring(effectName)] = (totals[tostring(effectName)] or 0) + effectValue
-                        print("[BASAE Enchant] Added effect:", effectName, effectValue, "from", animalName)
                     end
                 end
             else
@@ -508,7 +505,6 @@ return function(Context)
         end
 
         local totals = {}
-        print("[BASAE Enchant] Recalculating totals for", #animals, "placed animals")
         for _, animal in ipairs(animals) do
             -- Animals without enchant data do not contribute to the effect totals.
             local enchantValue = animal.Enchant
@@ -801,8 +797,8 @@ return function(Context)
                             end
 
                             if IsBusyEnchantResult(result) then
-                                PlannerStatusLabel.Text = "Server busy — retrying in 1 second..."
-                                task.wait(1)
+                                PlannerStatusLabel.Text = "Server busy — retrying in 0.5 seconds..."
+                                task.wait(0.5)
                             elseif type(result) ~= "table" or result.Ok ~= true then
                                 PlannerStatusLabel.Text = "Server rejected roll for " .. animal.Name
                                 stopped = true
@@ -815,7 +811,7 @@ return function(Context)
                                     completed = completed + 1
                                     totalCompleted = totalCompleted + 1
                                 else
-                                    task.wait(1)
+                                    task.wait(0.5)
                                 end
                             end
                         end
