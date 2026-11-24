@@ -331,7 +331,7 @@ return function(Context)
         Parent = AutoEnchantCard,
         Position = UDim2.fromOffset(11, 92),
         Size = UDim2.new(1, -22, 0, 28),
-        BackgroundColor3 = Theme.Accent,
+        BackgroundColor3 = Theme.Selected,
         Text = "Enchant",
         TextColor3 = Theme.SelectedText,
         Font = Enum.Font.GothamBold,
