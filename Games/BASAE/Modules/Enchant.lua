@@ -103,6 +103,7 @@ return function(Context)
     local PlannerTotalLabel
     local PlannerLimitLabel
     local PlannerRowsFrame
+    local EnchantButton
     local PlannerRowHeight = 38
 
     local function GetTierData(definition, requestedTier)
