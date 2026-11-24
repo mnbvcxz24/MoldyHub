@@ -1305,17 +1305,17 @@ return function(Context)
     AnimalAutomationRow:Destroy()
 
     local function FitMiscCardText(card, cardWidth)
-        local titleFound = false
         for _, child in ipairs(card:GetChildren()) do
             if child:IsA("TextLabel") then
-                if not titleFound and child.Position.Y.Offset == 8 then
-                    titleFound = true
+                if child.Position.Y.Offset == 8 then
+                    -- Reserve room for the toggle while keeping long titles clipped
+                    -- inside the card instead of drawing beneath the control.
                     child.Size = UDim2.new(1, -78, 0, 22)
                     child.TextWrapped = false
                     child.TextTruncate = Enum.TextTruncate.AtEnd
                 elseif child.Position.Y.Offset == 29 then
                     child.Position = UDim2.fromOffset(11, 29)
-                    child.Size = UDim2.new(1, -22, 0, 18)
+                    child.Size = UDim2.new(1, -22, 0, 30)
                     child.TextWrapped = true
                     child.TextTruncate = Enum.TextTruncate.AtEnd
                     child.TextYAlignment = Enum.TextYAlignment.Top
@@ -1328,13 +1328,13 @@ return function(Context)
         local availableWidth = MiscCardsLayout.AbsoluteSize.X
         if availableWidth <= 0 then return end
 
-        local columns = 3
+        -- Switch to fewer columns as the scaled page gets narrower. This keeps
+        -- each card wide enough for its title, toggle, and wrapped description.
+        local columns = availableWidth >= 660 and 3 or (availableWidth >= 360 and 2 or 1)
         local horizontalGap = 10
         local verticalGap = 10
         local cardWidth = math.floor((availableWidth - horizontalGap * (columns - 1)) / columns)
 
-        -- Preserve equal-sized cards in the three-column grid while sizing
-        -- each row to the tallest card's actual content.
         for _, card in ipairs(miscCards) do
             card.Size = UDim2.fromOffset(cardWidth, 76)
             FitMiscCardText(card, cardWidth)
@@ -1352,7 +1352,7 @@ return function(Context)
         end
 
         local rows = math.ceil(#miscCards / columns)
-        MiscCardsLayout.Size = UDim2.new(1, -20, 0, rows * cardHeight + (rows - 1) * verticalGap)
+        MiscCardsLayout.Size = UDim2.new(1, 0, 0, rows * cardHeight + (rows - 1) * verticalGap)
     end
 
     MiscCardsLayout:GetPropertyChangedSignal("AbsoluteSize"):Connect(RefreshMiscCardLayout)
