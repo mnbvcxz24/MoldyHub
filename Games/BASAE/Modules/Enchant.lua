@@ -275,9 +275,9 @@ return function(Context)
                 local priorityLabel = Create("TextLabel", {
                     Parent = row,
                     Position = UDim2.fromOffset(8, 0),
-                    Size = UDim2.fromOffset(16, 1),
+                    Size = UDim2.new(0, 16, 1, 0),
                     BackgroundTransparency = 1,
-                    Text = selection.Count > 0 and "" or "",
+                    Text = "",
                     TextColor3 = Theme.Accent,
                     Font = Enum.Font.GothamBold,
                     TextSize = 9,
