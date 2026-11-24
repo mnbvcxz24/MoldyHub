@@ -24,7 +24,7 @@ return function(Context)
     local RowHeight = 34
     local ColumnGap = 8
     local ThemeRowCount = math.ceil(#ThemeOptions / 2)
-    ThemeCard.Size = UDim2.new(1, 0, 0, 48 + (ThemeRowCount * RowHeight) + 8)
+    ThemeCard.Size = UDim2.new(1, -20, 0, 64 + ((ThemeRowCount - 1) * RowHeight) + 30 + 10)
     
     for i, themeName in ipairs(ThemeOptions) do
         local palette = ThemePresets[themeName]
@@ -35,7 +35,7 @@ return function(Context)
         local Row = Create("TextButton", {
             Name = "ThemeOption_" .. tostring(i),
             Parent = ThemeCard,
-            Position = UDim2.new(rowXScale, column == 1 and 10 or 4, 0, 42 + ((rowIndex - 1) * RowHeight)),
+            Position = UDim2.new(rowXScale, column == 1 and 10 or 4, 0, 64 + ((rowIndex - 1) * RowHeight)),
             Size = UDim2.new(0.5, column == 1 and -14 or -14, 0, 30),
             BackgroundColor3 = Theme.SurfaceInput,
             BorderSizePixel = 0,
