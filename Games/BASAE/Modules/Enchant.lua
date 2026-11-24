@@ -67,8 +67,8 @@ return function(Context)
             if type(value) ~= "table" or visited[value] then return end
             visited[value] = true
 
-            -- Only include animal enchants in the Auto Enchant planner and effect lookup.
-            if value.Kind == "Animals" and value.Id ~= nil and type(value.Tiers) == "table" then
+            -- Animal enchant definitions use Enchants for their tier data.
+            if value.Kind == "Animals" and value.Id ~= nil and type(value.Enchants) == "table" then
                 definitions[tostring(value.Id)] = value
             end
 
@@ -107,12 +107,37 @@ return function(Context)
     local PlannerRowsFrame
     local PlannerRowHeight = 38
 
+    local function GetTierData(definition, requestedTier)
+        local enchants = definition and definition.Enchants
+        if type(enchants) ~= "table" then return nil end
+
+        for tierKey, tierValue in pairs(enchants) do
+            local tierNumber = tonumber(tierKey)
+            if type(tierValue) == "table" then
+                tierNumber = tonumber(tierValue.Tier or tierValue.Level) or tierNumber
+            end
+            if tierNumber and math.floor(tierNumber) == requestedTier then
+                return tierValue
+            end
+        end
+        return nil
+    end
+
     local function GetTierNumbers(definition)
         local tiers = {}
-        for tierKey in pairs(type(definition.Tiers) == "table" and definition.Tiers or {}) do
+        local seen = {}
+        local enchants = definition and definition.Enchants
+        for tierKey, tierValue in pairs(type(enchants) == "table" and enchants or {}) do
             local tierNumber = tonumber(tierKey)
+            if type(tierValue) == "table" then
+                tierNumber = tonumber(tierValue.Tier or tierValue.Level) or tierNumber
+            end
             if tierNumber then
-                tiers[#tiers + 1] = math.floor(tierNumber)
+                tierNumber = math.floor(tierNumber)
+                if not seen[tierNumber] then
+                    seen[tierNumber] = true
+                    tiers[#tiers + 1] = tierNumber
+                end
             end
         end
         table.sort(tiers)
@@ -195,7 +220,7 @@ return function(Context)
                     Position = UDim2.fromOffset(8, 0),
                     Size = UDim2.new(0.27, -16, 1, 0),
                     BackgroundTransparency = 1,
-                    Text = enchantId,
+                    Text = tostring(definition.Name or enchantId),
                     TextColor3 = Theme.Text,
                     Font = Enum.Font.GothamSemibold,
                     TextSize = 8,
@@ -385,17 +410,7 @@ return function(Context)
 
         for _, entry in ipairs(entries) do
             local definition = EnchantDefinitions[entry.Id]
-            local tierData = definition and definition.Tiers and definition.Tiers[entry.Tier]
-
-            -- Tier tables may use numeric or string keys depending on the config.
-            if not tierData and definition and type(definition.Tiers) == "table" then
-                for tierKey, candidate in pairs(definition.Tiers) do
-                    if tonumber(tierKey) == entry.Tier then
-                        tierData = candidate
-                        break
-                    end
-                end
-            end
+            local tierData = GetTierData(definition, entry.Tier)
 
             if type(tierData) == "table" then
                 print("[BASAE Enchant] Matched", animalName, entry.Id .. ":" .. entry.Tier)
