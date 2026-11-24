@@ -95,6 +95,7 @@ return function(Context)
     AutoEnchantCard.Parent = Page
     AutoEnchantCard.Position = UDim2.fromOffset(10, EnchantCard.Position.Y.Offset + EnchantCard.Size.Y.Offset + 10)
     AutoEnchantCard.Size = UDim2.new(1, -20, 0, 100)
+    AutoEnchantCard.ClipsDescendants = true
 
     local PlannerLimit = 0
     local PlannerSelections = {}
@@ -220,7 +221,7 @@ return function(Context)
                     Name = "AutoEnchant_" .. enchantId,
                     Parent = PlannerRowsFrame,
                     Position = UDim2.fromOffset(0, (order - 1) * PlannerRowHeight),
-                    Size = UDim2.new(1, 0, 0, PlannerRowHeight - 3),
+                    Size = UDim2.new(1, -12, 0, PlannerRowHeight - 3),
                     BackgroundColor3 = Theme.SurfaceInput,
                     BorderSizePixel = 0,
                     ClipsDescendants = true,
@@ -317,7 +318,7 @@ return function(Context)
         Name = "AutoEnchantRows",
         Parent = AutoEnchantCard,
         Position = UDim2.fromOffset(11, 84),
-        Size = UDim2.new(1, -22, 0, 0),
+        Size = UDim2.new(1, -34, 0, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0
     })
