@@ -4197,7 +4197,8 @@ return function(Context)
                     or (not ReturningAfterPickup and not PickupRequested) then return end
                 local character = LocalPlayer.Character
                 local root = character and character:FindFirstChild("HumanoidRootPart")
-                if root and (root.Position - BaseReturnPosition).Magnitude <= 10 then
+                local basePosition = GetSafeZonePosition()
+                if root and basePosition and (root.Position - basePosition).Magnitude <= 10 then
                     SetTrackerStatus("CarriedAnimal disappeared near base; treating it as a normal bank instead of recovery.")
                     return
                 end
