@@ -37,7 +37,7 @@ return function(Context)
         return nil
     end
 
-    local function ValidateConfig(decoded)
+    function ValidateConfigData(decoded)
         if type(decoded) ~= "table" or decoded.Version ~= 1 then
             return nil, "Unsupported or invalid config version"
         end
@@ -71,7 +71,7 @@ return function(Context)
             return game:GetService("HttpService"):JSONDecode(contents)
         end)
         if not ok then return nil end
-        return ValidateConfig(decoded)
+        return ValidateConfigData(decoded)
     end
 
     if type(readfile) == "function" then
