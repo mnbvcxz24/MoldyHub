@@ -3310,7 +3310,8 @@ return function(Context)
         if not prompt or not prompt:IsA("ProximityPrompt") then
             SetPickupPhase("ACTIVATING", pickup.Name .. " | no matching prompt; trying the 0.5s E-key fallback.")
             SetTrackerStatus("No matching StealPrompt for " .. pickup.Name .. "; trying E for 0.5 seconds.")
-            local carriedAnimalBeforeFallback = CarriedAnimalWatch.model
+            local carriedFolderBeforeFallback = workspace:FindFirstChild("CarriedAnimals")
+            local carriedAnimalBeforeFallback = carriedFolderBeforeFallback and carriedFolderBeforeFallback:FindFirstChild("CarriedAnimal")
             local fallbackKeyDown = false
             local fallbackOk, fallbackErr = pcall(function()
                 local virtualInput = game:GetService("VirtualInputManager")
@@ -3331,7 +3332,9 @@ return function(Context)
             local fallbackConfirmDeadline = os.clock() + 0.5
             local fallbackConfirmed = false
             repeat
-                if not pickup.Parent or (CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBeforeFallback) then
+                local carriedFolderNow = workspace:FindFirstChild("CarriedAnimals")
+                local carriedAnimalNow = carriedFolderNow and carriedFolderNow:FindFirstChild("CarriedAnimal")
+                if carriedAnimalNow and carriedAnimalNow ~= carriedAnimalBeforeFallback then
                     fallbackConfirmed = true
                     break
                 end
@@ -3422,14 +3425,16 @@ return function(Context)
                 return
             end
             local pickupConfirmed = false
-            local carriedAnimalBefore = CarriedAnimalWatch.model
+            local carriedFolderBefore = workspace:FindFirstChild("CarriedAnimals")
+            local carriedAnimalBefore = carriedFolderBefore and carriedFolderBefore:FindFirstChild("CarriedAnimal")
             local activationErrors = {}
             local activationDeadline = os.clock() + 6
             local activationAttempt = 0
             while not pickupConfirmed and os.clock() < activationDeadline do
                 if PickupGeneration ~= pickupToken or not PickupRequested or not AutoPickupEnabled then return end
-                if not pickup.Parent then pickupConfirmed = true; break end
-                if CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
+                local carriedFolderNow = workspace:FindFirstChild("CarriedAnimals")
+                local carriedAnimalNow = carriedFolderNow and carriedFolderNow:FindFirstChild("CarriedAnimal")
+                if carriedAnimalNow and carriedAnimalNow ~= carriedAnimalBefore then
                     pickupConfirmed = true
                     SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
                     break
@@ -3455,7 +3460,9 @@ return function(Context)
                     end
                     local fallbackDeadline = os.clock() + 0.5
                     repeat
-                        if not pickup.Parent or (CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore) then
+                        local carriedFolderNow = workspace:FindFirstChild("CarriedAnimals")
+                        local carriedAnimalNow = carriedFolderNow and carriedFolderNow:FindFirstChild("CarriedAnimal")
+                        if carriedAnimalNow and carriedAnimalNow ~= carriedAnimalBefore then
                             pickupConfirmed = true
                             break
                         end
@@ -3467,8 +3474,9 @@ return function(Context)
                     local function checkPickupConfirmation(timeout)
                         local deadline = os.clock() + timeout
                         repeat
-                            if not pickup.Parent then return true end
-                            if CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
+                            local carriedFolderNow = workspace:FindFirstChild("CarriedAnimals")
+                            local carriedAnimalNow = carriedFolderNow and carriedFolderNow:FindFirstChild("CarriedAnimal")
+                            if carriedAnimalNow and carriedAnimalNow ~= carriedAnimalBefore then
                                 SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
                                 return true
                             end
@@ -4077,6 +4085,8 @@ return function(Context)
                 finishFlingRecovery()
                 return
             end
+            local carriedFolderBeforeRecovery = workspace:FindFirstChild("CarriedAnimals")
+            local carriedAnimalBeforeRecovery = carriedFolderBeforeRecovery and carriedFolderBeforeRecovery:FindFirstChild("CarriedAnimal")
             local ok, err = pcall(function()
                 if typeof(fireproximityprompt) == "function" then
                     fireproximityprompt(prompt)
@@ -4102,16 +4112,11 @@ return function(Context)
             local confirmed = false
             local confirmDeadline = os.clock() + 4
             while not Runtime.Stopped and os.clock() < confirmDeadline and PickupGeneration == flingToken and PickupRequested do
-                local folder = workspace:FindFirstChild("AnimalPickups")
-                local targetStillExists = false
-                if folder then
-                    for _, animal in ipairs(folder:GetChildren()) do
-                        if animal.Name == targetAnimalName then
-                            targetStillExists = true
-                            break
-                        end
-                    end
-                    if not targetStillExists then confirmed = true; break end
+                local carriedFolderNow = workspace:FindFirstChild("CarriedAnimals")
+                local carriedAnimalNow = carriedFolderNow and carriedFolderNow:FindFirstChild("CarriedAnimal")
+                if carriedAnimalNow and carriedAnimalNow ~= carriedAnimalBeforeRecovery then
+                    confirmed = true
+                    break
                 end
                 task.wait(0.1)
             end
