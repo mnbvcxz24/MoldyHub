@@ -3236,10 +3236,6 @@ return function(Context)
             if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
             return
         end
-        SetPickupPhase("PROMPT_SEARCH", string.format("%s | animal reached (%.1f studs); matching PromptAnchor > StealPrompt > ProximityPrompt.ObjectText.", pickup.Name, verifiedAnimalDistance))
-        local prompt
-        local promptState = "No PromptAnchor/StealPrompt/ProximityPrompt matched the target name + KG"
-        local promptDeadline = os.clock() + 5
         local targetWeightKg = GetPickupWeightKg(pickup)
         local function normalizePromptIdentity(value)
             return tostring(value or ""):lower():gsub("[%s%p_]+", "")
@@ -3247,16 +3243,12 @@ return function(Context)
         local normalizedTargetName = normalizePromptIdentity(pickup.Name)
         local function promptMatchesPickup(candidate)
             if not candidate or not candidate:IsA("ProximityPrompt") then return false, "invalid ProximityPrompt" end
-
-            -- The actual hierarchy is Workspace > PromptAnchor > StealPrompt > ProximityPrompt.
-            -- Match the innermost ProximityPrompt's ObjectText by animal name + KG.
             local objectText = tostring(candidate.ObjectText or "")
             local visibleObjectText = objectText:gsub("<[^>]->", "")
             local normalizedObjectText = normalizePromptIdentity(visibleObjectText)
             if normalizedTargetName == "" or not normalizedObjectText:find(normalizedTargetName, 1, true) then
                 return false, "ObjectText name mismatch: " .. visibleObjectText
             end
-
             local weightText = visibleObjectText:match("([%d,%.]+)%s*[Kk][Gg]")
             local promptWeightKg = weightText and ParseWeightKg(weightText .. "Kg") or nil
             if not targetWeightKg or not promptWeightKg then
@@ -3268,11 +3260,11 @@ return function(Context)
             end
             return true
         end
+        local prompt
+        local promptState = "No matching ProximityPrompt found"
         local function findMatchingPickupPrompt()
             local totalPromptAnchors = 0
             local totalStealPromptContainers = 0
-            -- StealPrompt itself is the ProximityPrompt under PromptAnchor.
-            -- No extra child lookup, prompt-distance check, or Enabled filtering.
             for _, anchor in ipairs(workspace:GetDescendants()) do
                 if anchor.Name == "PromptAnchor" then
                     totalPromptAnchors += 1
@@ -3300,6 +3292,51 @@ return function(Context)
             )
             return nil
         end
+
+        -- Primary pickup method: press E first, without waiting for or requiring a prompt lookup.
+        SetPickupPhase("ACTIVATING", pickup.Name .. " | trying E-key pickup first.")
+        SetTrackerStatus("Trying E-key pickup first for " .. pickup.Name .. ".")
+        local carriedAnimalBeforeE = CarriedAnimalWatch.model
+        local eKeyDown = false
+        local eKeyOk, eKeyErr = pcall(function()
+            local virtualInput = game:GetService("VirtualInputManager")
+            virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            eKeyDown = true
+            task.wait(0.5)
+            virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+            eKeyDown = false
+        end)
+        if eKeyDown then
+            pcall(function()
+                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+            end)
+        end
+        if not eKeyOk then
+            warn("[BASAE AutoPickup] E-key primary attempt failed for " .. tostring(pickup.Name) .. ": " .. tostring(eKeyErr))
+        end
+        local eConfirmDeadline = os.clock() + 1
+        local eConfirmed = false
+        repeat
+            if not pickup.Parent or (CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBeforeE) then
+                eConfirmed = true
+                break
+            end
+            if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested or not AutoPickupEnabled then break end
+            task.wait(0.05)
+        until os.clock() >= eConfirmDeadline
+        if eConfirmed then
+            SetPickupTracking(pickup, "Collected", cpsText)
+            SetPickupPhase("CONFIRMED", "Collected " .. pickup.Name .. " using the primary E-key attempt; returning to base.")
+            ActivePickup = nil
+            ActivePickupCPS = -1
+            ReturnToPickup("Pickup confirmed by the primary E-key attempt. Returning straight to base.")
+            return
+        end
+        if PickupGeneration ~= pickupToken then return end
+
+        -- Fallback: locate the exact animal name + KG ProximityPrompt and activate it.
+        SetPickupPhase("PROMPT_SEARCH", pickup.Name .. " | E-key did not confirm; searching matching StealPrompt.")
+        local promptDeadline = os.clock() + 5
         repeat
             if PickupGeneration ~= pickupToken then return end
             prompt = findMatchingPickupPrompt()
@@ -3308,51 +3345,12 @@ return function(Context)
         until os.clock() >= promptDeadline
         if PickupGeneration ~= pickupToken then return end
         if not prompt or not prompt:IsA("ProximityPrompt") then
-            SetPickupPhase("ACTIVATING", pickup.Name .. " | no matching prompt; trying the 0.5s E-key fallback.")
-            SetTrackerStatus("No matching StealPrompt for " .. pickup.Name .. "; trying E for 0.5 seconds.")
-            local carriedAnimalBeforeFallback = CarriedAnimalWatch.model
-            local fallbackKeyDown = false
-            local fallbackOk, fallbackErr = pcall(function()
-                local virtualInput = game:GetService("VirtualInputManager")
-                virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                fallbackKeyDown = true
-                task.wait(0.5)
-                virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                fallbackKeyDown = false
-            end)
-            if fallbackKeyDown then
-                pcall(function()
-                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                end)
-            end
-            if not fallbackOk then
-                warn("[BASAE AutoPickup] E-key fallback failed for " .. tostring(pickup.Name) .. ": " .. tostring(fallbackErr))
-            end
-            local fallbackConfirmDeadline = os.clock() + 1
-            local fallbackConfirmed = false
-            repeat
-                if not pickup.Parent or (CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBeforeFallback) then
-                    fallbackConfirmed = true
-                    break
-                end
-                if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested or not AutoPickupEnabled then break end
-                task.wait(0.05)
-            until os.clock() >= fallbackConfirmDeadline
-            if fallbackConfirmed then
-                SetPickupTracking(pickup, "Collected", cpsText)
-                SetPickupPhase("CONFIRMED", "Collected " .. pickup.Name .. " using the 0.5s E-key fallback; returning to base.")
-                ActivePickup = nil
-                ActivePickupCPS = -1
-                ReturnToPickup("Pickup confirmed by the E-key fallback. Returning straight to base.")
-                return
-            end
-            if PickupGeneration ~= pickupToken then return end
             PickupRequested = false
             ActivePickup = nil
             ActivePickupCPS = -1
-            SetTrackerStatus("E-key fallback did not confirm pickup for " .. pickup.Name .. ": " .. promptState
-                .. (fallbackOk and "" or (" | " .. tostring(fallbackErr))))
-            warn("[BASAE AutoPickup] Prompt lookup and E-key fallback failed for " .. tostring(pickup.Name) .. ".")
+            SetTrackerStatus("E-key did not confirm pickup and no matching StealPrompt was found for "
+                .. pickup.Name .. ": " .. promptState)
+            warn("[BASAE AutoPickup] E-key and ProximityPrompt lookup failed for " .. tostring(pickup.Name) .. ".")
             task.delay(2, function()
                 if pickup.Parent and AutoPickupEnabled then PickupMonitorSeen[pickup] = nil end
             end)
@@ -3434,96 +3432,65 @@ return function(Context)
                     SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
                     break
                 end
-                if not prompt.Parent then
-                    activationAttempt += 1
-                    local fallbackKeyDown = false
-                    local keyOk, keyErr = pcall(function()
-                        local virtualInput = game:GetService("VirtualInputManager")
-                        virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                        fallbackKeyDown = true
-                        task.wait(0.5)
-                        virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                        fallbackKeyDown = false
-                    end)
-                    if fallbackKeyDown then
-                        pcall(function()
-                            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                        end)
-                    end
-                    if not keyOk then
-                        table.insert(activationErrors, "E-key fallback without prompt: " .. tostring(keyErr))
-                    end
-                    local fallbackDeadline = os.clock() + 0.5
-                    repeat
-                        if not pickup.Parent or (CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore) then
-                            pickupConfirmed = true
-                            break
+
+                if not prompt or not prompt.Parent then
+                    prompt = findMatchingPickupPrompt()
+                    if not prompt then
+                        activationAttempt += 1
+                        if activationAttempt == 1 or activationAttempt % 3 == 0 then
+                            SetTrackerStatus("E-key failed; waiting for matching ProximityPrompt for " .. pickup.Name .. ".")
                         end
-                        if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested then break end
-                        task.wait(0.05)
-                    until os.clock() >= fallbackDeadline
-                else
-                    activationAttempt += 1
-                    local function checkPickupConfirmation(timeout)
-                        local deadline = os.clock() + timeout
-                        repeat
-                            if not pickup.Parent then return true end
-                            if CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
-                                SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
-                                return true
+                        task.wait(0.2)
+                    end
+                end
+
+                if prompt and prompt.Parent then
+                    local identityStillMatches, identityFailure = promptMatchesPickup(prompt)
+                    if not identityStillMatches then
+                        table.insert(activationErrors, "Prompt identity changed: " .. tostring(identityFailure))
+                        prompt = nil
+                    else
+                        activationAttempt += 1
+                        local function checkPickupConfirmation(timeout)
+                            local deadline = os.clock() + timeout
+                            repeat
+                                if not pickup.Parent then return true end
+                                if CarriedAnimalWatch.model and CarriedAnimalWatch.model ~= carriedAnimalBefore then
+                                    SetTrackerStatus("Pickup confirmed: CarriedAnimals now tracks a new carried animal for " .. pickup.Name .. ".")
+                                    return true
+                                end
+                                if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested then return false end
+                                task.wait(0.05)
+                            until os.clock() >= deadline
+                            return false
+                        end
+
+                        -- ProximityPrompt is strictly the fallback after the E-key attempt.
+                        if typeof(fireproximityprompt) == "function" then
+                            local fireOk, fireErr = pcall(function() fireproximityprompt(prompt) end)
+                            if not fireOk then
+                                table.insert(activationErrors, "fireproximityprompt: " .. tostring(fireErr))
+                            elseif checkPickupConfirmation(0.35) then
+                                pickupConfirmed = true
                             end
-                            if Runtime.Stopped or PickupGeneration ~= pickupToken or not PickupRequested then return false end
-                            task.wait(0.05)
-                        until os.clock() >= deadline
-                        return false
-                    end
-                    -- Activate the prompt found by animal name + KG only.
-                    if typeof(fireproximityprompt) == "function" then
-                        local fireOk, fireErr = pcall(function() fireproximityprompt(prompt) end)
-                        if not fireOk then
-                            table.insert(activationErrors, "fireproximityprompt: " .. tostring(fireErr))
-                        elseif checkPickupConfirmation(0.35) then
-                            pickupConfirmed = true
                         end
-                    end
-                    if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
-                        and pickup.Parent and prompt.Parent then
-                        local holdOk, holdErr = pcall(function()
-                            prompt:InputHoldBegin()
-                            task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
-                            prompt:InputHoldEnd()
-                        end)
-                        if not holdOk then
-                            table.insert(activationErrors, "InputHold: " .. tostring(holdErr))
-                            pcall(function() prompt:InputHoldEnd() end)
-                        elseif checkPickupConfirmation(0.4) then
-                            pickupConfirmed = true
-                        end
-                    end
-                    if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
-                        and pickup.Parent and prompt.Parent then
-                        local keyOk, keyErr = pcall(function()
-                            local virtualInput = game:GetService("VirtualInputManager")
-                            virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                            task.wait(0.5)
-                            virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                        end)
-                        if not keyOk then
-                            table.insert(activationErrors, "Keyboard prompt input: " .. tostring(keyErr))
-                            pcall(function()
-                                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                        if not pickupConfirmed and PickupGeneration == pickupToken and PickupRequested
+                            and pickup.Parent and prompt.Parent then
+                            local holdOk, holdErr = pcall(function()
+                                prompt:InputHoldBegin()
+                                task.wait(math.max(0.1, prompt.HoldDuration + 0.15))
+                                prompt:InputHoldEnd()
                             end)
-                        elseif checkPickupConfirmation(0.5) then
-                            pickupConfirmed = true
+                            if not holdOk then
+                                table.insert(activationErrors, "InputHold: " .. tostring(holdErr))
+                                pcall(function() prompt:InputHoldEnd() end)
+                            elseif checkPickupConfirmation(0.4) then
+                                pickupConfirmed = true
+                            end
                         end
-                    end
-                    if not pickupConfirmed and (activationAttempt == 1 or activationAttempt % 3 == 0) then
-                        SetTrackerStatus("StealPrompt received activation attempts but game has not confirmed " .. pickup.Name
-                            .. "; retry " .. tostring(activationAttempt) .. ".")
                     end
                 end
                 if not pickupConfirmed then task.wait(0.2) end
-
             end
             if PickupGeneration ~= pickupToken then return end
             if not pickupConfirmed then
