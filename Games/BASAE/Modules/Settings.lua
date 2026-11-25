@@ -285,7 +285,8 @@ return function(Context)
         Position = UDim2.fromOffset(11, 125),
         Size = UDim2.new(1, -22, 0, 14),
         BackgroundTransparency = 1,
-        Text = ConfigStorageAvailable and (ActiveConfigName and ("Status: Active config - " .. ActiveConfigName) or "Status: Default config") or "Status: Executor file API unavailable",
+        Text = ConfigLoadError and ("Status: " .. ConfigLoadError)
+            or (ConfigStorageAvailable and (ActiveConfigName and ("Status: Active config - " .. ActiveConfigName) or "Status: Default config") or "Status: Executor file API unavailable"),
         TextColor3 = ConfigStorageAvailable and Theme.Gray or Color3.fromRGB(235, 120, 100),
         Font = Enum.Font.Gotham,
         TextSize = 9,
@@ -427,7 +428,9 @@ return function(Context)
             local payload = readfile(configPath)
             if type(payload) ~= "string" or payload == "" then error("Config file not found or empty") end
             local decoded = game:GetService("HttpService"):JSONDecode(payload)
-            if type(decoded) ~= "table" or decoded.Version ~= 1 then error("Invalid config file") end
+            local validated, validationError = ValidateConfigData(decoded)
+            if not validated then error(validationError or "Invalid config file") end
+            decoded = validated
             writefile(ActiveConfigPath, SelectedConfigName)
             local activePayload = readfile(ActiveConfigPath)
             if tostring(activePayload or ""):gsub("^%s+", ""):gsub("%s+$", "") ~= SelectedConfigName then
