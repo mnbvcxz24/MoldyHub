@@ -1010,7 +1010,7 @@ return function(Context)
     PickaxeEnchantCard = CreateCard(Page, "Auto Enchant (Pickaxes)", "Choose one pickaxe enchant and its enchant tier. Only owned pickaxe tiers are listed.")
     PickaxeEnchantCard.Parent = Page
     PickaxeEnchantCard.Position = UDim2.fromOffset(10, AutoEnchantCard.Position.Y.Offset + AutoEnchantCard.Size.Y.Offset + 10)
-    PickaxeEnchantCard.Size = UDim2.new(1, -20, 0, 176)
+    PickaxeEnchantCard.Size = UDim2.new(1, -20, 0, 212)
     PickaxeEnchantCard.ClipsDescendants = false
 
     local PickaxeSelectedEnchant, PickaxeSelectedEnchantTier, PickaxeSelectedToolTier
@@ -1027,9 +1027,7 @@ return function(Context)
         if scrolling then
             for _, tierFrame in ipairs(scrolling:GetChildren()) do
                 local number = tierFrame.Name:match("^Tier(%d+)$")
-                local container = tierFrame:FindFirstChild("Container")
-                local equip = container and container:FindFirstChild("Equip")
-                if number and equip and equip.Visible == true then
+                if number and tierFrame.Visible == true then
                     owned[#owned + 1] = tonumber(number)
                 end
             end
@@ -1123,6 +1121,39 @@ return function(Context)
         return GetTierNumbers(definition)
     end
 
+    local PickaxeDescription = Create("TextLabel", {
+        Name = "PickaxeEnchantDescription",
+        Parent = PickaxeEnchantCard,
+        Position = UDim2.fromOffset(13, 112),
+        Size = UDim2.new(1, -26, 0, 28),
+        BackgroundTransparency = 1,
+        Text = "Select an enchant to see its description.",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 8,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    })
+
+    local function RefreshPickaxeEnchantDescription()
+        local definition = PickaxeSelectedEnchant and PickaxeEnchantDefinitions[PickaxeSelectedEnchant]
+        local tiers = GetPickaxeEnchantTiers()
+        local description = definition and GetEnchantDescription(definition, PickaxeSelectedEnchantTier or tiers[#tiers]) or ""
+        PickaxeDescription.Text = description ~= "" and description or "No description available."
+    end
+
+    local function RefreshPickaxeTierStepper()
+        local tiers = GetPickaxeEnchantTiers()
+        local selectedIndex = table.find(tiers, PickaxeSelectedEnchantTier)
+        PickaxeTierValue.Text = selectedIndex and tostring(PickaxeSelectedEnchantTier) or "—"
+        PickaxeTierMinus.Active = selectedIndex ~= nil and selectedIndex > 1
+        PickaxeTierPlus.Active = selectedIndex ~= nil and selectedIndex < #tiers
+        PickaxeTierMinus.AutoButtonColor = PickaxeTierMinus.Active
+        PickaxeTierPlus.AutoButtonColor = PickaxeTierPlus.Active
+    end
+
     MakePickaxeDropdown("Pickaxe Tier", 48, GetOwnedPickaxeTiers,
         function() return PickaxeSelectedToolTier end,
         function(value) PickaxeSelectedToolTier = value end,
@@ -1131,26 +1162,72 @@ return function(Context)
         function() return PickaxeSelectedEnchant end,
         function(value)
             PickaxeSelectedEnchant = value
-            PickaxeSelectedEnchantTier = GetPickaxeEnchantTiers()[1]
+            local tiers = GetPickaxeEnchantTiers()
+            PickaxeSelectedEnchantTier = tiers[#tiers]
+            RefreshPickaxeTierStepper()
+            RefreshPickaxeEnchantDescription()
             for _, dropdown in ipairs(PickaxeDropdowns) do dropdown.Refresh() end
         end,
         function(value)
             local definition = PickaxeEnchantDefinitions[value]
             return definition and (definition.Name or value) or value
         end)
-    MakePickaxeDropdown("Enchant Tier", 112, GetPickaxeEnchantTiers,
-        function() return PickaxeSelectedEnchantTier end,
-        function(value) PickaxeSelectedEnchantTier = value end,
-        function(value) return "Tier " .. tostring(value) end)
+
+    local PickaxeTierControl = Create("Frame", {
+        Parent = PickaxeEnchantCard,
+        Position = UDim2.new(0.5, -58, 0, 146),
+        Size = UDim2.fromOffset(116, 20),
+        BackgroundTransparency = 1
+    })
+    Create("TextLabel", {
+        Parent = PickaxeTierControl,
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromOffset(40, 20),
+        BackgroundTransparency = 1,
+        Text = "Tier",
+        TextColor3 = Theme.Gray,
+        Font = Enum.Font.Gotham,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Right
+    })
+    local PickaxeTierMinus = MakeAdjustButton(PickaxeTierControl, "-", 44, function()
+        local tiers = GetPickaxeEnchantTiers()
+        local currentIndex = table.find(tiers, PickaxeSelectedEnchantTier)
+        if currentIndex and currentIndex > 1 then
+            PickaxeSelectedEnchantTier = tiers[currentIndex - 1]
+            RefreshPickaxeTierStepper()
+            RefreshPickaxeEnchantDescription()
+        end
+    end)
+    local PickaxeTierValue = Create("TextLabel", {
+        Parent = PickaxeTierControl,
+        Position = UDim2.fromOffset(68, 0),
+        Size = UDim2.fromOffset(22, 20),
+        BackgroundTransparency = 1,
+        Text = "—",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Center
+    })
+    local PickaxeTierPlus = MakeAdjustButton(PickaxeTierControl, "+", 94, function()
+        local tiers = GetPickaxeEnchantTiers()
+        local currentIndex = table.find(tiers, PickaxeSelectedEnchantTier)
+        if currentIndex and currentIndex < #tiers then
+            PickaxeSelectedEnchantTier = tiers[currentIndex + 1]
+            RefreshPickaxeTierStepper()
+            RefreshPickaxeEnchantDescription()
+        end
+    end)
 
     local PickaxeStatus = Create("TextLabel", {
-        Parent = PickaxeEnchantCard, Position = UDim2.fromOffset(11, 142),
+        Parent = PickaxeEnchantCard, Position = UDim2.fromOffset(11, 178),
         Size = UDim2.new(0.58, -14, 0, 26), BackgroundTransparency = 1,
         Text = "Ready", TextColor3 = Theme.Gray, Font = Enum.Font.Gotham,
         TextSize = 8, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left
     })
     local PickaxeRunButton = Create("TextButton", {
-        Parent = PickaxeEnchantCard, Position = UDim2.new(0.58, 0, 0, 142),
+        Parent = PickaxeEnchantCard, Position = UDim2.new(0.58, 0, 0, 178),
         Size = UDim2.new(0.42, -11, 0, 26), BackgroundColor3 = Theme.Selected,
         Text = "Enchant", TextColor3 = Theme.SelectedText, Font = Enum.Font.GothamBold,
         TextSize = 9, BorderSizePixel = 0
@@ -1165,8 +1242,13 @@ return function(Context)
             return
         end
         local owned = GetOwnedPickaxeTiers()
-        if not PickaxeSelectedToolTier or not table.find(owned, PickaxeSelectedToolTier) then
-            PickaxeStatus.Text = "Select an owned pickaxe tier"
+        if #owned > 0 then
+            PickaxeSelectedToolTier = owned[#owned]
+        else
+            PickaxeSelectedToolTier = nil
+        end
+        if not PickaxeSelectedToolTier then
+            PickaxeStatus.Text = "No visible pickaxe tier available"
             return
         end
         local targetTier = tonumber(PickaxeSelectedEnchantTier)
@@ -1215,6 +1297,8 @@ return function(Context)
         PickaxeRunButton.Text = "Enchant"
     end
     PickaxeRunButton.MouseButton1Click:Connect(RunPickaxeEnchant)
+    RefreshPickaxeTierStepper()
+    RefreshPickaxeEnchantDescription()
 
     task.spawn(function()
         local oldSignature
@@ -1223,9 +1307,7 @@ return function(Context)
             local signature = table.concat(tiers, ",")
             if signature ~= oldSignature then
                 oldSignature = signature
-                if PickaxeSelectedToolTier and not table.find(tiers, PickaxeSelectedToolTier) then
-                    PickaxeSelectedToolTier = nil
-                end
+                PickaxeSelectedToolTier = tiers[#tiers]
                 for _, dropdown in ipairs(PickaxeDropdowns) do dropdown.Refresh() end
             end
             task.wait(1)
