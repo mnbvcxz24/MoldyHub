@@ -1,4 +1,4 @@
--- MoldyHub BASAE V5 - clean modular bootstrap
+-- MoldyHub BASAE V6 - clean modular bootstrap
 -- All module chunks are compiled first. Initializers then run in a shared Context.
 -- The original BASAE.lua is intentionally preserved as a reference backup.
 
