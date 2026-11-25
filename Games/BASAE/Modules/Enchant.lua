@@ -808,6 +808,7 @@ return function(Context)
                         local existingTier = GetAnimalEnchantTier(animal, target.Id)
                         if existingTier and existingTier >= target.Selection.Tier then
                             target.Completed = target.Completed + 1
+                            totalCompleted = totalCompleted + 1
                             assignedAnimals[animal] = true
                             break
                         end
