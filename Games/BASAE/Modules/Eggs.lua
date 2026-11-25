@@ -558,7 +558,8 @@ return function(Context)
         return groups, totalOwned
     end
 
-    local MergeToggle = CreateToggle(MergeCard, "", false, function(enabled)
+    local MergeToggle
+    MergeToggle = CreateToggle(MergeCard, "", false, function(enabled)
         MergeEnabled = enabled
         MergeGeneration += 1
         local generation = MergeGeneration
