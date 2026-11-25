@@ -109,7 +109,7 @@ return function(Context)
             end
         end
     end
-    local versionText = tostring(RuntimeEnv.__MoldyHubBASAEVersion or "v3.1.3")
+    local versionText = tostring(RuntimeEnv.__MoldyHubBASAEVersion or "v3.1.4")
     testver = versionText
     ScriptStartedAt = os.clock()
     PreviousRuntimeCleanup = RuntimeEnv.__MoldyHub_BASAE_Cleanup or RuntimeEnv.__BASAECleanup or RuntimeEnv.__BASAESkripCleanup
