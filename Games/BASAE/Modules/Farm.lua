@@ -1019,44 +1019,11 @@ return function(Context)
         end)
         return ok and position or nil
     end
-    -- Use the local player's nearby visible ride mount as the Auto Pickup movement origin.
-    -- RideMounts contains other players' mounts too, so never use the first visible model.
-    -- If no mount is close to this character, fall back to the local HumanoidRootPart.
+    -- Auto Pickup uses the character's own root position.
+    -- RideMounts scanning is handled only by Auto Mount Best Animal while its toggle is enabled.
     local function getPickupMovementPosition(character, root)
         if not root or not root.Parent then return nil end
-
-        local characterPosition = root.Position
-        local nearestMountPosition = nil
-        local nearestMountDistance = 25
-        local rideMounts = workspace:FindFirstChild("RideMounts")
-
-        if rideMounts then
-            for _, mount in ipairs(rideMounts:GetChildren()) do
-                if mount:IsA("Model") and mount.Parent then
-                    local visible = false
-                    for _, part in ipairs(mount:GetDescendants()) do
-                        if part:IsA("BasePart") and part.Transparency < 1
-                            and part.LocalTransparencyModifier < 1 then
-                            visible = true
-                            break
-                        end
-                    end
-
-                    if visible then
-                        local ok, pivot = pcall(function() return mount:GetPivot() end)
-                        if ok and pivot then
-                            local distance = (pivot.Position - characterPosition).Magnitude
-                            if distance <= nearestMountDistance then
-                                nearestMountDistance = distance
-                                nearestMountPosition = pivot.Position
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        return nearestMountPosition or characterPosition
+        return root.Position
     end
     local function IsZone13OrHigher(zoneName)
         local zoneNumber = tonumber(tostring(zoneName):match("^Zone(%d+)$"))
