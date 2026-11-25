@@ -84,10 +84,8 @@ return function(Context)
     AutoPickupCard.Position = UDim2.new(0, 0, 0, 0)
     AutoPickupCard.Size = UDim2.new(0.5, -5, 0, 340)
 
-    -- Responsive Farm feature row: keep the two existing cards side-by-side
-    -- when there is room, and stack them when UI scaling makes the tab narrow.
-    local FarmCardsStacked = false
-    local FarmLayoutUpdating = false
+    -- Keep Auto Steal and Auto Break in the same two-column row at every UI scale.
+    -- Only their card heights control the row height; scaling must not switch the layout.
     local TreadmillRow = Create("Frame", {
         Name = "AutoTreadmillRow",
         Parent = Page,
@@ -108,52 +106,6 @@ return function(Context)
     local AutoTreadmillTitle = AutoTreadmillCard:FindFirstChildWhichIsA("TextLabel")
     if AutoTreadmillTitle then AutoTreadmillTitle.Size = UDim2.new(1, -78, 0, 22) end
     MarkUnderDevelopment(AutoTreadmillCard)
-
-    local function UpdateFarmCardLayout()
-        if FarmLayoutUpdating or not AutoRow.Parent then return end
-        FarmLayoutUpdating = true
-        local scale = math.max((UIScale and UIScale.Scale) or 1, 0.001)
-        local availableWidth = AutoRow.AbsoluteSize.X / scale
-        local shouldStack = availableWidth < 620
-        if shouldStack ~= FarmCardsStacked then
-            FarmCardsStacked = shouldStack
-            if shouldStack then
-                AutoPickupCard.Position = UDim2.fromOffset(0, 0)
-                AutoPickupCard.Size = UDim2.new(1, 0, 0, AutoPickupCard.Size.Y.Offset)
-                Card1.Size = UDim2.new(1, 0, 0, Card1.Size.Y.Offset)
-            else
-                AutoPickupCard.Position = UDim2.fromOffset(0, 0)
-                AutoPickupCard.Size = UDim2.new(0.5, -5, 0, AutoPickupCard.Size.Y.Offset)
-                Card1.Position = UDim2.new(0.5, 5, 0, 0)
-                Card1.Size = UDim2.new(0.5, -5, 0, Card1.Size.Y.Offset)
-            end
-        end
-        local rowHeight
-        if shouldStack then
-            Card1.Position = UDim2.fromOffset(0, AutoPickupCard.Size.Y.Offset + 10)
-            rowHeight = AutoPickupCard.Size.Y.Offset + 10 + Card1.Size.Y.Offset
-        else
-            rowHeight = math.max(AutoPickupCard.Size.Y.Offset, Card1.Size.Y.Offset)
-        end
-        AutoRow.Size = UDim2.new(1, -20, 0, rowHeight)
-        TreadmillRow.Position = UDim2.fromOffset(10, AutoRow.Position.Y.Offset + rowHeight + 10)
-        FarmLayoutUpdating = false
-    end
-    AutoPickupCard:GetPropertyChangedSignal("Size"):Connect(function()
-        task.defer(UpdateFarmCardLayout)
-    end)
-    Card1:GetPropertyChangedSignal("Size"):Connect(function()
-        task.defer(UpdateFarmCardLayout)
-    end)
-    Page:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-        task.defer(UpdateFarmCardLayout)
-    end)
-    if UIScale then
-        UIScale:GetPropertyChangedSignal("Scale"):Connect(function()
-            task.defer(UpdateFarmCardLayout)
-        end)
-    end
-    task.defer(UpdateFarmCardLayout)
 
     local AutoPickupEnabled = false
     local AnimalPickups
@@ -4233,7 +4185,7 @@ return function(Context)
             end
             task.defer(function()
                 if Runtime.Stopped or ScriptShuttingDown or CarriedAnimalWatch.model ~= nil
-                    or not AutoPickupEnabled or not AutoBreakEnabled
+                    or not AutoPickupEnabled
                     or (not ReturningAfterPickup and not PickupRequested) then return end
                 local character = LocalPlayer.Character
                 local root = character and character:FindFirstChild("HumanoidRootPart")
