@@ -120,7 +120,6 @@ return function(Context)
             if shouldStack then
                 AutoPickupCard.Position = UDim2.fromOffset(0, 0)
                 AutoPickupCard.Size = UDim2.new(1, 0, 0, AutoPickupCard.Size.Y.Offset)
-                Card1.Position = UDim2.fromOffset(0, AutoPickupCard.Size.Y.Offset + 10)
                 Card1.Size = UDim2.new(1, 0, 0, Card1.Size.Y.Offset)
             else
                 AutoPickupCard.Position = UDim2.fromOffset(0, 0)
@@ -131,6 +130,7 @@ return function(Context)
         end
         local rowHeight
         if shouldStack then
+            Card1.Position = UDim2.fromOffset(0, AutoPickupCard.Size.Y.Offset + 10)
             rowHeight = AutoPickupCard.Size.Y.Offset + 10 + Card1.Size.Y.Offset
         else
             rowHeight = math.max(AutoPickupCard.Size.Y.Offset, Card1.Size.Y.Offset)
