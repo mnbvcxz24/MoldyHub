@@ -907,7 +907,10 @@ return function(Context)
             -- The current priority target guides the run, but ANY selected
             -- target result with remaining capacity is credited to its own
             -- counter. Once credited, move to the next animal immediately.
-            while not accepted and attempts < 100 and animal and animal.Parent
+            -- Keep rolling until this animal receives any selected target,
+            -- the user stops the run, or the animal is no longer available.
+            -- There is intentionally no arbitrary per-animal roll cap.
+            while not accepted and animal and animal.Parent
                 and not stopped and not EnchantStopRequested do
                 attempts = attempts + 1
                 nextTarget = GetNextUnmetTarget()
@@ -951,9 +954,13 @@ return function(Context)
                 end
             end
 
-            if not accepted and not stopped and not EnchantStopRequested
+            if not accepted and animal and not animal.Parent then
+                -- The current animal disappeared mid-run; skip it and let the
+                -- outer planner choose the next eligible placed animal.
+                assignedAnimals[animal] = true
+            elseif not accepted and not stopped and not EnchantStopRequested
                 and GetNextUnmetTarget() then
-                PlannerStatusLabel.Text = "Stopped: 100 rolls without an available target on " .. animal.Name
+                PlannerStatusLabel.Text = "Unable to continue rolling on " .. animal.Name
                 stopped = true
             end
         end
