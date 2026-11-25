@@ -46,6 +46,20 @@ return function(Context)
         control.Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, y)
         control.Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, AutoBreakControlLayout.Height)
     end
+    -- Position sibling dropdown panels in the same local coordinate space as
+    -- their trigger. Avoid mixing scaled AbsoluteSize values with raw offsets.
+    local function PositionFilterListBelow(button, list, height, gap)
+        if not button or not list or button.Parent ~= list.Parent then return end
+        local buttonPosition = button.Position
+        local buttonSize = button.Size
+        list.Position = UDim2.new(
+            buttonPosition.X.Scale,
+            buttonPosition.X.Offset,
+            buttonPosition.Y.Scale + buttonSize.Y.Scale,
+            buttonPosition.Y.Offset + buttonSize.Y.Offset + (gap or 4)
+        )
+        list.Size = UDim2.new(buttonSize.X.Scale, buttonSize.X.Offset, 0, height)
+    end
     local AutoBreakToggle = CreateToggle(Card1, "", false, function(enabled)
         AutoBreakEnabled = enabled
         if SetAutoBreakStatus then SetAutoBreakStatus(enabled and "Scanning for egg..." or "Off") end
@@ -186,8 +200,7 @@ return function(Context)
         ZoneFilterOpen = false
         EggFilterOpen = false
         if RarityFilterOpen then
-            RarityList.Position = UDim2.fromOffset(11, RarityFilterButton.Position.Y.Offset + RarityFilterButton.AbsoluteSize.Y + 4)
-            RarityList.Size = UDim2.new(1, -22, 0, 140)
+            PositionFilterListBelow(RarityFilterButton, RarityList, 140, 4)
         end
         if PickupZoneList then PickupZoneList.Visible = false end
         if UpdateRarityFilterButtonText then UpdateRarityFilterButtonText() end
@@ -217,8 +230,7 @@ return function(Context)
         if ZoneList then ZoneList.Visible = false end
         if EggFilterList then EggFilterList.Visible = false end
         if PickupZoneList then
-            PickupZoneList.Position = UDim2.fromOffset(11, 111)
-            PickupZoneList.Size = UDim2.new(1, -22, 0, 140)
+            PositionFilterListBelow(PickupZoneButton, PickupZoneList, 140, 4)
             PickupZoneList.Visible = ZoneFilterOpen
         end
         if UpdatePickupZoneButtonText then UpdatePickupZoneButtonText() end
@@ -291,7 +303,10 @@ return function(Context)
         RarityList.Visible = false
         if ZoneList then ZoneList.Visible = false end
         if EggFilterList then EggFilterList.Visible = false end
-        if KGUnitState.list then KGUnitState.list.Visible = KGUnitState.open end
+        if KGUnitState.list then
+            PositionFilterListBelow(KGUnitButton, KGUnitState.list, #KGUnitState.options * 24 + 8, 2)
+            KGUnitState.list.Visible = KGUnitState.open
+        end
         KGUnitButton.Text = KGUnitState.open and KGThresholdUnit .. " ▲" or KGThresholdUnit .. " ▼"
     end)
     KGUnitButton.Name = "KGUnitFilterButton"
@@ -410,6 +425,7 @@ return function(Context)
         if ZoneList then ZoneList.Visible = false end
         if EggFilterList then EggFilterList.Visible = false end
         if KGUnitState.list then KGUnitState.list.Visible = false; KGUnitState.open = false end
+        PositionFilterListBelow(CPSFilter.button, CPSFilter.list, #CPSFilter.options * 24 + 8, 2)
         CPSFilter.list.Visible = CPSFilter.open
         CPSFilter.button.Text = CPSFilter.open and CPSFilter.unit .. " ▲" or CPSFilter.unit .. " ▼"
     end)
@@ -620,14 +636,27 @@ return function(Context)
         if EggFilterList then EggFilterList.Visible = false end
         if MutationRarityList then
             local listHeight = 140
+            local scale = UIScale and UIScale.Scale or 1
             local buttonY = MutationRarityFilterButton.Position.Y.Offset
-            local buttonBottom = buttonY + MutationRarityFilterButton.AbsoluteSize.Y
-            local availableBelow = AutoPickupCard.AbsoluteSize.Y - buttonBottom
-            local listY = availableBelow >= listHeight + 4
-                and buttonBottom + 4
-                or buttonY - listHeight - 4
-            MutationRarityList.Position = UDim2.fromOffset(11, listY)
-            MutationRarityList.Size = UDim2.new(1, -22, 0, listHeight)
+            local buttonBottom = buttonY + MutationRarityFilterButton.Size.Y.Offset
+            local cardHeight = AutoPickupCard.AbsoluteSize.Y / math.max(scale, 0.001)
+            local availableBelow = cardHeight - buttonBottom
+            if availableBelow >= listHeight + 4 then
+                PositionFilterListBelow(MutationRarityFilterButton, MutationRarityList, listHeight, 4)
+            else
+                MutationRarityList.Position = UDim2.new(
+                    MutationRarityFilterButton.Position.X.Scale,
+                    MutationRarityFilterButton.Position.X.Offset,
+                    MutationRarityFilterButton.Position.Y.Scale,
+                    MutationRarityFilterButton.Position.Y.Offset - listHeight - 4
+                )
+                MutationRarityList.Size = UDim2.new(
+                    MutationRarityFilterButton.Size.X.Scale,
+                    MutationRarityFilterButton.Size.X.Offset,
+                    0,
+                    listHeight
+                )
+            end
             MutationRarityList.Visible = MutationRarityFilterOpen
         end
         UpdateMutationRarityFilterButtonText()
@@ -1073,12 +1102,10 @@ return function(Context)
         RarityList.Visible = RarityFilterOpen
         SortFrame.Visible = true
         if ZoneFilterOpen then
-            ZoneList.Position = UDim2.new(0, ZoneFilterButton.Position.X.Offset, 0, ZoneFilterButton.Position.Y.Offset + ZoneFilterButton.AbsoluteSize.Y + 4)
-            ZoneList.Size = UDim2.new(1, -22, 0, 140)
+            PositionFilterListBelow(ZoneFilterButton, ZoneList, 140, 4)
         end
         if EggFilterOpen then
-            EggFilterList.Position = UDim2.new(0, EggFilterButton.Position.X.Offset, 0, EggFilterButton.Position.Y.Offset + EggFilterButton.AbsoluteSize.Y + 4)
-            EggFilterList.Size = UDim2.new(1, -22, 0, 140)
+            PositionFilterListBelow(EggFilterButton, EggFilterList, 140, 4)
         end
         if UpdateAutoBreakFilterButtonTexts then UpdateAutoBreakFilterButtonTexts() end
         RarityFilterButton.Text = RarityFilterOpen and "Rarity ▲" or "Rarity ▼"
@@ -1219,9 +1246,9 @@ return function(Context)
     PriorityFilterButton.ZIndex = 100
     PriorityOptionsFrame = Create("Frame", {
         Name = "PriorityOptions",
-        Parent = Card1,
-        Position = UDim2.fromOffset(AutoBreakControlLayout.SidePadding, AutoBreakControlLayout.HighLuckY + AutoBreakControlLayout.Height + 4),
-        Size = UDim2.new(1, -AutoBreakControlLayout.SidePadding * 2, 0, #PriorityOptions * 28 + 8),
+        Parent = SortFrame,
+        Position = UDim2.fromOffset(0, AutoBreakControlLayout.Height + 4),
+        Size = UDim2.new(1, 0, 0, #PriorityOptions * 28 + 8),
         BackgroundColor3 = Theme.SurfaceInput,
         BorderSizePixel = 0,
         Visible = false,
