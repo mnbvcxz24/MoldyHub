@@ -1036,6 +1036,9 @@ return function(Context)
         return owned
     end
 
+    local initialPickaxeTiers = GetOwnedPickaxeTiers()
+    PickaxeSelectedToolTier = initialPickaxeTiers[#initialPickaxeTiers]
+
     local function MakePickaxeDropdown(labelText, y, optionsFn, selectedFn, setFn, formatFn)
         local holder = Create("Frame", {
             Parent = PickaxeEnchantCard, Position = UDim2.fromOffset(11, y),
@@ -1144,6 +1147,7 @@ return function(Context)
         PickaxeDescription.Text = description ~= "" and description or "No description available."
     end
 
+    local PickaxeTierMinus, PickaxeTierPlus, PickaxeTierValue
     local function RefreshPickaxeTierStepper()
         local tiers = GetPickaxeEnchantTiers()
         local selectedIndex = table.find(tiers, PickaxeSelectedEnchantTier)
@@ -1190,7 +1194,7 @@ return function(Context)
         TextSize = 8,
         TextXAlignment = Enum.TextXAlignment.Right
     })
-    local PickaxeTierMinus = MakeAdjustButton(PickaxeTierControl, "-", 44, function()
+    PickaxeTierMinus = MakeAdjustButton(PickaxeTierControl, "-", 44, function()
         local tiers = GetPickaxeEnchantTiers()
         local currentIndex = table.find(tiers, PickaxeSelectedEnchantTier)
         if currentIndex and currentIndex > 1 then
@@ -1199,7 +1203,7 @@ return function(Context)
             RefreshPickaxeEnchantDescription()
         end
     end)
-    local PickaxeTierValue = Create("TextLabel", {
+    PickaxeTierValue = Create("TextLabel", {
         Parent = PickaxeTierControl,
         Position = UDim2.fromOffset(68, 0),
         Size = UDim2.fromOffset(22, 20),
@@ -1210,7 +1214,7 @@ return function(Context)
         TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Center
     })
-    local PickaxeTierPlus = MakeAdjustButton(PickaxeTierControl, "+", 94, function()
+    PickaxeTierPlus = MakeAdjustButton(PickaxeTierControl, "+", 94, function()
         local tiers = GetPickaxeEnchantTiers()
         local currentIndex = table.find(tiers, PickaxeSelectedEnchantTier)
         if currentIndex and currentIndex < #tiers then
@@ -1242,10 +1246,8 @@ return function(Context)
             return
         end
         local owned = GetOwnedPickaxeTiers()
-        if #owned > 0 then
+        if not PickaxeSelectedToolTier or not table.find(owned, PickaxeSelectedToolTier) then
             PickaxeSelectedToolTier = owned[#owned]
-        else
-            PickaxeSelectedToolTier = nil
         end
         if not PickaxeSelectedToolTier then
             PickaxeStatus.Text = "No visible pickaxe tier available"
