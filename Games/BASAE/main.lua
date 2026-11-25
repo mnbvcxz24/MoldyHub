@@ -1,10 +1,12 @@
--- MoldyHub BASAE V6 - clean modular bootstrap
+-- MoldyHub BASAE bootstrap - clean modular loader
 -- All module chunks are compiled first. Initializers then run in a shared Context.
 -- The original BASAE.lua is intentionally preserved as a reference backup.
 
 local CORE_GUI = game:GetService("CoreGui")
 local BASE_URL = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/BASAE/Modules/"
 local SharedEnv = type(getgenv) == "function" and getgenv() or _G
+local BASAE_VERSION = "V6"
+SharedEnv.__MoldyHubBASAEVersion = BASAE_VERSION
 local MODULES = {
     "Core", "UI", "Dashboard", "Farm", "Eggs", "Enchant", "Misc", "Theme", "Settings", "Runtime"
 }
