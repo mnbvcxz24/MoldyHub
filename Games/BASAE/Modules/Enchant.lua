@@ -818,7 +818,7 @@ return function(Context)
             local value = animal and animal:GetAttribute("Enchant")
             if type(value) ~= "string" or value == "" then return nil end
             local lowestTier
-            for _, tierText in value:gmatch("[%w_%-]+%s*:%s*(%d+)") do
+            for tierText in value:gmatch("[%w_%-]+%s*:%s*(%d+)") do
                 local tier = tonumber(tierText)
                 if tier and (not lowestTier or tier < lowestTier) then
                     lowestTier = tier
