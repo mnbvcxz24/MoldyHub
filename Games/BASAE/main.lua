@@ -5,7 +5,7 @@
 local CORE_GUI = game:GetService("CoreGui")
 local BASE_URL = "https://raw.githubusercontent.com/mnbvcxz24/MoldyHub/main/Games/BASAE/Modules/"
 local SharedEnv = type(getgenv) == "function" and getgenv() or _G
-local BASAE_VERSION = "v3.1.2"
+local BASAE_VERSION = "v3.1.3"
 SharedEnv.__MoldyHubBASAEVersion = BASAE_VERSION
 local MODULES = {
     "Core", "UI", "Dashboard", "Farm", "Eggs", "Enchant", "Misc", "Theme", "Settings", "Runtime"
