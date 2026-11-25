@@ -1056,10 +1056,12 @@ return function(Context)
         })
         AddCorner(button, 5)
         AddStroke(button, Theme.Border, 1)
-        local popup = Create("Frame", {
+        local popup = Create("ScrollingFrame", {
             Parent = holder, Position = UDim2.fromOffset(0, 28),
-            Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Theme.SurfaceInput,
-            BorderSizePixel = 0, Visible = false, ZIndex = 30, ClipsDescendants = true
+            Size = UDim2.new(1, 0, 0, 0), CanvasSize = UDim2.fromOffset(0, 0),
+            ScrollBarThickness = 3, Active = true,
+            BackgroundColor3 = Theme.SurfaceInput, BorderSizePixel = 0,
+            Visible = false, ZIndex = 30, ClipsDescendants = true
         })
         AddCorner(popup, 5)
         AddStroke(popup, Theme.Border, 1)
@@ -1072,8 +1074,9 @@ return function(Context)
                 if child:IsA("GuiObject") then child:Destroy() end
             end
             local options = optionsFn()
-            local count = math.min(#options, 5)
-            popup.Size = UDim2.new(1, 0, 0, count * 24)
+            local count = #options
+            popup.Size = UDim2.new(1, 0, 0, math.min(count, 5) * 24)
+            popup.CanvasSize = UDim2.fromOffset(0, count * 24)
             popup.Visible = count > 0
             for index = 1, count do
                 local option = options[index]
