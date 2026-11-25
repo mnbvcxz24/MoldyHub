@@ -3316,7 +3316,7 @@ return function(Context)
                 local virtualInput = game:GetService("VirtualInputManager")
                 virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
                 fallbackKeyDown = true
-                task.wait(0.25)
+                task.wait(0.35)
                 virtualInput:SendKeyEvent(false, Enum.KeyCode.E, false, game)
                 fallbackKeyDown = false
             end)
