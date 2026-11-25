@@ -1027,7 +1027,9 @@ return function(Context)
         if scrolling then
             for _, tierFrame in ipairs(scrolling:GetChildren()) do
                 local number = tierFrame.Name:match("^Tier(%d+)$")
-                if number and tierFrame.Visible == true then
+                local container = tierFrame:FindFirstChild("Container")
+                local equip = container and container:FindFirstChild("Equip")
+                if number and equip and equip.Visible == true then
                     owned[#owned + 1] = tonumber(number)
                 end
             end
@@ -1179,22 +1181,22 @@ return function(Context)
 
     local PickaxeTierControl = Create("Frame", {
         Parent = PickaxeEnchantCard,
-        Position = UDim2.new(0.5, -58, 0, 146),
-        Size = UDim2.fromOffset(116, 20),
+        Position = UDim2.new(0.5, -66, 0, 146),
+        Size = UDim2.fromOffset(132, 22),
         BackgroundTransparency = 1
     })
     Create("TextLabel", {
         Parent = PickaxeTierControl,
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.fromOffset(40, 20),
+        Position = UDim2.fromOffset(0, 1),
+        Size = UDim2.fromOffset(50, 20),
         BackgroundTransparency = 1,
-        Text = "Tier",
+        Text = "Enchant Tier",
         TextColor3 = Theme.Gray,
         Font = Enum.Font.Gotham,
         TextSize = 8,
         TextXAlignment = Enum.TextXAlignment.Right
     })
-    PickaxeTierMinus = MakeAdjustButton(PickaxeTierControl, "-", 44, function()
+    PickaxeTierMinus = MakeAdjustButton(PickaxeTierControl, "-", 56, function()
         local tiers = GetPickaxeEnchantTiers()
         local currentIndex = table.find(tiers, PickaxeSelectedEnchantTier)
         if currentIndex and currentIndex > 1 then
@@ -1205,8 +1207,8 @@ return function(Context)
     end)
     PickaxeTierValue = Create("TextLabel", {
         Parent = PickaxeTierControl,
-        Position = UDim2.fromOffset(68, 0),
-        Size = UDim2.fromOffset(22, 20),
+        Position = UDim2.fromOffset(82, 1),
+        Size = UDim2.fromOffset(24, 20),
         BackgroundTransparency = 1,
         Text = "—",
         TextColor3 = Theme.Text,
@@ -1214,7 +1216,7 @@ return function(Context)
         TextSize = 9,
         TextXAlignment = Enum.TextXAlignment.Center
     })
-    PickaxeTierPlus = MakeAdjustButton(PickaxeTierControl, "+", 94, function()
+    PickaxeTierPlus = MakeAdjustButton(PickaxeTierControl, "+", 112, function()
         local tiers = GetPickaxeEnchantTiers()
         local currentIndex = table.find(tiers, PickaxeSelectedEnchantTier)
         if currentIndex and currentIndex < #tiers then
