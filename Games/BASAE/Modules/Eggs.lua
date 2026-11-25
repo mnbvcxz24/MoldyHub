@@ -573,7 +573,8 @@ return function(Context)
         end
 
         task.spawn(function()
-            while MergeEnabled and generation == MergeGeneration do
+            while MergeEnabled and generation == MergeGeneration
+                and not Runtime.Stopped and ScreenGui and ScreenGui.Parent do
                 if MergeBusy then
                     task.wait(0.2)
                     continue
@@ -634,7 +635,9 @@ return function(Context)
                         table.insert(mergeList, tool)
                     end
 
-                    if #mergeList == 3 and MergeEnabled and generation == MergeGeneration then
+                    if #mergeList == 3 and MergeEnabled and generation == MergeGeneration
+                        and not Runtime.Stopped and ScreenGui and ScreenGui.Parent
+                        and MergeToggle and MergeToggle.Parent and MergeToggle.Visible then
                         if MergeStatus then
                             MergeStatus.Text = "Merging 3 " .. chosenName .. "..."
                         end
@@ -643,6 +646,11 @@ return function(Context)
                         for _, tool in ipairs(mergeList) do before[tool] = true end
 
                         local ok, err = pcall(function()
+                            if not MergeEnabled or generation ~= MergeGeneration
+                                or Runtime.Stopped or not ScreenGui or not ScreenGui.Parent
+                                or not MergeToggle or not MergeToggle.Parent or not MergeToggle.Visible then
+                                return
+                            end
                             MergeRemote:FireServer("Merge", mergeList)
                         end)
 
