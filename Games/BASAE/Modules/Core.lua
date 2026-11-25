@@ -37,16 +37,41 @@ return function(Context)
         return nil
     end
 
+    local function ValidateConfig(decoded)
+        if type(decoded) ~= "table" or decoded.Version ~= 1 then
+            return nil, "Unsupported or invalid config version"
+        end
+        if decoded.Toggles ~= nil and type(decoded.Toggles) ~= "table" then
+            return nil, "Toggles must be an object"
+        end
+        if decoded.Farm ~= nil and type(decoded.Farm) ~= "table" then
+            return nil, "Farm settings must be an object"
+        end
+        if decoded.Theme ~= nil and type(decoded.Theme) ~= "string" then
+            return nil, "Theme must be text"
+        end
+        if decoded.UIScale ~= nil and (type(decoded.UIScale) ~= "number"
+            or decoded.UIScale ~= decoded.UIScale or decoded.UIScale < 0.5 or decoded.UIScale > 2) then
+            return nil, "UI scale is outside the supported range"
+        end
+        local cleanToggles = {}
+        for key, value in pairs(decoded.Toggles or {}) do
+            if type(key) == "string" and type(value) == "boolean" then
+                cleanToggles[key] = value
+            end
+        end
+        decoded.Toggles = cleanToggles
+        return decoded
+    end
+
     local function TryDecodeConfigFile(path)
         local contents = TryReadConfigFile(path)
         if not contents then return nil end
         local ok, decoded = pcall(function()
             return game:GetService("HttpService"):JSONDecode(contents)
         end)
-        if ok and type(decoded) == "table" and decoded.Version == 1 then
-            return decoded
-        end
-        return nil
+        if not ok then return nil end
+        return ValidateConfig(decoded)
     end
 
     if type(readfile) == "function" then
@@ -76,23 +101,11 @@ return function(Context)
                 end
             end
 
-            if next(SavedConfig) == nil and activeName and activeName:match("^[%w_%-]+$") then
-                ActiveConfigName = nil
-                for _, configPath in ipairs({
-                    ConfigFilePath,
-                    LegacyNamedConfigPath .. "/MoldyHub_BASAE_Config.json",
-                    LegacyConfigFilePath
-                }) do
-                    local decoded = TryDecodeConfigFile(configPath)
-                    if decoded then
-                        SavedConfig = decoded
-                        break
-                    end
-                end
-            end
-
             if next(SavedConfig) == nil and activeName and activeName ~= "" then
-                ConfigLoadError = "Active config could not be read: " .. activeName
+                -- Do not silently load a different legacy/default config when the
+                -- explicitly selected config is invalid; that can enable unrelated toggles.
+                ActiveConfigName = nil
+                ConfigLoadError = "Active config could not be read or validated: " .. activeName
             end
         end
     end
@@ -1211,6 +1224,7 @@ return function(Context)
     -- TOGGLE
     ToggleControllers = setmetatable({}, {__mode = "k"})
     ConfigToggleControllers = {}
+    ConfigToggleKeyOwners = {}
     function GetConfigToggleKey(parent, text)
         local parentName = parent and parent.Name or "Toggle"
         local cleanParent = tostring(parentName):gsub("[^%w_%-]", "")
@@ -1284,6 +1298,12 @@ return function(Context)
             end
         }
         local configKey = GetConfigToggleKey(parent, text)
+        local previousOwner = ConfigToggleKeyOwners[configKey]
+        if previousOwner then
+            warn("[BASAE Config] Duplicate toggle key detected: " .. configKey)
+        else
+            ConfigToggleKeyOwners[configKey] = parent
+        end
         ConfigToggleControllers[configKey] = ToggleControllers[Toggle]
         if type(SavedConfig.Toggles) == "table" and type(SavedConfig.Toggles[configKey]) == "boolean" then
             Enabled = SavedConfig.Toggles[configKey]
