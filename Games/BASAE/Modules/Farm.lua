@@ -1029,29 +1029,28 @@ return function(Context)
 
         local characterPosition = root.Position
         local nearestMountPosition = nil
-        local nearestMountDistance = 25
+        local nearestMountDistance = 10
         local rideMounts = workspace:FindFirstChild("RideMounts")
 
         if rideMounts then
             for _, mount in ipairs(rideMounts:GetChildren()) do
                 if mount:IsA("Model") and mount.Parent then
-                    local visible = false
+                    local closestVisiblePartDistance = nil
                     for _, part in ipairs(mount:GetDescendants()) do
                         if part:IsA("BasePart") and part.Transparency < 1
                             and part.LocalTransparencyModifier < 1 then
-                            visible = true
-                            break
+                            local distance = (part.Position - characterPosition).Magnitude
+                            if closestVisiblePartDistance == nil or distance < closestVisiblePartDistance then
+                                closestVisiblePartDistance = distance
+                            end
                         end
                     end
 
-                    if visible then
+                    if closestVisiblePartDistance and closestVisiblePartDistance < nearestMountDistance then
                         local ok, pivot = pcall(function() return mount:GetPivot() end)
                         if ok and pivot then
-                            local distance = (pivot.Position - characterPosition).Magnitude
-                            if distance <= nearestMountDistance then
-                                nearestMountDistance = distance
-                                nearestMountPosition = pivot.Position
-                            end
+                            nearestMountDistance = closestVisiblePartDistance
+                            nearestMountPosition = pivot.Position
                         end
                     end
                 end
