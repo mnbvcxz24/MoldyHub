@@ -52,7 +52,7 @@ return function(Context)
         StartCorner = Enum.StartCorner.TopLeft
     })
 
-    local function GetEnchantDefinitions()
+    local function GetEnchantDefinitions(kind)
         local definitions = {}
         local replicatedStorage = game:GetService("ReplicatedStorage")
         local shared = replicatedStorage:FindFirstChild("Shared")
@@ -68,12 +68,10 @@ return function(Context)
             return definitions
         end
 
-        -- Each section (AnimalCash, AnimalLuck, etc.) contains the actual
-        -- enchant entries in its Enchants array. Index those individual entries,
-        -- not the section itself, and include only sections for Animals.
+        -- Each section contains actual enchant entries; filter by category Kind.
         for _, section in pairs(config.Sections or {}) do
             if type(section) == "table"
-                and section.Kind == "Animals"
+                and section.Kind == kind
                 and type(section.Enchants) == "table" then
                 for _, enchant in ipairs(section.Enchants) do
                     if type(enchant) == "table"
@@ -92,12 +90,14 @@ return function(Context)
         return definitions
     end
 
-    local EnchantDefinitions = GetEnchantDefinitions()
+    local EnchantDefinitions = GetEnchantDefinitions("Animals")
+    local PickaxeEnchantDefinitions = GetEnchantDefinitions("Pickaxes")
 
     -- UI-only Auto Enchant planner. It stores the requested tier and count per enchant;
     -- no enchant remote or automation is triggered by these controls.
     local AutoEnchantCard
-    AutoEnchantCard = CreateCard(Page, "Auto Enchant", "Choose the tier and how many placed animals should receive each enchant.")
+    local PickaxeEnchantCard
+    AutoEnchantCard = CreateCard(Page, "Auto Enchant (Animals)", "Choose the tier and how many placed animals should receive each enchant.")
     AutoEnchantCard.Parent = Page
     AutoEnchantCard.Position = UDim2.fromOffset(10, EnchantCard.Position.Y.Offset + EnchantCard.Size.Y.Offset + 10)
     AutoEnchantCard.Size = UDim2.new(1, -20, 0, 100)
@@ -609,6 +609,9 @@ return function(Context)
         if AutoEnchantCard and AutoEnchantCard.Parent then
             AutoEnchantCard.Position = UDim2.fromOffset(10, EnchantCard.Position.Y.Offset + EnchantCard.Size.Y.Offset + 10)
         end
+        if PickaxeEnchantCard and PickaxeEnchantCard.Parent and AutoEnchantCard and AutoEnchantCard.Parent then
+            PickaxeEnchantCard.Position = UDim2.fromOffset(10, AutoEnchantCard.Position.Y.Offset + AutoEnchantCard.Size.Y.Offset + 10)
+        end
     end
     SummaryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateEnchantLayout)
     if DescriptionLabel then
@@ -1000,7 +1003,225 @@ return function(Context)
         task.defer(RefreshList)
     end
 
+
     EnchantButton.MouseButton1Click:Connect(RunAutoEnchant)
+
+    -- Separate Pickaxes planner: one enchant, its enchant tier, and an owned tool tier.
+    PickaxeEnchantCard = CreateCard(Page, "Auto Enchant (Pickaxes)", "Choose one pickaxe enchant and its enchant tier. Only owned pickaxe tiers are listed.")
+    PickaxeEnchantCard.Parent = Page
+    PickaxeEnchantCard.Position = UDim2.fromOffset(10, AutoEnchantCard.Position.Y.Offset + AutoEnchantCard.Size.Y.Offset + 10)
+    PickaxeEnchantCard.Size = UDim2.new(1, -20, 0, 176)
+    PickaxeEnchantCard.ClipsDescendants = true
+
+    local PickaxeSelectedEnchant, PickaxeSelectedEnchantTier, PickaxeSelectedToolTier
+    local PickaxeRunning, PickaxeStopRequested = false, false
+    local PickaxeDropdowns = {}
+
+    local function GetOwnedPickaxeTiers()
+        local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+        local mainGui = playerGui and playerGui:FindFirstChild("MainGUI")
+        local frames = mainGui and mainGui:FindFirstChild("Frames")
+        local pickaxes = frames and frames:FindFirstChild("Pickaxes")
+        local scrolling = pickaxes and pickaxes:FindFirstChild("ScrollingFrame")
+        local owned = {}
+        if scrolling then
+            for _, tierFrame in ipairs(scrolling:GetChildren()) do
+                local number = tierFrame.Name:match("^Tier(%d+)$")
+                local container = tierFrame:FindFirstChild("Container")
+                local equip = container and container:FindFirstChild("Equip")
+                if number and equip and equip.Visible == true then
+                    owned[#owned + 1] = tonumber(number)
+                end
+            end
+        end
+        table.sort(owned)
+        return owned
+    end
+
+    local function MakePickaxeDropdown(labelText, y, optionsFn, selectedFn, setFn, formatFn)
+        Create("TextLabel", {
+            Parent = PickaxeEnchantCard, Position = UDim2.fromOffset(11, y),
+            Size = UDim2.new(0.28, -8, 0, 26), BackgroundTransparency = 1,
+            Text = labelText, TextColor3 = Theme.Gray, Font = Enum.Font.GothamSemibold,
+            TextSize = 8, TextXAlignment = Enum.TextXAlignment.Left
+        })
+        local holder = Create("Frame", {
+            Parent = PickaxeEnchantCard, Position = UDim2.new(0.28, 0, 0, y),
+            Size = UDim2.new(0.72, -11, 0, 26), BackgroundTransparency = 1
+        })
+        local button = Create("TextButton", {
+            Parent = holder, Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = Theme.SurfaceInput, Text = "Select " .. labelText,
+            TextColor3 = Theme.Text, Font = Enum.Font.Gotham, TextSize = 8, BorderSizePixel = 0
+        })
+        AddCorner(button, 5)
+        AddStroke(button, Theme.Border, 1)
+        local popup = Create("Frame", {
+            Parent = holder, Position = UDim2.fromOffset(0, 28),
+            Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Theme.SurfaceInput,
+            BorderSizePixel = 0, Visible = false, ZIndex = 30, ClipsDescendants = true
+        })
+        AddCorner(popup, 5)
+        AddStroke(popup, Theme.Border, 1)
+        local function refresh()
+            local value = selectedFn()
+            button.Text = value ~= nil and tostring(formatFn and formatFn(value) or value) or ("Select " .. labelText)
+        end
+        local function rebuild()
+            for _, child in ipairs(popup:GetChildren()) do
+                if child:IsA("GuiObject") then child:Destroy() end
+            end
+            local options = optionsFn()
+            local count = math.min(#options, 5)
+            popup.Size = UDim2.new(1, 0, 0, count * 24)
+            popup.Visible = count > 0
+            for index = 1, count do
+                local option = options[index]
+                local choice = Create("TextButton", {
+                    Parent = popup, Position = UDim2.fromOffset(2, (index - 1) * 24),
+                    Size = UDim2.new(1, -4, 0, 23), BackgroundColor3 = Theme.Selected,
+                    BackgroundTransparency = 0.35,
+                    Text = tostring(formatFn and formatFn(option) or option),
+                    TextColor3 = Theme.Text, Font = Enum.Font.Gotham, TextSize = 8,
+                    BorderSizePixel = 0, ZIndex = 31
+                })
+                AddCorner(choice, 4)
+                choice.MouseButton1Click:Connect(function()
+                    setFn(option)
+                    refresh()
+                    popup.Visible = false
+                end)
+            end
+        end
+        button.MouseButton1Click:Connect(function()
+            if popup.Visible then popup.Visible = false else rebuild() end
+        end)
+        refresh()
+        PickaxeDropdowns[#PickaxeDropdowns + 1] = {Refresh = refresh}
+    end
+
+    local function GetPickaxeEnchantIds()
+        local ids = {}
+        for id in pairs(PickaxeEnchantDefinitions) do ids[#ids + 1] = id end
+        table.sort(ids, function(a, b)
+            return tostring(PickaxeEnchantDefinitions[a].Name or a):lower()
+                < tostring(PickaxeEnchantDefinitions[b].Name or b):lower()
+        end)
+        return ids
+    end
+    local function GetPickaxeEnchantTiers()
+        local definition = PickaxeSelectedEnchant and PickaxeEnchantDefinitions[PickaxeSelectedEnchant]
+        return GetTierNumbers(definition)
+    end
+
+    MakePickaxeDropdown("Pickaxe Tier", 48, GetOwnedPickaxeTiers,
+        function() return PickaxeSelectedToolTier end,
+        function(value) PickaxeSelectedToolTier = value end,
+        function(value) return "Tier " .. tostring(value) end)
+    MakePickaxeDropdown("Enchant", 80, GetPickaxeEnchantIds,
+        function() return PickaxeSelectedEnchant end,
+        function(value)
+            PickaxeSelectedEnchant = value
+            PickaxeSelectedEnchantTier = GetPickaxeEnchantTiers()[1]
+            for _, dropdown in ipairs(PickaxeDropdowns) do dropdown.Refresh() end
+        end,
+        function(value)
+            local definition = PickaxeEnchantDefinitions[value]
+            return definition and (definition.Name or value) or value
+        end)
+    MakePickaxeDropdown("Enchant Tier", 112, GetPickaxeEnchantTiers,
+        function() return PickaxeSelectedEnchantTier end,
+        function(value) PickaxeSelectedEnchantTier = value end,
+        function(value) return "Tier " .. tostring(value) end)
+
+    local PickaxeStatus = Create("TextLabel", {
+        Parent = PickaxeEnchantCard, Position = UDim2.fromOffset(11, 142),
+        Size = UDim2.new(0.58, -14, 0, 26), BackgroundTransparency = 1,
+        Text = "Ready", TextColor3 = Theme.Gray, Font = Enum.Font.Gotham,
+        TextSize = 8, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left
+    })
+    local PickaxeRunButton = Create("TextButton", {
+        Parent = PickaxeEnchantCard, Position = UDim2.new(0.58, 0, 0, 142),
+        Size = UDim2.new(0.42, -11, 0, 26), BackgroundColor3 = Theme.Selected,
+        Text = "Enchant", TextColor3 = Theme.SelectedText, Font = Enum.Font.GothamBold,
+        TextSize = 9, BorderSizePixel = 0
+    })
+    AddCorner(PickaxeRunButton, 5)
+
+    local function RunPickaxeEnchant()
+        if PickaxeRunning then
+            PickaxeStopRequested = true
+            PickaxeRunButton.Text = "Stopping..."
+            PickaxeStatus.Text = "Stopping after current roll..."
+            return
+        end
+        local owned = GetOwnedPickaxeTiers()
+        if not PickaxeSelectedToolTier or not table.find(owned, PickaxeSelectedToolTier) then
+            PickaxeStatus.Text = "Select an owned pickaxe tier"
+            return
+        end
+        local targetTier = tonumber(PickaxeSelectedEnchantTier)
+        local definition = PickaxeSelectedEnchant and PickaxeEnchantDefinitions[PickaxeSelectedEnchant]
+        if not definition or not targetTier or not table.find(GetTierNumbers(definition), targetTier) then
+            PickaxeStatus.Text = "Select an enchant and its tier"
+            return
+        end
+        local remote = game:GetService("ReplicatedStorage"):FindFirstChild("EnchantRequest")
+        if not remote or not remote:IsA("RemoteFunction") then
+            PickaxeStatus.Text = "EnchantRequest remote unavailable"
+            return
+        end
+        PickaxeRunning, PickaxeStopRequested = true, false
+        PickaxeRunButton.Text = "Stop"
+        local rolls, completed = 0, false
+        while not completed and not PickaxeStopRequested do
+            rolls = rolls + 1
+            PickaxeStatus.Text = string.format("Rolling Tier %d for %s — roll %d", PickaxeSelectedToolTier, PickaxeSelectedEnchant, rolls)
+            local ok, result = pcall(function()
+                return remote:InvokeServer("Roll", "Pickaxes", PickaxeSelectedToolTier)
+            end)
+            if PickaxeStopRequested then
+                break
+            elseif not ok then
+                PickaxeStatus.Text = "Roll failed: " .. tostring(result)
+                break
+            elseif IsBusyEnchantResult(result) then
+                PickaxeStatus.Text = "Server busy — retrying in 0.5 seconds..."
+                task.wait(0.5)
+            elseif type(result) ~= "table" or result.Ok ~= true then
+                PickaxeStatus.Text = "Server rejected roll"
+                break
+            else
+                local resultId, resultTier = ParseEnchantKey(result.Key)
+                if resultId == PickaxeSelectedEnchant and resultTier and resultTier >= targetTier then
+                    completed = true
+                    PickaxeStatus.Text = string.format("Completed %s:%d after %d rolls", resultId, resultTier, rolls)
+                else
+                    task.wait(0.5)
+                end
+            end
+        end
+        if PickaxeStopRequested then PickaxeStatus.Text = string.format("Stopped after %d rolls", rolls) end
+        PickaxeRunning, PickaxeStopRequested = false, false
+        PickaxeRunButton.Text = "Enchant"
+    end
+    PickaxeRunButton.MouseButton1Click:Connect(RunPickaxeEnchant)
+
+    task.spawn(function()
+        local oldSignature
+        while not Runtime.Stopped and Page.Parent do
+            local tiers = GetOwnedPickaxeTiers()
+            local signature = table.concat(tiers, ",")
+            if signature ~= oldSignature then
+                oldSignature = signature
+                if PickaxeSelectedToolTier and not table.find(tiers, PickaxeSelectedToolTier) then
+                    PickaxeSelectedToolTier = nil
+                end
+                for _, dropdown in ipairs(PickaxeDropdowns) do dropdown.Refresh() end
+            end
+            task.wait(1)
+        end
+    end)
 
     local function RefreshList()
         local animals, hasPlacedFolder = ReadPlacedAnimals()
