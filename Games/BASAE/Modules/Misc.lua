@@ -921,6 +921,7 @@ return function(Context)
         TextYAlignment = Enum.TextYAlignment.Center
     })
     local AutoMountBestAnimalEnabled = false
+    if RuntimeEnv then RuntimeEnv.__MoldyHubAutoMountBestAnimalEnabled = false end
     local AutoMountBestAnimalLastRequest = nil
     local AutoMountBestAnimalLastRequestAt = 0
 
@@ -1045,6 +1046,7 @@ return function(Context)
 
     local AutoMountBestAnimalToggle = CreateToggle(AutoMountBestAnimalCard, "", false, function(enabled)
         AutoMountBestAnimalEnabled = enabled
+        if RuntimeEnv then RuntimeEnv.__MoldyHubAutoMountBestAnimalEnabled = enabled end
         if not enabled then
             AutoMountBestAnimalStatus.Text = "Auto mount is off"
             AutoMountBestAnimalStatus.TextColor3 = Theme.Gray
