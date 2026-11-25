@@ -812,6 +812,7 @@ return function(Context)
                 end
             end
             target.ExistingCount = existingCount
+            totalCompleted = totalCompleted + math.min(existingCount, selection.Count)
         end
 
         local function GetAnimalLowestEnchantTier(animal)
