@@ -1011,7 +1011,7 @@ return function(Context)
     PickaxeEnchantCard.Parent = Page
     PickaxeEnchantCard.Position = UDim2.fromOffset(10, AutoEnchantCard.Position.Y.Offset + AutoEnchantCard.Size.Y.Offset + 10)
     PickaxeEnchantCard.Size = UDim2.new(1, -20, 0, 176)
-    PickaxeEnchantCard.ClipsDescendants = true
+    PickaxeEnchantCard.ClipsDescendants = false
 
     local PickaxeSelectedEnchant, PickaxeSelectedEnchantTier, PickaxeSelectedToolTier
     local PickaxeRunning, PickaxeStopRequested = false, false
@@ -1039,35 +1039,43 @@ return function(Context)
     end
 
     local function MakePickaxeDropdown(labelText, y, optionsFn, selectedFn, setFn, formatFn)
-        Create("TextLabel", {
-            Parent = PickaxeEnchantCard, Position = UDim2.fromOffset(11, y),
-            Size = UDim2.new(0.28, -8, 0, 26), BackgroundTransparency = 1,
-            Text = labelText, TextColor3 = Theme.Gray, Font = Enum.Font.GothamSemibold,
-            TextSize = 8, TextXAlignment = Enum.TextXAlignment.Left
-        })
         local holder = Create("Frame", {
-            Parent = PickaxeEnchantCard, Position = UDim2.new(0.28, 0, 0, y),
-            Size = UDim2.new(0.72, -11, 0, 26), BackgroundTransparency = 1
+            Parent = PickaxeEnchantCard, Position = UDim2.fromOffset(11, y),
+            Size = UDim2.new(1, -22, 0, 28), BackgroundTransparency = 1,
+            ZIndex = 100
         })
         local button = Create("TextButton", {
             Parent = holder, Size = UDim2.new(1, 0, 1, 0),
-            BackgroundColor3 = Theme.SurfaceInput, Text = "Select " .. labelText,
-            TextColor3 = Theme.Text, Font = Enum.Font.Gotham, TextSize = 8, BorderSizePixel = 0
+            BackgroundColor3 = Theme.SurfaceInput, Text = "",
+            BorderSizePixel = 0, AutoButtonColor = false, ZIndex = 100
         })
-        AddCorner(button, 5)
+        AddCorner(button, 6)
         AddStroke(button, Theme.Border, 1)
+        local current = Create("TextLabel", {
+            Parent = button, Position = UDim2.fromOffset(12, 0),
+            Size = UDim2.new(1, -35, 1, 0), BackgroundTransparency = 1,
+            Text = labelText .. ": Select", TextColor3 = Theme.Text,
+            Font = Enum.Font.Gotham, TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 101
+        })
+        Create("TextLabel", {
+            Parent = button, Position = UDim2.new(1, -25, 0, 0),
+            Size = UDim2.fromOffset(20, 28), BackgroundTransparency = 1,
+            Text = "v", TextColor3 = Theme.Gray, Font = Enum.Font.GothamBold,
+            TextSize = 9, ZIndex = 101
+        })
         local popup = Create("ScrollingFrame", {
-            Parent = holder, Position = UDim2.fromOffset(0, 28),
+            Parent = holder, Position = UDim2.new(0, 0, 1, 5),
             Size = UDim2.new(1, 0, 0, 0), CanvasSize = UDim2.fromOffset(0, 0),
             ScrollBarThickness = 3, Active = true,
             BackgroundColor3 = Theme.SurfaceInput, BorderSizePixel = 0,
-            Visible = false, ZIndex = 30, ClipsDescendants = true
+            Visible = false, ZIndex = 200, ClipsDescendants = true
         })
-        AddCorner(popup, 5)
+        AddCorner(popup, 6)
         AddStroke(popup, Theme.Border, 1)
         local function refresh()
             local value = selectedFn()
-            button.Text = value ~= nil and tostring(formatFn and formatFn(value) or value) or ("Select " .. labelText)
+            current.Text = labelText .. ": " .. (value ~= nil and tostring(formatFn and formatFn(value) or value) or "Select")
         end
         local function rebuild()
             for _, child in ipairs(popup:GetChildren()) do
@@ -1075,20 +1083,18 @@ return function(Context)
             end
             local options = optionsFn()
             local count = #options
-            popup.Size = UDim2.new(1, 0, 0, math.min(count, 5) * 24)
-            popup.CanvasSize = UDim2.fromOffset(0, count * 24)
+            popup.Size = UDim2.new(1, 0, 0, math.min(count, 5) * 26)
+            popup.CanvasSize = UDim2.fromOffset(0, count * 26)
             popup.Visible = count > 0
             for index = 1, count do
                 local option = options[index]
                 local choice = Create("TextButton", {
-                    Parent = popup, Position = UDim2.fromOffset(2, (index - 1) * 24),
-                    Size = UDim2.new(1, -4, 0, 23), BackgroundColor3 = Theme.Selected,
-                    BackgroundTransparency = 0.35,
+                    Parent = popup, Position = UDim2.fromOffset(0, (index - 1) * 26),
+                    Size = UDim2.new(1, -3, 0, 26), BackgroundTransparency = 1,
                     Text = tostring(formatFn and formatFn(option) or option),
-                    TextColor3 = Theme.Text, Font = Enum.Font.Gotham, TextSize = 8,
-                    BorderSizePixel = 0, ZIndex = 31
+                    TextColor3 = Theme.Text, Font = Enum.Font.Gotham, TextSize = 9,
+                    BorderSizePixel = 0, ZIndex = 201
                 })
-                AddCorner(choice, 4)
                 choice.MouseButton1Click:Connect(function()
                     setFn(option)
                     refresh()
