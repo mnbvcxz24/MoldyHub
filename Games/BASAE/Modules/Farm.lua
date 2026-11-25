@@ -3133,16 +3133,9 @@ return function(Context)
         local animalMoveStarted = os.clock()
         local lastAnimalProgressAt = os.clock()
         local bestAnimalDistance = math.huge
-        -- Stop outside the animal's collision footprint; its pivot/center may be
-        -- inside the body, which the character cannot physically reach.
-        local animalApproachRadius = 5
-        pcall(function()
-            local animalSize = pickup:IsA("Model") and pickup:GetExtentsSize()
-                or (pickup:IsA("BasePart") and pickup.Size)
-            if animalSize then
-                animalApproachRadius = math.max(animalApproachRadius, math.max(animalSize.X, animalSize.Z) * 0.5 + 2)
-            end
-        end)
+        -- Approach the animal's actual pivot/position instead of stopping at
+        -- a size-derived outer-edge radius. Physical collision remains engine-controlled.
+        local animalApproachRadius = 0.5
         TouchAutomationProgress("PICKUP:ANIMAL_APPROACH")
         if PickupMovementConnection then
             PickupMovementConnection:Disconnect()
