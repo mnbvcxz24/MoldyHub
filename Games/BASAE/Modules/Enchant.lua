@@ -794,30 +794,28 @@ return function(Context)
         local fullResetMode = #targets == #animals
         local modeLabel = fullResetMode and "Full reset" or "Normal"
 
-        -- Reserve every animal that already has one of the selected target
-        -- enchants at the requested tier or higher before making any rolls.
-        -- This prevents a later target from rerolling an already-correct animal.
+        -- Scan every placed animal for every selected target before rolling.
+        -- Existing matches satisfy that target's requested count and are preserved.
         for _, target in ipairs(targets) do
-            local enchantId = target.Id
-            local selection = target.Selection
             local existingCount = 0
             for _, animalData in ipairs(animals) do
                 local animal = animalData.Instance
                 if animal and animal.Parent and not assignedAnimals[animal] then
-                    local existingTier = GetAnimalEnchantTier(animal, enchantId)
-                    if existingTier and existingTier >= selection.Tier then
+                    local existingTier = GetAnimalEnchantTier(animal, target.Id)
+                    if existingTier and existingTier >= target.Selection.Tier then
                         assignedAnimals[animal] = true
                         existingCount = existingCount + 1
                     end
                 end
             end
             target.ExistingCount = existingCount
-            totalCompleted = totalCompleted + math.min(existingCount, selection.Count)
+            totalCompleted = totalCompleted + math.min(existingCount, target.Selection.Count)
         end
 
         local function GetAnimalLowestEnchantTier(animal)
             local value = animal and animal:GetAttribute("Enchant")
             if type(value) ~= "string" or value == "" then return nil end
+
             local lowestTier
             for tierText in value:gmatch("[%w_%-]+%s*:%s*(%d+)") do
                 local tier = tonumber(tierText)
@@ -830,10 +828,12 @@ return function(Context)
 
         local function ChooseNextAnimal()
             local vacant
-            local lowestTier
             local lowestTierAnimal
+            local lowestTier
             local highestCpsAnimal
 
+            -- Animals are already sorted by CPS descending. This also makes
+            -- equal-tier ties resolve to the animal with the highest CPS.
             for _, animalData in ipairs(animals) do
                 local animal = animalData.Instance
                 if animal and animal.Parent and not assignedAnimals[animal] then
@@ -841,9 +841,9 @@ return function(Context)
                         highestCpsAnimal = animalData
                     end
 
-                    local currentEnchant = animal:GetAttribute("Enchant")
-                    local hasEnchant = type(currentEnchant) == "string"
-                        and currentEnchant:match("[%w_%-]+%s*:%s*%d+") ~= nil
+                    local enchantValue = animal:GetAttribute("Enchant")
+                    local hasEnchant = type(enchantValue) == "string"
+                        and enchantValue:match("[%w_%-]+%s*:%s*%d+") ~= nil
 
                     if not hasEnchant then
                         vacant = animalData
@@ -858,8 +858,6 @@ return function(Context)
                 end
             end
 
-            -- ReadPlacedAnimals is sorted by CPS descending, so the first
-            -- vacant/highest-CPS candidate wins ties naturally.
             return vacant or lowestTierAnimal or highestCpsAnimal
         end
 
@@ -872,64 +870,58 @@ return function(Context)
 
             while completed < selection.Count and not stopped and not EnchantStopRequested do
                 local candidate = ChooseNextAnimal()
-                if not candidate then break end
+                if not candidate then
+                    PlannerStatusLabel.Text = string.format("%s: no eligible animal for %s", modeLabel, enchantId)
+                    break
+                end
 
                 local animal = candidate.Instance
-                if not animal or not animal.Parent then
-                    assignedAnimals[animal] = true
-                else
-                    local matched = false
-                    local attempts = 0
+                local matched = false
+                local attempts = 0
 
-                    while not matched and attempts < 100 and animal.Parent and not stopped and not EnchantStopRequested do
-                        attempts = attempts + 1
-                        PlannerStatusLabel.Text = string.format(
-                            "%s: Priority %d — %s, %s, roll %d",
-                            modeLabel,
-                            priority,
-                            enchantId,
-                            animal.Name,
-                            attempts
-                        )
+                while not matched and attempts < 100 and animal and animal.Parent
+                    and not stopped and not EnchantStopRequested do
+                    attempts = attempts + 1
+                    PlannerStatusLabel.Text = string.format(
+                        "%s: Priority %d — %s, %s, roll %d",
+                        modeLabel,
+                        priority,
+                        enchantId,
+                        animal.Name,
+                        attempts
+                    )
 
-                        local invokeOk, result = pcall(function()
-                            return enchantRemote:InvokeServer("Roll", "Animals", animal)
-                        end)
+                    local invokeOk, result = pcall(function()
+                        return enchantRemote:InvokeServer("Roll", "Animals", animal)
+                    end)
 
-                        if EnchantStopRequested then
-                            break
-                        end
-
-                        if not invokeOk then
-                            PlannerStatusLabel.Text = "Roll failed: " .. tostring(result)
-                            stopped = true
-                            break
-                        end
-
-                        if IsBusyEnchantResult(result) then
-                            PlannerStatusLabel.Text = "Server busy — retrying in 0.5 seconds..."
-                            task.wait(0.5)
-                        elseif type(result) ~= "table" or result.Ok ~= true then
-                            PlannerStatusLabel.Text = "Server rejected roll for " .. animal.Name
-                            stopped = true
-                            break
-                        else
-                            local resultId, resultTier = ParseEnchantKey(result.Key)
-                            if resultId == enchantId and resultTier and resultTier >= selection.Tier then
-                                matched = true
-                                assignedAnimals[animal] = true
-                                completed = completed + 1
-                                totalCompleted = totalCompleted + 1
-                            else
-                                task.wait(0.5)
-                            end
-                        end
-                    end
-
-                    if not matched and not stopped and not EnchantStopRequested then
-                        PlannerStatusLabel.Text = "Stopped: 100 rolls without target on " .. animal.Name
+                    if EnchantStopRequested then
+                        break
+                    elseif not invokeOk then
+                        PlannerStatusLabel.Text = "Roll failed: " .. tostring(result)
                         stopped = true
+                    elseif IsBusyEnchantResult(result) then
+                        PlannerStatusLabel.Text = "Server busy — retrying in 0.5 seconds..."
+                        task.wait(0.5)
+                    elseif type(result) ~= "table" or result.Ok ~= true then
+                        PlannerStatusLabel.Text = "Server rejected roll for " .. animal.Name
+                        stopped = true
+                    else
+                        local resultId, resultTier = ParseEnchantKey(result.Key)
+                        if resultId == enchantId and resultTier and resultTier >= selection.Tier then
+                            matched = true
+                            assignedAnimals[animal] = true
+                            completed = completed + 1
+                            totalCompleted = totalCompleted + 1
+                        else
+                            task.wait(0.5)
+                        end
                     end
+                end
+
+                if not matched and not stopped and not EnchantStopRequested then
+                    PlannerStatusLabel.Text = "Stopped: 100 rolls without target on " .. animal.Name
+                    stopped = true
                 end
             end
 
@@ -945,58 +937,20 @@ return function(Context)
         end
 
         if EnchantStopRequested then
-                                break
-                            end
-
-                            if not invokeOk then
-                                PlannerStatusLabel.Text = "Roll failed: " .. tostring(result)
-                                stopped = true
-                                break
-                            end
-
-                            if IsBusyEnchantResult(result) then
-                                PlannerStatusLabel.Text = "Server busy — retrying in 0.5 seconds..."
-                                task.wait(0.5)
-                            elseif type(result) ~= "table" or result.Ok ~= true then
-                                PlannerStatusLabel.Text = "Server rejected roll for " .. animal.Name
-                                stopped = true
-                                break
-                            else
-                                local resultId, resultTier = ParseEnchantKey(result.Key)
-                                if resultId == enchantId and resultTier and resultTier >= selection.Tier then
-                                    matched = true
-                                    assignedAnimals[animal] = true
-                                    completed = completed + 1
-                                    totalCompleted = totalCompleted + 1
-                                else
-                                    task.wait(0.5)
-                                end
-                            end
-                        end
-
-                        if not matched and not stopped and not EnchantStopRequested then
-                            PlannerStatusLabel.Text = "Stopped: 100 rolls without target on " .. animal.Name
-                            stopped = true
-                        end
-                    end
-            end
-
-            if completed < selection.Count and not stopped and not EnchantStopRequested then
-                PlannerStatusLabel.Text = string.format(
-                    "%s: completed %d/%d targets",
-                    enchantId,
-                    completed,
-                    selection.Count
-                )
-            end
-        end
-
-        if EnchantStopRequested then
-            PlannerStatusLabel.Text = string.format("Stopped by user — completed %d / %d targets", totalCompleted, totalRequested)
+            PlannerStatusLabel.Text = string.format(
+                "Stopped by user — completed %d / %d targets",
+                totalCompleted,
+                totalRequested
+            )
         elseif stopped then
-            -- Keep the detailed failure/limit message shown above.
+            -- Keep the detailed failure message shown above.
         else
-            PlannerStatusLabel.Text = string.format("Completed %d / %d enchant targets", totalCompleted, totalRequested)
+            PlannerStatusLabel.Text = string.format(
+                "%s completed %d / %d enchant targets",
+                modeLabel,
+                totalCompleted,
+                totalRequested
+            )
         end
 
         EnchantRunActive = false
