@@ -3104,14 +3104,26 @@ return function(Context)
         local activeHumanoid = activeCharacter and activeCharacter:FindFirstChildOfClass("Humanoid")
         if activeHumanoid then activeHumanoid:Move(Vector3.zero, false) end
         SetPickupPhase("ANIMAL_APPROACH", string.format("%s | %.2f CPS | Auto Break paused; animal target owns movement.", pickup.Name, cps))
+        -- Use the animal's own RootPart as the consistent movement target.
+        -- Fall back to the model pivot only if RootPart is unavailable.
+        local function getAnimalTargetPosition(animal)
+            if not animal or not animal.Parent then return nil end
+            local ok, position = pcall(function()
+                if animal:IsA("Model") then
+                    local animalRoot = animal:FindFirstChild("RootPart")
+                    if animalRoot and animalRoot:IsA("BasePart") then
+                        return animalRoot.Position
+                    end
+                    return animal:GetPivot().Position
+                end
+                if animal:IsA("BasePart") then return animal.Position end
+            end)
+            return ok and position or nil
+        end
         local pickupPosition
-        local positionOk, position = pcall(function()
-            if pickup:IsA("Model") then return pickup:GetPivot().Position end
-            if pickup:IsA("BasePart") then return pickup.Position end
-        end)
-        if positionOk then
-            pickupPosition = position
-            LastAnimalPickupPosition = position
+        pickupPosition = getAnimalTargetPosition(pickup)
+        if pickupPosition then
+            LastAnimalPickupPosition = pickupPosition
         end
         local moveCharacter = LocalPlayer.Character
         local moveHumanoid = moveCharacter and moveCharacter:FindFirstChildOfClass("Humanoid")
@@ -3149,11 +3161,8 @@ return function(Context)
                 moveHumanoid:Move(Vector3.zero, false)
                 return
             end
-            local ok, currentPosition = pcall(function()
-                if pickup:IsA("Model") then return pickup:GetPivot().Position end
-                if pickup:IsA("BasePart") then return pickup.Position end
-            end)
-            if ok and currentPosition then
+            local currentPosition = getAnimalTargetPosition(pickup)
+            if currentPosition then
                 local moveTarget = pickupGateWaypoint or currentPosition
                 local direction = Vector3.new(moveTarget.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0, moveTarget.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z)
                 if direction.Magnitude <= 4 and pickupGateWaypoint then
@@ -3183,11 +3192,8 @@ return function(Context)
                 if AutoBreakEnabled and StartAutoBreak then StartAutoBreak() end
                 return
             end
-            local ok, currentPosition = pcall(function()
-                if pickup:IsA("Model") then return pickup:GetPivot().Position end
-                if pickup:IsA("BasePart") then return pickup.Position end
-            end)
-            if ok and currentPosition then
+            local currentPosition = getAnimalTargetPosition(pickup)
+            if currentPosition then
                 pickupPosition = currentPosition
                 LastAnimalPickupPosition = currentPosition
             end
@@ -3224,12 +3230,7 @@ return function(Context)
                 task.wait(0.05)
                 if PickupRequested and PickupGeneration == pickupToken and pickup.Parent
                     and LocalPlayer.Character == moveCharacter and moveRoot.Parent and moveHumanoid.Health > 0 then
-                    local refreshedPosition
-                    local refreshedOk, refreshed = pcall(function()
-                        if pickup:IsA("Model") then return pickup:GetPivot().Position end
-                        if pickup:IsA("BasePart") then return pickup.Position end
-                    end)
-                    if refreshedOk then refreshedPosition = refreshed end
+                    local refreshedPosition = getAnimalTargetPosition(pickup)
                     if refreshedPosition then
                         local refreshedDirection = Vector3.new(
                             refreshedPosition.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0,
