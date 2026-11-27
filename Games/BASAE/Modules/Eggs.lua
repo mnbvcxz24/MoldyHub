@@ -813,18 +813,25 @@ return function(Context)
     end
 
     local function createMergeSelectionPopup(button, popupName, options, selection, allLabel, onRefresh)
-        local buttonPosition, buttonSize = button.AbsolutePosition, button.AbsoluteSize
+        -- Keep the popup in the same card/local coordinate space as its button.
+        -- This makes it follow page scrolling and inherit the card's UIScale.
+        local buttonPosition, buttonSize = button.Position, button.Size
         local popup = Create("ScrollingFrame", {
-            Name = popupName, Parent = ScreenGui,
-            Position = UDim2.fromOffset(buttonPosition.X, buttonPosition.Y + buttonSize.Y + 5),
-            Size = UDim2.fromOffset(buttonSize.X, 150),
+            Name = popupName, Parent = MergeCard,
+            Position = UDim2.new(
+                buttonPosition.X.Scale,
+                buttonPosition.X.Offset,
+                buttonPosition.Y.Scale + buttonSize.Y.Scale,
+                buttonPosition.Y.Offset + buttonSize.Y.Offset + 4
+            ),
+            Size = UDim2.new(buttonSize.X.Scale, buttonSize.X.Offset, 0, 150),
             BackgroundColor3 = Theme.SurfaceInput, BorderSizePixel = 0,
             ScrollBarThickness = 3, ScrollBarImageColor3 = Theme.Gray,
             CanvasSize = UDim2.new(0, 0, 0, 0),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ScrollingDirection = Enum.ScrollingDirection.Y,
             Visible = true, ClipsDescendants = true,
-            ZIndex = 500, Active = true
+            ZIndex = 130, Active = true
         })
         AddCorner(popup, 6)
         AddStroke(popup, Theme.Border, 1)
@@ -853,7 +860,7 @@ return function(Context)
                 Text = "",
                 BorderSizePixel = 0,
                 LayoutOrder = index,
-                ZIndex = 501,
+                ZIndex = 131,
                 Active = true,
                 AutoButtonColor = false
             })
@@ -863,14 +870,14 @@ return function(Context)
                 Size = UDim2.new(1, -34, 1, 0), BackgroundTransparency = 1,
                 Text = option, TextColor3 = Theme.Text, Font = Enum.Font.Gotham,
                 TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left,
-                ZIndex = 502, Active = false
+                ZIndex = 132, Active = false
             })
             Create("TextLabel", {
                 Parent = row, Position = UDim2.new(1, -27, 0, 0),
                 Size = UDim2.fromOffset(22, 24), BackgroundTransparency = 1,
                 Text = selected and "✓" or "○",
                 TextColor3 = selected and Theme.Accent or Theme.Gray,
-                Font = Enum.Font.GothamBold, TextSize = 10, ZIndex = 502, Active = false
+                Font = Enum.Font.GothamBold, TextSize = 10, ZIndex = 132, Active = false
             })
             row.MouseButton1Click:Connect(function()
                 if isAll then
