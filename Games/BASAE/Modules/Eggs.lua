@@ -817,25 +817,47 @@ return function(Context)
         local popup = Create("ScrollingFrame", {
             Name = popupName, Parent = ScreenGui,
             Position = UDim2.fromOffset(buttonPosition.X, buttonPosition.Y + buttonSize.Y + 5),
-            Size = UDim2.fromOffset(buttonSize.X, math.min(160, math.max(30, (#options + 1) * 25))),
+            Size = UDim2.fromOffset(buttonSize.X, 150),
             BackgroundColor3 = Theme.SurfaceInput, BorderSizePixel = 0,
-            ScrollBarThickness = 4, ScrollBarImageColor3 = Theme.Gray,
-            CanvasSize = UDim2.fromOffset(0, (#options + 1) * 25),
+            ScrollBarThickness = 3, ScrollBarImageColor3 = Theme.Gray,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollingDirection = Enum.ScrollingDirection.Y,
+            Visible = true, ClipsDescendants = true,
             ZIndex = 500, Active = true
         })
         AddCorner(popup, 6)
         AddStroke(popup, Theme.Border, 1)
 
+        -- Match the Farm tab filter lists: fixed viewport, UIListLayout-driven
+        -- content height, and automatic vertical canvas sizing for scrolling.
+        Create("UIListLayout", {
+            Parent = popup,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        Create("UIPadding", {
+            Parent = popup,
+            PaddingTop = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4),
+            PaddingLeft = UDim.new(0, 4),
+            PaddingRight = UDim.new(0, 4)
+        })
+
         local function addOption(option, index, isAll)
             local selected = (isAll and next(selection) == nil) or (not isAll and selection[option] == true)
             local row = Create("TextButton", {
-                Parent = popup, Position = UDim2.fromOffset(0, (index - 1) * 25),
-                Size = UDim2.new(1, -4, 0, 25),
-                BackgroundColor3 = selected and Theme.Selected or Theme.SurfaceInput,
-                BackgroundTransparency = selected and 0 or 1, Text = "",
-                BorderSizePixel = 0, LayoutOrder = index, ZIndex = 501,
-                Active = true, AutoButtonColor = false
+                Parent = popup,
+                Size = UDim2.new(1, -8, 0, 24),
+                BackgroundColor3 = selected and Theme.Selected or Theme.Card,
+                Text = "",
+                BorderSizePixel = 0,
+                LayoutOrder = index,
+                ZIndex = 501,
+                Active = true,
+                AutoButtonColor = false
             })
+            AddCorner(row, 5)
             Create("TextLabel", {
                 Parent = row, Position = UDim2.fromOffset(8, 0),
                 Size = UDim2.new(1, -34, 1, 0), BackgroundTransparency = 1,
@@ -845,7 +867,7 @@ return function(Context)
             })
             Create("TextLabel", {
                 Parent = row, Position = UDim2.new(1, -27, 0, 0),
-                Size = UDim2.fromOffset(22, 25), BackgroundTransparency = 1,
+                Size = UDim2.fromOffset(22, 24), BackgroundTransparency = 1,
                 Text = selected and "✓" or "○",
                 TextColor3 = selected and Theme.Accent or Theme.Gray,
                 Font = Enum.Font.GothamBold, TextSize = 10, ZIndex = 502, Active = false
