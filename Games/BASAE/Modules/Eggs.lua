@@ -854,7 +854,11 @@ return function(Context)
                 if isAll then
                     table.clear(selection)
                 else
-                    selection[option] = selection[option] and nil or true
+                    if selection[option] then
+                        selection[option] = nil
+                    else
+                        selection[option] = true
+                    end
                 end
                 onRefresh()
             end)
