@@ -487,7 +487,8 @@ return function(Context)
 
     local MergeEnabled = false
     local MergeGeneration = 0
-    local SelectedAnimalName = "All animals"
+    local SelectedAnimalNames = {}
+    local SelectedRarities = {}
     local WeightOrder = "Highest KG first"
     local MergeBusy = false
     local MergeStatus
@@ -536,26 +537,58 @@ return function(Context)
         return nil
     end
 
+    local function readAnimalRarity(tool)
+        if not tool then return nil end
+        local attribute = tool:GetAttribute("Rarity")
+        if attribute ~= nil and tostring(attribute) ~= "" then return tostring(attribute) end
+
+        local rootPart = tool:FindFirstChild("RootPart", true)
+        local attachment = rootPart and rootPart:FindFirstChild("AnimalOverheadAttachment")
+        local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+        local rarityFolder = overhead and overhead:FindFirstChild("Rarity")
+        local rarityLabel = rarityFolder and rarityFolder:FindFirstChild("RarityLabel")
+        if rarityLabel and (rarityLabel:IsA("TextLabel") or rarityLabel:IsA("TextButton"))
+            and rarityLabel.Text ~= "" then return rarityLabel.Text end
+
+        local rarityNode = tool:FindFirstChild("Rarity", true)
+        if rarityNode then
+            if rarityNode:IsA("ValueBase") then
+                local value = rarityNode.Value
+                if value ~= nil and tostring(value) ~= "" then return tostring(value) end
+            elseif (rarityNode:IsA("TextLabel") or rarityNode:IsA("TextButton")) and rarityNode.Text ~= "" then
+                return rarityNode.Text
+            end
+        end
+        return nil
+    end
+
+    local function isMergeFilterMatch(tool, animalName)
+        if next(SelectedAnimalNames) ~= nil and not SelectedAnimalNames[animalName] then
+            return false
+        end
+        if next(SelectedRarities) ~= nil then
+            local rarity = readAnimalRarity(tool)
+            if not rarity or not SelectedRarities[rarity] then return false end
+        end
+        return true
+    end
+
     local function scanGroups()
         local tools = getOwnedTools()
         local groups = {}
         local totalOwned = 0
-
+        local matchingOwned = 0
         for _, tool in ipairs(tools) do
             totalOwned += 1
             local animalName = tool:GetAttribute("AnimalName")
-            if typeof(animalName) == "string" and animalName ~= "" then
-                if SelectedAnimalName == "All animals" or animalName == SelectedAnimalName then
-                    groups[animalName] = groups[animalName] or {}
-                    table.insert(groups[animalName], {
-                        Tool = tool,
-                        Weight = readWeight(tool)
-                    })
-                end
+            if typeof(animalName) == "string" and animalName ~= ""
+                and isMergeFilterMatch(tool, animalName) then
+                matchingOwned += 1
+                groups[animalName] = groups[animalName] or {}
+                table.insert(groups[animalName], {Tool = tool, Weight = readWeight(tool)})
             end
         end
-
-        return groups, totalOwned
+        return groups, totalOwned, matchingOwned
     end
 
     local MergeToggle
@@ -582,7 +615,7 @@ return function(Context)
                 end
 
                 MergeBusy = true
-                local groups, totalOwned = scanGroups()
+                local groups, totalOwned, matchingOwned = scanGroups()
                 local chosenName, chosenGroup
 
                 for animalName, animals in pairs(groups) do
@@ -610,8 +643,9 @@ return function(Context)
                             matchingCount = math.max(matchingCount, #animals)
                         end
                         MergeStatus.Text = string.format(
-                            "Scanning — %d owned animals, largest matching group: %d/3.",
+                            "Scanning — %d owned animals; %d match filters; largest group: %d/3.",
                             totalOwned,
+                            matchingOwned,
                             matchingCount
                         )
                     end
@@ -707,76 +741,134 @@ return function(Context)
     local MergeTitle = MergeCard:FindFirstChildWhichIsA("TextLabel")
     if MergeTitle then MergeTitle.Size = UDim2.new(1, -78, 0, 22) end
 
-    Create("TextLabel", {
-        Parent = MergeCard,
-        Position = UDim2.fromOffset(11, 39),
-        Size = UDim2.new(1, -22, 0, 13),
-        BackgroundTransparency = 1,
-        Text = "Animal name filter",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-
-    -- Use a dedicated high-ZIndex popup on ScreenGui so the options are not
-    -- hidden behind the Events page columns or clipped by the card.
-    local AnimalFilterButton = Create("TextButton", {
-        Parent = MergeCard,
-        Position = UDim2.fromOffset(11, 55),
-        Size = UDim2.new(1, -22, 0, 28),
-        BackgroundColor3 = Theme.SurfaceInput,
-        Text = "",
-        BorderSizePixel = 0,
-        AutoButtonColor = false,
-        ZIndex = 20
-    })
-    AddCorner(AnimalFilterButton, 6)
-    AddStroke(AnimalFilterButton, Theme.Border, 1)
-
-    local AnimalFilterCurrent = Create("TextLabel", {
-        Parent = AnimalFilterButton,
-        Position = UDim2.fromOffset(12, 0),
-        Size = UDim2.new(1, -35, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "Animal: All animals",
-        TextColor3 = Theme.Text,
-        Font = Enum.Font.Gotham,
-        TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 21
-    })
-    Create("TextLabel", {
-        Parent = AnimalFilterButton,
-        Position = UDim2.new(1, -25, 0, 0),
-        Size = UDim2.fromOffset(20, 28),
-        BackgroundTransparency = 1,
-        Text = "v",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.GothamBold,
-        TextSize = 9,
-        ZIndex = 21
-    })
-
-    local FilterPopup
-
-    local function closeAnimalFilter()
-        if FilterPopup then
-            FilterPopup:Destroy()
-            FilterPopup = nil
-        end
+    local function getMergeFilterSummary(selection, allLabel)
+        local selected = {}
+        for value in pairs(selection) do table.insert(selected, value) end
+        table.sort(selected)
+        if #selected == 0 then return allLabel end
+        if #selected <= 2 then return table.concat(selected, ", ") end
+        return string.format("%d selected", #selected)
     end
 
-    AnimalFilterButton.MouseButton1Click:Connect(function()
-        if FilterPopup then
-            closeAnimalFilter()
-            return
+    local function createMergeFilterLabel(text, y)
+        Create("TextLabel", {
+            Parent = MergeCard, Position = UDim2.fromOffset(11, y),
+            Size = UDim2.new(1, -22, 0, 13), BackgroundTransparency = 1,
+            Text = text, TextColor3 = Theme.Gray, Font = Enum.Font.GothamMedium,
+            TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left
+        })
+    end
+
+    local function createMergeFilterButton(name, y, initialText)
+        local button = Create("TextButton", {
+            Name = name, Parent = MergeCard, Position = UDim2.fromOffset(11, y),
+            Size = UDim2.new(1, -22, 0, 26), BackgroundColor3 = Theme.SurfaceInput,
+            Text = initialText .. "  ▼", TextColor3 = Theme.Text, Font = Enum.Font.Gotham,
+            TextSize = 8, TextXAlignment = Enum.TextXAlignment.Left,
+            BorderSizePixel = 0, AutoButtonColor = false, ZIndex = 20,
+            Active = true, Selectable = true
+        })
+        AddCorner(button, 6)
+        AddStroke(button, Theme.Border, 1)
+        return button
+    end
+
+    local AnimalFilterOpen, RarityFilterOpen = false, false
+    local AnimalFilterPopup, RarityFilterPopup
+    local AnimalFilterButton = createMergeFilterButton("AnimalFilterButton", 39, "Animal: All animals")
+    local RarityFilterButton = createMergeFilterButton("RarityFilterButton", 98, "Rarity: All")
+
+    local function closeAnimalFilter()
+        AnimalFilterOpen, RarityFilterOpen = false, false
+        if AnimalFilterPopup then AnimalFilterPopup:Destroy(); AnimalFilterPopup = nil end
+        if RarityFilterPopup then RarityFilterPopup:Destroy(); RarityFilterPopup = nil end
+        AnimalFilterButton.Text = "Animal: " .. getMergeFilterSummary(SelectedAnimalNames, "All animals") .. "  ▼"
+        RarityFilterButton.Text = "Rarity: " .. getMergeFilterSummary(SelectedRarities, "All") .. "  ▼"
+    end
+
+    local function getMergeRarityOptions()
+        local folder = ReplicatedStorage:FindFirstChild("Rarities")
+        local present = {}
+        if folder then
+            for _, rarityObject in ipairs(folder:GetChildren()) do present[rarityObject.Name] = true end
+        end
+        local order = {
+            "Primordial", "Ethereal", "Spectral", "Omega", "Void", "Inferno",
+            "Celestial", "Divine", "Eternal", "Secret", "Cosmic", "Mythic",
+            "Legendary", "Epic", "Rare", "Uncommon", "Common"
+        }
+        local options, ordered, unknown = {}, {}, {}
+        for _, rarityName in ipairs(order) do
+            if present[rarityName] then
+                table.insert(options, rarityName)
+                ordered[rarityName] = true
+            end
+        end
+        for rarityName in pairs(present) do
+            if not ordered[rarityName] then table.insert(unknown, rarityName) end
+        end
+        table.sort(unknown, function(a, b) return a:lower() < b:lower() end)
+        for index = #unknown, 1, -1 do table.insert(options, 1, unknown[index]) end
+        return options
+    end
+
+    local function createMergeSelectionPopup(button, popupName, options, selection, allLabel, onRefresh)
+        local buttonPosition, buttonSize = button.AbsolutePosition, button.AbsoluteSize
+        local popup = Create("ScrollingFrame", {
+            Name = popupName, Parent = ScreenGui,
+            Position = UDim2.fromOffset(buttonPosition.X, buttonPosition.Y + buttonSize.Y + 5),
+            Size = UDim2.fromOffset(buttonSize.X, math.min(160, math.max(30, (#options + 1) * 25))),
+            BackgroundColor3 = Theme.SurfaceInput, BorderSizePixel = 0,
+            ScrollBarThickness = 4, ScrollBarImageColor3 = Theme.Gray,
+            CanvasSize = UDim2.fromOffset(0, (#options + 1) * 25),
+            ZIndex = 500, Active = true
+        })
+        AddCorner(popup, 6)
+        AddStroke(popup, Theme.Border, 1)
+
+        local function addOption(option, index, isAll)
+            local selected = (isAll and next(selection) == nil) or (not isAll and selection[option] == true)
+            local row = Create("TextButton", {
+                Parent = popup, Position = UDim2.fromOffset(0, (index - 1) * 25),
+                Size = UDim2.new(1, -4, 0, 25),
+                BackgroundColor3 = selected and Theme.Selected or Theme.SurfaceInput,
+                BackgroundTransparency = selected and 0 or 1, Text = "",
+                BorderSizePixel = 0, LayoutOrder = index, ZIndex = 501,
+                Active = true, AutoButtonColor = false
+            })
+            Create("TextLabel", {
+                Parent = row, Position = UDim2.fromOffset(8, 0),
+                Size = UDim2.new(1, -34, 1, 0), BackgroundTransparency = 1,
+                Text = option, TextColor3 = Theme.Text, Font = Enum.Font.Gotham,
+                TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 502, Active = false
+            })
+            Create("TextLabel", {
+                Parent = row, Position = UDim2.new(1, -27, 0, 0),
+                Size = UDim2.fromOffset(22, 25), BackgroundTransparency = 1,
+                Text = selected and "✓" or "○",
+                TextColor3 = selected and Theme.Accent or Theme.Gray,
+                Font = Enum.Font.GothamBold, TextSize = 10, ZIndex = 502, Active = false
+            })
+            row.MouseButton1Click:Connect(function()
+                if isAll then
+                    table.clear(selection)
+                else
+                    selection[option] = selection[option] and nil or true
+                end
+                onRefresh()
+            end)
         end
 
-        local names = {}
-        local seen = {}
-        local tools = getOwnedTools()
-        for _, tool in ipairs(tools) do
+        addOption(allLabel, 1, true)
+        for index, option in ipairs(options) do addOption(option, index + 1, false) end
+        return popup
+    end
+
+    local function refreshAnimalFilterPopup()
+        if AnimalFilterPopup then AnimalFilterPopup:Destroy(); AnimalFilterPopup = nil end
+        local names, seen = {}, {}
+        for _, tool in ipairs(getOwnedTools()) do
             local animalName = tool:GetAttribute("AnimalName")
             if typeof(animalName) == "string" and animalName ~= "" and not seen[animalName] then
                 seen[animalName] = true
@@ -784,91 +876,67 @@ return function(Context)
             end
         end
         table.sort(names)
-
-        local options = {"All animals"}
-        for _, animalName in ipairs(names) do
-            table.insert(options, animalName)
+        AnimalFilterButton.Text = "Animal: " .. getMergeFilterSummary(SelectedAnimalNames, "All animals") .. (AnimalFilterOpen and "  ▲" or "  ▼")
+        if AnimalFilterOpen then
+            AnimalFilterPopup = createMergeSelectionPopup(
+                AnimalFilterButton, "BASAEAnimalFilterPopup", names, SelectedAnimalNames,
+                "All animals", refreshAnimalFilterPopup
+            )
         end
+    end
 
-        local buttonPosition = AnimalFilterButton.AbsolutePosition
-        local buttonSize = AnimalFilterButton.AbsoluteSize
-        FilterPopup = Create("ScrollingFrame", {
-            Name = "BASAEAnimalFilterPopup",
-            Parent = ScreenGui,
-            Position = UDim2.fromOffset(buttonPosition.X, buttonPosition.Y + buttonSize.Y + 5),
-            Size = UDim2.fromOffset(buttonSize.X, math.min(160, #options * 26)),
-            BackgroundColor3 = Theme.SurfaceInput,
-            BorderSizePixel = 0,
-            ScrollBarThickness = 4,
-            ScrollBarImageColor3 = Theme.Gray,
-            CanvasSize = UDim2.fromOffset(0, #options * 26),
-            ZIndex = 500,
-            Active = true
-        })
-        AddCorner(FilterPopup, 6)
-        AddStroke(FilterPopup, Theme.Border, 1)
+    local function refreshRarityFilterPopup()
+        if RarityFilterPopup then RarityFilterPopup:Destroy(); RarityFilterPopup = nil end
+        local rarities = getMergeRarityOptions()
+        RarityFilterButton.Text = "Rarity: " .. getMergeFilterSummary(SelectedRarities, "All") .. (RarityFilterOpen and "  ▲" or "  ▼")
+        if RarityFilterOpen then
+            RarityFilterPopup = createMergeSelectionPopup(
+                RarityFilterButton, "BASAEAnimalRarityFilterPopup", rarities, SelectedRarities,
+                "All rarities", refreshRarityFilterPopup
+            )
+        end
+    end
 
-        for optionIndex, option in ipairs(options) do
-            local optionButton = Create("TextButton", {
-                Parent = FilterPopup,
-                Position = UDim2.fromOffset(0, (optionIndex - 1) * 26),
-                Size = UDim2.new(1, -4, 0, 26),
-                BackgroundTransparency = 1,
-                Text = option,
-                TextColor3 = Theme.Text,
-                Font = Enum.Font.Gotham,
-                TextSize = 9,
-                BorderSizePixel = 0,
-                LayoutOrder = optionIndex,
-                ZIndex = 501,
-                Active = true,
-                AutoButtonColor = true
-            })
-            optionButton.MouseButton1Click:Connect(function()
-                SelectedAnimalName = option
-                AnimalFilterCurrent.Text = "Animal: " .. option
-                closeAnimalFilter()
-                if MergeStatus and not MergeEnabled then
-                    MergeStatus.Text = "Off — selected filter: " .. option
-                end
-            end)
+    AnimalFilterButton.MouseButton1Click:Connect(function()
+        if AnimalFilterOpen then
+            closeAnimalFilter()
+        else
+            closeAnimalFilter()
+            AnimalFilterOpen = true
+            refreshAnimalFilterPopup()
         end
     end)
 
-    Create("TextLabel", {
-        Parent = MergeCard,
-        Position = UDim2.fromOffset(11, 86),
-        Size = UDim2.new(1, -22, 0, 13),
-        BackgroundTransparency = 1,
-        Text = "Weight priority",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
+    RarityFilterButton.MouseButton1Click:Connect(function()
+        if RarityFilterOpen then
+            closeAnimalFilter()
+        else
+            closeAnimalFilter()
+            RarityFilterOpen = true
+            refreshRarityFilterPopup()
+        end
+    end)
+
+    createMergeFilterLabel("Animal name filter", 22)
+    createMergeFilterLabel("Rarity filter", 81)
+    createMergeFilterLabel("Weight priority", 140)
 
     local WeightOrderButton
     WeightOrderButton = CreateButton(MergeCard, "Highest KG first ▼", function()
         WeightOrder = WeightOrder == "Highest KG first" and "Lowest KG first" or "Highest KG first"
         WeightOrderButton.Text = WeightOrder .. " ▼"
     end)
-    WeightOrderButton.Position = UDim2.fromOffset(11, 102)
+    WeightOrderButton.Position = UDim2.fromOffset(11, 156)
     WeightOrderButton.Size = UDim2.new(1, -22, 0, 24)
 
     MergeStatus = Create("TextLabel", {
-        Parent = MergeCard,
-        Position = UDim2.fromOffset(11, 134),
-        Size = UDim2.new(1, -22, 0, 30),
-        BackgroundTransparency = 1,
-        Text = "Off — choose an animal filter and weight priority.",
-        TextColor3 = Theme.Gray,
-        Font = Enum.Font.Gotham,
-        TextSize = 8,
-        TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = MergeCard, Position = UDim2.fromOffset(11, 187),
+        Size = UDim2.new(1, -22, 0, 30), BackgroundTransparency = 1,
+        Text = "Off — choose animal/rarity filters and weight priority.",
+        TextColor3 = Theme.Gray, Font = Enum.Font.Gotham, TextSize = 8,
+        TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top
     })
-
 
     -- AUTO HATCH EGGS
     local AutoHatchEggsCard = CreateCard(Page, "Auto Hatch Eggs", "")
