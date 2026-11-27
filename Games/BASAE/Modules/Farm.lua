@@ -3145,9 +3145,9 @@ return function(Context)
         local animalMoveStarted = os.clock()
         local lastAnimalProgressAt = os.clock()
         local bestAnimalDistance = math.huge
-        -- Approach the animal's actual pivot/position instead of stopping at
-        -- a size-derived outer-edge radius. Physical collision remains engine-controlled.
-        local animalApproachRadius = 0.5
+        -- Stop at a practical center-approach tolerance so collision cannot
+        -- make the character orbit endlessly around an unreachable exact center.
+        local animalApproachRadius = 4
         TouchAutomationProgress("PICKUP:ANIMAL_APPROACH")
         if PickupMovementConnection then
             PickupMovementConnection:Disconnect()
@@ -3164,10 +3164,11 @@ return function(Context)
             local currentPosition = getAnimalTargetPosition(pickup)
             if currentPosition then
                 local moveTarget = pickupGateWaypoint or currentPosition
-                local direction = Vector3.new(moveTarget.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0, moveTarget.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z)
+                local characterPosition = moveRoot.Position
+                local direction = Vector3.new(moveTarget.X - characterPosition.X, 0, moveTarget.Z - characterPosition.Z)
                 if direction.Magnitude <= 4 and pickupGateWaypoint then
                     pickupGateWaypoint = nil
-                    direction = Vector3.new(currentPosition.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0, currentPosition.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z)
+                    direction = Vector3.new(currentPosition.X - characterPosition.X, 0, currentPosition.Z - characterPosition.Z)
                 end
                 if direction.Magnitude > animalApproachRadius then
                     moveHumanoid:Move(direction.Unit, false)
@@ -3197,9 +3198,10 @@ return function(Context)
                 pickupPosition = currentPosition
                 LastAnimalPickupPosition = currentPosition
             end
+            -- Arrival is measured from the actual character root, never the mount pivot.
             local animalOffset = Vector3.new(
-                pickupPosition.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0,
-                pickupPosition.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z
+                pickupPosition.X - moveRoot.Position.X, 0,
+                pickupPosition.Z - moveRoot.Position.Z
             )
             local animalDistance = animalOffset.Magnitude
             if animalDistance <= animalApproachRadius then
@@ -3233,8 +3235,8 @@ return function(Context)
                     local refreshedPosition = getAnimalTargetPosition(pickup)
                     if refreshedPosition then
                         local refreshedDirection = Vector3.new(
-                            refreshedPosition.X - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).X, 0,
-                            refreshedPosition.Z - (getPickupMovementPosition(moveCharacter, moveRoot) or moveRoot.Position).Z
+                            refreshedPosition.X - moveRoot.Position.X, 0,
+                            refreshedPosition.Z - moveRoot.Position.Z
                         )
                         if refreshedDirection.Magnitude > animalApproachRadius then
                             moveHumanoid:Move(refreshedDirection.Unit, false)
@@ -4013,6 +4015,8 @@ return function(Context)
                 recoveryMoveBindName = nil
             end
             humanoid:Move(Vector3.zero, false)
+            local recoveryVelocity = root.AssemblyLinearVelocity
+            root.AssemblyLinearVelocity = Vector3.new(0, recoveryVelocity.Y, 0)
             local arrivalDistance = (Vector3.new(recoveryPosition.X, root.Position.Y, recoveryPosition.Z) - root.Position).Magnitude
             if PickupGeneration ~= flingToken then
                 finishFlingRecovery()
